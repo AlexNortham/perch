@@ -42,7 +42,7 @@ describe('scene router', () => {
 
   it('maps scenes to sim configs', () => {
     const at = (scene: string) => sceneConfig(parseScene(`?scene=${scene}&hero=kiwi&seed=3`));
-    expect(at('menu')).toMatchObject({ map: 'arena', roster: [] });
+    expect(at('menu')).toMatchObject({ map: 'main', roster: [] });
     expect(at('blockout')).toMatchObject({ map: 'main', roster: [] });
     expect(at('sandbox').roster).toEqual([{ team: 'dawn', hero: 'kiwi', controller: 'human' }]);
     expect(at('lane').roster.length).toBe(2);

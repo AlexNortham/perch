@@ -8,6 +8,10 @@ import type { AppActions, Ui } from '../app/contracts';
 const PANEL_STYLE =
   'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
   'gap:12px;pointer-events:auto;font-family:system-ui,sans-serif;color:#f4efe6;background:rgba(12,14,18,0.78)';
+/** The menu keeps the lit map visible (D-EP-017): only a soft pool behind the title and Play button is darkened. */
+const MENU_STYLE =
+  ';background:radial-gradient(ellipse 30% 22% at 50% 50%,rgba(12,14,18,0.72) 40%,rgba(12,14,18,0.08));' +
+  'text-shadow:0 1px 4px rgba(0,0,0,0.85)';
 const BUTTON_STYLE =
   'font:inherit;font-size:18px;padding:8px 20px;border:1px solid #f4efe6;border-radius:6px;' +
   'background:rgba(255,255,255,0.08);color:inherit;cursor:pointer';
@@ -34,7 +38,7 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
   return {
     show(screen, { view, seed }) {
       panel.replaceChildren();
-      panel.style.cssText = screen === 'match' ? 'display:none' : PANEL_STYLE;
+      panel.style.cssText = screen === 'match' ? 'display:none' : screen === 'menu' ? PANEL_STYLE + MENU_STYLE : PANEL_STYLE;
       switch (screen) {
         case 'menu':
           panel.append(heading('PERCH', 'h1'), heading('Two flocks. One city in the forest.'), button('Play', actions.play));

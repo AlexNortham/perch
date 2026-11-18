@@ -49,12 +49,11 @@ export function parseScene(search: string): SceneRequest {
   };
 }
 
-/** The sim each scene runs. The menu runs an empty arena as its backdrop. */
+/** The sim each scene runs. The menu shows the real map, empty, as its backdrop (D-EP-017). */
 export function sceneConfig(req: SceneRequest): SimConfig {
   const { seed, hero } = req;
   switch (req.scene) {
     case 'menu':
-      return { seed, map: 'arena', roster: [] };
     case 'blockout':
       return { seed, map: 'main', roster: [], options: { waves: false, neutrals: false } };
     case 'sandbox':
