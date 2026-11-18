@@ -507,6 +507,7 @@ export function createGuns(
         for (const m of s.mods) if (now < m.expiresAt) s.mods[k++] = m;
         s.mods.length = k;
       }
+      const wasFiring = w.firing;
       w.firing = false;
       if (c.has('stunned')) {
         cancelReload(s);
@@ -526,8 +527,8 @@ export function createGuns(
         const st = h.stats.final;
         const rate = s.def.weapon.fireRate * (1 + st.fireRate) * (1 - Math.min(1, st.fireRateSlow));
         if (rate > 0) {
-          // No catch-up burst after a pause; within continuous fire the fractional cadence is kept exactly.
-          if (s.nextFire < now - 1) s.nextFire = now;
+          // A new burst starts now (no catch-up); within continuous fire the fractional cadence is kept exactly.
+          if (!wasFiring && s.nextFire < now) s.nextFire = now;
           w.firing = true;
           while (s.nextFire <= now && (w.ammo > 0 || ammoFree)) {
             fire(s);
