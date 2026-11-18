@@ -368,3 +368,27 @@ respawn (D-COMBAT-002). Character Controller — handle `hero.respawned` by movi
 requests a `dash` (heavy lunge) and a `displace` push (heavy knockback).
 **Next:** the Hero Engineers' weapon data replaces the fixtures; QA's `tests/contracts/damage.test.ts` meets the
 pipeline at the merge.
+### W2 · Ability Systems · 18/11/2026
+**Done:** `src/sim/abilities/` replaces the stub: casting from the latched command (self, direction, unit with a 6°
+cone and line of sight, point clamped to range on the ground), checks (stun, silence, egg, root/grounded for moving
+casts), wind-up, `rooted`, channels with pulses, early end by re-press, interrupts, charges with the 0.4 s lockout,
+cooldown reduction (cap 50%), `ability` start/land/end/interrupted events; AP from `hero.level`, tiers at 1/2/5 AP
+with value/cooldown/charge/range/effect deltas, slot unlocks (ultimate at level 6, `unlockSlot`, the `unlockAbilities`
+option), `ability.upgraded`; the effect kinds area (5 shapes; burst or lasting; point/source/target; moving with
+carry; tick/enter/exit/cross), summon (trap, decoy, wall, turret, hook behaviours, maxCount), tether, delay,
+cooldownMod (abilities, slot, items) and hook; hero hooks (onCast, onEffect, onTick); private state in the hash.
+`src/sim/data/abilities.ts` holds the numbers. `validateKit` checks all 24 kits; fixture kits for Shrike, Lyrebird
+and Kingfisher in `fixtures.test.ts`; `testkit.ts` runs the system alone with its own router. D-ABIL-001…006.
+**Verified:** `npm run check` → PASS typecheck, lint, test (124 tests, 87 in src/sim/abilities), sim (103k ticks/s),
+e2e. Perf test: 0.034–0.037 ms/tick for the abilities phase with 12 heroes casting and 35 areas+summons live
+(0.12–0.13 ms at 96 live).
+**Blocked:** nothing.
+**Interface requests:** Architect — a first-class way to target the caster from any cast (`onCaster` is the
+stopgap); Magnitudes for DamageBonus.targetHpBelow, DamageEffect.missingHpPct and executeBelow (tiers raise them);
+SummonEffect end effects (death or expiry bursts) and a direction spread for several summons; a wall's size on
+UnitInfo so combat and physics can block shots with it; a tether event or view entry so the client can draw links.
+Architect + Character Controller — DisplaceEffect.onWall effects (Impaling Bolt, Stomp Kick, Rogue Wave wall stuns);
+Motor (or a condition) saying when a movement mode forbids abilities (Burrow, Toboggan); dash/teleport mover and
+destination per D-ABIL-001. Combat — AREA_TICK_S in data/abilities.ts mirrors your 0.5 s tick; merge them.
+**Next:** Hero Engineers run `npx vitest run src/sim/abilities/kit.test.ts` after each kit edit; the patterns in
+D-ABIL-006 and `fixtures.test.ts` show how GDD tiers become data.
