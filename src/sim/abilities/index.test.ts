@@ -304,4 +304,17 @@ describe('in a real sim', () => {
     expect(sim.drainEvents().flatMap((e) => (e.type === 'ability' ? [e.stage] : []))).toEqual(['start', 'land']);
     expect(sim.view.heroes[0]?.abilities[3]?.readyAt).toBe(1 + 90 * 60);
   });
+
+  it('is deterministic with casts and upgrades', async () => {
+    const run = async () => {
+      const sim = await createSim({ seed: 4, map: 'arena', roster: humanRoster(4, 'kiwi', { bots: 3 }), options: { unlockAbilities: true } });
+      const me = sim.view.localHero ?? 0;
+      for (let i = 0; i < 300; i++) {
+        const pressed = [Button.Ability1, Button.Ability2, Button.Ability3, Button.Ability4][i % 4] ?? 0;
+        sim.step([{ hero: me, command: { ...IDLE_COMMAND, yaw: i * 0.01, pressed, upgrade: i % 7 === 0 ? i % 4 : null } }]);
+      }
+      return sim.hash();
+    };
+    expect(await run()).toBe(await run());
+  });
 });
