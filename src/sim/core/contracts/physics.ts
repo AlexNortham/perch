@@ -1,0 +1,69 @@
+/**
+ * Physics service. Implemented by src/sim/physics with Rapier (async init, hence async createSim). Core and every
+ * other system use only this interface and never import Rapier.
+ *
+ * What has a collider: the map's solid prims (Layer.World), structures (Layer.Structure, static) and hero movement
+ * capsules (Layer.Hero). Units may or may not have colliders (physics decides; fledglings are cheap to move without).
+ * Head and body hitboxes are not physics colliders: sim/combat tests them analytically from each hero's BodyPlan,
+ * using ctx.spatial for the broad phase and physics only for world occlusion.
+ */
+import type { EntityId, Vec3 } from './base';
+import type { System } from './sim';
+
+/** Collision layer bits. Queries take a mask of layers to hit. */
+export const Layer = {
+  World: 0x1,
+  Structure: 0x2,
+  Hero: 0x4,
+  Unit: 0x8,
+} as const;
+/** Everything that blocks bullets and sight. */
+export const LAYERS_SOLID = Layer.World | Layer.Structure;
+
+export interface RayHit {
+  /** Distance along the ray (or sweep) to the hit. */
+  readonly distance: number;
+  readonly point: Vec3;
+  readonly normal: Vec3;
+  /** The entity owning the collider hit, or null for map geometry. */
+  readonly entity: EntityId | null;
+}
+
+export type Shape =
+  | { readonly kind: 'sphere'; readonly radius: number }
+  /** Vertical capsule centred on the query position. */
+  | { readonly kind: 'capsule'; readonly radius: number; readonly halfHeight: number }
+  /** Box turned by yaw. */
+  | { readonly kind: 'box'; readonly halfExtents: Vec3; readonly yaw: number };
+
+export interface CharacterMove {
+  /** Where the character ended up (feet). */
+  readonly pos: Vec3;
+  readonly grounded: boolean;
+  /** Normal of the steepest surface hit this move, or null. Mantling and wall checks use it. */
+  readonly wall: Vec3 | null;
+}
+
+/** `ctx.physics`. */
+export interface PhysicsService {
+  /** First hit along a ray (dir is a unit vector), or null. `ignore` skips that entity's collider. */
+  raycast(origin: Vec3, dir: Vec3, maxDistance: number, mask: number, ignore?: EntityId): RayHit | null;
+  /** First hit of a shape swept along a ray, or null. */
+  shapeCast(shape: Shape, origin: Vec3, dir: Vec3, maxDistance: number, mask: number, ignore?: EntityId): RayHit | null;
+  /** Entities whose colliders overlap the shape at `centre`, ascending by id, written into `out` (cleared first). */
+  overlap(shape: Shape, centre: Vec3, mask: number, out: EntityId[]): EntityId[];
+  /**
+   * Move a hero (or any entity physics gave a character controller) by `delta` with collide-and-slide, step-up and
+   * slope limits. Returns the result; it does not write the entity (the caller does).
+   */
+  moveCharacter(entity: EntityId, delta: Vec3): CharacterMove;
+  /** Height of the walkable surface under (x, z) at or below `fromY`, or null if there is none. */
+  groundHeight(x: number, z: number, fromY: number): number | null;
+}
+
+/** What src/sim/physics's `createPhysics` resolves to. */
+export interface Physics {
+  readonly service: PhysicsService;
+  /** Runs in the 'movement' phase: hero movement from commands, impulses, updrafts, climbs, then the Rapier step. */
+  readonly system: System;
+}

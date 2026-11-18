@@ -1,0 +1,474 @@
+/**
+ * The one effect vocabulary (GDD §9.25). Abilities, upgrade tiers, item actives and procs, statuses, Feather runes,
+ * the Phoenix Ember and objectives all express what they do as Effect data and apply it with `ctx.effects.apply`.
+ * Core routes each kind to the single system that owns it (EFFECT_OWNERS); no other system implements a kind.
+ *
+ * GDD §9.25 primitive → kind here: damage, heal, applyStatus, cleanse, displace, dash, teleport, projectile, area,
+ * statMod, summon, weaponMod, shield, movementMode, attach, tether, delay, cooldownMod and trigger: all 19, one-to-one.
+ * `hook` is the escape hatch to a hero module.
+ */
+import type { AbilityId, EntityId, ItemId, StatusId, Team, Vec3 } from './base';
+import type { EntityKind } from './entity';
+import type { StatModifier } from './stats';
+import type { StatusDef } from './statuses';
+
+/** GDD §5.1: there are exactly two damage types. */
+export type DamageType = 'talon' | 'song';
+
+/**
+ * A number in data.
+ * - `number`: that value.
+ * - `string`: the named entry of the casting ability's `values` (after upgrades), so upgrade tiers can change it.
+ * - `{ of, song }`: `of` (number or value name) plus the cause's Song power × `song` ("base + k × SP").
+ */
+export type Magnitude = number | string | { readonly of: number | string; readonly song: number };
+
+/** Who an area, projectile or trigger affects, relative to the cause's team (GDD §5.12 defaults). */
+export interface TargetFilter {
+  readonly teams: 'enemies' | 'allies' | 'all';
+  /** Include the source itself (allies or all only). Default false. */
+  readonly self?: boolean;
+  /** Entity kinds affected. Default ['hero', 'unit']: areas never hit structures unless stated. */
+  readonly kinds?: readonly EntityKind[];
+  /** Heroes only (shorthand for kinds ['hero']). */
+  readonly heroesOnly?: boolean;
+}
+
+/** A conditional multiplier on a damage effect. All given conditions must hold. */
+export interface DamageBonus {
+  readonly mult: number;
+  /** Target's hp fraction is below this (executes). */
+  readonly targetHpBelow?: number;
+  readonly targetKinds?: readonly EntityKind[];
+  /** Source-to-target distance is at most this (m). */
+  readonly maxDistance?: number;
+  /** Source-to-target distance is at least this (m). */
+  readonly minDistance?: number;
+  /** The target has this status (e.g. a Marked tag). */
+  readonly targetHasStatus?: StatusId;
+}
+
+/** Damage through the pipeline (GDD §5.2). Owner: sim/combat. */
+export interface DamageEffect {
+  readonly kind: 'damage';
+  readonly amount: Magnitude;
+  readonly type: DamageType;
+  /** Can crit on the head hitbox like a gun bullet (Owl's Moonlit Mark). Default false. */
+  readonly beakShot?: boolean;
+  readonly bonus?: readonly DamageBonus[];
+  /** Adds this fraction of the target's missing hp. */
+  readonly missingHpPct?: number;
+  /** Kills the target if its hp after the hit is below this fraction of max (execute). */
+  readonly executeBelow?: number;
+}
+
+/** Restore hp, at once or spread over `overS`. Owner: sim/combat. */
+export interface HealEffect {
+  readonly kind: 'heal';
+  readonly amount: Magnitude;
+  readonly overS?: Magnitude;
+}
+
+/** Apply a status (GDD §5.9), including stat buffs. Owner: sim/combat. */
+export interface ApplyStatusEffect {
+  readonly kind: 'applyStatus';
+  readonly status: StatusDef;
+  /** Overrides the status's own duration. */
+  readonly durationS?: Magnitude;
+  /** Graded statuses: scales the status's modifiers (e.g. 0.3 for a 30% slow). Default 1. */
+  readonly magnitude?: Magnitude;
+  /** Stacks added for 'stack' statuses. Default 1. */
+  readonly stacks?: number;
+}
+
+/**
+ * A timed stat change (GDD `statMod`): sugar for applyStatus with a positive status whose modifiers are `stats`.
+ * Stacking follows `maxStacks` (1: reapplying refreshes). Owner: sim/combat.
+ */
+export interface StatModEffect {
+  readonly kind: 'statMod';
+  /** Status id it shows as (UI) and stacks under. */
+  readonly id: StatusId;
+  readonly name: string;
+  readonly stats: readonly StatModifier[];
+  readonly durationS: Magnitude;
+  readonly maxStacks?: number;
+}
+
+/** Remove statuses: every negative one, every positive one, or the listed ids. Owner: sim/combat. */
+export interface CleanseEffect {
+  readonly kind: 'cleanse';
+  readonly remove: 'negative' | 'positive' | readonly StatusId[];
+}
+
+/** Talon shield, Song shield or barrier (GDD §5.10). Owner: sim/combat. */
+export interface ShieldEffect {
+  readonly kind: 'shield';
+  readonly absorbs: 'talon' | 'song' | 'barrier';
+  readonly amount: Magnitude;
+  /** Lifetime; omitted lasts until drained. */
+  readonly durationS?: Magnitude;
+  /** Refills to full after this long without taking damage (item shields). */
+  readonly rechargeS?: number;
+}
+
+/** Change how the target's gun works, for a while or at once. Owner: sim/combat. */
+export interface WeaponModEffect {
+  readonly kind: 'weaponMod';
+  /** 0 for one-off changes (instant reload). */
+  readonly durationS: Magnitude;
+  /** Shots use no ammo. */
+  readonly ammoFree?: boolean;
+  /** Refill the magazine now. */
+  readonly reload?: boolean;
+  /** Each bullet hit also damages others within radius for this fraction of its damage. */
+  readonly splash?: { readonly radius: number; readonly fraction: number };
+  /** Bullets bounce to this many further targets. */
+  readonly bounces?: number;
+  /** Bullets pass through this many targets. */
+  readonly pierce?: number;
+  readonly ignoreFalloff?: boolean;
+  /** The mod applies only to hits on targets with this status (e.g. Marked Prey). */
+  readonly onlyVsStatus?: StatusId;
+  readonly onBulletHit?: readonly Effect[];
+  readonly everyNth?: { readonly n: number; readonly effects: readonly Effect[] };
+}
+
+/**
+ * Launch a projectile from the cause's origin along the target direction. `onHit` applies to each entity hit (and
+ * its point); `onExpire` at the end point when it expires or hits the world. Owner: sim/combat.
+ */
+export interface ProjectileEffect {
+  readonly kind: 'projectile';
+  readonly speed: Magnitude;
+  readonly radius: number;
+  readonly range: Magnitude;
+  /** Downward acceleration (m/s²); 0 flies straight. */
+  readonly gravity: number;
+  readonly pierce: 'none' | 'units' | 'all';
+  /** Flies back to the caster after reaching its range, hitting again on the way. */
+  readonly returns?: boolean;
+  /** Hits on one target per projectile (default 1). */
+  readonly maxHitsPerTarget?: number;
+  readonly affects: TargetFilter;
+  readonly onHit: readonly Effect[];
+  readonly onExpire?: readonly Effect[];
+}
+
+/** Knockback, pull, knock-up or a push along a direction (GDD §5.9 displacements). Owner: sim/physics. */
+export interface DisplaceEffect {
+  readonly kind: 'displace';
+  /** push: away from the cause's origin; pull: toward it; up: knock-up (airborne); along: the target direction. */
+  readonly mode: 'push' | 'pull' | 'up' | 'along';
+  /** Metres travelled (height for 'up'). */
+  readonly distance: Magnitude;
+}
+
+/** Move the target (normally the caster) along a path. Owner: sim/physics. */
+export interface DashEffect {
+  readonly kind: 'dash';
+  readonly distance: Magnitude;
+  readonly durationS: Magnitude;
+  /** aim: along the aim direction; move: along the move input; target: to the target point or entity. */
+  readonly dir: 'aim' | 'move' | 'target';
+  /** Peak height of a leap arc (0 for a flat dash). */
+  readonly arcHeight?: number;
+  /** Passes through units and heroes. */
+  readonly passThrough?: boolean;
+  /** Stops at the first enemy touched. */
+  readonly stopOnHit?: boolean;
+  /** Applied to each enemy touched during the dash. */
+  readonly onHit?: readonly Effect[];
+  /** Applied at the end point when the dash ends. */
+  readonly onArrive?: readonly Effect[];
+}
+
+/** Move the target instantly. Owner: sim/physics. */
+export interface TeleportEffect {
+  readonly kind: 'teleport';
+  /** point: the target point; behindTarget: `behind` m behind the target entity; base: the team spawn. */
+  readonly to: 'point' | 'behindTarget' | 'base';
+  readonly behind?: number;
+  readonly face: 'keep' | 'target';
+}
+
+/** Special movement modes from abilities (GDD §9.25). */
+export type MovementModeKind = 'glide' | 'flight' | 'hover' | 'cling' | 'toboggan' | 'burrow';
+
+/** Move differently for a while (Owl's glide, Swift's flight, Woodpecker's cling …). Owner: sim/physics. */
+export interface MovementModeEffect {
+  readonly kind: 'movementMode';
+  readonly mode: MovementModeKind;
+  readonly durationS: Magnitude;
+  /** Horizontal speed (m/s). */
+  readonly speed: number;
+  /** Vertical speed (m/s): fall speed for glide, climb/dive limit for flight; 0 otherwise. */
+  readonly verticalSpeed: number;
+  /** What the hero may do meanwhile. */
+  readonly allowGun: boolean;
+  readonly allowAbilities: boolean;
+  /** Applied to an enemy the hero runs into (toboggan, burrow eruption). */
+  readonly onCollide?: readonly Effect[];
+  /** Applied to the hero (at its position) when the mode ends. */
+  readonly onEnd?: readonly Effect[];
+}
+
+/** Attach the target to the source's socket for a while (Pelican's Gulp). Owner: sim/physics. */
+export interface AttachEffect {
+  readonly kind: 'attach';
+  readonly durationS: Magnitude;
+  /** Applied to the attached target on release (spit). */
+  readonly onRelease: readonly Effect[];
+}
+
+export type AreaShape =
+  | { readonly kind: 'sphere'; readonly radius: Magnitude }
+  | { readonly kind: 'cylinder'; readonly radius: Magnitude; readonly height: number }
+  /** Along the target direction from the target point. */
+  | { readonly kind: 'cone'; readonly length: Magnitude; readonly angleDeg: number }
+  | { readonly kind: 'ring'; readonly inner: Magnitude; readonly outer: Magnitude; readonly height: number }
+  /** Width (x), height (y) and length (z, along the target direction). */
+  | { readonly kind: 'box'; readonly size: Vec3 };
+
+/**
+ * An area at the target point (or attached to the source or target). With durationS 0 it applies `effects` once to
+ * everything inside; otherwise it becomes an 'area' entity that applies `effects` every intervalS (GDD §5.12: each
+ * target at most once per tick per area kind) and the enter/exit/cross effects as entities move. Owner: sim/abilities.
+ */
+export interface AreaEffect {
+  readonly kind: 'area';
+  readonly shape: AreaShape;
+  readonly durationS: Magnitude;
+  /** Default: combat data's tick interval (0.5 s). */
+  readonly intervalS?: number;
+  readonly attach: 'point' | 'source' | 'target';
+  /** A moving area (Rogue Wave): travels along the target direction at `speed` m/s, optionally carrying the units it hits. */
+  readonly move?: { readonly speed: number; readonly carry: boolean };
+  readonly affects: TargetFilter;
+  readonly effects: readonly Effect[];
+  readonly onEnter?: readonly Effect[];
+  readonly onExit?: readonly Effect[];
+  /** Applied when an entity crosses the area's edge (ring walls). */
+  readonly onCross?: readonly Effect[];
+}
+
+/** Units a hero makes. They are 'unit' entities of type 'summon'. */
+export type SummonKind = 'trap' | 'decoy' | 'wall' | 'turret';
+
+/** Spawn summons for the source's team. Owner: sim/abilities. */
+export interface SummonEffect {
+  readonly kind: 'summon';
+  readonly summon: SummonKind;
+  /** 0 for summons that can't be damaged. */
+  readonly health: Magnitude;
+  readonly durationS: Magnitude;
+  /** The oldest of this source's summons with the same behaviour despawns beyond this. */
+  readonly maxCount: number;
+  /** Behaviour id: sim/abilities' built-ins ('trap', 'decoy', 'wall', 'turret') or a hero hook's name. */
+  readonly behaviour: string;
+  /** Traps: fire when an entity matching `affects` comes within `radius`. */
+  readonly trigger?: { readonly radius: number; readonly affects: TargetFilter };
+  /** Walls: size (width, height, depth). */
+  readonly size?: Vec3;
+  /** Applied by the summon: on trigger (traps) or to its attack target (turrets, decoys). */
+  readonly effects: readonly Effect[];
+}
+
+/**
+ * A link from the source to the target (ally or enemy) for a while; it breaks beyond `breakDistance`. Every
+ * `intervalS` the tick effects apply to each end (Grace Link, Nectar Sip). Owner: sim/abilities.
+ */
+export interface TetherEffect {
+  readonly kind: 'tether';
+  readonly durationS: Magnitude;
+  readonly breakDistance: number;
+  /** Default: combat data's tick interval (0.5 s). */
+  readonly intervalS?: number;
+  readonly onSourceTick?: readonly Effect[];
+  readonly onTargetTick?: readonly Effect[];
+}
+
+/** Apply effects later, to the same target and cause (telegraphs, echoes, arm times). Owner: sim/abilities. */
+export interface DelayEffect {
+  readonly kind: 'delay';
+  readonly seconds: Magnitude;
+  readonly effects: readonly Effect[];
+}
+
+/**
+ * Reset or refund cooldowns: every ability, every item active, or one ability slot. Owner: sim/abilities, which
+ * for scope 'items' writes OwnedItem.readyAt (the one exception to sim/items owning Inventory).
+ */
+export interface CooldownModEffect {
+  readonly kind: 'cooldownMod';
+  readonly scope: 'abilities' | 'items' | 'slot';
+  /** For scope 'slot': 0–3. */
+  readonly slot?: number;
+  readonly mode: 'reset' | 'refund';
+  /** For 'refund': seconds taken off. */
+  readonly seconds?: Magnitude;
+}
+
+/** Events a trigger (item proc or ability passive) can fire on, from the holder's point of view. */
+export type TriggerEvent =
+  /** The holder's bullet hit an enemy. */
+  | 'weaponHit'
+  /** The holder's bullet hit an enemy's head. */
+  | 'beakShot'
+  | 'meleeHit'
+  /** The holder's ability or item damaged an enemy. */
+  | 'abilityHit'
+  /** The holder took damage. */
+  | 'damaged'
+  /** The holder got kill credit on a hero. */
+  | 'kill'
+  | 'assist'
+  /** A hit would kill the holder (implemented through StatusDef.onLethal). */
+  | 'wouldDie'
+  /** The holder cast an ability. */
+  | 'cast';
+
+export interface TriggerDef {
+  readonly on: TriggerEvent;
+  /** Fire on every Nth such event (default 1). */
+  readonly count?: number;
+  /** 0..1; 1 always fires. */
+  readonly chance: number;
+  /** Internal cooldown (seconds); 0 for none. */
+  readonly cooldownS: number;
+  /** Who the effects land on: the other party of the event, or the holder. */
+  readonly target: 'other' | 'self';
+  readonly effects: readonly Effect[];
+}
+
+/** Give the target a trigger for a while (item procs use the same TriggerDef permanently). Owner: sim/items. */
+export interface TriggerEffect {
+  readonly kind: 'trigger';
+  readonly trigger: TriggerDef;
+  readonly durationS: Magnitude;
+}
+
+/**
+ * Escape hatch for what data can't express: calls HeroHooks.onEffect(name, …) on the hero module of the cause's
+ * source. Owner: sim/abilities.
+ */
+export interface HookEffect {
+  readonly kind: 'hook';
+  readonly name: string;
+}
+
+export type Effect =
+  | DamageEffect
+  | HealEffect
+  | ApplyStatusEffect
+  | StatModEffect
+  | CleanseEffect
+  | ShieldEffect
+  | WeaponModEffect
+  | ProjectileEffect
+  | DisplaceEffect
+  | DashEffect
+  | TeleportEffect
+  | MovementModeEffect
+  | AttachEffect
+  | TetherEffect
+  | AreaEffect
+  | SummonEffect
+  | DelayEffect
+  | CooldownModEffect
+  | TriggerEffect
+  | HookEffect;
+
+export type EffectKind = Effect['kind'];
+export type EffectOfKind<K extends EffectKind> = Extract<Effect, { kind: K }>;
+
+/** The single owner of each effect kind. `ctx.effects.handle` refuses any other system. */
+export const EFFECT_OWNERS = {
+  damage: 'combat',
+  heal: 'combat',
+  applyStatus: 'combat',
+  statMod: 'combat',
+  cleanse: 'combat',
+  shield: 'combat',
+  weaponMod: 'combat',
+  projectile: 'combat',
+  displace: 'physics',
+  dash: 'physics',
+  teleport: 'physics',
+  movementMode: 'physics',
+  attach: 'physics',
+  tether: 'abilities',
+  area: 'abilities',
+  summon: 'abilities',
+  delay: 'abilities',
+  cooldownMod: 'abilities',
+  hook: 'abilities',
+  trigger: 'items',
+} as const satisfies Record<EffectKind, string>;
+
+/**
+ * How the effect came about. GDD §5.1's isGun / isMelee / isAbility flags are via 'weapon' / 'melee' / (cause.ability
+ * !== null). 'area' marks effects applied by a lasting area or an area burst and 'status' those from a status's
+ * periodic effects: structures take no damage from either (GDD §7).
+ */
+export type EffectVia =
+  | 'weapon'
+  | 'melee'
+  | 'ability'
+  | 'area'
+  | 'item'
+  | 'status'
+  | 'rune'
+  | 'objective'
+  | 'unit'
+  | 'structure';
+
+/**
+ * Why an effect happens: who gets credit, for which team, scaled how. Build one when an ability, item or attack
+ * fires and pass the same object to everything it spawns (projectiles, areas, statuses, delays), so credit and
+ * scaling survive the source's death.
+ */
+export interface EffectCause {
+  /** Credited entity (kill credit, assists, lifesteal, triggers), or null for the world. */
+  readonly source: EntityId | null;
+  /** The source's team when the cause was built. */
+  readonly team: Team;
+  readonly via: EffectVia;
+  readonly ability: AbilityId | null;
+  readonly item: ItemId | null;
+  /** The casting ability's values after upgrades, for string magnitudes; null outside abilities. */
+  readonly values: Readonly<Record<string, number>> | null;
+  /** The source's Song power when the cause was built. */
+  readonly songPower: number;
+  /** True for effects from a trigger; their damage never fires triggers. */
+  readonly proc: boolean;
+  /** Where it came from (caster, impact point or area centre). Push and pull use it. */
+  readonly origin: Vec3;
+}
+
+/** Where an effect lands. */
+export interface EffectTarget {
+  /** The entity affected, or null for effects aimed at a point (areas, projectiles, dashes). */
+  readonly entity: EntityId | null;
+  readonly point: Vec3;
+  /** Unit direction (the aim direction for aimed effects). */
+  readonly dir: Vec3;
+}
+
+export type EffectHandler<K extends EffectKind> = (
+  effect: EffectOfKind<K>,
+  target: EffectTarget,
+  cause: EffectCause,
+) => void;
+
+/** `ctx.effects`. Implemented by core. */
+export interface EffectRouter {
+  /** Register the handler for a kind. Only the kind's owner (EFFECT_OWNERS) may, once, while systems are created. */
+  handle<K extends EffectKind>(kind: K, owner: string, handler: EffectHandler<K>): void;
+  /** Apply one effect now (synchronously). Kinds whose owner hasn't registered yet are ignored. */
+  apply(effect: Effect, target: EffectTarget, cause: EffectCause): void;
+  /** Apply a list in order. */
+  applyAll(effects: readonly Effect[], target: EffectTarget, cause: EffectCause): void;
+  /** Resolve a magnitude against a cause. Throws on a value name the cause doesn't have. */
+  magnitude(m: Magnitude, cause: EffectCause): number;
+}
