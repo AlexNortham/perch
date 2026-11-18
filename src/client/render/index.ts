@@ -1,93 +1,278 @@
-// TODO(Rendering & VFX): the real scene (blockout from MapData.prims by material tag, lighting, fog, sky, shadows),
-// instancing, LOD, outlines and team colours, quality presets. Until then: a lit ground plane plus a model per entity.
+/**
+ * The renderer (client contract `Renderer`): a lit, fogged, shadowed Three.js scene with the map blockout and one
+ * model per entity from the ModelKit. Owner: Rendering & VFX.
+ *
+ * Entity models: the renderer keeps one model per live entity id. A new entity takes a spare model of the same
+ * kind, type and team if there is one, otherwise `models.create(entity)`; either way the model is added to the
+ * scene (Three's 'added' event fires). Every frame the renderer sets the model's position and yaw from
+ * `interpolate(frame, entity)`, then calls `models.pose(model, entity, frame)` to animate it. When the entity
+ * despawns the model is removed from the scene ('removed' fires) and kept as a spare.
+ */
 import {
+  CanvasTexture,
   Color,
   DirectionalLight,
+  EquirectangularReflectionMapping,
+  FogExp2,
   HemisphereLight,
-  Mesh,
-  MeshLambertMaterial,
+  LinearSRGBColorSpace,
+  MathUtils,
+  NeutralToneMapping,
+  PCFShadowMap,
   PerspectiveCamera,
-  PlaneGeometry,
   Scene,
+  SRGBColorSpace,
+  Vector3,
   WebGLRenderer,
 } from 'three';
 import type { Object3D } from 'three';
 import type { EntityId, MapData } from '../../sim/core/contracts';
-import type { Quality, Renderer } from '../app/contracts';
+import type { CameraPose, Quality, Renderer } from '../app/contracts';
+import { interpolate } from '../app/loop';
+import { buildBlockout } from './blockout';
+import type { Blockout } from './blockout';
+import {
+  FAR_MAX,
+  FAR_MIN,
+  FOG_HEIGHT_REF,
+  FOG_OPAQUE,
+  LIGHT_UNIT,
+  NEAR,
+  NEAR_PER_HEIGHT,
+  QUALITY_PRESETS,
+  SHADOW_BIAS,
+  SHADOW_DISTANCE,
+  SHADOW_FIT,
+  SHADOW_INTENSITY,
+  SHADOW_MAX_HALF,
+  SHADOW_MIN_HALF,
+  SHADOW_NORMAL_BIAS,
+  SHADOW_RADIUS,
+  SKY_CURVE,
+  SKY_HORIZON_HAZE,
+  SKY_SIZE,
+  SUN,
+  TONE_EXPOSURE,
+} from './constants';
+import { FIXTURE_MAP } from './fixture';
 import { createModelKit } from './models';
+import { LIGHT_COLOURS, SKY_COLOURS } from './palette';
 
-const SKY = 0x9fc4e8;
-const GROUND = 0x5d7a3a;
-const HEMI_INTENSITY = 1.2;
-const SUN_COLOUR = 0xffffff;
-const SUN_INTENSITY = 1.6;
-const SUN_DIR = { x: -0.5, y: 1, z: 0.3 };
-const NEAR = 0.1;
-const FAR = 3000;
-const MAX_PIXEL_RATIO = 2;
-const DEGREES_PER_TURN = 360;
-const DEG = (2 * Math.PI) / DEGREES_PER_TURN;
+export { DAWN_COLOURS, DUSK_COLOURS, TEAM_COLOURS } from './palette';
+
+declare global {
+  interface Window {
+    /** Dev builds only: the last frame's draw calls and triangles (Three's renderer.info), for measurement. */
+    __perchRenderInfo?: () => { calls: number; triangles: number };
+  }
+}
+
+const DEG = MathUtils.DEG2RAD;
+const RGBA = 4;
+const BYTE = 255;
+/** Shadow box half-sizes snap to this step so the texel size (and edge shimmer) only changes in jumps. */
+const SHADOW_HALF_STEP = 5;
+const UP = new Vector3(0, 1, 0);
+
+/** Equirectangular sky (GDD §14.2): peach over Dawn's side (−z), violet over Dusk's (+z); fog colour below the horizon. */
+function skyTexture(): CanvasTexture {
+  const { width, height } = SKY_SIZE;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const tex = new CanvasTexture(canvas);
+  if (!ctx) return tex;
+  const img = ctx.createImageData(width, height);
+  // Raw sRGB components (no conversion to linear): the canvas is sRGB.
+  const c = (hex: number): Color => new Color().setHex(hex, LinearSRGBColorSpace);
+  const fog = c(LIGHT_COLOURS.fog);
+  const out = new Color();
+  for (let x = 0; x < width; x++) {
+    // Three's equirect lookup: u = atan2(z, x) / 2π + ½.
+    const theta = ((x + 1 / 2) / width - 1 / 2) * 2 * Math.PI;
+    const north = (Math.sin(theta) + 1) / 2;
+    const horizon = c(SKY_COLOURS.southHorizon).lerp(c(SKY_COLOURS.northHorizon), north).lerp(fog, SKY_HORIZON_HAZE);
+    const zenith = c(SKY_COLOURS.southZenith).lerp(c(SKY_COLOURS.northZenith), north);
+    for (let y = 0; y < height; y++) {
+      const up = 1 - 2 * ((y + 1 / 2) / height); // +1 zenith … −1 nadir
+      if (up <= 0) out.copy(fog);
+      else out.copy(horizon).lerp(zenith, up ** SKY_CURVE);
+      img.data.set([out.r * BYTE, out.g * BYTE, out.b * BYTE, BYTE], (y * width + x) * RGBA);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  tex.colorSpace = SRGBColorSpace;
+  tex.mapping = EquirectangularReflectionMapping;
+  tex.needsUpdate = true;
+  return tex;
+}
 
 export function createRenderer(container: HTMLElement, map: MapData, quality: Quality): Renderer {
-  const gl = new WebGLRenderer({ antialias: quality !== 'low' });
-  gl.setPixelRatio(Math.min(window.devicePixelRatio, quality === 'high' ? MAX_PIXEL_RATIO : 1));
-  container.appendChild(gl.domElement);
+  let preset = QUALITY_PRESETS[quality];
+  let size = { width: Math.max(1, container.clientWidth), height: Math.max(1, container.clientHeight) };
 
   const scene = new Scene();
-  scene.background = new Color(SKY);
-  scene.add(new HemisphereLight(SKY, GROUND, HEMI_INTENSITY));
-  const sun = new DirectionalLight(SUN_COLOUR, SUN_INTENSITY);
-  sun.position.set(SUN_DIR.x, SUN_DIR.y, SUN_DIR.z);
-  scene.add(sun);
+  scene.background = skyTexture();
+  const fog = new FogExp2(LIGHT_COLOURS.fog, preset.fogDensity);
+  scene.fog = fog;
+  scene.add(new HemisphereLight(LIGHT_COLOURS.hemiSky, LIGHT_COLOURS.hemiGround, SUN.hemiIntensity * LIGHT_UNIT));
+  const sun = new DirectionalLight(LIGHT_COLOURS.sun, SUN.intensity * LIGHT_UNIT);
+  const elevation = SUN.elevationDeg * DEG;
+  const toSun = new Vector3(SUN.azimuth.x * Math.cos(elevation), Math.sin(elevation), SUN.azimuth.z * Math.cos(elevation)).normalize();
+  const shadowRight = new Vector3().crossVectors(UP, toSun).normalize();
+  const shadowUp = new Vector3().crossVectors(toSun, shadowRight);
+  sun.shadow.bias = SHADOW_BIAS;
+  sun.shadow.normalBias = SHADOW_NORMAL_BIAS;
+  sun.shadow.radius = SHADOW_RADIUS;
+  sun.shadow.intensity = SHADOW_INTENSITY;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = SHADOW_DISTANCE * 2;
+  scene.add(sun, sun.target);
 
-  const ground = new Mesh(new PlaneGeometry(1, 1), new MeshLambertMaterial({ color: GROUND }));
-  ground.rotation.x = -Math.PI / 2;
-  scene.add(ground);
+  const makeGl = (): WebGLRenderer => {
+    const r = new WebGLRenderer({ antialias: preset.antialias, powerPreference: 'high-performance' });
+    r.setPixelRatio(Math.min(window.devicePixelRatio, preset.maxPixelRatio) * preset.renderScale);
+    r.setSize(size.width, size.height);
+    r.toneMapping = NeutralToneMapping;
+    r.toneMappingExposure = TONE_EXPOSURE;
+    r.shadowMap.enabled = preset.shadowMapSize > 0;
+    r.shadowMap.type = PCFShadowMap;
+    r.domElement.style.cssText = 'display:block;width:100%;height:100%';
+    sun.castShadow = preset.shadowMapSize > 0;
+    sun.shadow.mapSize.set(preset.shadowMapSize, preset.shadowMapSize);
+    return r;
+  };
+  let gl = makeGl();
+  container.appendChild(gl.domElement);
+  if (import.meta.env.DEV) window.__perchRenderInfo = () => ({ calls: gl.info.render.calls, triangles: gl.info.render.triangles });
+
+  // Dev builds only, for framing renderer screenshots: ?renderFixture swaps the main map for the renderer's own test
+  // map (fixture.ts); ?renderCam=x,y,z,tx,ty,tz fixes the camera position and target.
+  const dev = import.meta.env.DEV ? new URLSearchParams(location.search) : null;
+  const devCam = (dev?.get('renderCam') ?? '').split(',').map(Number);
+  const [cx, cy, cz, tx, ty, tz] = devCam;
+  const devPose = tz !== undefined && devCam.every(Number.isFinite) && cx !== undefined && cy !== undefined && cz !== undefined && tx !== undefined && ty !== undefined
+    ? { position: { x: cx, y: cy, z: cz }, target: { x: tx, y: ty, z: tz } }
+    : null;
+
+  let blockout: Blockout | null = null;
+  let current: MapData | null = null;
   const setMap = (m: MapData): void => {
-    const { min, max } = m.bounds;
-    ground.scale.set(max.x - min.x, max.z - min.z, 1);
-    ground.position.set((min.x + max.x) / 2, 0, (min.z + max.z) / 2);
+    const next = m.id === 'main' && dev?.has('renderFixture') ? FIXTURE_MAP : m;
+    if (next === current) return;
+    current = next;
+    if (blockout) {
+      scene.remove(blockout.root);
+      blockout.dispose();
+    }
+    blockout = buildBlockout(next);
+    scene.add(blockout.root);
   };
   setMap(map);
 
-  const camera = new PerspectiveCamera(1, 1, NEAR, FAR);
+  const camera = new PerspectiveCamera(1, size.width / size.height, NEAR, FAR_MIN);
   const models = createModelKit();
-  const live = new Map<EntityId, Object3D>();
+  const live = new Map<EntityId, { model: Object3D; key: string }>();
+  const spare = new Map<string, Object3D[]>();
+  const seen = new Set<EntityId>();
+
+  let shadowHalf = 0;
+  const target = new Vector3();
+  const centre = new Vector3();
+  /** Fit the sun's shadow box around what the camera looks at, snapped to whole texels so edges don't shimmer. */
+  const fitShadow = (pose: CameraPose): void => {
+    if (!sun.castShadow) return;
+    target.set(pose.target.x, pose.target.y, pose.target.z);
+    const dist = target.distanceTo(centre.set(pose.position.x, pose.position.y, pose.position.z));
+    const half = Math.ceil(Math.min(SHADOW_MAX_HALF, Math.max(SHADOW_MIN_HALF, dist * SHADOW_FIT)) / SHADOW_HALF_STEP) * SHADOW_HALF_STEP;
+    if (half !== shadowHalf) {
+      shadowHalf = half;
+      const cam = sun.shadow.camera;
+      [cam.left, cam.right, cam.top, cam.bottom] = [-half, half, half, -half];
+      cam.updateProjectionMatrix();
+    }
+    const texel = (2 * half) / preset.shadowMapSize;
+    const snap = (axis: Vector3): number => {
+      const d = target.dot(axis);
+      return Math.round(d / texel) * texel - d;
+    };
+    centre.copy(target).addScaledVector(shadowRight, snap(shadowRight)).addScaledVector(shadowUp, snap(shadowUp));
+    sun.target.position.copy(centre);
+    sun.position.copy(centre).addScaledVector(toSun, SHADOW_DISTANCE);
+  };
 
   return {
-    canvas: gl.domElement,
-    render(frame, pose) {
-      const seen = new Set<EntityId>();
+    get canvas() {
+      return gl.domElement;
+    },
+    render(frame, cameraPose) {
+      const pose = devPose ? { ...cameraPose, ...devPose } : cameraPose;
+      seen.clear();
+      let structures = false;
       for (const e of frame.curr.entities) {
         seen.add(e.id);
-        let model = live.get(e.id);
-        if (!model) {
-          model = models.create(e);
-          live.set(e.id, model);
+        if (e.kind === 'structure') structures = true;
+        let slot = live.get(e.id);
+        if (!slot) {
+          const key = `${e.kind}:${e.type}:${e.team}`;
+          const model = spare.get(key)?.pop() ?? models.create(e);
+          slot = { model, key };
+          live.set(e.id, slot);
           scene.add(model);
         }
-        models.pose(model, e, frame);
+        const p = interpolate(frame, e);
+        slot.model.position.set(p.pos.x, p.pos.y, p.pos.z);
+        slot.model.rotation.y = p.yaw;
+        models.pose(slot.model, e, frame);
       }
-      for (const [id, model] of live) {
+      for (const [id, slot] of live) {
         if (seen.has(id)) continue;
-        scene.remove(model);
+        scene.remove(slot.model);
         live.delete(id);
+        const list = spare.get(slot.key);
+        if (list) list.push(slot.model);
+        else spare.set(slot.key, [slot.model]);
       }
+      if (blockout) blockout.markers.visible = !structures;
+
+      // Haze thins with height: the player camera gets the full density, the overview cameras see the whole map.
+      fog.density = preset.fogDensity * Math.min(1, FOG_HEIGHT_REF / Math.max(1, pose.position.y));
+      camera.near = Math.max(NEAR, pose.position.y * NEAR_PER_HEIGHT);
+      camera.far = Math.min(FAR_MAX, Math.max(FAR_MIN, FOG_OPAQUE / fog.density));
       // Settings and poses use horizontal FOV; Three wants vertical.
       const halfH = (pose.fovDeg * DEG) / 2;
       camera.fov = (2 * Math.atan(Math.tan(halfH) / camera.aspect)) / DEG;
       camera.updateProjectionMatrix();
       camera.position.set(pose.position.x, pose.position.y, pose.position.z);
       camera.lookAt(pose.target.x, pose.target.y, pose.target.z);
+      fitShadow(pose);
       gl.render(scene, camera);
     },
     setMap,
-    setQuality: () => undefined,
+    setQuality(q) {
+      const next = QUALITY_PRESETS[q];
+      if (next === preset) return;
+      // Antialiasing is fixed when a WebGL context is created, so a new preset gets a new context.
+      preset = next;
+      shadowHalf = 0;
+      sun.shadow.map?.dispose();
+      sun.shadow.map = null;
+      const old = gl;
+      gl = makeGl();
+      old.domElement.replaceWith(gl.domElement);
+      old.dispose();
+      old.forceContextLoss();
+    },
     resize(width, height) {
-      gl.setSize(width, height);
-      camera.aspect = width / Math.max(1, height);
+      size = { width: Math.max(1, width), height: Math.max(1, height) };
+      gl.setSize(size.width, size.height);
+      camera.aspect = size.width / size.height;
       camera.updateProjectionMatrix();
     },
-    dispose: () => gl.dispose(),
+    dispose() {
+      blockout?.dispose();
+      gl.dispose();
+    },
   };
 }
