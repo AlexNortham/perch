@@ -281,3 +281,9 @@ centre − head radius), crouch scale (×0.65), camera pivot (head centre − 0.
 derived by shared code (core/aim.ts, data/core.ts).
 **Why:** GDD §9.0.1 and §4.1 define them as rules; derived values can't drift between combat, physics, the camera and
 the Technical Artist's models.
+
+### D-EP-016 · 18/11/2026 — Briefs live in docs/briefs, agents commit early
+**Decision:** wave briefs are files in `docs/briefs/` on main (a shared `W<n>-common.md` plus one per role), and every
+agent commits after each working piece. The first wave 2 attempt is discarded.
+**Why:** all six wave 2 agents stalled at the same moment before committing anything, and their worktrees were cleaned
+up, so the work was lost. Briefs on main make a retry a one-line spawn; frequent commits make an interruption cheap.
