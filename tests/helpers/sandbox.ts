@@ -66,7 +66,15 @@ export type DummySpec = {
   readonly hp: number;
   readonly yaw?: number;
 } & (
-  | { readonly kind: 'unit'; readonly type: UnitType; readonly lane?: LaneId; readonly height?: number; readonly radius?: number }
+  | {
+      readonly kind: 'unit';
+      readonly type: UnitType;
+      readonly lane?: LaneId;
+      /** For type 'summon': the hero that made it (kill credit goes to it). */
+      readonly owner?: EntityId;
+      readonly height?: number;
+      readonly radius?: number;
+    }
   | { readonly kind: 'structure'; readonly type: StructureType; readonly height?: number; readonly radius?: number }
 );
 
@@ -279,8 +287,8 @@ export async function createSandbox(config: SandboxConfig): Promise<Sandbox> {
             type: spec.type,
             lane: spec.lane ?? null,
             height: spec.height ?? DUMMY_UNIT_HEIGHT,
-            owner: null,
-            summon: null,
+            owner: spec.owner ?? null,
+            summon: spec.type === 'summon' ? 'turret' : null,
             target: null,
             attacking: false,
           },
