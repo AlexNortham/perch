@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-properties -- a benchmark measures wall time; the clock never reaches the sim */
 import { performance } from 'node:perf_hooks';
 import { describe, expect, it } from 'vitest';
 import { Button } from '../core/contracts';
