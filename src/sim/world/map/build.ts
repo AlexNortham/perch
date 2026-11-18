@@ -1,0 +1,486 @@
+/**
+ * MapSpec → MapData: mirrors the Dawn half for Dusk (z → −z, yaw → π − yaw), builds climbs and Updrafts, derives
+ * mantle ledges from the prims and auto-links a nav graph whose link kinds come from the ground profile between
+ * nodes. Pure; run once per map.
+ */
+import type {
+  Anchor, BlockoutPrim, BotSpot, Climb, Lane, Ledge, MapData, NavGraph, NavLinkKind, ShopAnchor, StructureAnchor,
+  TeamAnchor, Updraft, Vec3,
+} from '../../core/contracts';
+import type { ClimbSpec, MapSpec } from './data/kit';
+import {
+  CHIMNEY_GAP, CHIMNEY_OVERSHOOT, CHIMNEY_RADIUS, CLIMB_LANDING, NAV, REACH, STATION_SETBACK, UPDRAFT_HEIGHT,
+  VINE_OFFSET,
+} from './data/traversal';
+import { corners, indexPrims, primBottom, primTop, standAt, surfacesAt, type PrimIndex } from './geometry';
+
+const TAU = Math.PI * 2;
+/** A surface counts as the same height within this. */
+const LEVEL_EPS = 0.01;
+/** Ledge checks probe this far in front of and behind the edge. */
+const LEDGE_PROBE = 0.6;
+/** Ledge checks stay this far from the edge's ends; shorter edges are skipped. */
+const LEDGE_INSET = 0.5;
+const LEDGE_MIN_LENGTH = 1;
+/** Explicit links (climbs, Updraft stations) attach to the nearest node within this distance. */
+const ATTACH_DIST = 2.5;
+
+const v = (x: number, y: number, z: number): Vec3 => ({ x, y, z });
+
+/** Angle in (−π, π]. */
+export function wrapAngle(a: number): number {
+  const r = ((a % TAU) + TAU) % TAU;
+  return r > Math.PI ? r - TAU : r;
+}
+
+/** The Dusk image of a Dawn point. */
+export const mirrorV = (p: Vec3): Vec3 => v(p.x, p.y, -p.z);
+export const mirrorYaw = (yaw: number): number => wrapAngle(Math.PI - yaw);
+
+/** Boxes look the same turned half a turn; keep their yaw in (−π/2, π/2] so axis-aligned boxes stay at 0. */
+function boxYaw(yaw: number): number {
+  const a = wrapAngle(yaw);
+  return a > Math.PI / 2 ? a - Math.PI : a <= -Math.PI / 2 ? a + Math.PI : a;
+}
+
+export function mirrorPrim(p: BlockoutPrim): BlockoutPrim {
+  const centre = mirrorV(p.centre);
+  if (p.shape === 'cylinder') return { ...p, centre };
+  const yaw = mirrorYaw(p.yaw);
+  return { ...p, centre, yaw: p.shape === 'box' ? boxYaw(yaw) : yaw };
+}
+
+const mirrorAnchor = <T extends Anchor>(a: T): T => ({ ...a, pos: mirrorV(a.pos), yaw: mirrorYaw(a.yaw) });
+const mirrorClimb = (c: ClimbSpec): ClimbSpec => ({ ...c, z: -c.z, inZ: -c.inZ });
+const both = <T>(half: readonly T[], mirror: (t: T) => T): T[] => [...half, ...half.map(mirror)];
+
+function buildClimb(c: ClimbSpec): Climb {
+  const chimney = c.kind === 'chimney';
+  const off = chimney ? CHIMNEY_RADIUS + CHIMNEY_GAP : VINE_OFFSET;
+  const x = c.x - c.inX * off;
+  const z = c.z - c.inZ * off;
+  return {
+    kind: c.kind,
+    bottom: v(x, c.floor, z),
+    top: v(x, c.roof + (chimney ? CHIMNEY_OVERSHOOT : 0), z),
+    out: chimney ? v(0, 0, 0) : v(-c.inX, 0, -c.inZ),
+  };
+}
+
+/** Where a climb leaves its rider: on the roof, in from the wall. */
+const climbLanding = (c: ClimbSpec): Vec3 => v(c.x + c.inX * CLIMB_LANDING, c.roof, c.z + c.inZ * CLIMB_LANDING);
+
+// --- Polylines -------------------------------------------------------------------------------------------------
+
+const flat = (a: Vec3, b: Vec3): number => Math.hypot(b.x - a.x, b.z - a.z);
+
+/** Arc length along `path` of the point nearest to p (in XZ). */
+export function projectOnPath(path: readonly Vec3[], p: Vec3): number {
+  let best = Infinity;
+  let bestS = 0;
+  let s = 0;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1];
+    const b = path[i];
+    if (!a || !b) continue;
+    const len = flat(a, b);
+    const t = len > 0 ? Math.min(1, Math.max(0, ((p.x - a.x) * (b.x - a.x) + (p.z - a.z) * (b.z - a.z)) / (len * len))) : 0;
+    const d = Math.hypot(a.x + (b.x - a.x) * t - p.x, a.z + (b.z - a.z) * t - p.z);
+    if (d < best) {
+      best = d;
+      bestS = s + t * len;
+    }
+    s += len;
+  }
+  return bestS;
+}
+
+/** The point at arc length s along `path` (clamped to its ends). */
+export function pointOnPath(path: readonly Vec3[], s: number): Vec3 {
+  let left = s;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1];
+    const b = path[i];
+    if (!a || !b) continue;
+    const len = flat(a, b);
+    if (left <= len || i === path.length - 1) {
+      const t = len > 0 ? Math.min(1, Math.max(0, left / len)) : 0;
+      return v(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t);
+    }
+    left -= len;
+  }
+  const only = path[0];
+  return only ? { ...only } : v(0, 0, 0);
+}
+
+export function pathLength(path: readonly Vec3[]): number {
+  let s = 0;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1];
+    const b = path[i];
+    if (a && b) s += flat(a, b);
+  }
+  return s;
+}
+
+const raise = (p: Vec3, dy: number): Vec3 => v(p.x, p.y + dy, p.z);
+
+/** Updraft over a lane: its path raised, stations at both gates, each Heron and Hawk (set back toward their own
+ * gate) and the middle. */
+function buildUpdraft(lane: Lane, dawnHalf: readonly Vec3[], towers: readonly StructureAnchor[]): Updraft {
+  const half = towers
+    .filter((s) => s.lane === lane.id && (s.type === 'heron' || s.type === 'hawk'))
+    .map((s) => projectOnPath(dawnHalf, s.pos) - STATION_SETBACK)
+    .sort((a, b) => a - b)
+    .map((s) => pointOnPath(dawnHalf, s));
+  const first = dawnHalf[0];
+  const last = dawnHalf[dawnHalf.length - 1];
+  const dawnStations = [...(first ? [first] : []), ...half];
+  const stations = [...dawnStations, ...(last ? [last] : []), ...dawnStations.map(mirrorV).reverse()];
+  return {
+    lane: lane.id,
+    points: lane.path.map((p) => raise(p, UPDRAFT_HEIGHT)),
+    stations: stations.map((p) => raise(p, UPDRAFT_HEIGHT)),
+  };
+}
+
+// --- Ledges ----------------------------------------------------------------------------------------------------
+
+function ledgePointOk(index: PrimIndex, q: Vec3, out: Vec3, top: number): boolean {
+  const back = standAt(index, q.x + out.x * LEDGE_PROBE, q.z + out.z * LEDGE_PROBE, top + LEVEL_EPS);
+  if (back === null || Math.abs(back - top) > LEVEL_EPS) return false;
+  const front = standAt(index, q.x - out.x * LEDGE_PROBE, q.z - out.z * LEDGE_PROBE, top - REACH.mantleMin);
+  if (front === null) return false;
+  const rise = top - front;
+  return rise >= REACH.mantleMin && rise <= REACH.mantleMax;
+}
+
+/** Every box edge a hero can mantle onto: the top is free to stand on, and the ground in front is 0.6–2.4 m lower. */
+export function deriveLedges(prims: readonly BlockoutPrim[], index: PrimIndex): Ledge[] {
+  const ledges: Ledge[] = [];
+  for (const p of prims) {
+    if (!p.solid || p.shape !== 'box') continue;
+    const top = primTop(p);
+    const c = corners(p);
+    c.forEach((a, i) => {
+      const b = c[(i + 1) % c.length];
+      if (!b) return;
+      const len = flat(a, b);
+      if (len < LEDGE_MIN_LENGTH) return;
+      const mx = (a.x + b.x) / 2;
+      const mz = (a.z + b.z) / 2;
+      const inLen = Math.hypot(p.centre.x - mx, p.centre.z - mz);
+      const out = v((p.centre.x - mx) / inLen, 0, (p.centre.z - mz) / inLen);
+      const inset = LEDGE_INSET / len;
+      const ok = [inset, 1 / 2, 1 - inset].every((t) =>
+        ledgePointOk(index, v(a.x + (b.x - a.x) * t, top, a.z + (b.z - a.z) * t), out, top));
+      if (ok) ledges.push({ a: v(a.x, top, a.z), b: v(b.x, top, b.z), out });
+    });
+  }
+  return ledges;
+}
+
+// --- Nav graph -------------------------------------------------------------------------------------------------
+
+/** Link kinds by how demanding they are; a link takes the most demanding move along it. */
+const RANKED: readonly NavLinkKind[] = ['walk', 'drop', 'mantle', 'jump', 'dashJump'];
+const WALK = 0;
+const DROP = 1;
+const MANTLE = 2;
+const JUMP = 3;
+const DASH_JUMP = 4;
+
+/**
+ * How a bot gets from a to b in a straight line over the ground, or null if it can't: walk (steps and slopes), drop
+ * (down off something), mantle (up 0.6–2.4 m), jump (a jump-mantle up to 3.6 m, or a gap up to 3.5 m) or dashJump
+ * (a gap up to 7 m).
+ */
+export function classifyLink(index: PrimIndex, a: Vec3, b: Vec3): NavLinkKind | null {
+  return classifyProfile(groundProfile(index, a, b), a.y, b.y);
+}
+
+/** Standable surfaces (highest first) at evenly spaced samples from a to b, both ends included. */
+interface Profile {
+  readonly step: number;
+  readonly samples: readonly (readonly number[])[];
+}
+
+function groundProfile(index: PrimIndex, a: Vec3, b: Vec3): Profile {
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  const dist = Math.hypot(dx, dz);
+  const n = Math.max(1, Math.ceil(dist / NAV.sampleStep));
+  const samples: number[][] = [];
+  for (let k = 0; k <= n; k++) samples.push(surfacesAt(index, a.x + (dx * k) / n, a.z + (dz * k) / n));
+  return { step: dist / n, samples };
+}
+
+const reversed = (p: Profile): Profile => ({ step: p.step, samples: [...p.samples].reverse() });
+
+/** Classify walking along a profile from height `from` (at sample 0) to `to` (at the last sample). */
+function classifyProfile(profile: Profile, from: number, to: number): NavLinkKind | null {
+  const { samples, step: ds } = profile;
+  const n = samples.length - 1;
+  const tol = Math.max(REACH.step, ds * Math.tan((REACH.maxSlopeDeg * Math.PI) / 180));
+  const surface = (k: number, maxY: number) => samples[k]?.find((y) => y <= maxY) ?? null;
+  let f = from;
+  let rank = WALK;
+  for (let k = 1; k <= n; k++) {
+    const s = surface(k, f + REACH.jumpMantle);
+    if (s === null) return null;
+    const dh = s - f;
+    if (dh > tol) {
+      rank = Math.max(rank, dh <= REACH.mantleMax ? MANTLE : JUMP);
+    } else if (dh < -tol) {
+      // Off an edge: a gap to jump if there is footing back at this height soon enough, else a drop.
+      let m = k + 1;
+      let landed: number | null = null;
+      for (; m <= n && (m - k) * ds <= REACH.dashJumpGap; m++) {
+        const s2 = surface(m, f + tol);
+        if (s2 !== null && s2 >= f - tol) {
+          landed = s2;
+          break;
+        }
+      }
+      if (landed !== null) {
+        rank = Math.max(rank, (m - k) * ds <= REACH.jumpGap ? JUMP : DASH_JUMP);
+        f = landed;
+        k = m;
+        continue;
+      }
+      rank = Math.max(rank, DROP);
+    }
+    f = s;
+  }
+  return Math.abs(f - to) <= tol ? (RANKED[rank] ?? null) : null;
+}
+
+interface NavInput {
+  readonly index: PrimIndex;
+  readonly prims: readonly BlockoutPrim[];
+  readonly lanes: readonly Lane[];
+  /** Ground points that must be in the graph if standable: anchors and authored waypoints (y is a height hint). */
+  readonly points: readonly Vec3[];
+  readonly climbs: readonly ClimbSpec[];
+  readonly updrafts: readonly Updraft[];
+  /** The graph keeps only what is reachable both ways from here (Dawn's first spawn). */
+  readonly root: Vec3;
+}
+
+/** Candidate ground points: lane samples, building corners and roofs, ramp ends, wide cylinder tops. */
+function candidates(input: NavInput): Vec3[] {
+  const out: Vec3[] = [];
+  for (const lane of input.lanes) {
+    const len = pathLength(lane.path);
+    const n = Math.ceil(len / NAV.laneSpacing);
+    for (let k = 0; k <= n; k++) out.push(pointOnPath(lane.path, (len * k) / n));
+  }
+  for (const p of input.prims) {
+    if (!p.solid) continue;
+    const top = primTop(p);
+    if (p.shape === 'cylinder') {
+      if (p.radius >= NAV.cylinderMinRadius) out.push(v(p.centre.x, top, p.centre.z));
+      continue;
+    }
+    if (p.shape === 'ramp') {
+      const fx = Math.sin(p.yaw) * (p.size.z / 2 + NAV.rampEndOffset);
+      const fz = Math.cos(p.yaw) * (p.size.z / 2 + NAV.rampEndOffset);
+      out.push(v(p.centre.x + fx, top, p.centre.z + fz), v(p.centre.x - fx, primBottom(p), p.centre.z - fz));
+      continue;
+    }
+    if (p.size.y < NAV.buildingMinHeight) continue;
+    if (Math.min(p.size.x, p.size.z) < NAV.wallMaxThickness) {
+      // A wall or hedge: one node past each end (so yard entrances get a node).
+      const along = p.size.x > p.size.z ? v(Math.cos(p.yaw), 0, -Math.sin(p.yaw)) : v(Math.sin(p.yaw), 0, Math.cos(p.yaw));
+      const reach = Math.max(p.size.x, p.size.z) / 2 + NAV.wallEndOffset;
+      for (const k of [-1, 1]) out.push(v(p.centre.x + along.x * reach * k, primBottom(p), p.centre.z + along.z * reach * k));
+      continue;
+    }
+    for (const c of corners(p, NAV.cornerOffset)) out.push(v(c.x, primBottom(p), c.z));
+    if (p.size.x >= NAV.roofMinSide && p.size.z >= NAV.roofMinSide) out.push(v(p.centre.x, top, p.centre.z));
+  }
+  return out;
+}
+
+function nearest(nodes: readonly Vec3[], p: Vec3): number {
+  let best = -1;
+  let bestD = ATTACH_DIST;
+  nodes.forEach((n, i) => {
+    const d = Math.hypot(n.x - p.x, n.y - p.y, n.z - p.z);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+function reachable(count: number, links: NavGraph['links'], start: number, reverse: boolean): boolean[] {
+  const adj: number[][] = Array.from({ length: count }, () => []);
+  for (const l of links) adj[reverse ? l.to : l.from]?.push(reverse ? l.from : l.to);
+  const seen = new Array<boolean>(count).fill(false);
+  const queue = [start];
+  seen[start] = true;
+  for (let i = 0; i < queue.length; i++) {
+    for (const next of adj[queue[i] ?? 0] ?? []) {
+      if (!seen[next]) {
+        seen[next] = true;
+        queue.push(next);
+      }
+    }
+  }
+  return seen;
+}
+
+export function buildNav(input: NavInput): NavGraph {
+  const { index } = input;
+  // Snap every candidate to a standable surface, then merge near-duplicates.
+  const nodes: Vec3[] = [];
+  const climbSpots = input.climbs.flatMap((c) => [buildClimb(c).bottom, climbLanding(c)]);
+  for (const c of [...input.points, ...climbSpots, ...candidates(input)]) {
+    const y = standAt(index, c.x, c.z, c.y + REACH.step, NAV.nodeClearance);
+    if (y === null) continue;
+    const p = v(c.x, y, c.z);
+    if (nodes.some((n) => (n.x - p.x) ** 2 + (n.y - p.y) ** 2 + (n.z - p.z) ** 2 < NAV.mergeDist ** 2)) continue;
+    nodes.push(p);
+  }
+  const ground = nodes.length;
+  const links: { from: number; to: number; kind: NavLinkKind }[] = [];
+  const link = (from: number, to: number, kind: NavLinkKind) => {
+    if (from >= 0 && to >= 0 && from !== to) links.push({ from, to, kind });
+  };
+  const dist = (a: Vec3, b: Vec3) => Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2 + (b.z - a.z) ** 2);
+  const near: number[][] = nodes.map(() => []);
+  const r2 = NAV.linkRadius ** 2;
+  for (let i = 0; i < ground; i++) {
+    for (let j = i + 1; j < ground; j++) {
+      const a = nodes[i];
+      const b = nodes[j];
+      if (a && b && (b.x - a.x) ** 2 + (b.z - a.z) ** 2 <= r2) {
+        near[i]?.push(j);
+        near[j]?.push(i);
+      }
+    }
+  }
+  for (let i = 0; i < ground; i++) {
+    const a = nodes[i];
+    if (!a) continue;
+    for (const j of near[i] ?? []) {
+      const b = nodes[j];
+      if (j <= i || !b) continue;
+      // Skip a link when another node sits on the way: the two shorter links cover it.
+      const d = dist(a, b);
+      const via = (near[i] ?? []).some((k) => {
+        const c = nodes[k];
+        return k !== i && k !== j && c !== undefined && dist(a, c) + dist(c, b) <= d * NAV.detour;
+      });
+      if (via) continue;
+      const profile = groundProfile(index, a, b);
+      const ab = classifyProfile(profile, a.y, b.y);
+      if (ab) link(i, j, ab);
+      const ba = classifyProfile(reversed(profile), b.y, a.y);
+      if (ba) link(j, i, ba);
+    }
+  }
+  for (const c of input.climbs) {
+    const bottom = nearest(nodes, buildClimb(c).bottom);
+    const top = nearest(nodes, climbLanding(c));
+    link(bottom, top, c.kind);
+    if (c.kind === 'vine') link(top, bottom, 'vine');
+  }
+  // Updraft stations are nodes on the line: mount from the ground below, ride between stations, drop off.
+  for (const u of input.updrafts) {
+    let prev = -1;
+    for (const s of u.stations) {
+      const air = nodes.push(v(s.x, s.y, s.z)) - 1;
+      const below = nearest(nodes.slice(0, ground), v(s.x, s.y - UPDRAFT_HEIGHT, s.z));
+      link(below, air, 'updraft');
+      link(air, below, 'drop');
+      if (prev >= 0) {
+        link(prev, air, 'updraft');
+        link(air, prev, 'updraft');
+      }
+      prev = air;
+    }
+  }
+  // Keep the part every flock can reach and come back from.
+  const root = nearest(nodes, input.root);
+  if (root < 0) return { nodes, links };
+  const fwd = reachable(nodes.length, links, root, false);
+  const back = reachable(nodes.length, links, root, true);
+  const keep = nodes.map((_, i) => fwd[i] === true && back[i] === true);
+  const remap: number[] = [];
+  const kept: Vec3[] = [];
+  nodes.forEach((n, i) => {
+    remap[i] = keep[i] ? kept.push(n) - 1 : -1;
+  });
+  return {
+    nodes: kept,
+    links: links
+      .filter((l) => keep[l.from] && keep[l.to])
+      .map((l) => ({ from: remap[l.from] ?? -1, to: remap[l.to] ?? -1, kind: l.kind })),
+  };
+}
+
+// --- Assembly --------------------------------------------------------------------------------------------------
+
+export function buildMap(spec: MapSpec): MapData {
+  const { half, centre } = spec;
+  const prims = [...centre.prims, ...both(half.prims, mirrorPrim)];
+  const index = indexPrims(prims);
+  const lanes: Lane[] = half.lanes.map((l) => ({
+    id: l.id,
+    halfWidth: l.halfWidth,
+    path: [...l.path, ...l.path.slice(0, -1).reverse().map(mirrorV)],
+  }));
+  const team = <T extends Anchor>(dawn: readonly T[]) => [
+    ...dawn.map((a) => ({ ...a, team: 'dawn' as const })),
+    ...dawn.map((a) => ({ ...mirrorAnchor(a), team: 'dusk' as const })),
+  ];
+  const spawns: TeamAnchor[] = team(half.spawns);
+  const shops: ShopAnchor[] = team(half.shops);
+  const structures: StructureAnchor[] = team(half.structures);
+  const updrafts = lanes.map((l) =>
+    buildUpdraft(l, half.lanes.find((h) => h.id === l.id)?.path ?? [], structures.filter((s) => s.team === 'dawn')));
+  const climbSpecs = [...centre.climbs, ...both(half.climbs, mirrorClimb)];
+  const thickets = [...centre.thickets, ...both(half.thickets, mirrorAnchor)];
+  const nests = [...centre.nests, ...both(half.nests, mirrorAnchor)];
+  const botSpots: BotSpot[] = [...centre.botSpots, ...half.botSpots].flatMap((b) => {
+    const dawn: BotSpot = { ...b, team: b.kind === 'safe' ? 'dawn' : 'neutral' };
+    return [dawn, { ...dawn, pos: mirrorV(b.pos), team: b.kind === 'safe' ? 'dusk' : 'neutral' }];
+  });
+  const anchors: Anchor[] = [
+    ...spawns, ...shops, ...structures, ...thickets, ...nests, ...centre.runeSpots, ...centre.eggPerches,
+  ];
+  const root = spawns[0]?.pos ?? v(0, 0, 0);
+  const nav = buildNav({
+    index, prims, lanes, climbs: climbSpecs, updrafts, root,
+    points: [
+      ...[...centre.nav, ...both(half.nav, mirrorV)],
+      ...anchors.map((a) => a.pos),
+      ...botSpots.map((b) => b.pos),
+      ...(centre.hollow ? [centre.hollow.centre] : []),
+    ],
+  });
+  return {
+    id: spec.id,
+    name: spec.name,
+    bounds: spec.bounds,
+    killY: spec.killY,
+    prims,
+    lanes,
+    nav,
+    updrafts,
+    climbs: climbSpecs.map(buildClimb),
+    ledges: deriveLedges(prims, index),
+    spawns,
+    shops,
+    structures,
+    thickets,
+    nests,
+    runeSpots: centre.runeSpots,
+    eggPerches: centre.eggPerches,
+    hollow: centre.hollow,
+    botSpots,
+  };
+}
