@@ -378,4 +378,36 @@ describe('wired into createSim', () => {
     expect(foe.health.hp).toBeLessThan(foe.stats.final.maxHealth);
     expect(HERO_IDS.includes(foe.hero.heroId as HeroId)).toBe(true);
   });
+
+  it('is deterministic: same seed and commands give the same hash while heroes fire, kill and respawn', async () => {
+    const run = async (seed: number) => {
+      const sim = await createSim({
+        seed,
+        map: 'arena',
+        roster: [
+          { team: 'dawn', hero: 'albatross', controller: 'easy' },
+          { team: 'dusk', hero: 'owl', controller: 'easy' },
+        ],
+      });
+      const [me, foe] = sim.ctx.store.list('hero') as HeroEntity[];
+      if (!me || !foe) throw new Error('heroes missing');
+      me.pos.x = foe.pos.x;
+      me.pos.z = foe.pos.z - 6;
+      sim.ctx.stats.set(me.id, 'items:test', { stats: [{ stat: 'weaponDamage', op: 'add', value: 40 }] });
+      const b = HEROES.albatross.def.body;
+      let deaths = 0;
+      for (let t = 0; t < 1200; t++) {
+        const r = aimRay(me.pos, me.yaw, me.pitch, 1, b, false);
+        const yaw = Math.atan2(foe.pos.x - r.origin.x, foe.pos.z - r.origin.z);
+        const pitch = Math.atan2(foe.pos.y + 1 - r.origin.y, Math.hypot(foe.pos.x - r.origin.x, foe.pos.z - r.origin.z));
+        sim.step([{ hero: me.id, command: { ...IDLE_COMMAND, yaw, pitch, held: Button.Fire } }]);
+        deaths += sim.drainEvents().filter((e) => e.type === 'entity.died').length;
+      }
+      return { hash: sim.hash(), deaths };
+    };
+    const a = await run(11);
+    expect(a.deaths).toBeGreaterThan(0);
+    expect((await run(11)).hash).toBe(a.hash);
+    expect((await run(12)).hash).not.toBe(a.hash);
+  });
 });
