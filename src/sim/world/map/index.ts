@@ -1,8 +1,11 @@
-// TODO(Level Designer): the real 'main' map (3 lanes, mirror-symmetric city in a forest, rooftops, Chimneys, Vines,
-// Updrafts, shops, every structure, Thickets, Nests, rune spots, Egg, Roc pit, nav graph). 'main' below is a W1
-// placeholder so createSim and the blockout scene work; 'arena' is the flat test map and should stay simple.
+// Map data for every MapId. 'main' is the PERCH map (GDD §6), authored in data/main.ts and built by build.ts;
+// 'arena' is the flat test map and stays simple.
 import type { MapData, MapId, TeamAnchor } from '../../core/contracts';
 import { TEAM_SIZE } from '../../data/core';
+import { buildMap } from './build';
+import { MAIN_SPEC } from './data/main';
+
+export { mapSvg } from './svg';
 
 const EMPTY_NAV = { nodes: [], links: [] };
 
@@ -45,40 +48,11 @@ export const ARENA: MapData = {
   botSpots: [],
 };
 
-/** W1 placeholder for the real map: ground, three straight lanes and two base pads. */
-const MAIN_PLACEHOLDER: MapData = {
-  id: 'main',
-  name: 'Perch (placeholder)',
-  bounds: { min: { x: -130, y: -20, z: -150 }, max: { x: 130, y: 80, z: 150 } },
-  killY: -20,
-  prims: [
-    { shape: 'box', centre: { x: 0, y: -0.5, z: 0 }, size: { x: 260, y: 1, z: 300 }, yaw: 0, material: 'grass', solid: true },
-    { shape: 'box', centre: { x: -70, y: 0.05, z: 0 }, size: { x: 10, y: 0.1, z: 220 }, yaw: 0, material: 'road', solid: true },
-    { shape: 'box', centre: { x: 0, y: 0.05, z: 0 }, size: { x: 10, y: 0.1, z: 220 }, yaw: 0, material: 'road', solid: true },
-    { shape: 'box', centre: { x: 70, y: 0.05, z: 0 }, size: { x: 10, y: 0.1, z: 220 }, yaw: 0, material: 'road', solid: true },
-    { shape: 'cylinder', centre: { x: 0, y: 0.25, z: -146 }, radius: 10, height: 0.5, material: 'dawn', solid: true },
-    { shape: 'cylinder', centre: { x: 0, y: 0.25, z: 146 }, radius: 10, height: 0.5, material: 'dusk', solid: true },
-  ],
-  lanes: [
-    { id: 'hedgerow', path: [{ x: -70, y: 0, z: -110 }, { x: -70, y: 0, z: 110 }], halfWidth: 4 },
-    { id: 'riverbank', path: [{ x: 0, y: 0, z: -110 }, { x: 0, y: 0, z: 110 }], halfWidth: 4 },
-    { id: 'pinewood', path: [{ x: 70, y: 0, z: -110 }, { x: 70, y: 0, z: 110 }], halfWidth: 4 },
-  ],
-  nav: EMPTY_NAV,
-  updrafts: [],
-  climbs: [],
-  ledges: [],
-  spawns: spawnRows({ z: 146, y: 0.5, spacing: 3 }),
-  shops: [],
-  structures: [],
-  thickets: [],
-  nests: [],
-  runeSpots: [],
-  eggPerches: [],
-  hollow: null,
-  botSpots: [],
-};
+// ponytail: one memoised immutable build per process (~tens of ms); every sim shares it read-only.
+let main: MapData | undefined;
 
 export function loadMap(id: MapId): MapData {
-  return id === 'arena' ? ARENA : MAIN_PLACEHOLDER;
+  if (id === 'arena') return ARENA;
+  main ??= buildMap(MAIN_SPEC);
+  return main;
 }
