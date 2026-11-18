@@ -6,6 +6,7 @@
  */
 import { IDLE_COMMAND } from '../core/contracts';
 import type {
+  AbilityDef,
   Effect,
   EffectCause,
   EffectKind,
@@ -62,6 +63,37 @@ export interface Harness {
   step(n?: number, cmd?: readonly (readonly [HeroEntity, Partial<PlayerCommand>])[]): void;
   /** Applied effects of one kind. */
   of<K extends EffectKind>(kind: K): Applied<K>[];
+}
+
+const SLOTS = [0, 1, 2, 3] as const;
+const TIERS = [{ description: 'T1' }, { description: 'T2' }, { description: 'T3' }] as const;
+/** A one-second self buff: the default effect of test abilities. */
+export const BUFF: Effect = { kind: 'statMod', id: 'buff', name: 'Buff', stats: [], durationS: 1 };
+
+/** A test ability: a self cast of BUFF on a 10 s cooldown, with `dmg` = 10, overridden by `over`. */
+export function ability(over: Partial<AbilityDef> = {}): AbilityDef {
+  return {
+    id: 'test',
+    name: 'Test',
+    description: '',
+    targeting: 'self',
+    range: 0,
+    cooldownS: 10,
+    charges: 1,
+    castS: 0,
+    channelS: 0,
+    values: { dmg: 10 },
+    effects: [BUFF],
+    upgrades: [...TIERS],
+    hook: false,
+    ...over,
+  };
+}
+
+/** Shrike's placeholder hero with these abilities in slots 1–4 (missing ones are plain test abilities). */
+export function kit(abilities: readonly AbilityDef[], hooks?: HeroModule['hooks']): HeroModule {
+  const a = SLOTS.map((i) => abilities[i] ?? ability({ id: `t${i}` }));
+  return { def: { ...HEROES.shrike.def, abilities: a }, hooks };
 }
 
 export interface HarnessOptions {
@@ -181,7 +213,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
           stamina: s.final.stamina,
         },
         weapon: { ammo: s.final.magazine, reloading: false, firing: false },
-        abilities: { slots: [slot(0), slot(1), slot(2), slot(3)], ap: 0, casting: null, channelling: false },
+        abilities: { slots: SLOTS.map(slot), ap: 0, casting: null, channelling: false },
         progress: { level: 1, molts: 0, seeds: 0, netWorth: 0 },
         inventory: { items: [], actives: [null, null, null, null] },
       });

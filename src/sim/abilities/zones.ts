@@ -14,7 +14,7 @@
  * - Effects from areas carry the cause with via 'area' and origin at the area centre (structures ignore them).
  * Durations of areas, summons and tethers from abilities scale with the source's `abilityDuration`.
  */
-import { AREA_TICK_S, GROUND_PROBE_UP, SUMMON } from '../data/abilities';
+import { AREA_TICK_S, CROSS_MARGIN, GROUND_PROBE_UP, SUMMON } from '../data/abilities';
 import { TICK_SECONDS } from '../data/core';
 import { LAYERS_SOLID } from '../core/contracts';
 import type {
@@ -251,7 +251,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       a.lastFired.set(id, tick);
       return true;
     };
-    for (const id of spatial.query(pos, a.bound, a.ids)) {
+    for (const id of spatial.query(pos, e.onCross ? a.bound + CROSS_MARGIN : a.bound, a.ids)) {
       const t = store.get(id);
       if (!t || !matches(e.affects, a.cause.team, a.cause.source, t)) continue;
       if (e.onCross) {

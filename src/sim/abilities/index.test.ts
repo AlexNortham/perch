@@ -1,42 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { Button, IDLE_COMMAND } from '../core/contracts';
-import type { AbilityDef, Effect, HeroModule, SimEvent } from '../core/contracts';
-import { HEROES } from '../heroes/registry';
+import type { AbilityDef, Effect, SimEvent } from '../core/contracts';
 import { createSim, humanRoster } from '../index';
-import { createHarness } from './testkit';
+import { BUFF as buff, ability, createHarness, kit } from './testkit';
 import type { Harness } from './testkit';
 
-const TIERS = [{ description: 'T1' }, { description: 'T2' }, { description: 'T3' }] as const;
-const buff: Effect = { kind: 'statMod', id: 'buff', name: 'Buff', stats: [], durationS: 1 };
 const hit: Effect = { kind: 'damage', amount: 'dmg', type: 'song' };
 
-function ability(over: Partial<AbilityDef> = {}): AbilityDef {
-  return {
-    id: 'test',
-    name: 'Test',
-    description: '',
-    targeting: 'self',
-    range: 0,
-    cooldownS: 10,
-    charges: 1,
-    castS: 0,
-    channelS: 0,
-    values: { dmg: 10 },
-    effects: [buff],
-    upgrades: [...TIERS],
-    hook: false,
-    ...over,
-  };
-}
-
-/** Shrike's placeholder hero with these abilities in slots 1–4 (the rest plain self-buffs). */
-function kit(...abilities: AbilityDef[]): HeroModule {
-  const a = [0, 1, 2, 3].map((i) => abilities[i] ?? ability({ id: `t${i}` }));
-  return { def: { ...HEROES.shrike.def, abilities: a as [AbilityDef, AbilityDef, AbilityDef, AbilityDef] } };
-}
-
 function setup(a: AbilityDef, unlock = true) {
-  const t = createHarness({ heroes: { shrike: kit(a) }, unlockAbilities: unlock });
+  const t = createHarness({ heroes: { shrike: kit([a]) }, unlockAbilities: unlock });
   const me = t.hero('shrike', 'dawn', { x: 0, y: 0, z: 0 });
   return { t, me, slot: me.abilities.slots[0] };
 }
@@ -208,7 +180,7 @@ describe('cast time and channels', () => {
 
   it('root and grounded block abilities that move the caster, not others', () => {
     const dash: Effect = { kind: 'dash', distance: 8, durationS: 0.2, dir: 'aim' };
-    const t = createHarness({ heroes: { shrike: kit(ability({ id: 'hop', effects: [dash] })) }, unlockAbilities: true });
+    const t = createHarness({ heroes: { shrike: kit([ability({ id: 'hop', effects: [dash] })]) }, unlockAbilities: true });
     const me = t.hero('shrike', 'dawn', { x: 0, y: 0, z: 0 });
     t.ctx.stats.set(me.id, 'test', { conditions: ['grounded'] });
     t.step(1, [[me, press(Button.Ability1 | Button.Ability2)]]);

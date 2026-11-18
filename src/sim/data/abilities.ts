@@ -30,6 +30,9 @@ export const GROUND_PROBE_UP = 2;
  */
 export const AREA_TICK_S = 0.5;
 
+/** Areas with onCross watch this much beyond their edge, so a fast mover (a dash) can't skip the line. */
+export const CROSS_MARGIN = 1;
+
 /** Cones have no height in data: they reach this far above and below their apex. */
 export const CONE_HALF_HEIGHT = 3;
 
