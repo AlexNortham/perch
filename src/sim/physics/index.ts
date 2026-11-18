@@ -1,24 +1,28 @@
-// TODO(Character Controller): Rapier world from ctx.map (await RAPIER.init() here; that is why createSim is async),
-// hero character controllers (walk, sprint, jump, dash, dash-jump, slide, mantle, stamina, Updrafts, Chimneys, Vines,
-// knockback) in the movement phase, colliders on entity.spawned, and the displace, dash, teleport, movementMode and
-// attach effects (ctx.effects.handle(kind, 'physics', handler)). Until then: no collisions, every query misses.
+/**
+ * sim/physics: the Rapier world, the PhysicsService, the hero character controller (movement phase) and the
+ * physics-owned effects (displace, dash, teleport, movementMode, attach). See rapier.ts for the collider layout.
+ */
 import type { CoreContext, Physics } from '../core/contracts';
+import { createSpace } from './rapier';
 
 export async function createPhysics(ctx: CoreContext): Promise<Physics> {
+  const space = await createSpace(ctx);
+
+  ctx.bus.on('entity.spawned', (e) => {
+    if (e.kind === 'hero') {
+      const h = ctx.store.getKind(e.id, 'hero');
+      if (!h) return;
+      const body = ctx.heroes[h.hero.heroId].def.body;
+      space.addHero(h.id, body.radius, body.head.centre.up - body.head.radius);
+    } else if (e.kind === 'structure') {
+      const s = ctx.store.getKind(e.id, 'structure');
+      if (s) space.addStructure(s.id, s.pos, s.structure.body.radius, s.structure.body.height);
+    }
+  });
+  ctx.bus.on('entity.despawned', (e) => space.remove(e.id));
+
   return {
-    service: {
-      raycast: () => null,
-      shapeCast: () => null,
-      overlap: (_shape, _centre, _mask, out) => {
-        out.length = 0;
-        return out;
-      },
-      moveCharacter: (id, delta) => {
-        const p = ctx.store.get(id)?.pos ?? { x: 0, y: 0, z: 0 };
-        return { pos: { x: p.x + delta.x, y: p.y + delta.y, z: p.z + delta.z }, grounded: true, wall: null };
-      },
-      groundHeight: () => null,
-    },
+    service: space.service,
     system: { name: 'physics', phases: {} },
   };
 }
