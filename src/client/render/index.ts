@@ -1,12 +1,6 @@
 /**
- * The renderer (client contract `Renderer`): a lit, fogged, shadowed Three.js scene with the map blockout and one
- * model per entity from the ModelKit. Owner: Rendering & VFX.
- *
- * Entity models: the renderer keeps one model per live entity id. A new entity takes a spare model of the same
- * kind, type and team if there is one, otherwise `models.create(entity)`; either way the model is added to the
- * scene (Three's 'added' event fires). Every frame the renderer sets the model's position and yaw from
- * `interpolate(frame, entity)`, then calls `models.pose(model, entity, frame)` to animate it. When the entity
- * despawns the model is removed from the scene ('removed' fires) and kept as a spare.
+ * The renderer (client contract `Renderer`): a lit, fogged, shadowed Three.js scene with the map blockout
+ * (blockout.ts) and one model per entity from the ModelKit (entities.ts). Owner: Rendering & VFX.
  */
 import {
   CanvasTexture,
@@ -25,12 +19,11 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import type { Object3D } from 'three';
-import type { EntityId, MapData } from '../../sim/core/contracts';
+import type { MapData } from '../../sim/core/contracts';
 import type { CameraPose, Quality, Renderer } from '../app/contracts';
-import { interpolate } from '../app/loop';
 import { buildBlockout } from './blockout';
 import type { Blockout } from './blockout';
+import { createEntityLayer } from './entities';
 import {
   FAR_MAX,
   FAR_MIN,
@@ -62,8 +55,8 @@ export { DAWN_COLOURS, DUSK_COLOURS, TEAM_COLOURS } from './palette';
 
 declare global {
   interface Window {
-    /** Dev builds only: the last frame's draw calls and triangles (Three's renderer.info), for measurement. */
-    __perchRenderInfo?: () => { calls: number; triangles: number };
+    /** Dev builds only, for measurement: the last frame's draw calls and triangles, and a live quality switch. */
+    __perchRender?: { info(): { calls: number; triangles: number }; setQuality(q: Quality): void };
   }
 }
 
@@ -145,7 +138,6 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   };
   let gl = makeGl();
   container.appendChild(gl.domElement);
-  if (import.meta.env.DEV) window.__perchRenderInfo = () => ({ calls: gl.info.render.calls, triangles: gl.info.render.triangles });
 
   // Dev builds only, for framing renderer screenshots: ?renderFixture swaps the main map for the renderer's own test
   // map (fixture.ts); ?renderCam=x,y,z,tx,ty,tz fixes the camera position and target.
@@ -172,10 +164,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   setMap(map);
 
   const camera = new PerspectiveCamera(1, size.width / size.height, NEAR, FAR_MIN);
-  const models = createModelKit();
-  const live = new Map<EntityId, { model: Object3D; key: string }>();
-  const spare = new Map<string, Object3D[]>();
-  const seen = new Set<EntityId>();
+  const entities = createEntityLayer(scene, createModelKit());
 
   let shadowHalf = 0;
   const target = new Vector3();
@@ -202,38 +191,13 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     sun.position.copy(centre).addScaledVector(toSun, SHADOW_DISTANCE);
   };
 
-  return {
+  const renderer: Renderer = {
     get canvas() {
       return gl.domElement;
     },
     render(frame, cameraPose) {
       const pose = devPose ? { ...cameraPose, ...devPose } : cameraPose;
-      seen.clear();
-      let structures = false;
-      for (const e of frame.curr.entities) {
-        seen.add(e.id);
-        if (e.kind === 'structure') structures = true;
-        let slot = live.get(e.id);
-        if (!slot) {
-          const key = `${e.kind}:${e.type}:${e.team}`;
-          const model = spare.get(key)?.pop() ?? models.create(e);
-          slot = { model, key };
-          live.set(e.id, slot);
-          scene.add(model);
-        }
-        const p = interpolate(frame, e);
-        slot.model.position.set(p.pos.x, p.pos.y, p.pos.z);
-        slot.model.rotation.y = p.yaw;
-        models.pose(slot.model, e, frame);
-      }
-      for (const [id, slot] of live) {
-        if (seen.has(id)) continue;
-        scene.remove(slot.model);
-        live.delete(id);
-        const list = spare.get(slot.key);
-        if (list) list.push(slot.model);
-        else spare.set(slot.key, [slot.model]);
-      }
+      const structures = entities.sync(frame);
       if (blockout) blockout.markers.visible = !structures;
 
       // Haze thins with height: the player camera gets the full density, the overview cameras see the whole map.
@@ -275,4 +239,8 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       gl.dispose();
     },
   };
+  if (import.meta.env.DEV) {
+    window.__perchRender = { info: () => ({ calls: gl.info.render.calls, triangles: gl.info.render.triangles }), setQuality: renderer.setQuality };
+  }
+  return renderer;
 }
