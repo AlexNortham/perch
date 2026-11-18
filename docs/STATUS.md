@@ -39,6 +39,10 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
    DECISIONS.md.
 10. **Local only.** Never add a git remote, push, publish or upload anything. Branches and merges stay on this
     machine (D-EP-014). Installing packages from the npm registry is fine.
+11. **Launchable at every gate.** A milestone closes only when `npm start` opens the menu and that stage's new
+    features are reachable from it (before the menus are finished, from a listed `?scene=` URL), and the EP has added
+    the stage's section to [PLAYABLE.md](../PLAYABLE.md): how to launch, what you can do, what isn't in yet
+    (D-EP-017).
 
 ## Ownership map
 
@@ -92,6 +96,7 @@ Gate M0:
 - [ ] `npm start` opens a lit 3D blockout of the map
 - [ ] Headless sim runs (`npm run sim -- --seed 1 --minutes 3 --bots 12`)
 - [ ] `npm run check` passes
+- [ ] Launchable: `npm start` shows the lit map behind the menu; PLAYABLE.md "Stage 1 (M0)" written
 
 ### M1 — One bird in a lane
 
@@ -109,6 +114,8 @@ Gate M1:
 - [ ] Uses 4 abilities
 - [ ] Fledglings march and fight
 - [ ] Pods can be secured and denied
+- [ ] Launchable: from the menu you can drop into a lane as a hero and do all of the above; PLAYABLE.md "Stage 2 (M1)"
+  written
 
 ### M2 — The loop
 
@@ -122,6 +129,8 @@ Gate M2:
 - [ ] Seeds, levels, AP and the shop work
 - [ ] All structures and the 2-phase Patron work, so a match can be won by hand
 - [ ] HUD, minimap and audio done
+- [ ] Launchable: a full match against the structures can be started from the menu; PLAYABLE.md "Stage 3 (M2)"
+  written
 
 ### M3 — Full 6v6
 
@@ -136,6 +145,7 @@ Gate M3:
 - [ ] All 24 heroes and 48+ items
 - [ ] Golden Egg, Roc/Ember, Thickets and runes work
 - [ ] 11 bots finish 20 seeded headless matches with zero crashes
+- [ ] Launchable: a 1 + 11 bots match with any of the 24 heroes starts from the menu; PLAYABLE.md "Stage 4 (M3)" written
 
 ### M4 — Balance and polish
 
@@ -149,6 +159,7 @@ Gate M4:
 - [ ] 60 FPS budget met with 12 heroes, ~150 fledglings and all structures
 - [ ] Menus, settings and end screen done
 - [ ] Juice: hitstop, shake, hit markers, kill confirms
+- [ ] Launchable: the polished game from the menu; PLAYABLE.md "Stage 5 (M4)" written
 
 ### M5 — Release candidate
 
@@ -160,6 +171,7 @@ Gate M5:
 - [ ] `dist/perch.html` runs offline from file:// in Chrome, Edge and Firefox
 - [ ] README: install paragraph, controls, hero and item guide
 - [ ] Zero failing tests; QA/Review signs off
+- [ ] PLAYABLE.md "Stage 6 (M5)" written, including how to run `dist/perch.html`
 
 ## Open requests (EP-maintained)
 

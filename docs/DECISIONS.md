@@ -287,3 +287,10 @@ the Technical Artist's models.
 agent commits after each working piece. The first wave 2 attempt is discarded.
 **Why:** all six wave 2 agents stalled at the same moment before committing anything, and their worktrees were cleaned
 up, so the work was lost. Briefs on main make a retry a one-line spawn; frequent commits make an interruption cheap.
+
+### D-EP-017 · 18/11/2026 — Every stage ends launchable, with PLAYABLE.md
+**Decision:** a milestone gate closes only when `npm start` opens the menu and the stage's new features are reachable
+from it (before the menus are finished, from a listed `?scene=` URL), and the EP has added the stage's section to
+`PLAYABLE.md` at the repo root: how to launch, what you can do, what isn't in yet. The EP writes each section after
+launching that build and checking it.
+**Why:** the user's instruction: progress must be visible after every stage, with a written guide to what works.
