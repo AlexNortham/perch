@@ -266,3 +266,32 @@ state in your factory closure and fold it into `System.hash`; draw randomness on
 Combat: shared statuses go in `src/sim/data/combat.ts`; report pod hits through `projectile.impact` and `melee`. QA:
 the ability sandbox is `createSim({ map: 'arena', options: { unlockAbilities: true } })` plus commands; tests may use
 `sim.ctx`, the client may not. Contract changes are interface requests and land between waves.
+
+### W2 · Level Designer · 18/11/2026
+**Done:** the real 'main' map ("Old Mossmarket") in `src/sim/world/map/`: `data/main.ts` authors the Dawn half and the
+z = 0 strip (every GDD §6.3 coordinate as written), `data/kit.ts` builders, `data/traversal.ts` GDD §3 reach,
+`build.ts` (mirror, climbs, Updrafts, derived ledges, generated nav graph), `geometry.ts` (prim queries), `svg.ts`
+(`mapSvg`, a top-down SVG, re-exported from `world/map` for the minimap). Three lanes with terraces and 4 m
+balconies (Hedgerow), river, market square and mills (Riverbank), stilt platforms at 6 and 10 m with a rope walkway
+(Pinewood); 12 Chimneys, 22 Vines (+2 on z = 0), 230 ledges, 16 Thicket yards, 32 Nests, both Egg plazas with ramps
+for the Egg carrier, rune footbridges, the Hollow (octagon, two ramps, bridge piers), spawns, shops, every structure,
+38 bot spots. 590 prims. Nav: 891 nodes, 3,662 links (walk, drop, mantle, jump, dashJump, chimney, vine, updraft).
+Decisions D-LEVEL-001…004. 'arena' unchanged.
+**Verified:** `npm run check` → PASS typecheck, lint, test (12 files, 72 tests), sim, e2e (43 s). 36 map tests in
+`main.test.ts`: prim budget, load time, z-mirror of prims, anchors, lanes, Updrafts, climbs, ledges and the whole nav
+graph; x-mirror of structures, camps and side stalls; every §6.3 anchor for both flocks; lanes on walkable ground
+gate to gate (centre and ±1 m); Updrafts clear 3 m under / 1 m over; structure footprints clear; ledges in mantle
+reach; ramps ≤ 45°; climbs 8–14 m / 5–12 m; cover within 12.5 m everywhere but the market squares and the Hollow;
+nav reachable both ways from both spawns, a node at every named point, a walk-only route between the Egg Perches.
+`loadMap('main')` in a fresh Node process: 30 ms; first `map.nav` access +77 ms; warm map + nav 36 ms (shared,
+loaded machine). SVGs rendered to PNG with headless Edge (`out/map/full.png`, `out/map/base.png`) and looked at.
+`npm run shots -- --scene blockout` still shows only the W1 stub's ground plane (Rendering replaces it this wave).
+**Blocked:** nothing.
+**Interface requests:** none to the contracts. Notes for owners — Character Controller: Updraft stations sit on the
+line 12 m up, so measure "E within 2 m of a station" horizontally; Chimneys and Vines follow D-LEVEL-004.
+Objectives (W3): every Hawk, Heron and Warden stands on the lane path (the outer side-lane Wardens 0.25 m from it),
+so fledglings must steer round them. Technical Artist and Game Director: Herons (12 m) and Hawks (10 m column plus
+statue) stand directly under the 12 m Updraft line; keep what's on the lane centre below ~9 m or move the line.
+`MapData.nav` is a getter: the first read builds it (~40–75 ms).
+**Next:** after the W2 merge, read the GDD §3 numbers from `src/sim/data/movement.ts` instead of
+`data/traversal.ts`; W6 verticality pass (distinct east and west jungles, more rooftop routes) and bot-path tuning.

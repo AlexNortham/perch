@@ -294,3 +294,35 @@ from it (before the menus are finished, from a listed `?scene=` URL), and the EP
 `PLAYABLE.md` at the repo root: how to launch, what you can do, what isn't in yet. The EP writes each section after
 launching that build and checking it.
 **Why:** the user's instruction: progress must be visible after every stage, with a written guide to what works.
+
+### D-LEVEL-001 · 18/11/2026 — The map is authored as half a map and built in code
+**Decision:** `src/sim/world/map/data/main.ts` authors the Dawn half and the z = 0 strip; `build.ts` mirrors the half
+(z → −z, yaw → π − yaw), builds climbs and Updrafts, derives mantle ledges from box edges (top free, 0.6–2.4 m above
+the ground in front) and builds the nav graph. The east jungle reuses the west jungle's block plan mirrored in x and
+rebuilt in timber; the three lanes are dressed separately. Anchors on z = 0 face ±x so they are their own mirror.
+**Why:** symmetry and the GDD §3 reach limits hold by construction instead of by hand-checking ~600 prims, and the
+tests still check the result independently. The x-mirrored jungle keeps both side jungles equally fair in W2; the
+W6 verticality pass can make them differ.
+
+### D-LEVEL-002 · 18/11/2026 — The nav graph is generated from the geometry, on first access
+**Decision:** nodes come from lane samples, building corners and roofs, wall ends, ramp ends and middles, wide
+cylinder tops, climb ends, Updraft stations and every anchor (Dawn half, merged within 2.5 m, then mirrored). Links
+are tried between nodes up to 14 m apart (skipping pairs with a node on the way) and classified from the ground
+profile between them: walk, drop, mantle (0.6–2.4 m), jump (jump-mantle up to 3.6 m, or a gap up to 3.5 m) or
+dashJump (a gap up to 7 m); climbs and Updrafts add chimney, vine and updraft links. Only what is reachable both ways
+from a spawn is kept. `MapData.nav` is a getter that builds the graph once, on first access.
+**Why:** a hand-authored graph of ~900 nodes would go stale with every geometry edit; a generated one stays
+consistent and the tests check it. It costs ~40–75 ms and only bots read it, so `loadMap` stays ~30 ms.
+
+### D-LEVEL-003 · 18/11/2026 — Updraft stations on the line; tower stations set back 6 m
+**Decision:** stations are points on the Updraft line, 12 m above the lane path (GDD §6.3): both gates, the middle,
+and for each Heron and Hawk a point 6 m along the lane from it toward its own gate.
+**Why:** Herons and Hawks stand on the lane path, so a station directly above one would sit inside its model and
+out of reach from the ground beside it; 6 m back puts it on the owning flock's side.
+
+### D-LEVEL-004 · 18/11/2026 — Climb geometry convention
+**Decision:** a chimney is a 1.5 m-radius shaft centred 1.6 m out from its building's wall, from the ground to 1 m
+above the roof, with no prim. A vine's `bottom` and `top` are 0.5 m out from the wall, at the ground and at the roof
+edge; `out` points away from the wall. The roof is on the far side of the wall in both cases.
+**Why:** the shaft must stay clear for the rider, and the extra metre lets the exit pop (+6 m/s) carry the rider over
+the roof edge.
