@@ -58,6 +58,21 @@ export function matches(f: TargetFilter, team: Team, source: EntityId | null, e:
   return f.teams === 'all' || (f.teams === 'enemies') === (e.team !== team);
 }
 
+/**
+ * Ids of entities whose sphere reaches within `radius` of `centre` that could pass `f`, ascending, into `out`.
+ * Hero-only filters scan the heroes directly: the spatial hash also holds every area and summon, which crowd a
+ * busy fight.
+ */
+export function near(ctx: SimContext, f: TargetFilter, centre: Vec3, radius: number, out: EntityId[]): EntityId[] {
+  if (!(f.heroesOnly || (f.kinds?.length === 1 && f.kinds[0] === 'hero'))) return ctx.spatial.query(centre, radius, out);
+  out.length = 0;
+  for (const h of ctx.store.list('hero')) {
+    const reach = radius + h.radius;
+    if (distSq(h.pos, centre) <= reach * reach) out.push(h.id);
+  }
+  return out;
+}
+
 /** Height above the feet of an entity's body centre (aim and line-of-sight checks). */
 export function centreHeight(ctx: SimContext, e: Entity): number {
   switch (e.kind) {
@@ -99,6 +114,8 @@ interface AreaState {
   readonly interval: Tick;
   readonly kindKey: number;
   readonly carry: DisplaceEffect | null;
+  /** Has enter, exit, cross or carry behaviour, so membership is checked every tick. */
+  readonly watch: boolean;
   nextTick: Tick;
   /** Entity → last tick it was inside. */
   readonly lastIn: Map<EntityId, Tick>;
@@ -141,7 +158,7 @@ export interface Zones {
 
 /** Registers `area`, `summon` and `tether`. `hooksOf` finds the hero module hooks behind a cause's source. */
 export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) => HeroHooks | undefined): Zones {
-  const { store, stats, effects, spatial, clock } = ctx;
+  const { store, stats, effects, clock } = ctx;
   const areas: AreaState[] = [];
   const summons: SummonState[] = [];
   const tethers: TetherState[] = [];
@@ -176,8 +193,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
     if (duration <= 0) {
       // A burst: collect first, since applying can re-enter this handler.
       const burstCause: EffectCause = { ...cause, via: 'area', origin: centre };
-      const hit = spatial
-        .query(centre, bound, scratch)
+      const hit = near(ctx, effect.affects, centre, bound, scratch)
         .map((id) => store.get(id))
         .filter((e): e is Entity => !!e && matches(effect.affects, cause.team, cause.source, e))
         .filter((e) => inside(shape, centre, dir.x, dir.z, e.pos, e.radius));
@@ -199,7 +215,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
     areas.push({
       id: ent.id,
       effect,
-      cause: { ...cause, via: 'area', origin: centre },
+      cause: { ...cause, via: 'area', origin: copy(centre) },
       shape,
       bound,
       dir,
@@ -208,6 +224,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       interval,
       kindKey,
       carry: effect.move?.carry ? { kind: 'displace', mode: 'along', distance: effect.move.speed * TICK_SECONDS } : null,
+      watch: !!(effect.onEnter?.length || effect.onExit?.length || effect.onCross?.length || effect.move?.carry),
       nextTick: clock.tick + interval,
       lastIn: new Map(),
       lastFired: new Map(),
@@ -245,13 +262,18 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
     const cause = a.follow === null && !e.move ? a.cause : { ...a.cause, origin: copy(pos) };
     const due = tick >= a.nextTick;
     if (due) a.nextTick += a.interval;
+    // An area with only tick effects needs to know what is inside only when it ticks.
+    if (!a.watch && !due) {
+      if (tick >= a.expiresAt) end(a);
+      return;
+    }
     const ready = (id: EntityId): boolean => {
       const last = a.lastFired.get(id);
       if (last !== undefined && tick - last < a.interval) return false;
       a.lastFired.set(id, tick);
       return true;
     };
-    for (const id of spatial.query(pos, e.onCross ? a.bound + CROSS_MARGIN : a.bound, a.ids)) {
+    for (const id of near(ctx, e.affects, pos, e.onCross ? a.bound + CROSS_MARGIN : a.bound, a.ids)) {
       const t = store.get(id);
       if (!t || !matches(e.affects, a.cause.team, a.cause.source, t)) continue;
       if (e.onCross) {
@@ -363,7 +385,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
     const eye = { x: u.pos.x, y: u.pos.y + centreHeight(ctx, u), z: u.pos.z };
     let best: Entity | null = null;
     let bestD = Infinity;
-    for (const id of spatial.query(u.pos, range, scratch)) {
+    for (const id of near(ctx, f, u.pos, range, scratch)) {
       const t = store.get(id);
       if (!t || id === u.id || !matches(f, s.cause.team, s.cause.source, t)) continue;
       if (t.team !== s.cause.team && s.cause.team !== 'neutral' && !canSee(s.cause.team, t)) continue;
@@ -409,7 +431,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
         const f = e.trigger?.affects ?? ENEMY_HEROES;
         const radius = e.trigger?.radius ?? SUMMON.trapRadius;
         let hit: Entity | undefined;
-        for (const id of spatial.query(u.pos, radius, scratch)) {
+        for (const id of near(ctx, f, u.pos, radius, scratch)) {
           const t = store.get(id);
           if (t && t.id !== u.id && matches(f, s.cause.team, s.cause.source, t)) {
             hit = t;

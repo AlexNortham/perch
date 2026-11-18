@@ -42,7 +42,7 @@ import { canSee } from '../core/vision';
 import { addScaled, clamp, copy, dot, normalize, sub, ticks } from '../core/math';
 import { resolveAbility } from './kit';
 import type { ResolvedAbility } from './kit';
-import { centreHeight, clearLine, createZones, matches } from './zones';
+import { centreHeight, clearLine, createZones, matches, near } from './zones';
 
 export { onCaster, resolveAbility, validateKit } from './kit';
 export type { ResolvedAbility } from './kit';
@@ -86,7 +86,7 @@ interface Delay {
 }
 
 export const createAbilitySystem: SystemFactory = (ctx) => {
-  const { store, bus, stats, effects, clock, physics, spatial } = ctx;
+  const { store, bus, stats, effects, clock, physics } = ctx;
   const unlockAll = ctx.config.options.unlockAbilities;
   const hooks = new Map<HeroId, HeroHooks>();
   for (const r of ctx.config.roster) {
@@ -223,7 +223,7 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
     const f = r.def.affects ?? ENEMIES;
     let best: Entity | null = null;
     let bestCos = COS_UNIT_CONE;
-    for (const id of spatial.query(h.pos, rangeOf(hs, r), scratch)) {
+    for (const id of near(ctx, f, h.pos, rangeOf(hs, r), scratch)) {
       const e = store.get(id);
       if (!e || id === h.id || !matches(f, h.team, h.id, e) || stats.has(id, 'intangible')) continue;
       if (e.team !== h.team && !canSee(h.team, e)) continue;

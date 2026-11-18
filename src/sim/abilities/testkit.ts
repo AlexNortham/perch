@@ -103,6 +103,8 @@ export interface HarnessOptions {
   /** Heroes whose hooks get created; default: every overridden hero, on Dawn. */
   readonly roster?: readonly RosterSlot[];
   readonly unlockAbilities?: boolean;
+  /** Runs the abilities phase each tick (timing). */
+  readonly wrapPhase?: (phase: () => void) => void;
 }
 
 export function createHarness(opts: HarnessOptions = {}): Harness {
@@ -235,7 +237,9 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
           }
         }
         spatial.rebuild(store.all());
-        system.phases.abilities?.();
+        const phase = system.phases.abilities ?? (() => undefined);
+        if (opts.wrapPhase) opts.wrapPhase(phase);
+        else phase();
         store.flush();
         events.push(...bus.drain());
       }
