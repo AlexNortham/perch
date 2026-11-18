@@ -7,8 +7,9 @@
  * - direction: entity = caster, point = aim point, dir = muzzle → aim point.
  * - point:     entity = caster, point = aim point clamped to range and dropped to the ground, dir = flat look.
  * - unit:      entity = the chosen hero or unit, point = its feet, dir = muzzle → its body centre.
- * So self-buffs work in every cast, and anything meant for others goes through a projectile, area, dash onHit,
- * tether or summon. The cause's origin is the muzzle point.
+ * So self-buffs work in self, direction and point casts, and anything meant for others goes through a projectile,
+ * area, dash onHit, tether or summon. A 'unit' cast reaches its caster through `onCaster(effects)`. The cause's
+ * origin is the muzzle point. `cooldownMod` always changes the cause's source's cooldowns.
  *
  * A cast: press → checks (unlocked, a charge, not stunned, silenced, egg-carrying or casting; rooted or grounded
  * block casts that move the caster) → `ability` start → castS wind-up (stun or silence interrupts it and nothing is
@@ -43,7 +44,7 @@ import { resolveAbility } from './kit';
 import type { ResolvedAbility } from './kit';
 import { centreHeight, clearLine, createZones, matches } from './zones';
 
-export { resolveAbility, validateKit } from './kit';
+export { onCaster, resolveAbility, validateKit } from './kit';
 export type { ResolvedAbility } from './kit';
 
 const SLOTS = 4;
@@ -400,8 +401,9 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
     else delays.push({ at: clock.tick + n, effects: e.effects, target: t, cause });
   });
 
-  effects.handle('cooldownMod', 'abilities', (e, target, cause) => {
-    const hero = target.entity === null ? undefined : store.getKind(target.entity, 'hero');
+  // Always the cause's source: refunds sit in dash onHit lists and kill triggers, where the target is the enemy.
+  effects.handle('cooldownMod', 'abilities', (e, _target, cause) => {
+    const hero = cause.source === null ? undefined : store.getKind(cause.source, 'hero');
     const hs = hero && byId.get(hero.id);
     if (!hero || !hs) return;
     const by = e.mode === 'refund' ? ticks(effects.magnitude(e.seconds ?? 0, cause)) : 0;

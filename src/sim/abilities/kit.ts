@@ -3,7 +3,7 @@
  * and the kit validator Hero Engineers run on their data (`validateKit`, tested over all 24 heroes in kit.test.ts).
  */
 import { EFFECT_OWNERS } from '../core/contracts';
-import type { AbilityDef, Effect, EffectKind, HeroModule, Magnitude } from '../core/contracts';
+import type { AbilityDef, AreaEffect, Effect, EffectKind, HeroModule, Magnitude } from '../core/contracts';
 
 /** An ability with its first `tier` upgrades folded in. */
 export interface ResolvedAbility {
@@ -48,6 +48,25 @@ export function resolveAbility(def: AbilityDef, tier: number): ResolvedAbility {
     range: Math.max(0, f.range),
     effects: f.effects,
     movement: f.effects.some((e) => MOVEMENT_KINDS.has(e.kind)),
+  };
+}
+
+/** Radius of the caster-only burst: inside the caster's own body, so no ally can stand in it. */
+const ON_CASTER_RADIUS = 0.01;
+
+/**
+ * Effects for the caster from any cast, including 'unit' casts whose target is someone else (Riverstrike's
+ * refund trigger and invisibility): a burst on the source that only the source itself matches.
+ * TODO(interface request): a first-class way to target the caster.
+ */
+export function onCaster(effects: readonly Effect[]): AreaEffect {
+  return {
+    kind: 'area',
+    shape: { kind: 'sphere', radius: ON_CASTER_RADIUS },
+    durationS: 0,
+    attach: 'source',
+    affects: { teams: 'allies', self: true, heroesOnly: true },
+    effects,
   };
 }
 

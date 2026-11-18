@@ -294,12 +294,12 @@ describe('tether, delay, cooldownMod, hook', () => {
     expect([d?.tick, d?.target.entity, d?.cause]).toEqual([49, foe.id, cause]);
   });
 
-  it('cooldownMod: refund a slot by seconds, reset every ability, and item actives', () => {
-    const { t, me, cause } = arena();
+  it('cooldownMod: changes the source’s cooldowns (refund a slot, reset all, item actives), whatever the target', () => {
+    const { t, me, foe, cause } = arena();
     t.step(1, [[me, { pressed: Button.Ability1 | Button.Ability2 }]]);
     const [s0, s1] = me.abilities.slots;
     expect([s0?.readyAt, s1?.readyAt]).toEqual([602, 602]);
-    t.ctx.effects.apply({ kind: 'cooldownMod', scope: 'slot', slot: 0, mode: 'refund', seconds: 4 }, at(me.pos, me.id), cause);
+    t.ctx.effects.apply({ kind: 'cooldownMod', scope: 'slot', slot: 0, mode: 'refund', seconds: 4 }, at(foe.pos, foe.id), cause);
     expect([s0?.readyAt, s1?.readyAt]).toEqual([362, 602]);
     t.ctx.effects.apply({ kind: 'cooldownMod', scope: 'slot', slot: 0, mode: 'refund', seconds: 60 }, at(me.pos, me.id), cause);
     expect([s0?.charges, s0?.readyAt]).toEqual([1, 0]);
