@@ -89,6 +89,7 @@ export function registerEffects(ctx: CoreContext, ctrl: Controller, service: Phy
       n,
       arc: e.arcHeight ?? 0,
       stopOnHit: e.stopOnHit ?? false,
+      keepSpeed: e.dir !== 'target',
       onHit: e.onHit ?? [],
       onArrive: e.onArrive ?? [],
       cause,

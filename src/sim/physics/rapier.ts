@@ -52,9 +52,6 @@ export interface MoveResult {
   /** Steepest non-walkable surface hit (outward normal), if `hasWall`. */
   hasWall: boolean;
   readonly wall: Vec3;
-  /** Walkable surface hit (outward normal), if `hasGround`. */
-  hasGround: boolean;
-  readonly ground: Vec3;
 }
 
 interface HeroColliders {
@@ -303,8 +300,6 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
     grounded: false,
     hasWall: false,
     wall: { x: 0, y: 0, z: 0 },
-    hasGround: false,
-    ground: { x: 0, y: 0, z: 0 },
   };
   let collision: CharacterCollision | undefined;
 
@@ -314,14 +309,18 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
     return c;
   };
 
-  const placeProxy = (c: HeroColliders, feet: Vec3, crouching: boolean): number => {
+  /**
+   * The proxy floats one controller skin above the entity's feet: the controller rests a skin above the ground, so
+   * `pos.y` is the real ground contact, and a hero seated exactly on the ground (spawns, teleports) never starts
+   * inside the skin, where the controller can stall for a tick.
+   */
+  const placeProxy = (c: HeroColliders, feet: Vec3, crouching: boolean): void => {
     const height = crouching ? c.crouch : c.stand;
     if (height !== c.proxyHeight) {
       c.proxy.setHalfHeight(capsuleHalf(height, c.radius));
       c.proxyHeight = height;
     }
-    c.proxy.setTranslation({ x: feet.x, y: feet.y + height * HALF, z: feet.z });
-    return height;
+    c.proxy.setTranslation({ x: feet.x, y: feet.y + height * HALF + CONTROLLER.skin, z: feet.z });
   };
 
   const moveHero: Space['moveHero'] = (id, feet, crouching, delta) => {
@@ -332,16 +331,12 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
     kcc.computedMovement(result.moved);
     result.grounded = kcc.computedGrounded();
     result.hasWall = false;
-    result.hasGround = false;
     const n = kcc.numComputedCollisions();
     for (let i = 0; i < n; i++) {
       collision = kcc.computedCollision(i, collision) ?? collision;
       if (!collision) continue;
       const nrm = collision.normal1;
-      if (nrm.y >= WALKABLE_NY) {
-        if (!result.hasGround || nrm.y > result.ground.y) setVec(result.ground, nrm);
-        result.hasGround = true;
-      } else if (!result.hasWall || nrm.y < result.wall.y) {
+      if (nrm.y < WALKABLE_NY && (!result.hasWall || nrm.y < result.wall.y)) {
         setVec(result.wall, nrm);
         result.hasWall = true;
       }

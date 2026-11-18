@@ -30,7 +30,7 @@ const NEVER = Number.NEGATIVE_INFINITY;
 const HALF = 0.5;
 const ARC = 4;
 const WALKABLE_NY = Math.cos(GROUND.maxSlope);
-const SLIDE_MIN_SLOPE_NY = Math.cos(SLIDE.minSlope);
+const SLIDE_MIN_SLOPE_TAN = Math.tan(SLIDE.minSlope);
 const JUMP_SPEED = Math.sqrt(2 * AIR.gravity * AIR.jumpApex);
 /** Mantle probes start this far above the highest reachable ledge. */
 const PROBE_PAD = 0.05;
@@ -63,6 +63,8 @@ interface ScriptedDash {
   t: number;
   readonly arc: number;
   readonly stopOnHit: boolean;
+  /** Leave at run speed + 1 (aim and move dashes); dashes to a target, or cut short, stop dead. */
+  readonly keepSpeed: boolean;
   readonly onHit: readonly Effect[];
   readonly onArrive: readonly Effect[];
   readonly cause: EffectCause;
@@ -111,10 +113,8 @@ export interface HeroState {
   lastGroundTick: number;
   /** Feet height where the hero last stood (mantle reach is measured from here). */
   groundY: number;
-  /** Walkable normal under the hero from the last move (slides on slopes). */
-  groundNx: number;
-  groundNy: number;
-  groundNz: number;
+  /** Drop per metre along the last grounded move (positive downhill); slides speed up on slopes. */
+  downhill: number;
   airTicks: number;
   jumpBufferUntil: number;
   dashUntil: number;
@@ -149,9 +149,7 @@ function freshState(groundY: number): HeroState {
   return {
     lastGroundTick: NEVER,
     groundY,
-    groundNx: 0,
-    groundNy: 1,
-    groundNz: 0,
+    downhill: 0,
     airTicks: 0,
     jumpBufferUntil: NEVER,
     dashUntil: NEVER,
@@ -319,16 +317,11 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     slowed(h, h.stats.final.moveSpeed + h.stats.final.sprintSpeed * s.sprint);
 
   /** Move through the controller and write pos; returns the shared result. */
-  const move = (h: HeroEntity, s: HeroState): MoveResult => {
+  const move = (h: HeroEntity): MoveResult => {
     const r = space.moveHero(h.id, h.pos, h.motor.crouching, D);
     h.pos.x += r.moved.x;
     h.pos.y += r.moved.y;
     h.pos.z += r.moved.z;
-    if (r.hasGround) {
-      s.groundNx = r.ground.x;
-      s.groundNy = r.ground.y;
-      s.groundNz = r.ground.z;
-    }
     return r;
   };
 
@@ -347,18 +340,23 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     h.motor.knockedUp = false;
   };
 
-  /** After a free move: grounded state, landing, velocity from what the collision allowed. */
+  /**
+   * After a free move: grounded state, landing, and velocity. On the ground the intended velocity is kept against
+   * walls (ground acceleration re-targets it every tick, and keeping the push is what lets the controller finish a
+   * step-up); in the air it becomes what the collision allowed; a displaced hero that hits a wall stops (GDD §3.9).
+   */
   const settle = (h: HeroEntity, s: HeroState, r: MoveResult, rising: boolean): void => {
     const m = h.motor;
     const v = h.vel;
-    if (r.hasWall) {
-      v.x = r.moved.x / dt;
-      v.z = r.moved.z / dt;
-      if (s.displaced) v.x = v.z = 0;
-    }
     const was = m.grounded;
     m.grounded = r.grounded && !rising;
+    if (r.hasWall && (s.displaced || !m.grounded)) {
+      v.x = s.displaced ? 0 : r.moved.x / dt;
+      v.z = s.displaced ? 0 : r.moved.z / dt;
+    }
     if (m.grounded) {
+      const along = Math.hypot(r.moved.x, r.moved.z);
+      s.downhill = along > 0 ? -r.moved.y / along : 0;
       v.y = 0;
       s.lastGroundTick = clock.tick;
       s.groundY = h.pos.y;
@@ -499,11 +497,10 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const x = s.slideX * c + s.slideZ * sn;
     s.slideZ = s.slideZ * c - s.slideX * sn;
     s.slideX = x;
-    // Downhill steeper than SLIDE.minSlopeDeg adds gravity along the slope; elsewhere friction decays it.
-    const nh = Math.hypot(s.groundNx, s.groundNz);
-    const downhill = nh > 0 ? (s.slideX * s.groundNx + s.slideZ * s.groundNz) / nh : 0;
-    if (s.groundNy < SLIDE_MIN_SLOPE_NY && downhill > 0) {
-      s.slideSpeed = Math.min(SLIDE.maxSlopeSpeed, s.slideSpeed + AIR.gravity * nh * downhill * dt);
+    // Downhill steeper than SLIDE.minSlope adds gravity along the slope; elsewhere friction decays it.
+    if (s.downhill > SLIDE_MIN_SLOPE_TAN) {
+      const sin = s.downhill / Math.hypot(1, s.downhill);
+      s.slideSpeed = Math.min(SLIDE.maxSlopeSpeed, s.slideSpeed + AIR.gravity * sin * dt);
     } else {
       s.slideSpeed -= s.slideDecel * dt;
     }
@@ -729,7 +726,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     D.x = v.x * dt;
     D.z = v.z * dt;
     D.y = airDash ? 0 : fall(v);
-    const r = move(h, s);
+    const r = move(h);
     settle(h, s, r, v.y > 0);
     if (!m.grounded && m.sliding) endSlide(h, s);
 
@@ -767,7 +764,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     D.x = d.dirX * d.step;
     D.z = d.dirZ * d.step;
     D.y = d.arc * ARC * (f1 * (1 - f1) - f0 * (1 - f0));
-    const r = move(h, s);
+    const r = move(h);
     h.vel = { x: r.moved.x / dt, y: r.moved.y / dt, z: r.moved.z / dt };
     h.motor.grounded = r.grounded && D.y <= 0;
     const blocked = Math.hypot(r.moved.x, r.moved.z) < d.step * HALF;
@@ -776,7 +773,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     if (d.t < d.n && !blocked && !stopped) return;
     s.dash = null;
     h.motor.dashing = false;
-    const exit = Math.min(d.step / dt, runSpeed(h, s) + DASH.exitBonus);
+    const exit = d.keepSpeed && !blocked && !stopped ? Math.min(d.step / dt, runSpeed(h, s) + DASH.exitBonus) : 0;
     h.vel = { x: d.dirX * exit, y: 0, z: d.dirZ * exit };
     ctx.effects.applyAll(d.onArrive, { entity: h.id, point: copy(h.pos), dir }, d.cause);
   };
@@ -924,7 +921,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     }
     D.x = v.x * dt;
     D.z = v.z * dt;
-    const r = move(h, s);
+    const r = move(h);
     settle(h, s, r, v.y > 0);
     if (mode.onCollide.length > 0) touch(h, mode.cause, mode.hit, mode.onCollide, { x: v.x, y: 0, z: v.z });
   };
