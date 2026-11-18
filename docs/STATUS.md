@@ -452,3 +452,34 @@ statue) stand directly under the 12 m Updraft line; keep what's on the lane cent
 `MapData.nav` is a getter: the first read builds it (~40–75 ms).
 **Next:** after the W2 merge, read the GDD §3 numbers from `src/sim/data/movement.ts` instead of
 `data/traversal.ts`; W6 verticality pass (distinct east and west jungles, more rooftop routes) and bot-path tuning.
+### W2 · Integration · 18/11/2026
+**Done:** the five merge defects on `integrate/w2` (D-EP-018), one commit each:
+1. *Real-physics shooting* (7729676, combat). Root cause: the test's line of fire. The first Dawn and Dusk arena
+   spawns (x = −7.5, z = ∓15) face each other across the arena ramp (x −10…−6, z −3…3, 2 m); stub physics had no
+   world, Rapier rightly stops the aim and muzzle rays on the ramp's slope. Not hero capsules (LAYERS_SOLID excludes
+   Layer.Hero; proxies have no layer bits) and not settling. Fix: the test puts both heroes on x = 0.
+2. *Sandbox aim test* (0fcf108, QA). Root cause: an idle grounded hero moves up to ~1e-4 m in y each tick under
+   Rapier's character controller, and the test rebuilt the ray from the post-step feet. Fix: the check uses the
+   feet aimAt aimed from, with the latched yaw/pitch, still to 1e-6 m. Helper unchanged.
+3. *Damage suite* (9500456, QA). Falloff: Combat is right; Owl's 1° spread at 55 m reaches ±0.96 m, so a body-aimed
+   bullet can truly hit the head (seen at y = 1.54). The check divides the beak multiplier out of beak shots (§5.2
+   applies it after falloff) and still requires body hits. Unit death: `hit()` now treats a despawned target as hp 0.
+   23/23, so the suite is always on (D-EP-006); pods and fledglings stay gated. tests/README.md updated.
+4. *Menu map* (215c122, app + UI). The menu runs 'main' (no roster, waves or neutrals) under the overview camera;
+   the menu panel darkens only a radial pool behind the title and Play, with a text shadow. app.test.ts expected
+   'arena' and now expects 'main'.
+5. *Tooling* (075d778, build). `npm run sim` prints `hash <hex>` on the single-run line; `npm run shots` takes
+   repeatable `--param key=value` (bare `key` → `key=`).
+**Verified:** `npm run check` → PASS typecheck 14 s, lint 8 s, test 15 s (313 passed, 22 skipped: pods and
+fledglings), sim 6 s, e2e 21 s (6 passed); check 65 s. `npx vitest run tests/contracts/damage.test.ts` with no
+PERCH_PENDING → 23 passed. `npm run sim -- --seed 1 --minutes 3 --bots 12` twice → hash 4acbedb035dce146 both
+times, 3,416 and 3,262 ticks/s. Looked at `npm run shots -- --scene menu` (whole lit map, title and Play readable)
+and `--scene blockout --cam overview`; `--param renderFixture --param renderCam=0,60,-120,0,0,0` showed the
+fixture from the fixed camera.
+**Blocked:** nothing.
+**Interface requests:** none. Found, not fixed: Character Controller — idle grounded heroes jitter ~1e-4 m in y
+every tick (Rapier contact tolerance), so `pos` never rests; Level Designer — the 'arena' ramp sits between the
+first Dawn and Dusk spawns, a trap for any spawn-to-spawn test; Combat — a bullet counts as a beak shot if the head
+sphere lies anywhere on its segment, even behind a body hit (matches GDD §5.4 "hits both"; Director to confirm);
+EP — the "Print hash()" open request is done.
+**Next:** QA gate review of `integrate/w2`.
