@@ -294,3 +294,63 @@ from it (before the menus are finished, from a listed `?scene=` URL), and the EP
 `PLAYABLE.md` at the repo root: how to launch, what you can do, what isn't in yet. The EP writes each section after
 launching that build and checking it.
 **Why:** the user's instruction: progress must be visible after every stage, with a written guide to what works.
+
+### D-CTRL-001 · 18/11/2026 — Two Rapier worlds, stepped only when needed
+**Decision:** map prims and structures live in a static world that is stepped only when a collider is added or
+removed; hero query capsules (Layer.Hero) live in a second, tiny world synced and stepped only when a query asks for
+Layer.Hero after heroes moved. Each hero's character-controller proxy sits in the static world with no layer bits.
+There is no per-tick `world.step()` (ARCHITECTURE §4.6 says one per tick); nothing is dynamic, so nothing integrates.
+**Why:** measured on this machine: Rapier queries only see moved or new colliders after a step, and a step costs about
+0.15 µs per collider even when nothing moved (0.15 ms at 1,000 prims, 0.5 ms at 3,000), which alone would blow the
+0.3 ms physics share. The static world's contents change only on deterministic spawn and despawn events.
+
+### D-CTRL-002 · 18/11/2026 — Units move on cached ground heights, without colliders
+**Decision:** `moveCharacter` on a unit (no controller) moves it by `delta` and seats it on the highest surface at or
+below its feet + step-up, from a lazily built cache of every surface top in 0.25 m columns (cleared when the statics
+change). Units ignore walls and have no colliders, so Layer.Unit queries find nothing. `groundHeight` stays an exact
+raycast (about 2 µs).
+**Why:** 150 raycasts per tick cost about 0.3 ms; the cache costs about 0.08 ms per tick for 150 units walking new
+ground and less on lanes walked before. Fledglings follow lane polylines, so walls don't matter to them.
+
+### D-CTRL-003 · 18/11/2026 — Velocity against walls, and where the feet are
+**Decision:** on the ground a hero keeps its intended velocity against walls (ground acceleration re-targets it every
+tick); in the air velocity becomes what the collision allowed; a displaced hero that hits a wall stops (GDD §3.9).
+The controller proxy floats one skin (0.02 m) above `pos`, so `pos.y` is the real ground contact.
+**Why:** clipping velocity on the ground left too little push for Rapier's auto-step to finish a kerb, and the
+hero slid back off it. Spawns and teleports seat heroes exactly on the ground; inside the skin the controller
+occasionally stalled for a tick.
+
+### D-CTRL-004 · 18/11/2026 — Who a physics effect moves
+**Decision:** displace and attach act on the target entity (attach holds it in front of the cause's source). A dash
+with dir 'target' and a teleport to a point or behind a target move the cause's source. Every other dash, teleport
+'base' and movementMode move the target entity, or the source when the target has none. Effects on units are ignored
+(their `pos` belongs to their spawner).
+**Why:** DashEffect says "the target (normally the caster)", but a dash or teleport aimed at an enemy has the enemy as
+its target. This reading covers every §9.25 use (Plunge, Wing Slam, Long Stride, Riverstrike, Gulp, the modes).
+
+### D-CTRL-005 · 18/11/2026 — Displacement and ability-dash shapes
+**Decision:** push, pull and along launch an arc at 20° whose flat-ground range is the effect's distance (pulls are
+capped at the distance to the origin); the push is added to the current velocity; 20% air control until landing.
+Knock-up is straight up to `distance` with no control until landing or 1.5 s. Ability dashes run over whole ticks
+through the controller (so they stop at walls), with a 4h·t(1−t) arc; they leave at min(dash speed, run + 1), except
+dashes to a target, or dashes cut short by a wall or stopOnHit, which stop dead. "Touched" enemies are those whose
+spatial sphere overlaps the hero's (spatial positions are one tick old in the movement phase).
+**Why:** GDD §3.9 gives distances, not impulses; a fixed launch angle turns each distance into one impulse with a
+natural hop. A leap to a point should land on it.
+
+### D-CTRL-006 · 18/11/2026 — Mantle reach is measured from the ground
+**Decision:** a mantle triggers when the controller reports a wall the hero pushes into (input, or flight direction
+when airborne), a walkable top is 0.6–2.4 m above the lower of the feet and the ground last stood on, and the
+standing capsule fits there. The hero rises during the first 60% of the 0.35 s and moves onto the ledge during the
+last 60%, then keeps 50% of its speed.
+**Why:** "0.6–2.4 m above the feet" measured from airborne feet would let a jump (apex 1.6 m) mantle a 2.6 m ledge,
+and GDD §16 says it never must. Contact-triggered checks cost a raycast only when the hero touches a wall.
+
+### D-CTRL-007 · 18/11/2026 — Traversal details the GDD leaves open (assumed)
+**Decision:** Updraft riders' feet are on the line; a station mounts within 2 m horizontally from 14 m below to 2 m
+above it; a jump-in mounts within 1.5 m of the line; no air mount for 0.5 s after leaving a line; the end of a line
+drops the rider with no velocity. A Chimney base is its 1.5 m radius from 0.5 m below to 2 m above the bottom point;
+the exit leaves steering onto the roof to the player. A Vine is grabbed within 0.4 m of the capsule's front and 1 m
+either side; Space leaves it at 5 m/s out plus the normal jump speed up; at the top the hero steps onto a surface
+behind the vine if one fits, else holds at the top. Falling below killY reseats the hero at its spawn (no death).
+**Why:** each needed a concrete value now; all are in `src/sim/data/movement.ts` for Balance.

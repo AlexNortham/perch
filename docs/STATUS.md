@@ -266,3 +266,36 @@ state in your factory closure and fold it into `System.hash`; draw randomness on
 Combat: shared statuses go in `src/sim/data/combat.ts`; report pod hits through `projectile.impact` and `melee`. QA:
 the ability sandbox is `createSim({ map: 'arena', options: { unlockAbilities: true } })` plus commands; tests may use
 `sim.ctx`, the client may not. Contract changes are interface requests and land between waves.
+
+### W2 · Character Controller · 18/11/2026
+**Done:** `src/sim/physics/` (rapier.ts: worlds, colliders, queries; controller.ts: hero controller; effects.ts;
+index.ts wiring) and `src/sim/data/movement.ts` (every GDD §3 number). Rapier static world from the map prims
+(box, ramp, cylinder), structure colliders on spawn/despawn, hero capsules on Layer.Hero; PhysicsService raycast,
+shapeCast, overlap, moveCharacter (Rapier controller for heroes: collide and slide, 0.45 m step-up, 45° slopes,
+ground snap; cached ground for units) and groundHeight. Controller: walk, sprint, jump (coyote, buffer), air control,
+crouch, slide (slopes, steering, boost cooldown), dash, air dash, dash-jump, mantle, stamina, Updrafts (station and
+jump-in mount, ride, boost, dismounts, forced dismounts, cast dismount), Chimneys, Vines, knockback/knock-up state,
+bounds and kill plane, reseat on `hero.respawned`. Effects: displace, dash, teleport, movementMode (all six), attach.
+`motor` and `movement` events written; private state folded into `System.hash`. D-CTRL-001…007.
+**Verified:** `npm run check` → PASS typecheck, lint, test (13 files, 76 tests; physics 2 files, 39), sim, e2e. Physics tests
+assert GDD §3 numbers with stated tolerances: 7.0 m/s in 0.15 s and stop in 0.2 s; sprint +2, crouch 3.5, slow floor
+1.5; apex 1.6 ± 0.05 m; dash 5.5 m in 12 ticks, 1 pip, 0.4 s lockout; air dash 4.5 m, once; pip every 5.0 s;
+dash-jump 13/7 m/s, 7.3 ± 0.15 m leap, clears an 8 m gap in coyote time; slide 9 m/s, 1.0 s ± 1 tick, faster on an
+11° slope; mantle 2.2 m in 21 ticks, never 2.6 m even jumping; Updraft 0.3 s mount, 11 → 18 m/s, 12 s cooldown,
+3 s damage lock, dismounts; Chimney 9 m/s, exit +6; Vine 4.5 m/s, shimmy 2 m/s; every effect kind; no tunnelling
+through 0.1 m walls (dash, 40 m push, 30 m/s fall); identical hashes from identical runs (1 and 12 heroes).
+**Performance:** city fixture (≈950 prims), 12 heroes running, jumping, dashing and sliding: 0.238 ms per whole tick
+(core and W1 stubs included; core alone was ~0.06–0.09 ms in W1); 150 units through moveCharacter: 0.080 ms per tick
+on fresh ground. Physics share ≈ 0.25 ms. `npm run sim` 3 min: 5,064 ticks/s, telemetry byte-identical across runs.
+**Blocked:** nothing.
+**Interface requests:** Architect — (1) displacement and dashes on units: physics may not write unit `pos`; either
+world applies them or physics gets that right; (2) GDD §3.9 wall slam has no hook: `DisplaceEffect.onWallSlam` or a
+`movement` action; (3) a `movement` action 'displaced' so abilities can cancel channels (GDD §3.9); (4)
+MovementModeEffect `allowGun`/`allowAbilities` are invisible to combat and abilities: expose them on `Motor` (until
+then, pair modes with disarm/silence statuses in data); (5) teleport `face: 'target'` sets `yaw`, but core re-latches
+yaw from the command next tick, so input and ai need a way to adopt it; (6) 'wall' summons have no shape for a
+collider: add `size` to UnitInfo or a service call; (7) ARCHITECTURE §4.6 "one world.step() per tick" → D-CTRL-001.
+Objectives — move fledglings with `ctx.physics.moveCharacter` (cheap path); `groundHeight` is an exact raycast.
+Game Director — GDD §3.4 "~8–9 m leap": the numbers give 7.3 m on flat ground; 8 m+ needs coyote time (tested).
+**Next:** QA can drive the controller through `createSim` + commands; fixture maps via `vi.mock('../world/map')` as in
+src/sim/physics/controller.test.ts. The real 'main' map needs no physics change.
