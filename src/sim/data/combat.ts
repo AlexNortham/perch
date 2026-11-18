@@ -46,6 +46,8 @@ export const COMBAT = {
    * top of tall units. Units taller than this can be missed near the ends of a ray.
    */
   hitboxQueryPad: 6,
+  /** Casts longer than twice this (m) scan the entity lists instead of querying the spatial grid. */
+  hitboxLongCast: 12,
   /** GDD §5.7. Light damage is the meleeDamage stat (lightDamage if the hero data has none); heavy = light × mult + flat. */
   melee: {
     heavyHoldS: 0.35,

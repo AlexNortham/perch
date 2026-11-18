@@ -160,13 +160,35 @@ export function createHitboxes(ctx: SimContext): Hitboxes {
     cast(o, d, maxT, radius, f) {
       hits.length = 0;
       const half = maxT / 2;
-      mid.x = o.x + d.x * half;
-      mid.y = o.y + d.y * half;
-      mid.z = o.z + d.z * half;
-      ctx.spatial.query(mid, half + radius + COMBAT.hitboxQueryPad, ids);
-      for (const id of ids) {
-        const e = ctx.store.get(id);
-        if (e && e.kind !== 'structure' && passes(e, f)) consider(e, o, d, maxT, radius);
+      const reach = radius + COMBAT.hitboxQueryPad;
+      if (half > COMBAT.hitboxLongCast) {
+        // Long rays (aim rays, hitscan) would touch hundreds of grid cells: scan the short lists with a cheap
+        // distance-to-segment reject instead.
+        const scan = (list: readonly Entity[]): void => {
+          for (const e of list) {
+            const vx = e.pos.x - o.x;
+            const vy = e.pos.y - o.y;
+            const vz = e.pos.z - o.z;
+            const t = Math.min(maxT, Math.max(0, vx * d.x + vy * d.y + vz * d.z));
+            const r = reach + e.radius;
+            const ex = vx - d.x * t;
+            const ey = vy - d.y * t;
+            const ez = vz - d.z * t;
+            if (ex * ex + ey * ey + ez * ez <= r * r && passes(e, f)) consider(e, o, d, maxT, radius);
+          }
+        };
+        if (f.heroes) scan(ctx.store.list('hero'));
+        if (f.units) scan(ctx.store.list('unit'));
+        if (f.pods || f.ember) scan(ctx.store.list('pickup'));
+      } else {
+        mid.x = o.x + d.x * half;
+        mid.y = o.y + d.y * half;
+        mid.z = o.z + d.z * half;
+        ctx.spatial.query(mid, half + reach, ids);
+        for (const id of ids) {
+          const e = ctx.store.get(id);
+          if (e && e.kind !== 'structure' && passes(e, f)) consider(e, o, d, maxT, radius);
+        }
       }
       // Structures are tall and few: test them all instead of padding every query by their height.
       if (f.structures) for (const s of ctx.store.list('structure')) if (passes(s, f)) consider(s, o, d, maxT, radius);
