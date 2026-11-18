@@ -365,11 +365,25 @@ export function buildNav(input: NavInput): NavGraph {
     nodes.push(p);
     grid.set(key(cx, cz), [...(grid.get(key(cx, cz)) ?? []), p]);
   }
-  nodes.push(...nodes.filter((n) => n.z < 0).map(mirrorV));
+  const dawn = nodes.length;
+  /** Index of each node's Dusk image (centre nodes are their own). */
+  const mirrorOf = nodes.map((_, i) => i);
+  nodes.forEach((n, i) => {
+    if (n.z < 0) mirrorOf[i] = nodes.push(mirrorV(n)) - 1;
+  });
+  for (let i = dawn; i < nodes.length; i++) mirrorOf[i] = mirrorOf.indexOf(i);
   const ground = nodes.length;
   const links: { from: number; to: number; kind: NavLinkKind }[] = [];
   const link = (from: number, to: number, kind: NavLinkKind) => {
     if (from >= 0 && to >= 0 && from !== to) links.push({ from, to, kind });
+  };
+  /** Links among Dawn and centre nodes also give their Dusk images. */
+  const linkBoth = (from: number, to: number, kind: NavLinkKind) => {
+    link(from, to, kind);
+    if (from >= dawn || to >= dawn) return;
+    const mf = mirrorOf[from] ?? -1;
+    const mt = mirrorOf[to] ?? -1;
+    if (mf !== from || mt !== to) link(mf, mt, kind);
   };
   const dist = (a: Vec3, b: Vec3) => Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2 + (b.z - a.z) ** 2);
   const near: number[][] = nodes.map(() => []);
@@ -390,6 +404,8 @@ export function buildNav(input: NavInput): NavGraph {
     for (const j of near[i] ?? []) {
       const b = nodes[j];
       if (j <= i || !b) continue;
+      // Pairs with no Dawn node are the mirror of a Dawn pair, linked by linkBoth.
+      if (a.z >= 0 && b.z >= 0 && (a.z > 0 || b.z > 0)) continue;
       // Skip a link when another node sits on the way: the two shorter links cover it.
       const d = dist(a, b);
       const limit = d * NAV.detour;
@@ -406,9 +422,9 @@ export function buildNav(input: NavInput): NavGraph {
       if (via) continue;
       const profile = groundProfile(index, a, b);
       const ab = classifyProfile(profile, a.y, b.y);
-      if (ab) link(i, j, ab);
+      if (ab) linkBoth(i, j, ab);
       const ba = classifyProfile(reversed(profile), b.y, a.y);
-      if (ba) link(j, i, ba);
+      if (ba) linkBoth(j, i, ba);
     }
   }
   for (const c of input.climbs) {
@@ -482,7 +498,7 @@ export function buildMap(spec: MapSpec): MapData {
     ...spawns, ...shops, ...structures, ...thickets, ...nests, ...centre.runeSpots, ...centre.eggPerches,
   ];
   const root = spawns[0]?.pos ?? v(0, 0, 0);
-  const nav = buildNav({
+  const navInput: NavInput = {
     index, prims, lanes, climbs: climbSpecs, updrafts, root,
     points: [
       ...[...centre.nav, ...both(half.nav, mirrorV)],
@@ -490,15 +506,20 @@ export function buildMap(spec: MapSpec): MapData {
       ...botSpots.map((b) => b.pos),
       ...(centre.hollow ? [centre.hollow.centre] : []),
     ],
-  });
+  };
+  // The nav graph is most of the build cost and only bots read it: build it on first access, once.
+  let nav: NavGraph | undefined;
   return {
+    get nav() {
+      nav ??= buildNav(navInput);
+      return nav;
+    },
     id: spec.id,
     name: spec.name,
     bounds: spec.bounds,
     killY: spec.killY,
     prims,
     lanes,
-    nav,
     updrafts,
     climbs: climbSpecs.map(buildClimb),
     ledges: deriveLedges(prims, index),

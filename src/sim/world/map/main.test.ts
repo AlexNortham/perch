@@ -15,10 +15,17 @@ const ground = (x: number, z: number, maxY = 0.5) => standAt(index, x, z, maxY);
 describe("loadMap('main')", () => {
   it('is cheap: few prims, and a fast build', () => {
     expect(map.prims.length).toBeLessThanOrEqual(1500);
-    const t = performance.now();
-    buildMap(MAIN_SPEC);
-    // Budget 50 ms (measured ~25 ms warm, see STATUS); the bound is loose because test files run in parallel.
-    expect(performance.now() - t).toBeLessThan(250);
+    // Budget 50 ms for loadMap; the nav graph is built on first access. Bounds are loose because test files run in
+    // parallel; the measured times are in the Level Designer's STATUS entry.
+    // eslint-disable-next-line no-restricted-properties -- a test timing a load budget, not sim logic
+    const now = () => performance.now();
+    const t0 = now();
+    const fresh = buildMap(MAIN_SPEC);
+    const t1 = now();
+    expect(fresh.nav.nodes.length).toBe(map.nav.nodes.length);
+    const t2 = now();
+    expect(t1 - t0).toBeLessThan(100);
+    expect(t2 - t1).toBeLessThan(250);
   });
 
   it('builds once and keeps the arena', () => {
