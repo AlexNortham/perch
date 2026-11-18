@@ -158,8 +158,9 @@ export function columnClear(index: PrimIndex, x: number, z: number, y0: number, 
 }
 
 /**
- * The highest surface at (x, z) no higher than `maxY` where a hero fits standing (capsule clear of every solid prim),
- * or null when there is none.
+ * The highest surface at (x, z) no higher than `maxY` where a hero fits standing, or null when there is none. The
+ * capsule (radius `radius`) must be clear of every solid prim above step height: lower things, such as the slope
+ * of the ramp underfoot, are stepped over.
  */
 export function standAt(index: PrimIndex, x: number, z: number, maxY: number, radius = 0): number | null {
   let best: number | null = null;
@@ -168,7 +169,8 @@ export function standAt(index: PrimIndex, x: number, z: number, maxY: number, ra
     if (Number.isNaN(lz)) continue;
     const top = surface(s, lz);
     if (top > maxY || (best !== null && top <= best)) continue;
-    if (columnClear(index, x, z, top + SKIN, top + REACH.heroHeight, radius)) best = top;
+    const from = top + (radius > 0 ? REACH.step : SKIN);
+    if (columnClear(index, x, z, from, top + REACH.heroHeight, radius)) best = top;
   }
   return best;
 }

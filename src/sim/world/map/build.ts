@@ -275,6 +275,7 @@ function candidates(input: NavInput): Vec3[] {
     const n = Math.ceil(len / NAV.laneSpacing);
     for (let k = 0; k <= n; k++) out.push(pointOnPath(lane.path, (len * k) / n));
   }
+  for (const u of input.updrafts) for (const s of u.stations) out.push(raise(s, -UPDRAFT_HEIGHT));
   for (const p of input.prims) {
     if (!p.solid) continue;
     const top = primTop(p);
@@ -286,6 +287,8 @@ function candidates(input: NavInput): Vec3[] {
       const fx = Math.sin(p.yaw) * (p.size.z / 2 + NAV.rampEndOffset);
       const fz = Math.cos(p.yaw) * (p.size.z / 2 + NAV.rampEndOffset);
       out.push(v(p.centre.x + fx, top, p.centre.z + fz), v(p.centre.x - fx, primBottom(p), p.centre.z - fz));
+      // Long ramps also get a node halfway up, or their ends would be too far apart to link.
+      if (p.size.z + NAV.rampEndOffset * 2 > NAV.linkRadius / 2) out.push(v(p.centre.x, p.centre.y, p.centre.z));
       continue;
     }
     if (p.size.y < NAV.buildingMinHeight) continue;
@@ -334,16 +337,22 @@ function reachable(count: number, links: NavGraph['links'], start: number, rever
 
 export function buildNav(input: NavInput): NavGraph {
   const { index } = input;
-  // Snap every candidate to a standable surface, then merge near-duplicates.
+  // Snap every Dawn-half candidate to a standable surface and merge near-duplicates; then mirror, so the graph is
+  // symmetric by construction (merging across z = 0 would favour one flock).
   const nodes: Vec3[] = [];
   const climbSpots = input.climbs.flatMap((c) => [buildClimb(c).bottom, climbLanding(c)]);
   const cell = NAV.mergeDist;
   const grid = new Map<string, Vec3[]>();
   const key = (cx: number, cz: number) => `${cx},${cz}`;
-  for (const c of [...input.points, ...climbSpots, ...candidates(input)]) {
-    const y = standAt(index, c.x, c.z, c.y + REACH.step, NAV.nodeClearance);
+  const placed = [...input.points, ...climbSpots];
+  for (const [i, c] of [...placed, ...candidates(input)].entries()) {
+    // Trig leaves points meant for z = 0 a hair off it.
+    const z = Math.abs(c.z) < LEVEL_EPS ? 0 : c.z;
+    if (z > 0) continue;
+    // Placed points (anchors, climbs) are trusted where they are; generated ones need room around them.
+    const y = standAt(index, c.x, z, c.y + REACH.step, i < placed.length ? 0 : NAV.nodeClearance);
     if (y === null) continue;
-    const p = v(c.x, y, c.z);
+    const p = v(c.x, y, z);
     const cx = Math.floor(p.x / cell);
     const cz = Math.floor(p.z / cell);
     let dup = false;
@@ -356,6 +365,7 @@ export function buildNav(input: NavInput): NavGraph {
     nodes.push(p);
     grid.set(key(cx, cz), [...(grid.get(key(cx, cz)) ?? []), p]);
   }
+  nodes.push(...nodes.filter((n) => n.z < 0).map(mirrorV));
   const ground = nodes.length;
   const links: { from: number; to: number; kind: NavLinkKind }[] = [];
   const link = (from: number, to: number, kind: NavLinkKind) => {

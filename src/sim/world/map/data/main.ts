@@ -279,7 +279,7 @@ const half: SpecPart = {
     // Rooftops.
     at(-22, 8, -83), at(-46, 11, -36), at(22, 8, -83), at(46, 11, -36),
     // Lane edges between Hawk and Heron.
-    at(-89.5, 0, -56), at(-8.5, 0, -62), at(8.5, 0, -66), at(89.5, 0, -56),
+    at(-89.5, 0, -56), at(-8.5, 0, -62), at(8.5, 0, -66), at(89.5, 0, -52),
   ],
   thickets: [
     { pos: v(-65, 0, -22), yaw: 0, tier: 1 }, { pos: v(-30, 0, -52), yaw: 0, tier: 1 },
@@ -361,8 +361,9 @@ export const MAIN_SPEC: MapSpec = {
     nests: [],
     thickets: [],
     botSpots: [],
-    runeSpots: [at(-95, 6, 0), at(95, 6, 0)],
-    eggPerches: [at(-50, 1, 0), at(50, 1, 0)],
+    // Anchors on z = 0 face east or west so they are their own mirror image.
+    runeSpots: [at(-95, 6, 0, PI / 2), at(95, 6, 0, -PI / 2)],
+    eggPerches: [at(-50, 1, 0, PI / 2), at(50, 1, 0, -PI / 2)],
     hollow: { centre: v(0, -10, 0), radius: 22, floorY: -10 },
   },
 };
