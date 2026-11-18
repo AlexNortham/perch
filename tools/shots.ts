@@ -1,7 +1,8 @@
 // npm run shots -- --scene <name> [--cam <preset>] [--hero <id>] [--seed <n>] [--t <seconds>] [--quality <q>]
-//                  [--out <file>] [--file <path/to/perch.html>]
+//                  [--param key=value]… [--out <file>] [--file <path/to/perch.html>]
 // Serves the app on a free port (or opens --file over file://), loads ?scene=…&cam=…, waits for
 // window.__perch.ready === true and saves a 1920×1080 PNG (default out/shots/<scene>[-<cam>].png).
+// --param (repeatable) adds any other query parameter, e.g. --param renderFixture --param renderCam=0,80,-200,0,0,0.
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -21,15 +22,23 @@ const { values } = parseArgs({
     quality: { type: 'string' },
     out: { type: 'string' },
     file: { type: 'string' },
+    param: { type: 'string', multiple: true },
   },
 });
-const { out, file, ...params } = values;
+const { out, file, param, ...params } = values;
 if (!params.scene) {
-  console.error('usage: npm run shots -- --scene <name> [--cam <preset>] [--hero <id>] [--seed <n>] [--t <s>] [--quality <q>] [--out <png>] [--file <html>]');
+  console.error(
+    'usage: npm run shots -- --scene <name> [--cam <preset>] [--hero <id>] [--seed <n>] [--t <s>] [--quality <q>] ' +
+      '[--param key=value]… [--out <png>] [--file <html>]',
+  );
   process.exit(2);
 }
 const png = resolve(out ?? `out/shots/${params.scene}${params.cam ? `-${params.cam}` : ''}.png`);
 const query = new URLSearchParams(params as Record<string, string>);
+for (const p of param ?? []) {
+  const eq = p.indexOf('=');
+  query.append(eq < 0 ? p : p.slice(0, eq), eq < 0 ? '' : p.slice(eq + 1));
+}
 
 const started = performance.now();
 let server: ViteDevServer | undefined;

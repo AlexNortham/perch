@@ -1,7 +1,7 @@
 // Headless match runner.
 //   npm run sim -- --seed 1 --minutes 35 --bots 12 [--out <file>]
 //     One match until --minutes or the match ends. Writes the telemetry JSON (default
-//     out/telemetry/seed-<seed>.json) and prints duration, ticks per second and the winner.
+//     out/telemetry/seed-<seed>.json) and prints duration, ticks per second, the winner and the final hash().
 //   npm run sim -- --seed 1 --matches 100 [--parallel 15] [--minutes 35] [--bots 12] [--out <summary.json>]
 //     Seeds seed … seed+matches−1, one child process per match, --parallel at a time (default: cores − 1).
 //     Per-match telemetry goes next to the summary (default out/telemetry/summary-<first>-<last>.json).
@@ -81,7 +81,7 @@ async function runMatch(matchSeed: number, file: string): Promise<MatchResult> {
 
 const line = (r: MatchResult): string =>
   `seed ${r.seed}: ${r.minutes.toFixed(2)} min (${r.ticks} ticks) in ${r.wallSeconds.toFixed(1)}s, ` +
-  `${r.ticksPerSecond} ticks/s, winner ${r.winner ?? 'none'} → ${r.telemetry}`;
+  `${r.ticksPerSecond} ticks/s, winner ${r.winner ?? 'none'}, hash ${r.hash} → ${r.telemetry}`;
 
 // One child process per match: a crash or a leak stays in its own process.
 function runChild(s: number, file: string): Promise<MatchResult | Crash> {
