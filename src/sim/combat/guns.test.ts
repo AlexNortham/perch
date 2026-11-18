@@ -362,6 +362,10 @@ describe('wired into createSim', () => {
     });
     const [me, foe] = sim.ctx.store.list('hero') as HeroEntity[];
     if (!me || !foe) throw new Error('heroes missing');
+    // The first spawns (x = −7.5, z = ∓15) face each other across the arena's ramp (x −10…−6, z −3…3, 2 m high),
+    // which real physics rightly stops the shot on; x = 0 is a clear line.
+    me.pos.x = 0;
+    foe.pos.x = 0;
     const b = HEROES.kingfisher.def.body;
     const target = { x: foe.pos.x, y: foe.pos.y + 1, z: foe.pos.z };
     let yaw = me.yaw;
