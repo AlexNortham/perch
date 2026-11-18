@@ -95,10 +95,12 @@ export function createStatuses(ctx: SimContext, deps: StatusDeps): Statuses {
   };
 
   const removeWhere = (e: Damageable, reason: 'expired' | 'cleansed' | 'death', test: (s: StatusInstance) => boolean): void => {
-    for (let i = e.statuses.length - 1; i >= 0; i--) {
+    // Oldest first; `remove` splices the instance out, so the index only advances past kept ones.
+    for (let i = 0; i < e.statuses.length; ) {
       const s = e.statuses[i] as StatusInstance;
       const r = recOf.get(s);
       if (r && test(s)) remove(r, reason);
+      else i++;
     }
   };
 
