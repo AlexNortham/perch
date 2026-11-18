@@ -294,3 +294,50 @@ from it (before the menus are finished, from a listed `?scene=` URL), and the EP
 `PLAYABLE.md` at the repo root: how to launch, what you can do, what isn't in yet. The EP writes each section after
 launching that build and checking it.
 **Why:** the user's instruction: progress must be visible after every stage, with a written guide to what works.
+
+### D-ABIL-001 · 18/11/2026 — What a cast's effects land on
+**Decision:** self, direction and point casts target `entity = caster` (point = feet, aim point, or the ground point
+clamped to range; dir = look, muzzle → aim point, or flat look); unit casts target the chosen entity. Effects for
+others go through a projectile, area, dash onHit/onArrive, tether or summon. A unit cast reaches its caster with
+`onCaster(effects)` (sim/abilities): a 0.01 m burst on the source that only the source matches. Physics should
+move `cause.source` for dash and teleport, heading for `target.entity` when it isn't the mover, else `target.point`.
+**Why:** self-buffs inside aimed casts are common (Plunge, Scatter, Rampage, Tempest Dive); with entity = null they
+had no target. Unit casts with self effects (Riverstrike, Night Swallow) are rare, so a helper covers them until the
+contract has a first-class channel.
+
+### D-ABIL-002 · 18/11/2026 — When a cast spends its charge
+**Decision:** a cast spends its charge and starts its cooldown when it lands, after its effects and onCast hook. A
+wind-up broken by stun, silence or death spends nothing; a channel broken later has already spent. Cooldown
+reduction is read when each cooldown starts and capped at 50%.
+**Why:** GDD §9.0.1 ("the cooldown is still spent if the cast had completed"). Spending after the effects means a
+`cooldownMod` in a cast's own effects (Crest Flare) reaches only the other slots. Riverstrike's "a stun refunds 50%"
+becomes a full refund.
+
+### D-ABIL-003 · 18/11/2026 — cooldownMod changes the source's cooldowns
+**Decision:** `cooldownMod` always acts on the cause's source hero, whatever the effect's target.
+**Why:** every GDD use refunds the caster's own cooldowns, often from inside a dash onHit or a kill trigger whose
+target is the enemy (Plunge T3, Thousand Beats, Riverstrike, Spear Bill T3).
+
+### D-ABIL-004 · 18/11/2026 — Area timing and membership rules
+**Decision:** a lasting area applies its tick effects first one interval after it appears and last on its final tick
+(duration ÷ interval applications). onEnter and onCross re-fire for one target at most once per interval (Butcher's
+Ring: interval 1.5 s gives "once per hero per 1.5 s"). onCross fires on crossing a ring's mid radius, or any other
+shape's edge. Cylinder, ring and box are vertically centred on the area; cones reach 3 m up and down. A shape whose
+size resolves to ≤ 0 does nothing. Areas with only tick effects check membership only on ticks they fire.
+**Why:** one written rule per edge case so kits and QA agree; the membership skip halved spatial queries in a dense
+fight.
+
+### D-ABIL-005 · 18/11/2026 — Summon behaviours
+**Decision:** health 0 means 1 hp plus `invulnerable`; traps are also `invisible` (so the 8 m invisibility rule hides
+them). Turrets and decoys attack every 0.5 s, the nearest visible enemy in line of sight, heroes first, with
+`trigger` (when given) as their range and filter. Decoys run along the flat cast direction at their owner's move
+speed. Any other behaviour id calls the owner's `onEffect(behaviour, {entity: summon}, cause)` every tick.
+**Why:** traps, Echo Double, Burrow Colony and Gale Shield need these and SummonEffect has no other fields for them.
+
+### D-ABIL-006 · 18/11/2026 — Upgrade tiers only add: three data patterns
+**Decision:** kits express tiers that change nested numbers with (1) value gating: a nested magnitude names a value
+that is 0 at base and the tier raises it (Plunge T3's slow and refund, Thorn Larder T3's burst radius); (2) a
+parallel area: a tier that adds to a lasting zone appends a second zone with the same size (Briar Patch T3);
+(3) a cleanse by id to lift a base penalty (Grand Chorus T3).
+**Why:** AbilityUpgrade can add values, cooldown, charges, range and top-level effects only; these patterns cover
+most remaining GDD tiers without hooks.
