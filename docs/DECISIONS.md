@@ -365,3 +365,58 @@ live; one code path is simpler than special-casing the fields that could change 
 `window.__perchRender` reports draw calls and triangles and switches quality. Production builds strip all three.
 **Why:** the menu and overview cameras need a world around the map, not a square in a void; the hooks let the renderer
 be checked against a richer map than the placeholder without touching the router.
+### D-COMBAT-001 · 18/11/2026 — Melee timing and heavy damage
+**Decision:** a light melee starts on release (released before 0.35 s) and hits 0.25 s later; holding 0.35 s commits a
+heavy melee (a 3.5 m `dash` lunge is requested from physics then) that hits 0.6 s after the press. Heavy damage =
+light × 2 + 15, light = the `meleeDamage` stat (50 when hero data sets no base). A swing is a 1.2 m sphere cast 2.8 m
+along the look direction from the camera pivot; the nearest hitbox is struck (the Ember only by a heavy).
+**Why:** GDD §5.7 gives 50 + 3/level and 115 + 6/level; ×2 + 15 matches both exactly while the contract keeps one
+melee stat. Timing from the release is the only reading where a tap can't land before it is known to be a tap.
+
+### D-COMBAT-002 · 18/11/2026 — Combat places a respawning hero
+**Decision:** at respawn combat writes the hero's `pos` (its spawn anchor, i.e. where core first placed it) and zeroes
+`vel`, then emits `hero.respawned` with that position for physics to re-seat its controller.
+**Why:** INTERFACES §9 gives "respawn at the Home Roost" to combat while `pos` belongs to physics; writing the
+teleport once and announcing it keeps both consistent, and works before physics exists.
+
+### D-COMBAT-003 · 18/11/2026 — Beak shots outside guns
+**Decision:** a `damage` effect flagged `beakShot` is a beak shot when `target.point` lies inside the target's head
+sphere, and multiplies by `COMBAT.abilityBeakShotMult` (×1.5, Moonlit Mark); combat's projectiles deliver head hits
+at the head centre. The attacker's `beakShotBonus` and `beakShotFlat` apply to gun beak shots only. Lyrebird decoys
+(summon units of kind decoy) use their owner's BodyPlan, head included.
+**Why:** GDD §5.4 and §9.5; DamageEffect has no multiplier field (interface request filed).
+
+### D-COMBAT-004 · 18/11/2026 — What unstoppable and intangible block
+**Decision:** unstoppable blocks, and removes on gain, only statuses that carry stunned, silenced, disarmed, rooted,
+grounded or a slow (`COMBAT.unstoppableBlocks`); DoTs, amps, shred and heal reduction still land. Intangible blocks
+every negative status and all damage, and shots pass through it.
+**Why:** GDD §5.9 lists exactly those; the StatusDef TSDoc's "negative statuses are blocked by unstoppable" is broader.
+
+### D-COMBAT-005 · 18/11/2026 — Periodic effects and the DoT convention
+**Decision:** a status's periodic `damage` and `heal` effects are scaled by the instance's magnitude × stacks and run
+with the status's cause marked `via: 'status'` (structures ignore them). The shared BLEED and BURN deal
+`tickIntervalS` per tick at magnitude 1, so they are applied with magnitude = damage per second. Periodic effects
+queued in the statuses phase land in the next tick's damage phase.
+**Why:** GDD §5.12 "duration-weighted damage per tick" with one def per DoT type; the magnitude carries the number.
+
+### D-COMBAT-006 · 18/11/2026 — Projectiles: store entities, pooled flight state
+**Decision:** gun bullets with travel time and ability projectiles are `projectile` entities (so the renderer sees
+them); their flight state (direction, distance, pierce left, targets hit) lives in pooled records reused between
+shots. A projectile's `onExpire` runs whenever it ends: on the entity that stopped it, on the world, or at range.
+**Why:** the store contract allocates an entity per spawn, so pooling covers everything else; firing `onExpire` on any
+end lets "bursts on impact or at max range" (Hush) be one effect list.
+
+### D-COMBAT-007 · 18/11/2026 — Pipeline details the GDD leaves open
+**Decision:** a hit that comes to 0 after step 7 (invulnerable, areas or DoTs on structures) emits no
+`damage.applied`. Structures take ×0.5 from all Song that is not area or status damage (item procs included). The
+level-up heal is the hero data's maxHealth growth × levels gained; if Molts land after `hero.level`, the rest is
+applied in the next statuses phase. Assists: enemies of a hero victim who damaged it, plus their allied heroes who
+healed, shielded or buffed one of them or the killer, within 12 s; non-hero victims get none (economy uses 40 m).
+Shell-loaders wait `COMBAT.perRoundStartS` (0.3 s) before the first round.
+**Why:** each is the narrowest reading of GDD §5.2, §5.13, §7, §8.6 and §9.2 that the contracts can carry.
+
+### D-COMBAT-008 · 18/11/2026 — Hitbox broad phase
+**Decision:** casts up to 24 m query `ctx.spatial` padded by 6 m (it holds feet positions); longer casts (aim rays,
+hitscan) scan the hero, unit and pickup lists with a distance-to-segment reject; structures are always scanned.
+**Why:** a 300 m aim ray would touch ~1,500 grid cells. With the scan, 12 heroes firing plus 150 units cost
+0.07–0.10 ms per tick instead of 0.26 ms. Units taller than the 6 m pad can be missed near the ends of short casts.
