@@ -266,3 +266,50 @@ state in your factory closure and fold it into `System.hash`; draw randomness on
 Combat: shared statuses go in `src/sim/data/combat.ts`; report pod hits through `projectile.impact` and `melee`. QA:
 the ability sandbox is `createSim({ map: 'arena', options: { unlockAbilities: true } })` plus commands; tests may use
 `sim.ctx`, the client may not. Contract changes are interface requests and land between waves.
+
+### W2 · QA, Performance & Review · 18/11/2026
+**Done:** `tests/determinism.test.ts` (seed 1, `humanRoster` 6v6 on 'main': a scripted human that walks, jumps,
+dashes, fires, melees, parries, casts all four, upgrades and pings, plus 11 bots; two sims in lockstep for 3 sim
+minutes, `hash()` and an event-stream digest compared every 10 s, then telemetry and view; seed 2 runs a minute
+without crashing and differs). `tests/helpers/sandbox.ts` (place heroes and dummies, aim through a point or a
+head/body, hold/press/fire/cast/upgrade, step/stepUntil, events, health, statuses, effects with a built cause,
+test-only stat sources) with its own test, `tests/helpers/lanes.ts` with tests, `tests/README.md` with a worked
+example. Pending suites (`describe.runIf(PERCH_PENDING === '1')`, every assertion cites its GDD section):
+`tests/contracts/damage.test.ts` 23 tests / 73 expect sites, `tests/rules/pods.test.ts` 11 / 41,
+`tests/rules/fledglings.test.ts` 11 / 45. `e2e/scenes.spec.ts`: every scene in the router's `SCENES` loads, reaches
+`__perch.ready` with the right scene and logs no console or page errors; each run saves 1920×1080 review shots to
+`out/shots/review/`. Decisions D-QA-001…005.
+**Verified:** `npm run check` → PASS typecheck, lint, test (44 passed, 45 skipped), sim, e2e (6 passed), 33 s.
+`PERCH_PENDING=1 npx vitest run tests` → 45 failed / 7 passed, all 45 failures `AssertionError` from missing
+implementation (e.g. "expected 550 to be close to 450", "a wave.spawned event: expected null not to be null", "a pod
+pickup after the kill: expected undefined to be defined"). The README example compiled and ran (fails for missing
+abilities, as it should). Looked at all five review PNGs: menu (title over the dark arena), blockout (ground plane
+only), sandbox, lane and match (placeholder hero box left of centre over the shoulder; lane and match show the other
+heroes on the horizon).
+**Review of wave 1 (main 0afec69):** no cross-ownership edits, no purity breaches (lint clean; no `Math.random`,
+clocks or `console` in src/sim; the client never touches `sim.ctx`). Findings, none blocking:
+- *Architect:* src/sim/core/spatial.ts:33-37 allocates five new arrays every rebuild although :14 says they are
+  reused (per-tick garbage in the hot path). src/sim/core/store.ts:23 rebuilds the whole live list after every
+  spawn or despawn, O(n) per mid-tick spawn once projectiles pool. src/sim/index.ts:211 decides a command is stale by
+  object identity, so a bot that reuses its command object loses its presses; undocumented, and Bot AI must know
+  (W5); :216, :249 and :251 allocate per hero per tick. src/sim/index.ts:213-214 don't sanitise commands: NaN
+  yaw or pitch (`clampPitch(NaN)` is NaN) or axes beyond ±1 enter the sim. src/sim/core/rng.ts:44 folds the seed to
+  32 bits while createSim accepts any safe integer, so seeds differing above bit 31 play the same match.
+  src/sim/core/telemetry.ts:92-93 counts gunHits on heroes only but beakShots on everything (decoys, Owl's ability),
+  skewing beak-shot %. The `EntityDiedEvent.assisters` TSDoc (contracts/events.ts) omits the heal/shield/buff assist
+  that GDD §8.3 and INTERFACES §6.4 include. No unit tests for core/view.ts, core/vision.ts or core/math.ts.
+- *Build:* eslint.config.js:16 runs no-magic-numbers with `detectObjects` off, so numbers inside object literals are
+  never flagged anywhere in src (the ARENA literal passes clean).
+- *Level Designer (inherited stub):* src/sim/world/map/index.ts:22-71 keeps authored coordinates in the logic file,
+  not world/map/data/ (D-BUILD-009); there are no map tests (at least TEAM_SIZE spawns per team, the mirror rule).
+- *Rendering:* the stub renderer draws only the ground (blockout shows no lanes or base pads); W2 replaces it.
+**Blocked:** nothing.
+**Interface requests:** Architect — (1) `ProjectileImpactEvent` needs the shot's kind (`via`, or ProjectileInfo's
+`source`): Economy must ignore ability projectiles passing through pods (GDD §8.2 "abilities don't"); emitter Combat,
+consumer Economy. (2) The `DamageBonus.mult` TSDoc should say how it combines in step 4; GDD §5.2 says additive within
+the step, and damage.test.ts reads ×1.5 as +50% (D-QA-004). (3) Document `DamageAppliedEvent.pos` (hit point or
+target position). (4) Say in command.ts that bots must write a fresh `PlayerCommand` object every tick.
+**Next:** at the W2 gate, run the damage suite on `integrate/w2` with `PERCH_PENDING=1` and flip it to always-on (drop
+the `runIf`) once it passes; pods and fledglings likewise at W3. Hero Engineers write smoke tests with
+`tests/helpers/sandbox.ts` (see tests/README.md). The 20-minute fledgling composition test is slow by design: keep it
+pending-only or move it to the soak run when flipping that suite.

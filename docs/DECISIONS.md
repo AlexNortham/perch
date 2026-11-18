@@ -294,3 +294,38 @@ from it (before the menus are finished, from a listed `?scene=` URL), and the EP
 `PLAYABLE.md` at the repo root: how to launch, what you can do, what isn't in yet. The EP writes each section after
 launching that build and checking it.
 **Why:** the user's instruction: progress must be visible after every stage, with a written guide to what works.
+
+### D-QA-001 · 18/11/2026 — The determinism test plays the real 6v6
+**Decision:** the determinism test runs `humanRoster(seed, 'shrike')` on 'main' (one scripted human plus 11 bots, the
+`match` scene's setup), reading the brief's "12 bots" as the full 12-hero match; two sims step in lockstep and compare
+`hash()` and an FNV digest of every step's events every 10 s, then telemetry and view at 3:00.
+**Why:** a match holds at most 12 heroes, so a scripted human means 11 bots; lockstep checkpoints name the 10 s window
+where a divergence started instead of only failing at the end.
+
+### D-QA-002 · 18/11/2026 — How the pending suites reach each system
+**Decision:** damage requests are `damage` effects through `ctx.effects` (INTERFACES §6.1, the path abilities, items
+and world use); beak shots and falloff come from real firing with `aimAt`; pod hits are fake `projectile.impact` and
+`melee` events (what Combat reports) plus one real-bullet test; fledglings come from real waves on 'main'. Expected
+numbers are the GDD's; data-dependent ones (gun damage, falloff ranges, beak override) are read from hero data.
+**Why:** each suite then tests its owner's rule through the contracts alone, and keeps working when the Hero
+Engineers replace the placeholder kits.
+
+### D-QA-003 · 18/11/2026 — Sandbox conventions
+**Decision:** the sandbox sends a command for every hero on every step (bots never act), turns health regeneration off
+unless `regen: true`, places heroes by writing `pos` and applying a physics `teleport` effect, and adds test-only stat
+or condition sources under `sandbox:<key>`.
+**Why:** a smoke test must see only what it caused: no bot input, no regeneration drift in hp deltas, and placement
+that works with the stub physics now and Rapier later.
+
+### D-QA-004 · 18/11/2026 — Conditional damage bonuses are additive in step 4
+**Decision:** damage.test.ts treats `DamageBonus.mult` 1.5 as +50% added to the attacker's outgoing % before step 4
+applies once (100 Song with +25% Song damage and a ×1.5 bonus deals 175, not 187.5).
+**Why:** GDD §5.2 step 4 says "additive within the step, then applied once"; the contract calls it a multiplier
+without saying how it combines. Interface request to the Architect to state it.
+
+### D-QA-005 · 18/11/2026 — Every e2e run is a review run
+**Decision:** `e2e/scenes.spec.ts` loads every scene in the router's `SCENES` (imported, so a new scene is covered
+automatically), requires `__perch.ready` and no console or page errors, and saves a 1920×1080 screenshot of each scene
+to `out/shots/review/` on every run; no pixel comparison.
+**Why:** the shots cost under a second each inside a run `npm run check` already makes, so reviewers always have
+current pictures.
