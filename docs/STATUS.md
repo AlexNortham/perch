@@ -35,6 +35,8 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
    player-facing text (see D-EP-002).
 9. **Report.** The last step of every task is a Log entry (template at the bottom). Record non-obvious decisions in
    DECISIONS.md.
+10. **Local only.** Never add a git remote, push, publish or upload anything. Branches and merges stay on this
+    machine (D-EP-014). Installing packages from the npm registry is fine.
 
 ## Ownership map
 
@@ -44,7 +46,7 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
 | `docs/DECISIONS.md` | everyone, append-only |
 | `docs/GDD.md` | Game Director (2) |
 | `docs/ARCHITECTURE.md`, `docs/INTERFACES.md` | Technical Architect (3) |
-| `src/sim/core/**` (incl. `contracts/`), `src/sim/index.ts`, `src/sim/heroes/registry.ts` | Technical Architect (3) |
+| `src/sim/core/**` (incl. `contracts/`), `src/sim/index.ts`, `src/sim/heroes/registry.ts`, `src/sim/data/core.ts` | Technical Architect (3) |
 | `src/client/main.ts`, `src/client/app/**` (boot, app states, loop, interpolation, settings store, `?scene=` router) | Technical Architect (3) |
 | `package.json`, lockfile, `tsconfig*.json`, `vite.config.ts`, Vitest/ESLint/Playwright configs, `index.html`, `.gitignore`, `scripts/**`, `tools/**` | Build & Tooling (4) |
 | `src/sim/physics/**`, `src/sim/data/movement.ts` | Character Controller (5) |

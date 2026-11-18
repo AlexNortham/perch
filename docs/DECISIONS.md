@@ -84,3 +84,8 @@ needs an ADR.
 **Decision:** each worktree runs `npm ci --prefer-offline`. No junctions to the main checkout's `node_modules`.
 **Why:** a worktree clean-up that follows a junction could delete the main checkout's dependencies, and the npm cache
 makes the second install cheap.
+
+### D-EP-014 · 18/11/2026 — Local only
+**Decision:** the project stays on this machine: no git remotes, pushes, pull requests, cloud sessions, published
+artifacts or uploads. Installing packages from the npm registry is fine.
+**Why:** the user's instruction at kickoff ("keep local, don't push anywhere").
