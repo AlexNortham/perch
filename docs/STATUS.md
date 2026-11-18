@@ -313,3 +313,27 @@ target position). (4) Say in command.ts that bots must write a fresh `PlayerComm
 the `runIf`) once it passes; pods and fledglings likewise at W3. Hero Engineers write smoke tests with
 `tests/helpers/sandbox.ts` (see tests/README.md). The 20-minute fledgling composition test is slow by design: keep it
 pending-only or move it to the soak run when flipping that suite.
+### W2 · Rendering & VFX · 18/11/2026
+**Done:** the render core in `src/client/render/`: `index.ts` (Renderer: sun with soft PCF shadows fitted to the view,
+hemisphere light, exp² fog, equirect sky gradient peach over Dawn / violet over Dusk, Neutral tone mapping, quality
+presets switchable live), `blockout.ts` (MapData → one mesh per material group, lane ribbons in lane accent colours,
+Updraft cables + stations, Chimney shafts, Vines, shop rings + canopies, structure-anchor placeholders, forest
+backdrop), `entities.ts` (model per entity, pooled, interpolated), `palette.ts` (exports `TEAM_COLOURS`,
+`DAWN_COLOURS`, `DUSK_COLOURS`, GDD §14 colours), `constants.ts`, `fixture.ts` (test map), two test files.
+D-RENDER-001…005. VFX stub untouched.
+**Verified:** `npm run check` → PASS typecheck, lint (no warnings), test (45), sim, e2e (no console errors).
+`npm run shots -- --scene menu`, `--scene blockout --cam overview|top`, `--quality low|high`, and the fixture through
+`?renderFixture` (overview, top, low/medium/high, street level), looked at. Live switch high→low→medium→high: one
+canvas, no console errors. Draw calls / triangles (overview, `renderer.info`, shadow pass included): fixture 12 /
+22.5k (low), 17 / 34.0k (medium, high); placeholder 8 / 11.1k (low), 11 / 11.2k (medium); menu (arena) 6 / 11.0k.
+`npm run build` contains none of the dev hooks.
+**Blocked:** nothing.
+**Interface requests:** Architect — `sceneConfig` runs 'arena' behind the menu; use 'main' with no roster so the menu
+shows the real map (D-EP-017). UI — the menu panel's rgba(12,14,18,0.78) overlay hides most of the backdrop; lighten
+it or darken only behind the buttons. Build — let `npm run shots` pass extra query parameters (e.g.
+`--extra "renderFixture&renderCam=…"`) so fixture shots use the standard tool.
+**Next:** Technical Artist: import team colours from `client/render/palette.ts`. Instanced fledglings: `create()`
+returns a bare Object3D proxy, take an instance slot on its 'added' event, write the proxy's position/yaw (set by the
+renderer before `pose()`) into the InstancedMesh in `pose()`, free the slot on 'removed'; add the InstancedMesh to
+`model.parent` on first `pose()` (lifecycle in `entities.ts`). VFX (W3): get the scene from the render module, not
+the contract. Not measured: FPS on an iGPU (headless runs are not representative).
