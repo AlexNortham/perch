@@ -1,0 +1,4 @@
+* text=auto eol=lf
+*.png binary
+docs/STATUS.md merge=union
+docs/DECISIONS.md merge=union
