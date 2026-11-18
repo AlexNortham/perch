@@ -294,3 +294,40 @@ from it (before the menus are finished, from a listed `?scene=` URL), and the EP
 `PLAYABLE.md` at the repo root: how to launch, what you can do, what isn't in yet. The EP writes each section after
 launching that build and checking it.
 **Why:** the user's instruction: progress must be visible after every stage, with a written guide to what works.
+
+### D-RENDER-001 · 18/11/2026 — Blockout: one merged mesh per material group, vertex colours, face normals
+**Decision:** every `MapData` prim becomes a non-indexed, vertex-coloured piece (colour per material tag, ±6% jitter,
+darker foot on tall prims) and merges into one mesh per group: matte (most tags), water, Dawn and Dusk (emissive team
+glow). Map features (Updraft cables and stations, Vines, shops) share one more mesh; lanes and Chimney shafts are two
+translucent meshes; structure-anchor placeholders one mesh, hidden once any structure entity exists. A map renders in
+8–12 draw calls before shadows.
+**Why:** a handful of draw calls for any map, flat shading without derivative shaders, and colour variety without
+textures (GDD §14.1).
+
+### D-RENDER-002 · 18/11/2026 — Lighting values: GDD numbers × π, neutral tone mapping, softer shadows
+**Decision:** Three's lights are physical, so the GDD §14.5 intensities are multiplied by π and tone-mapped with
+`NeutralToneMapping`. The hemisphere light is 1.0 instead of 0.6 and a shadow removes 80% of the sun
+(`shadow.intensity`), because at the GDD values faces turned from the low sun went near-black. Three 0.187 removed
+`PCFSoftShadowMap`; soft PCF is `PCFShadowMap` with `shadow.radius`.
+**Why:** readable shade at street level and from above; the GDD numbers stay as the named inputs.
+
+### D-RENDER-003 · 18/11/2026 — Fog thins with camera height; near and far planes follow it
+**Decision:** fog density = preset density × min(1, 30 m / camera height). The far plane sits where the fog is opaque
+(clamped 300–3000 m) and the near plane is max(0.1 m, 0.005 × height). The shadow box follows the camera's target
+(half-size = 1.1 × camera-to-target distance, 45–240 m), snapped to whole texels.
+**Why:** at the GDD density the overview camera (262 m from the centre) saw the map 87% fogged. The player camera
+still gets the GDD fog; the overview and top cameras see the whole map through light haze.
+
+### D-RENDER-004 · 18/11/2026 — A quality change rebuilds the WebGL context
+**Decision:** `setQuality` creates a new `WebGLRenderer` and canvas with the preset's antialiasing, pixel ratio and
+shadow-map size, swaps it into the container and disposes the old one. `Renderer.canvas` is a getter.
+**Why:** antialiasing is fixed when a WebGL context is created, so this is the one way to switch every preset field
+live; one code path is simpler than special-casing the fields that could change in place.
+
+### D-RENDER-005 · 18/11/2026 — Decorative forest and floor beyond the bounds; dev-only renderer hooks
+**Decision:** the blockout adds a floor to the horizon and three rings of instanced giant trees 28 m outside the bounds
+(scaled down for shallow maps such as 'arena'; they receive shadows but cast none). Dev builds only:
+`?renderFixture` swaps 'main' for the renderer's fixture map, `?renderCam=x,y,z,tx,ty,tz` fixes the camera, and
+`window.__perchRender` reports draw calls and triangles and switches quality. Production builds strip all three.
+**Why:** the menu and overview cameras need a world around the map, not a square in a void; the hooks let the renderer
+be checked against a richer map than the placeholder without touching the router.
