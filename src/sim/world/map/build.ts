@@ -9,7 +9,7 @@ import type {
 } from '../../core/contracts';
 import type { ClimbSpec, MapSpec } from './data/kit';
 import {
-  CHIMNEY_GAP, CHIMNEY_OVERSHOOT, CHIMNEY_RADIUS, CLIMB_LANDING, NAV, REACH, STATION_SETBACK, UPDRAFT_HEIGHT,
+  CHIMNEY_GAP, CHIMNEY_OVERSHOOT, CHIMNEY_RADIUS, CLIMB_LANDING, MAX_SLOPE_RISE, NAV, REACH, STATION_SETBACK, UPDRAFT_HEIGHT,
   VINE_OFFSET,
 } from './data/traversal';
 import { corners, indexPrims, primBottom, primTop, standAt, surfacesAt, type PrimIndex } from './geometry';
@@ -221,7 +221,7 @@ const reversed = (p: Profile): Profile => ({ step: p.step, samples: [...p.sample
 function classifyProfile(profile: Profile, from: number, to: number): NavLinkKind | null {
   const { samples, step: ds } = profile;
   const n = samples.length - 1;
-  const tol = Math.max(REACH.step, ds * Math.tan((REACH.maxSlopeDeg * Math.PI) / 180));
+  const tol = Math.max(REACH.step, ds * MAX_SLOPE_RISE);
   const surface = (k: number, maxY: number) => samples[k]?.find((y) => y <= maxY) ?? null;
   let f = from;
   let rank = WALK;
@@ -337,12 +337,24 @@ export function buildNav(input: NavInput): NavGraph {
   // Snap every candidate to a standable surface, then merge near-duplicates.
   const nodes: Vec3[] = [];
   const climbSpots = input.climbs.flatMap((c) => [buildClimb(c).bottom, climbLanding(c)]);
+  const cell = NAV.mergeDist;
+  const grid = new Map<string, Vec3[]>();
+  const key = (cx: number, cz: number) => `${cx},${cz}`;
   for (const c of [...input.points, ...climbSpots, ...candidates(input)]) {
     const y = standAt(index, c.x, c.z, c.y + REACH.step, NAV.nodeClearance);
     if (y === null) continue;
     const p = v(c.x, y, c.z);
-    if (nodes.some((n) => (n.x - p.x) ** 2 + (n.y - p.y) ** 2 + (n.z - p.z) ** 2 < NAV.mergeDist ** 2)) continue;
+    const cx = Math.floor(p.x / cell);
+    const cz = Math.floor(p.z / cell);
+    let dup = false;
+    for (let i = -1; i <= 1 && !dup; i++) {
+      for (let k = -1; k <= 1 && !dup; k++) {
+        dup = (grid.get(key(cx + i, cz + k)) ?? []).some((n) => (n.x - p.x) ** 2 + (n.y - p.y) ** 2 + (n.z - p.z) ** 2 < cell * cell);
+      }
+    }
+    if (dup) continue;
     nodes.push(p);
+    grid.set(key(cx, cz), [...(grid.get(key(cx, cz)) ?? []), p]);
   }
   const ground = nodes.length;
   const links: { from: number; to: number; kind: NavLinkKind }[] = [];
@@ -370,10 +382,17 @@ export function buildNav(input: NavInput): NavGraph {
       if (j <= i || !b) continue;
       // Skip a link when another node sits on the way: the two shorter links cover it.
       const d = dist(a, b);
-      const via = (near[i] ?? []).some((k) => {
+      const limit = d * NAV.detour;
+      let via = false;
+      for (const k of near[i] ?? []) {
         const c = nodes[k];
-        return k !== i && k !== j && c !== undefined && dist(a, c) + dist(c, b) <= d * NAV.detour;
-      });
+        if (k === j || !c) continue;
+        const ac = dist(a, c);
+        if (ac < d && ac + dist(c, b) <= limit) {
+          via = true;
+          break;
+        }
+      }
       if (via) continue;
       const profile = groundProfile(index, a, b);
       const ab = classifyProfile(profile, a.y, b.y);

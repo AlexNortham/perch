@@ -22,6 +22,9 @@ export const REACH = {
   heroRadius: 0.45,
 } as const;
 
+/** Rise per metre of the steepest walkable slope. */
+export const MAX_SLOPE_RISE = Math.tan((REACH.maxSlopeDeg * Math.PI) / 180);
+
 /** GDD §3.7: Updrafts run this far above the lane path. */
 export const UPDRAFT_HEIGHT = 12;
 /** Stations at a Hawk or Heron sit this far from it along the lane, on the owning flock's side. */
@@ -51,7 +54,7 @@ export const NAV = {
   wallMaxThickness: 2,
   wallEndOffset: 1.5,
   /** A link is skipped when some node lies on a route at most this much longer (the two shorter links cover it). */
-  detour: 1.05,
+  detour: 1.2,
   /** Boxes at least this tall and this wide on top count as buildings (corner and roof nodes). */
   buildingMinHeight: 2.5,
   roofMinSide: 3,
