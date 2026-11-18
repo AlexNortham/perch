@@ -9,9 +9,10 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
 
 - **Milestone:** M0 — Foundations
 - **Roster:** 24 heroes (D-EP-015), shipped in six batches of four from W3 to W6
-- **Wave:** W1 in progress — Game Director, Technical Architect, Build & Tooling (shared main checkout)
-- **main:** initial commit (docs only)
-- **Last `npm run check`:** not available yet (W1 creates it)
+- **Wave:** W1 done (0afec69). W2 in progress in worktrees: Level Designer, Rendering & VFX, QA, Character
+  Controller, Combat, Ability Systems
+- **main:** 0afec69 — GDD, sim core and contracts, app shell, stubs, toolchain
+- **Last `npm run check`:** PASS on main at 0afec69 (5/5 steps, 12 s), run by the EP on 18/11/2026
 
 ## How the studio works
 
@@ -162,7 +163,12 @@ Gate M5:
 
 ## Open requests (EP-maintained)
 
-None yet.
+| From | To | Request | Scheduled |
+|---|---|---|---|
+| Architect | Build | Print `hash()` on the single-run `npm run sim` line | next Build task |
+| Director | Level Designer | GDD §6.3 coordinates are binding | W2 brief |
+| Director | Technical Artist | 40 m line-up screenshot of all 24 heroes | M3 (W6) |
+| Architect | Level Designer, UI | Axes: x = east, z = north; a north-up top-down view shows east on the left (D-ARCH-008) | W2 brief; W4 UI brief |
 
 ## Log
 
