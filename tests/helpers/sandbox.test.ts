@@ -33,9 +33,12 @@ describe('sandbox helper', () => {
 
     for (const target of [{ x: -6, y: 4, z: 20 }, sb.pointOf(other, 'head'), sb.pointOf(other, 'body')]) {
       sb.aimAt(me, target);
+      // aimAt aims from where the hero stands now; the step's physics may then settle it by ~1e-4 m (Rapier's
+      // controller tolerance), so check the latched look from the position the aim was computed for.
+      const aimedFrom = { ...sb.hero(me).pos };
       sb.step();
       const h = sb.hero(me);
-      const ray = aimRay(h.pos, h.yaw, h.pitch, h.shoulder, sb.ctx.heroes.owl.def.body, false);
+      const ray = aimRay(aimedFrom, h.yaw, h.pitch, h.shoulder, sb.ctx.heroes.owl.def.body, false);
       expect(rayDistance(ray.origin, ray.dir, target)).toBeLessThan(1e-6);
     }
 
