@@ -59,9 +59,9 @@ export const SLIDE = {
   /** Flat-ground friction takes the slide down to crouch-walk speed in this long. */
   decayS: 1,
   /** Downhill slopes steeper than this add gravity along the slope. */
-  minSlopeDeg: 8,
+  minSlope: 8 * DEG,
   maxSlopeSpeed: 16,
-  steerDegPerS: 45,
+  steerPerS: 45 * DEG,
   boostCooldownS: 1,
 } as const;
 
@@ -121,14 +121,16 @@ export const VINE = {
   reach: 0.4,
   /** How far either side of the vine line a hero can grab and shimmy. */
   halfWidth: 1,
+  /** Grabbable from this far below the vine's bottom point. */
+  grabBelow: 0.5,
   /** −dot(move direction, out) needed to grab (moving into the wall). */
   facing: 0.5,
 } as const;
 
 /** GDD §3.9, §5.9. */
 export const DISPLACE = {
-  /** Push, pull and along launch at this angle so the arc lands `distance` away on flat ground. */
-  launchDeg: 20,
+  /** Push, pull and along launch at this angle (radians) so the arc lands `distance` away on flat ground. */
+  launch: 20 * DEG,
   /** Air control while displaced, as a fraction of AIR.accel. */
   airControl: 0.2,
   knockUpMaxS: 1.5,
