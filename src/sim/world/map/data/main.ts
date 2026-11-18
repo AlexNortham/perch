@@ -115,6 +115,8 @@ const hedgerow: BlockoutPrim[] = [
   // Clipped hedge and garden wall along the first leg.
   slab(DIAG_MID.x + DIAG_IN.x * 9, DIAG_MID.z + DIAG_IN.z * 9, 1.5, 20, 0, 2.5, DIAG_YAW, 'foliage'),
   slab(DIAG_MID.x - DIAG_IN.x * 9, DIAG_MID.z - DIAG_IN.z * 9, 1, 24, 0, 1.2, DIAG_YAW, 'stone'),
+  // Hedge at the outside of the Heron corner.
+  block(-106, -100, -100, -98.5, 0, 2.5, 'foliage'),
   // Magpie stall counter.
   block(-108.5, -107.5, -60, -56, 0, 1.2, 'wood'),
   // Walled kitchen gardens behind the west terrace.
@@ -192,6 +194,8 @@ const pinewood: BlockoutPrim[] = [
   block(78, 84, -12, -9, 0, 1.5, 'wood'),
   block(88, 92, -58, -56, 0, 1.2, 'wood'),
   block(98, 102, -22, -20, 0, 1.2, 'wood'),
+  block(99, 103, -92, -89, 0, 1.5, 'wood'), // outside the Heron corner
+  ...tree(112, -98, 0.7, 18, 2.6, 5),
   // Pines: lane edges, the east band and the first leg.
   ...tree(104.5, -26, 0.7, 18, 2.6, 5),
   ...tree(104.5, -10, 0.7, 18, 2.6, 5),

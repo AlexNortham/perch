@@ -4,7 +4,7 @@ import { TEAM_SIZE } from '../../data/core';
 import { buildMap, pathLength, projectOnPath, pointOnPath, wrapAngle } from './build';
 import { MAIN_SPEC } from './data/main';
 import { NAV, REACH, STATION_SETBACK, UPDRAFT_HEIGHT } from './data/traversal';
-import { columnClear, indexPrims, standAt } from './geometry';
+import { columnClear, indexPrims, inFootprint, primBottom, primTop, standAt } from './geometry';
 import { ARENA, loadMap, mapSvg } from './index';
 
 const map = loadMap('main');
@@ -337,6 +337,24 @@ describe('traversal', () => {
       expect(rise).toBeGreaterThanOrEqual(REACH.mantleMin);
       expect(rise).toBeLessThanOrEqual(REACH.mantleMax);
     }
+  });
+
+  it('no open ground wider than 25 m without hard cover, outside the market squares and the Hollow (GDD §6.5)', () => {
+    // Proxy: every walkable ground point on a 4 m grid (Dawn half; Dusk mirrors it) is within 12.5 m of a solid prim
+    // that stands at least 1 m above that ground.
+    const cover = map.prims.filter((p) => p.solid && primTop(p) - primBottom(p) >= 1);
+    const bare: string[] = [];
+    for (let x = -128; x <= 128; x += 4) {
+      for (let z = -148; z <= 0; z += 4) {
+        if (Math.abs(x) < 24 && Math.abs(z) < 24) continue;
+        if (map.structures.some((s) => s.type === 'hawk' && s.lane === 'riverbank' && flat(s.pos, { x, y: 0, z }) < 16)) continue;
+        const y = ground(x, z);
+        if (y === null) continue;
+        const covered = cover.some((p) => primBottom(p) <= y + 0.5 && primTop(p) >= y + 1 && inFootprint(p, x, z, 12.5));
+        if (!covered) bare.push(`${x},${z}`);
+      }
+    }
+    expect(bare).toEqual([]);
   });
 
   it('climbs rise within the GDD §3.8 heights, with a clear shaft and a roof to land on', () => {
