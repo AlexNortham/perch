@@ -556,3 +556,10 @@ above the roof, with no prim. A vine's `bottom` and `top` are 0.5 m out from the
 edge; `out` points away from the wall. The roof is on the far side of the wall in both cases.
 **Why:** the shaft must stay clear for the rider, and the extra metre lets the exit pop (+6 m/s) carry the rider over
 the roof edge.
+
+### D-EP-018 · 18/11/2026 — One integration engineer per wave for merge defects
+**Decision:** defects that appear only after a wave's branches are merged are fixed on `integrate/w<N>` by one
+temporary integration engineer acting for the owners, limited to a listed set of defects, with root-cause fixes in the
+owning system and no contract changes. QA's gate review then checks the result.
+**Why:** reopening four owners for four small cross-system fixes costs more than one focused agent, and the gate
+review still independently checks every change.
