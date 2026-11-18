@@ -1,5 +1,5 @@
 // Damage pipeline contract suite, written test-first from GDD §5.2–§5.5, §5.9–§5.10, §7, §8.3, §8.9 and INTERFACES §6
-// (D-EP-006). Pending until Combat lands: run with `PERCH_PENDING=1 npx vitest run tests/contracts/damage.test.ts`.
+// (D-EP-006). Always on since the W2 gate: `npx vitest run tests/contracts/damage.test.ts`.
 //
 // Everything goes through createSim and the sandbox: damage requests are `damage` effects applied through
 // ctx.effects (INTERFACES §6.1, as abilities, items and world do), gun hits come from real firing. Expected numbers
@@ -18,7 +18,6 @@ import { TICK_RATE } from '../../src/sim/data/core';
 import { createSandbox } from '../helpers/sandbox';
 import type { Sandbox } from '../helpers/sandbox';
 
-const PENDING = process.env.PERCH_PENDING === '1';
 const TIMEOUT_MS = 60_000;
 
 /** GDD §5.4 default beak multiplier (combat.beakShotMult); a WeaponDef may override it (Owl ×2.0). */
@@ -83,14 +82,16 @@ function hit(
   sb.apply(damage(amount, type, opts.effect), to, sb.cause(from, { via: opts.via ?? viaFor(type) }));
   sb.step();
   const event = sb.eventsOf('damage.applied').find((e) => e.target === to);
-  return { lost: before - sb.health(to).hp, event };
+  // A unit that dies leaves the store at the end of the tick (INTERFACES §6.4): it lost all it had.
+  const after = sb.ctx.store.get(to) ? sb.health(to).hp : 0;
+  return { lost: before - after, event };
 }
 
 const stat = (s: StatModifier['stat'], op: StatModifier['op'], value: number): { stats: StatModifier[] } => ({
   stats: [{ stat: s, op, value }],
 });
 
-describe.runIf(PENDING)('damage pipeline order (GDD §5.2, INTERFACES §6)', () => {
+describe('damage pipeline order (GDD §5.2, INTERFACES §6)', () => {
   it('§5.2 / INTERFACES §6.1–6.3: a request waits for the damage phase, then lands with a full damage.applied', async () => {
     const { sb, attacker, victim } = await arena();
     const max = sb.ctx.stats.get(victim, 'maxHealth');
@@ -186,7 +187,7 @@ describe.runIf(PENDING)('damage pipeline order (GDD §5.2, INTERFACES §6)', () 
   }, TIMEOUT_MS);
 });
 
-describe.runIf(PENDING)('shields (GDD §5.10)', () => {
+describe('shields (GDD §5.10)', () => {
   it('§5.10: matching typed shield first, then barrier, then health; the other type is untouched', async () => {
     const { sb, attacker, support, victim } = await arena();
     const max = sb.ctx.stats.get(victim, 'maxHealth');
@@ -220,7 +221,7 @@ describe.runIf(PENDING)('shields (GDD §5.10)', () => {
   }, TIMEOUT_MS);
 });
 
-describe.runIf(PENDING)('structure rules and special states (GDD §5.2 step 7, §5.9, §7)', () => {
+describe('structure rules and special states (GDD §5.2 step 7, §5.9, §7)', () => {
   async function withTower(): Promise<Cast & { tower: EntityId }> {
     const cast = await arena();
     const tower = cast.sb.dummy({ kind: 'structure', type: 'hawk', team: 'dusk', at: { x: 6, y: 0, z: 0 }, hp: 4500 });
@@ -277,7 +278,7 @@ describe.runIf(PENDING)('structure rules and special states (GDD §5.2 step 7, �
   }, TIMEOUT_MS);
 });
 
-describe.runIf(PENDING)('gun hits: beak shots and falloff (GDD §5.4, §5.5)', () => {
+describe('gun hits: beak shots and falloff (GDD §5.4, §5.5)', () => {
   /** Owl shoots a Pelican `distance` m away along the arena diagonal (clear of its two props). */
   async function range(distance: number): Promise<{ sb: Sandbox; shooter: EntityId; target: EntityId }> {
     const half = distance / 2 / Math.SQRT2;
@@ -354,18 +355,21 @@ describe.runIf(PENDING)('gun hits: beak shots and falloff (GDD §5.4, §5.5)', (
     ];
     for (const c of cases) {
       const { sb, shooter, target } = await range(c.d);
-      const { dmg } = gun(sb, shooter);
+      const { dmg, mult } = gun(sb, shooter);
       const hits = shoot(sb, shooter, target, 'body', 4);
       expect(hits.length, `gun hits at ${c.d} m`).toBeGreaterThan(0);
+      expect(hits.some((e) => !e.beakShot), `body hits at ${c.d} m`).toBe(true);
       for (const e of hits) {
-        expect(e.beakShot).toBe(false);
-        expect(Math.abs(e.amount / dmg - c.frac), `damage fraction at ${c.d} m`).toBeLessThanOrEqual(c.tol);
+        // Spread (GDD §5.6) can lift a body-aimed bullet onto the head at range: a real beak shot, which §5.2 applies
+        // after falloff, so divide it back out.
+        const base = dmg * (e.beakShot ? mult : 1);
+        expect(Math.abs(e.amount / base - c.frac), `damage fraction at ${c.d} m`).toBeLessThanOrEqual(c.tol);
       }
     }
   }, TIMEOUT_MS);
 });
 
-describe.runIf(PENDING)('kill credit, assists and respawn (GDD §8.3, §8.9, INTERFACES §6.4)', () => {
+describe('kill credit, assists and respawn (GDD §8.3, §8.9, INTERFACES §6.4)', () => {
   it('§6.4, §8.3: the killing blow gets credit and allies who damaged the victim assist', async () => {
     const { sb, attacker, ally, support, victim } = await arena();
     hit(sb, ally, victim, 50, 'song');

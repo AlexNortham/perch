@@ -6,7 +6,7 @@ QA's cross-system suites (D-EP-010). Unit tests live next to their code (`src/**
 | Path | What |
 |---|---|
 | `determinism.test.ts` | Two 6v6 matches (seed 1, a scripted human that moves, jumps, fires, melees and casts, plus 11 bots) stepped in lockstep for 3 sim minutes: identical `hash()` every 10 s, identical event stream, telemetry and view. Seed 2 runs a minute without crashing and ends elsewhere. |
-| `contracts/damage.test.ts` | **Pending** (Combat, W2). The GDD §5.2 pipeline step by step, resists and shred, beak shots, falloff, shields, structure rules, lifesteal, kill credit, assists, respawn. |
+| `contracts/damage.test.ts` | Always on (Combat, since the W2 gate). The GDD §5.2 pipeline step by step, resists and shred, beak shots, falloff, shields, structure rules, lifesteal, kill credit, assists, respawn. |
 | `rules/pods.test.ts` | **Pending** (Economy, W3). GDD §8.2: instant share, pod rise, ripe window, secure, deny, wither, no-hero split. |
 | `rules/fledglings.test.ts` | **Pending** (Objectives, W3). GDD §7.1: wave timing and composition, formation, marching, targeting rules 1–4, leash, attacks. One test runs 20 sim minutes. |
 | `helpers/sandbox.ts` | The ability sandbox (below). |
@@ -18,7 +18,7 @@ Suites written test-first (D-EP-006) are gated with `describe.runIf(process.env.
 skipped in `npm run check` until their system lands. Run one with:
 
 ```bash
-PERCH_PENDING=1 npx vitest run tests/contracts/damage.test.ts
+PERCH_PENDING=1 npx vitest run tests/rules/pods.test.ts
 ```
 
 Every assertion names the GDD section it checks. If you think an assertion misreads the GDD, say so in your Log entry
