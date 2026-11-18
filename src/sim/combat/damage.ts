@@ -547,16 +547,16 @@ export function createDamage(
       }
       shields.length = n;
       if (changed) for (const s of shields) shieldTotals(s.e);
-      // Regeneration (heal reduction applies to it; structures don't regenerate, GDD §7).
-      regen(ctx.store.list('hero'));
-      regen(ctx.store.list('unit'));
-      // Level-up heals whose max-HP growth landed after the event, then respawns.
+      // Level-up heals whose max-HP growth landed after the event, and respawns.
       for (const s of heroes.values()) {
         if (s.levelHeal > 0) flushLevelHeal(s);
         s.levelHeal = 0;
         const h = s.hero.health;
         if (h.dead && h.respawnAt !== null && now >= h.respawnAt) respawn(s);
       }
+      // Regeneration (heal reduction applies to it; structures don't regenerate, GDD §7).
+      regen(ctx.store.list('hero'));
+      regen(ctx.store.list('unit'));
     },
     drop(id) {
       dropHealth(id);

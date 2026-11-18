@@ -174,7 +174,10 @@ export interface Kit {
   of<T extends SimEvent['type']>(type: T): Extract<SimEvent, { type: T }>[];
   clear(): void;
   hero(id: HeroId, team: PlayerTeam, pos: Vec3, yaw?: number): HeroEntity;
-  unit(team: Team, pos: Vec3, hp?: number, height?: number): UnitEntity;
+  /** A Scrapper, or a summon when `owner` is given. */
+  unit(team: Team, pos: Vec3, hp?: number, height?: number, owner?: EntityId | null): UnitEntity;
+  /** Jump the match clock to this many seconds. */
+  at(seconds: number): void;
   structure(team: Team, type: StructureType, pos: Vec3, hp: number, radius: number, height: number): StructureEntity;
   pod(team: Team, pos: Vec3): PickupEntity;
   /** Point the hero's camera ray through `point` (yaw and pitch, solved iteratively). */
@@ -296,7 +299,11 @@ export function createKit(opts: { seed?: number; boxes?: Box[]; keepEvents?: boo
         inventory: { items: [], actives: [null, null, null, null] },
       });
     },
-    unit(team, pos, hp = 260, height = 0.9) {
+    at(seconds) {
+      clock.tick = Math.round(seconds * TICK_RATE);
+      clock.seconds = clock.tick / TICK_RATE;
+    },
+    unit(team, pos, hp = 260, height = 0.9, owner = null) {
       const stats = ctx.stats.create({ maxHealth: hp });
       return store.spawn({
         kind: 'unit',
@@ -305,7 +312,7 @@ export function createKit(opts: { seed?: number; boxes?: Box[]; keepEvents?: boo
         vel: { x: 0, y: 0, z: 0 },
         yaw: 0,
         radius: 0.45,
-        unit: { type: 'scrapper', lane: null, height, owner: null, summon: null, target: null, attacking: false },
+        unit: { type: owner === null ? 'scrapper' : 'summon', lane: null, height, owner, summon: owner === null ? null : 'turret', target: null, attacking: false },
         health: { hp, talonShield: 0, songShield: 0, barrier: 0, dead: false, respawnAt: null, inCombatUntil: 0 },
         stats,
         statuses: [],
