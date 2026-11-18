@@ -266,3 +266,35 @@ state in your factory closure and fold it into `System.hash`; draw randomness on
 Combat: shared statuses go in `src/sim/data/combat.ts`; report pod hits through `projectile.impact` and `melee`. QA:
 the ability sandbox is `createSim({ map: 'arena', options: { unlockAbilities: true } })` plus commands; tests may use
 `sim.ctx`, the client may not. Contract changes are interface requests and land between waves.
+
+### W2 · Combat · 18/11/2026
+**Done:** `src/sim/combat/` replaces the stub: guns (fire rate with exact fractional cadence, aim point from
+`core/aim.ts` plus world raycast and own hitboxes, muzzle-to-aim-point shots, seeded cone spread from
+`rng.stream('combat')`, pellets, hitscan and pooled projectile bullets, falloff, max range, ammo, magazine and
+per-round reload, reload-cancel, auto-reload); hitboxes (head sphere and body capsule from BodyPlan with crouch,
+decoys use their owner's, unit capsules, structure cylinders, Patron weak point, pods and the Ember); the full GDD
+§5.2 pipeline in the damage phase (base with missing-HP part, falloff, beak shot with bonus and flat, outgoing %,
+capped amp, stacked resist minus shred clamped, structure rules and Brood Ward, typed shields then barriers, undying,
+onLethal, execute), lifesteal, `damage.applied`/`heal.applied`, kill credit through summons and projectiles, 12 s
+assists, `entity.died`, hero death, respawn timer with the Ember and `hero.respawned` at the Home Roost, the 4 s
+combat state, the level-up heal; light/heavy melee and parry with `melee`/`parry` events; all §5.9 statuses with
+their stacking, DoTs, cleanse, regeneration, onExpire, endsOnAttack (fire, melee, casting), status resist and ability
+duration; the eight combat effect kinds; pods hit by bullets and melee. Shared statuses and tuning in
+`src/sim/data/combat.ts`. Decisions D-COMBAT-001…008.
+**Verified:** `npm run check` → PASS typecheck, lint, test (112 tests, 74 in src/sim/combat), sim, e2e (40 s). Tests
+use a hand-built SimContext with fixture heroes carrying GDD §9 guns (Kingfisher hitscan pistol, Albatross 8-pellet
+shell-loader, Shrike 180 m/s projectile rifle, Owl, Pelican, Lyrebird) and a fake AABB PhysicsService, plus two
+`createSim` tests (a hit through the real composition root; equal `hash()` for equal seeds over 1,200 ticks of
+firing, kills and respawns). Performance: 12 heroes firing continuously with 150 units in the spatial hash,
+0.07–0.10 ms per tick for combat's three phases (including the spatial rebuild and flush); 0.02 ms idle.
+**Blocked:** nothing.
+**Interface requests:** Architect — (1) `WeaponDef`: `projectileRadius` (Lyrebird 0.25 m; all projectile guns use
+0.06 m now), spin-up (Woodpecker 6→14 shots/s over 1.5 s), and the per-round start delay (Albatross 0.3 s; now one
+combat constant). (2) `DamageEffect.beakShotMult` (Moonlit Mark ×1.5; now `COMBAT.abilityBeakShotMult`).
+(3) `WeaponModEffect`: a shot count ("next 6 shots", Heavy Rounds). (4) TSDoc: UnitInfo says units can't be
+beak-shot, but GDD §5.4 lets decoys be (implemented via the owner's BodyPlan); StatusDef says unstoppable blocks every
+negative status, GDD lists only crowd control (D-COMBAT-004); INTERFACES §3 should note combat writes `pos` once at
+respawn (D-COMBAT-002). Character Controller — handle `hero.respawned` by moving the controller to `pos`; melee
+requests a `dash` (heavy lunge) and a `displace` push (heavy knockback).
+**Next:** the Hero Engineers' weapon data replaces the fixtures; QA's `tests/contracts/damage.test.ts` meets the
+pipeline at the merge.
