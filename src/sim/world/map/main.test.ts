@@ -339,6 +339,15 @@ describe('traversal', () => {
     }
   });
 
+  it('every ramp but the gable roofs is walkable (≤ 45°)', () => {
+    const ramps = map.prims.filter((p) => p.shape === 'ramp' && p.material !== 'roof');
+    expect(ramps.length).toBeGreaterThan(10);
+    for (const p of ramps) {
+      if (p.shape !== 'ramp') continue;
+      expect(Math.atan2(p.size.y, p.size.z) * (180 / Math.PI), JSON.stringify(p.centre)).toBeLessThanOrEqual(REACH.maxSlopeDeg);
+    }
+  });
+
   it('no open ground wider than 25 m without hard cover, outside the market squares and the Hollow (GDD §6.5)', () => {
     // Proxy: every walkable ground point on a 4 m grid (Dawn half; Dusk mirrors it) is within 12.5 m of a solid prim
     // that stands at least 1 m above that ground.
