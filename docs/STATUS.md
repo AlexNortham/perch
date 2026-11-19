@@ -1799,3 +1799,22 @@ stand-ins marked `TODO(framework)` (D-HEROB-007). Models are the generic rig (Te
 (2) Abilities or Physics: `point` targeting that can return a surface hit, for Branch Swing and Tree Cling. (3) Combat:
 the 0 s `applyStatus` rule in W5-contract-followups is still a plain one-tick status in this tree (D-HEROB-001).
 (4) QA: the two e2e specs above. **Blocked:** nothing.
+### 2026-11-19 · Economy & Items engineer B (W5a, Song) · ECON
+**Done:** the 17 Song items not in the Stage 3 shop, as typed `ItemDef` data in `src/sim/data/items-song.ts`
+(`SONG_ITEMS`, spread into `ITEMS`), with Crescendo, Echo Chamber's repeat and Boundless Song's ultimate cooldown in
+`src/sim/items/song/index.ts` (called from `createItemSystem`) and six tests in `song.test.ts`. Engineer A also
+creates `items-song.ts`; the EP reconciles the two at the merge. Two one-line hooks touch A's files (`ITEMS` spread,
+`createSongItems(ctx)`).
+**Passing now:** every Song stats row, the catalogue-shape rows, Nettle Sting, Encore and Whirlwind Knot.
+**Waiting on A's engine (data is ready):** Warbler's Trill and Skylark Cadence (`TriggerDef.uses`), Blight Spores and
+Rookery Dirge (`currentHpPct`, `maxHpPct`, `ItemDef.aura`), Muting Whistle, Gloom Curse and Tangle Pod (unit and point
+targeting of actives: `affects`, range, aim point). `market.test.ts` pins the 16-item list and now fails.
+**D-ECON-B-001:** Crescendo and Echo Chamber add a second Song hit (20% and 25% of the first), so the target's resists
+apply to it again. **Interface requests (engineer A):** a combat-side outgoing multiplier for Crescendo, and a
+per-slot cooldown-reduction stat for Boundless Song if the helper's refund is not wanted.
+
+### 2026-11-19 · Economy & Items engineer A (W5a, Talon, Plumage, engine) · ECON
+**Done:** the catalogue is split into `items-kit.ts` (helpers, `Rider`, `ItemShield`), `items-talon.ts`, `items-plumage.ts`, `items-song-base.ts` (the five Stage 3 Song items) and B's `items-song.ts`; all 21 Talon and 21 Plumage items with real effects. Engine: four-active cap (an upgrade replacing an active keeps the count), item-active targeting (self, direction, point, unit with `affects` and `selfFallback`; a point lob lands on the enemy hero under the crosshair) in `items/targeting.ts`, `ItemDef.aura` apply on buy and respawn and end on sale or death, item shields (`ITEM_SHIELDS`, an upgrade adds only the difference), Second Clutch, Dew Drinker and Healing Dew, neutral shops, `TriggerDef.uses`, `via` and `withinM`, riders (`items/riders.ts`: Forager's Talon, Skipping Stone, Kestrel's Eye extras, heavy-melee slows, Carrion Feast). B's two hooks (`SONG_ITEMS`, `createSongItems`) are in. Economy: Thicket payouts, Nest sprigs, Bell Feeder seeds, golden Egg pods, Roc and Ember seeds, no bounty on a revive. Starter scores: `src/sim/data/item-scores.ts` (`STARTER_SCORES`, `ARCHETYPE_CORES`, from GDD 11.4 to 11.8) for Bot AI to wire into `BUILDS`.
+**Landed for B:** `TriggerDef.uses` (tested), unit and point targeting of actives (tested; Muting Whistle, Gloom Curse and Tangle Pod run), `ItemDef.aura` (tested with Nestmother's Mantle). `currentHpPct` and `maxHpPct` are combat effects (Systems engineer): Blight Spores and Rookery Dirge need them.
+**Waiting on other owners:** Systems (combat): `triggerPct` (Burr Coat), `currentHpPct` (Blight), `maxHpPct` (Rookery Dirge), `meleeDamageTaken` in step 5 (Heartwood Bark). World: Thicket, Nest and Feeder entities (the seed code is covered by sandbox dummies in `economy/neutral.test.ts`). **QA:** the `heavyMelee` helper holds Melee without a press, so no swing starts (Hooked Spur's QA test); the Nestmother test reads `healthRegen` while the sandbox multiplies it by 0. **Interface requests:** a per-hit gun bonus by distance (Kestrel's Eye +20% from 25 m is a rider now, so the hit itself is unchanged); ShieldEffect removal on sale.
+**Verified:** `bash scripts/check.sh`: typecheck, lint, test, perf and sim pass; e2e passes (one timeout on first run, 57 of 57 on rerun).
