@@ -35,6 +35,16 @@ async function line(extra: 'foe' | null = null) {
 const h = (sb: Sandbox, id: EntityId): HeroEntity => sb.hero(id);
 const riding = (sb: Sandbox, id: EntityId) => h(sb, id).motor.updraft !== null;
 
+/** Positive control for the negative tests: the same spot does latch on a plain held Jump, so they cannot pass vacuously. */
+function expectLatchHere(sb: Sandbox, hero: EntityId, at: Vec3): void {
+  sb.release(hero, Button.Interact | Button.Jump);
+  sb.place(hero, at);
+  sb.step(t(DAMAGE_LOCKOUT_S + 0.2));
+  sb.hold(hero, Button.Jump);
+  sb.step(t(1));
+  expect(riding(sb, hero), 'control: held Jump latches at this spot').toBe(true);
+}
+
 describe.runIf(process.env.PERCH_PENDING === '1')('W5 no Interact: Updraft latch and dismount (§3.7, D-EP-039)', () => {
   it.each([0.1, 0.3, 0.5, 0.7, 0.9])('§3.7 holding Jump 0.2 s within reach latches anywhere along the cable (%s of the first segment), not only at a station', async (f) => {
     const { sb, hero, under } = await line();
@@ -59,6 +69,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 no Interact: Updraft latch
     sb.release(hero, Button.Jump);
     sb.step(t(1));
     expect(riding(sb, hero), 'half a latch').toBe(false);
+    expectLatchHere(sb, hero, under(0.5));
   });
 
   it('D-EP-039 the Interact bit does nothing: pressing or holding it beside the cable never mounts', async () => {
@@ -70,6 +81,8 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 no Interact: Updraft latch
     sb.hold(hero, Button.Interact);
     sb.step(t(1));
     expect(riding(sb, hero)).toBe(false);
+    sb.release(hero, Button.Interact);
+    expectLatchHere(sb, hero, under(0.5));
   });
 
   it('§3.7 reach: feet more than 2.5 m horizontally from the line cannot latch; motor.updraftInReach is set inside reach and null outside, and the view carries it for the HUD prompt', async () => {
@@ -126,6 +139,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 no Interact: Updraft latch
     sb.step(t(1));
     sb.release(hero, Button.Jump);
     sb.step(t(0.3));
+    expect(riding(sb, hero), 'riding before the drop').toBe(true);
     const ride = Math.hypot(h(sb, hero).vel.x, h(sb, hero).vel.z);
     sb.press(hero, Button.Crouch);
     sb.step(2);
@@ -164,6 +178,9 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 no Interact: Updraft latch
     sb.hold(hero, Button.Jump);
     sb.step(t(1));
     expect(riding(sb, hero)).toBe(false);
+    sb.release(hero, Button.Jump);
+    sb.modify(hero, 'qa-egg', null);
+    expectLatchHere(sb, hero, under(0.5));
   });
 });
 
