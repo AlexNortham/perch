@@ -1,0 +1,105 @@
+/** Presentation constants for the procedural models and rigs (D-EP-009). Owner: Technical Artist. */
+
+/** Sim crouch scale on heights (src/sim/data/core.ts CROUCH_SCALE); the rig squashes by the same factor. */
+export const CROUCH_SQUASH = 0.65;
+
+/** Generic bird colouring: hue spread across the hero ids, fixed saturation and lightness. */
+export const GENERIC = { saturation: 0.45, lightness: 0.45, bill: 0xe0a030, leg: 0x5a4a3a } as const;
+
+/** Natural colours of the four hand-built heroes (GDD §9.1 to §9.4). */
+export const PLUMAGE = {
+  black: 0x1b1b20,
+  white: 0xf2efe6,
+  grey: 0x8a8d94,
+  eye: 0x0b0b0b,
+  eyeGlint: 0xffffff,
+  leg: 0x5a4a3a,
+  gunMetal: 0x3d4148,
+  gunWood: 0x7a5236,
+  thorn: 0xc9b98a,
+  shrikeBill: 0x2a2a2e,
+  albatrossBill: 0xe8b5b0,
+  albatrossBillTip: 0xc2706c,
+  albatrossWing: 0x5a4a40,
+  kingfisherBack: 0x1f8fff,
+  kingfisherBelly: 0xf08a24,
+  kingfisherBill: 0x1a1a1a,
+  lyreBrown: 0x6f4f36,
+  lyreSilver: 0xd5dae0,
+  lyreBill: 0x4a3a30,
+} as const;
+
+/** Rig tuning. Angles in radians, rates in 1/s, lengths as fractions of the hero's height unless noted. */
+export const RIG = {
+  /** dt is clamped so a stalled tab does not snap poses. */
+  maxDt: 0.1,
+  /** Exponential smoothing rate toward target poses. */
+  blend: 14,
+  runSpeedRef: 6,
+  sprintSpeed: 8.5,
+  stepBase: 5,
+  stepPerSpeed: 1.2,
+  legSwing: 0.95,
+  bobHeight: 0.035,
+  idleBob: 0.008,
+  idleRate: 2.2,
+  runLean: 0.1,
+  sprintLean: 0.22,
+  wingTuck: 0.04,
+  wingRun: 0.18,
+  wingAir: 1.0,
+  wingDash: 1.35,
+  wingGlide: 1.45,
+  wingCast: 1.25,
+  wingDead: 0.9,
+  wingUpdraft: 1.3,
+  wingClimb: 0.7,
+  flapUpdraft: 0.4,
+  flapFall: 0.3,
+  flapRate: 20,
+  flapAmp: 0.28,
+  slidePitch: 1.25,
+  slideDrop: 0.3,
+  dashPitch: 0.95,
+  mantlePitch: -0.35,
+  climbPitch: -0.2,
+  climbRate: 11,
+  updraftPitch: -0.25,
+  recoilRate: 12,
+  recoilKick: 0.1,
+  recoilPitch: 0.16,
+  reloadDip: 0.8,
+  castHeadUp: -0.35,
+  castPulse: 0.05,
+  stunRate: 9,
+  stunSwing: 0.5,
+  flinchTime: 0.18,
+  flinchPitch: -0.3,
+  deathTime: 0.35,
+  deathRoll: 1.5,
+  headLook: 0.6,
+} as const;
+
+/** Fledglings (GDD §7.1). Geometry is built at the nominal radius; poses scale it to entity.radius. */
+export const FLEDGLING = {
+  nominalRadius: 0.45,
+  slingerScale: 0.89,
+  /** Instances per (type, team) mesh. Comfortably above the ~150 a match holds. */
+  capacity: 256,
+  bobRate: 18,
+  bobHeight: 0.07,
+  waddle: 0.16,
+  lungePitch: 0.55,
+  lungeRate: 6,
+  idleRate: 3,
+  deathScale: 0.5,
+  moveSpeed: 0.5,
+  body: 0xf2d98a,
+  bill: 0xe8872a,
+  foot: 0xd9722a,
+  wing: 0xd9b866,
+  sling: 0x7a5236,
+} as const;
+
+/** Debug hitbox overlay (QA). */
+export const HITBOX_DEBUG = { head: 0xff3030, body: 0x30ff60, segments: 12 } as const;
