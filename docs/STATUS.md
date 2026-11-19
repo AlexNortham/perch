@@ -918,3 +918,49 @@ practice setup and inspect inputs. EP approved the shared tower envelope for Obj
 **Done:** w4/contracts based on b94ef61. INTERFACES §12 records 38 W3 dispositions (25 accepted, 4 modified, 9 satisfied, 0 rejected). D-ARCH-017–019 and docs/briefs/W4-contract-followups.md assign producers, consumers, ordinary routes and QA proof. 625e38f introduced entity/event/effect projections; 242c0a7 wired siege, practice targets, command intents, settings and sight; e04a184 was the EP-authorised temporary Input ownership of index.ts and input.test.ts for shared default imports and migration coverage. 92fc98e froze the contracts and follow-ups.
 **Verified:** separate npm ci --prefer-offline --no-audit --no-fund. Git Bash VITEST_MAX_WORKERS=1 npm run check passed all six steps (162 s, 503 tests + 6 serial perf + 11 browser tests, 117 inherited warnings). An unrestricted parallel unit run under concurrent browser work timed out in two existing 5 s sim tests; the single-worker run passed without changing assertions or timeouts. Two npm run sim -- --seed 1 --minutes 3 --bots 12 runs, 10,800 ticks, both hash 4e8cc26604dd382e (4.5 s and 2.9 s). Evidence in out/check/{test,perf,sim,e2e}.log, telemetry-seed-1.json and arch-replay.json. Inspected out/shots/arch-practice.png (scene=practice, Lyrebird, 1920×1080): standing Dawn/Dusk targets, arena HUD with 32 AP and all four abilities. Core/app test checks initial wounded ally, fresh siege AP, locked ultimate, practice tier expenditure, safe binding migration and world-to-screen projection.
 **Remaining:** W4 owners implement structures, item catalogue and trades, UI menus/panels, target reset, kit data, camera/combat/VFX consumers, movements, and audio against the frozen interfaces. The screenshot proves initial practice setup; player-driven damage/heal, target reset, menu access and live siege victory need integrated owner code and independent QA evidence. No open interface requests.
+### W4 · QA, M1 production preview · 19/11/2026
+
+Built `npm run build` and served `npm run preview -- --host 127.0.0.1 --port 4178 --strictPort` from the assigned
+worktree (`3564eff`, same source as GitHub M1 `6df745e`). Isolated profiles used Windows Playwright Firefox
+159.0 (build 1572, WebGL enabled) and Edge 156.0.4314.50. No player browser windows were used.
+
+- **Tab closure.** Reached Riverbank from Home Roost with normal controls. Shrike started at x −7.5, z −146, strafed
+  to x ≤ −12 with D, went W to z ≥ −123, strafed back toward x −3 with A and went W to z ≥ −104 through the centre gate.
+  With waves fast-forwarded to 100 s, alternated forward and back through 35 run + Shift + Space rounds (60.5 s),
+  six run then Ctrl (10.3 s), six Ctrl then run (10.2 s), and four run + Shift + Ctrl (6.8 s). Firefox stayed pointer
+  locked while tracking position, shots and 9,784 frames, with no exception, WebGL loss, page crash or unexpected
+  navigation. Its DOM stayed at 94 nodes and one canvas. The initial Edge run also stayed live through the keyboard
+  sequence. Edge JS heap samples ranged about 50–82 MB during the wave run, including drops between samples. Firefox
+  provided no JS heap metric in this probe and GPU or process memory was unmeasured. The run does not establish a leak.
+  The revised default C avoids the M1 overlap of W + Ctrl and W + Shift + Ctrl with native Firefox close shortcuts.
+  Headless content injection cannot establish the cause of the player's close. [Mozilla Firefox key reference](https://support.mozilla.org/en-US/kb/keyboard-shortcuts-perform-firefox-tasks-quickly)
+- **Mouse capture and action.** Both browsers captured Right Mouse for Melee (Aim swapped to Q) and Middle Mouse for
+  Parry (Ping swapped to F) and preserved the pair after a reload. An event trace in the Firefox production bundle
+  saw an empty light swing, an empty held heavy and 4.66 m of lunge plus residual motion, and parry start and whiff
+  from trusted mouse input under pointer lock. M1 light recovery lasts 0.55 s after release. Heavy commits at 0.35 s
+  with the impact at 0.60 s from press. Only parry success drives its VFX in M1. Synthetic Firefox side buttons
+  captured Mouse 4 and Mouse 5 and carried a held/released melee to a 4.61 m lunge in Riverbank. Firefox's native
+  side-button history remains unverified. Edge's trusted CDP Mouse 4 press/release during in-lane Options capture
+  navigated back to the previous menu URL. Source has mousedown prevention and leaves the release/auxiliary path
+  available to the browser.
+- **Albatross aim.** The real sim centre stays aligned in open level shots, shallow up/down and with either shoulder.
+  Kingfisher passed as the single-shot control. A rear/side arena box leaves the centre clear and a directly
+  obstructed muzzle reports real pellet impacts. The shallow-down Albatross shot produces terrain hits and misses,
+  but every displayed tracer slopes below the shot centre because the mapper emits only impact rays when any pellet
+  hits. The pending tracer test fails on M1. The production Edge screen captures compare shoulder and pitch
+  at Riverbank x ≈ −2, z ≈ −103. The left-shoulder crosshair at that point visibly intersects the tower, which is a
+  separate obstruction from the open-aim case measured in the sandbox.
+
+**Tests and evidence.** `tests/preview-aim.test.ts` has seven always-on controls and one pending visibility regression.
+`e2e/preview-regressions.spec.ts` gates safe defaults and legacy migration, native side-button history, standard
+button swaps and pointer-locked combat, and 45 s of post-fix movement with a confirmed slide and advancing sim.
+Serve the production build and set `PERCH_PREVIEW_URL` when running the production liveness case. The standalone
+`node e2e/preview-diagnostics.mjs firefox` replay keeps JSON and PNGs under `out/preview-repro/`; use `edge` for the
+native history case or `edge --aim` for screenshots. Inspected the Riverbank, side Options and Albatross PNGs. The
+prod-bundle trace is in `out/preview-repro/action-trace.log`. EP and Architect received reproductions before handoff.
+
+**Interface requests.** Architect agreed to expose local `flags`, `tick`, `meleePose`, `lastMelee` and `lastParry` in the
+read-only test hook, and add `weapon.traces` for the full hitscan endpoint set. Run pending tests against integrated
+production before promoting them into the normal gate.
+
+**Gate.** npm run check passed all six steps in 144 s. Unit tests 506 passed, 1 pending. Serial perf 6 passed. The three-minute sim hash was a8d14facda91c2fa. Edge e2e 10 passed, 5 pending. Lint retained the baseline 117 warnings and zero errors.

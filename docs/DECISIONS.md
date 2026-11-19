@@ -886,3 +886,20 @@ and outcomes as the match. Check the two target paths, the AP panel and a fresh 
 ### D-ARCH-019 · 19/11/2026 — Safe browser bindings and visible movement/melee states
 **Decision:** migrate settings v1 to v2, reserve user-customised codes, then assign available safe defaults for crouch and item 3. New profiles use C and N respectively. Expose fractional stamina, the actual eligible dash-jump window, distinct air/wall jumps, down dash and mantle glide, and charge/light/heavy/parry poses. A rebound upgrade modifier opens inspect on a solo tap; a chord spends once.
 **Why:** the former default permitted native browser close-tab shortcuts during sliding. The new view states let HUD, Art, Audio and QA distinguish intent, windup, impact, available stamina and the real timing window. Heavy charge and browser history failures require separate real-input tests.
+### D-QA-006 · 19/11/2026 — Test M1 input with a production preview and real history entries
+
+**Decision:** diagnose keyboard liveness with isolated Firefox and Edge content input, and check side-button
+navigation using trusted Chromium CDP events with real browser history in both directions. Keep expected-red
+fix checks gated until integrated. Use an advancing sim tick and the Sliding flag to verify the post-fix run.
+
+**Why:** content liveness, browser-native history, browser-chrome shortcuts and WebGL loss have separate
+observations. A synthetic side-button event can verify the action path. A history check needs trusted input.
+
+### D-QA-007 · 19/11/2026 — Measure the gun centre separately from the displayed pellet fan
+
+**Decision:** test the simulation's fired direction in the open and against real Rapier geometry, then check the
+actual VFX mapping for an open ray on a partially obstructed shotgun blast. Cover both shoulders and use
+Kingfisher as the single-shot control.
+
+**Why:** the M1 mapper displays only hit rays once a pellet strikes something. A shallow downward Albatross shot
+can have a correct centre while all visible rays point towards the ground.
