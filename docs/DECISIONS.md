@@ -640,3 +640,13 @@ silence ends channels, so a mode started by a channelled ability (Burrow) would 
 one written; hit markers and pod banners use `Element.animate` started from `damage.applied` and `pod.resolved`
 events for the local hero. View-to-display mapping lives in pure `display.ts`.
 **Why:** no per-frame allocation or layout thrash (D-EP-009 perf rules), and the mapping is unit-testable without a DOM.
+### D-ECON-001 · 19/11/2026 — Pods resolve in the economy phase from queued hits; pod radius 1 m
+**Decision:** `projectile.impact` (gun, or `via` absent) and `melee` events on a pod are queued and resolved in the
+economy phase by pod age: ignored while rising (< 36 ticks), resolved while ripe, gone at 120 ticks. The pod is
+spawned in the `entity.died` handler (value V/2 unrounded; payments floor). Hit radius is 1 m.
+**Why:** one ordering for hits emitted by combat the same tick and by tests between ticks; the GDD gives no pod size and
+a muzzle-offset bullet misses a smaller orb at lane range.
+
+### D-ECON-002 · 19/11/2026 — Passive income lands in wave 3
+**Decision:** 1 Seed per second per hero from 0:30 (GDD §8.4, marked assumed), paid as `seeds.gained` reason 'passive'.
+**Why:** tiny, and net-worth curves are otherwise flat until bounties exist in wave 4.
