@@ -943,3 +943,15 @@ Artist, Hero A (A2) and Hero B (B1) start fresh from main; Audio starts when a s
 merge because it touches every owner's files. Models follow D-EP-019. ChatGPT's worktrees under `~\.codex\` are left
 untouched.
 **Why:** the user asked Claude to pick development back up from ChatGPT; resuming its branches keeps its work.
+
+### D-UI-003 · 19/11/2026 — Panels render once and update cells; one description element per fact
+**Decision:** the upgrade dialog and Hoard build their DOM once per hero or catalogue and only write changed text. Each
+ability description and tier effect exists in exactly one element, shown by `:hover`/`:focus-within` CSS, so keyboard and
+pointer both reveal it and QA locators resolve one node. Panels never mutate the view; they call `actions.submit`.
+**Why:** change-gated writes keep frames cheap (D-UI-001); one node per text avoids strict-locator clashes.
+
+### D-UI-004 · 19/11/2026 — Options capture drains the rest of a mouse press
+**Decision:** after a mouse capture the window swallows mouseup, auxclick, pointerup, click and contextmenu until mouseup
+(1 s cap). pointerdown is never swallowed, because cancelling it suppresses mousedown. Reserved browser chords (Ctrl/Meta
+with W, T, N, Q, R, Tab) get a note matched to `navigator.keyboard.lock`, and are never blocked (D-EP-030).
+**Why:** side buttons navigate history on release and the trailing click re-armed capture.

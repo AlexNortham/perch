@@ -1006,3 +1006,25 @@ and visible siege progression.
 **Interface requests:** sent stable accessible names for the upgrade dialog, ability controls, and labelled
 dummy HP bars through the EP. The W3 worst-tick follow-up and production-browser regressions are tracked
 outside this browser acceptance suite.
+
+### W4 · UI/HUD Engineer · 19/11/2026
+**Done:** branch worktree-agent-a6f09e285ec841bc5 from 6ba3741, `src/client/ui/**` only. Menu with Play, Practice Hub and
+Options; 24-card picker whose hover/focus panel lists the gun and every ability tier from the registry; HUD with level/AP,
+Seeds, tier pips with real AP costs, Z/X/N/V item actives, half-pip stamina, melee tap/hold/charge/parry readout on the
+actual binding, dash-jump cue; top bar (net worth, clock, lane pips, both Patrons with phase, ward and gate, front enemy
+structure per lane, objective timers); north-up minimap (east at left) and big map from `mapSeenBy`, fading ghosts, pings;
+kill feed with objective lines and ally respawns; world damage/heal numbers (`Settings.damageNumbers`), ping markers;
+Ability Upgrades dialog (descriptions linked with aria-describedby, `Upgrade <ability>` buttons with cost or reason,
+Close and Esc); Magpie's Hoard (3 categories, 4 tiers, component net cost, same-visit refund, flex slots, right-click sells,
+read-only away from stalls); Tab scoreboard; ping wheel; Victory/Defeat end screen with telemetry; Practice Hub dummy
+panel (`Ally dummy`/`Enemy dummy` progress bars with live HP). Options: mouse capture swallows down, up, aux and context
+events (side buttons no longer navigate), reserved-chord note per D-EP-030. Imports moved to app/bindings and app/palette;
+all UI lint warnings gone (named constants).
+**Verified:** Git Bash `npm run check` 6/6 PASS. Unit tests 24 in `src/client/ui` (model, bindings, display). Looked at
+1080p PNGs in `out/ui-shots/` (ignored by git): menu, picker, practice HUD, upgrades, match HUD, scoreboard, shop (fake
+catalogue via `out/ui-harness.ts`), big map, pause, Options with chord note, end screen. With PERCH_PENDING=1,
+`preview-regressions.spec.ts` passes both side-button/Options tests; its pointer-lock melee step still fails on gameplay.
+**Limits:** the panels could not be driven by real keys here: input has no Alt-tap or B/Tab/M routing on this base, so
+upgrades, shop, scoreboard and big map were opened by DOM for the screenshots. Catalogue and structures were empty on
+this base (economy and objectives not merged), so the shop and Patron strip were seen only with fakes or empty.
+`/Elder Raven/` shows once the Patron entity exists. Twelve selectable cards depends on hero engineers. No interface request.
