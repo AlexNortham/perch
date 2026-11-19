@@ -1628,3 +1628,43 @@ descriptions differ in length, so the other cards move on every hover and are ha
 must take no space in the grid (a fixed-size detail panel or a floating hover card); every card keeps its size and
 position whatever is hovered or focused. Regression e2e: hover and focus every card in turn and assert that no card's
 bounding box moves by even 1 px.
+### W4.5 · Game Director · 19/11/2026
+**Done:** GDD design pass for Stage 4 on `worktree-agent-a0244705241598855` (from `integrate/w5` fcf1de6). Mechanics
+follow deadlock.wiki (map, crates and buff containers, permanent buffs, melee machines, neutral camps, powerups,
+urn, mid-boss and crystals, healing snacks, steam vents, jump pads, veils, tunnels and secret shops, ziplines,
+items); names, wording and layout are PERCH's own, and no wiki text was copied.
+- **Old Mossmarket (§6.5, §6.8–§6.12):** a building kit with numbers; 12 archetypes (Market Hall or Water Mill, Bell
+  Tower, Granary, Warehouse, Tavern, Hollow-tree House, Terrace House, Seed Exchange, Stilt House, Hide, Dovecote);
+  footprints on the existing grid with 8 enterable jungle buildings per quarter plus lane houses; three jungle zones,
+  five named paths, sightline and flank rules; anchors for 24 Thickets (8 indoors), 100 Nests, 8 Bell Feeders,
+  22 Berries, 8 Hides, 8 Bough Springs, 14 Lookouts, 32 ivy curtains, the Cellar Run and Magpie Dens; an ASCII plan
+  of the west quarter; interior sight, sound and ability rules; a prim, nav, triangle, draw-call and sim budget.
+- **Objectives (§7.8–§7.15):** Thickets, Nests, Feather runes, Golden Egg and the Roc revised to the reference with
+  every number; new keepsakes, Bell Feeders and interactables. Deviations are marked **(deviation)** (D-DIR-010).
+- **No Interact key (D-EP-039, D-DIR-011):** §3.1 table of how every object is used; Updraft latch by held Jump
+  with reach, hold time, lockouts and a fresh-press dismount (§3.7); Egg picked up by light or heavy melee, set
+  down with Melee, delivered on entering the Stone.
+- **Items (§10, D-DIR-012):** 64 items (21 / 21 / 22, 16 per tier), 16 new with full specs and chains, 15 actives,
+  a 4-active cap, a gap review (§10.4) and new primitive parameters.
+- **Bots and builds (§11.3–§11.8):** interiors, Thickets, Nests, Feeders, Berries, Hides, Springs, Lookouts, runes,
+  Egg and Roc behaviour by difficulty; the D-EP-036 scored buying policy and its prior; early, mid and late cores
+  and situational picks per archetype; map telemetry counters.
+- Ripple: glossary, controls, melee, statuses, economy, HUD, minimap, shop, scoreboard, audio, timeline, M3
+  checklist with a gate-coverage table, Appendix A. D-DIR-010 to D-DIR-013.
+**Verified:** `npm ci --prefer-offline --no-audit --no-fund` (145 packages). Git Bash `VITEST_MAX_WORKERS=1 npm run
+check`: `PASS typecheck 7s · lint 5s · test 48s · perf 11s · sim 3s · e2e 114s · check 188s`; 792 unit tests, e2e
+55 passed, lint clean, sim seed 1 10,800 ticks hash `24f313406956a6f6`. No `src/` change. GDD scanned for TBD and
+stale Ember, rune, Interact and item-count references; Nest, camp, Berry, Lookout and curtain totals recounted from
+the anchor tables; the west-quarter plan was drawn by script from the §6.9 footprints.
+**Limits:** design only. The Level Designer must confirm the footprints against the rebuilt geometry; the §6.12
+budget assumes about 410 prims per quarter.
+**Interface requests:**
+- Architect: map schema for storeys, openings (door, shot window, leap window), ladders, hatches, interior volume
+  ids, ivy curtains, Hides, Lookouts, Bough Springs with an arc, Berries, Bell Feeders, Magpie Dens and the Cellar Run
+  speed volume; a `spring` nav link; pickups for seed sprigs, crumbs and keepsakes; keepsake stats as one source per
+  type; `statMod` stats `meleeDamage` and `meleeDamageTaken`; `damage` by % of current HP; a cast-granted trigger on
+  the next N gun hits; ally `unit` targeting with a self fallback; the hidden state; removal of the Interact command
+  and the held-Jump latch input.
+- Character Controller and Camera & Input: the §3.7 latch and dismount, and dropping saved Interact bindings.
+- QA: raise the `main.test.ts` prim ceiling from 1,500 to 3,000 with the W5 map.
+**Next:** W5 implementers build from §6–§7, §10 and §11; the Director reviews the M3 feel checklist at the gate.

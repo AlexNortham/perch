@@ -7,7 +7,8 @@ starting values. Every number here is a starting value unless it is called a rul
 Conventions: distances in metres (m), times in seconds (s), speeds in m/s, angles in degrees. Coordinates use
 x = east, y = up, z = north; the map centre is (0, 0, 0). "SP" is Song power. Percentages that add are written
 "+N%"; percentages that multiply are written "×N". **(assumed)** marks a rule where the live behaviour of the
-reference game was uncertain and the conventional MOBA answer was chosen.
+reference game was uncertain and the conventional MOBA answer was chosen. **(deviation)** marks a deliberate
+difference from the reference game's behaviour (D-DIR-010); numbers alone are always PERCH's own and aren't marked.
 
 Contents: [1 Vision](#1-vision-and-pillars) · [2 Glossary](#2-glossary) · [3 Controls](#3-controls-and-movement) ·
 [4 Camera](#4-camera-and-aim) · [5 Combat](#5-combat) · [6 Map](#6-map) · [7 Units](#7-units-and-structures) ·
@@ -69,16 +70,26 @@ the first minute and still has decisions to make at minute 35.
 | **Nest Warden** | Base gate towers, two per lane per flock. |
 | **Roost Shrine** | Two per flock inside the base. Both must fall before the Patron can be damaged. |
 | **Brood Ward** | Backdoor protection: structures take −65% damage while no enemy fledgling is within 30 m. |
-| **Thicket** | A jungle camp of neutral creatures (tier 1, 2 or 3) that pays seeds and respawns. |
-| **Nest** | A breakable woven nest (crate) in the jungle and on rooftops. Small seed payout, sometimes a crumb buff. |
+| **Thicket** | A jungle camp of neutral creatures (tier 1, 2 or 3) that pays seeds and respawns. Some sit indoors. |
+| **Nest** | A breakable nest (crate) in alleys, interiors and on rooftops: Twig, Woven (heavy melee only) or Keepsake. Drops a seed sprig, a crumb or a keepsake. |
+| **Seed sprig** | A seed pickup dropped by a Nest. Any hero collects it by moving over it. |
 | **Crumb buff** | A 60 s minor buff that sometimes drops from a Nest. |
-| **Feather rune** | A timed pickup on the two rune bridges that gives a 90 s buff (Swift, Fierce, Sage or Stout). |
-| **Golden Egg** | Objective from 10:00. Carry it to the Hatching Stone to pay your flock. The carrier can't shoot or cast and is revealed. |
-| **Egg Perch / Hatching Stone** | The two stone circles on the centre line. The Egg spawns on one perch; the other is the Hatching Stone. |
+| **Keepsake** | A small permanent stat boon from Keepsake Nests, Bell Feeders, the Egg and the Roc (§7.13). |
+| **Bell Feeder** | A hanging seed feeder that pays seeds for melee hits, swings back, and gives keepsakes when broken on the bell's beat. |
+| **Berry** | A dewberry cluster on a high spot that heals 15% of max HP over 4 s. |
+| **Hide** | A bird hide: a shed that hides the heroes inside it from enemies outside it. |
+| **Bough Spring** | A bent branch that launches a hero along a fixed arc, usually onto a roof or balcony. |
+| **Lookout** | A high marked spot that raises its occupant's sight radius to 60 m. |
+| **Ivy curtain** | Ivy hanging in a doorway that blocks sight but not movement or shots. |
+| **Cellar Run** | The tunnel under Riverbank that links the two jungle quarters of a half; holds the Magpie Den. |
+| **Magpie Den** | A neutral shop in the Cellar Run that both flocks can use. |
+| **Feather rune** | A buff on the two rune bridges, claimed with a heavy melee hit, every 5:00 from 5:00: 150 s of Swift, Fierce, Sage or Stout. |
+| **Golden Egg** | Objective from 10:00. Pick it up with melee and carry it to the Hatching Stone; it hatches into seed pods and keepsakes. The carrier can't shoot or cast and is revealed. |
+| **Egg Perch / Hatching Stone** | The two stone circles on the centre line. Each Egg lands on one perch; the other is its Hatching Stone. |
 | **The Hollow** | The sunken pit under the Old Mill Bridge in the map centre where the Roc lives. |
-| **The Roc** | Neutral giant bird boss in the Hollow, from 20:00. Drops the Phoenix Ember. |
-| **Phoenix Ember** | Dropped by the Roc. Claimed by landing a charged heavy melee on it. Gives the claiming flock a 180 s buff. |
-| **Ember buff** | The flock-wide buff from the Ember: faster respawns, stronger fledglings, +15% damage. |
+| **The Roc** | Neutral giant bird boss in the Hollow, from 20:00. Only heroes in the Hollow can hurt it. Drops three Phoenix Embers. |
+| **Phoenix Ember** | One of three flames the Roc drops. Either flock claims one with a heavy melee hit, for a full heal and a Rekindle charge. |
+| **Rekindle** | The 180 s flock buff from claimed Embers: each charge revives one fallen hero in place, and new fledglings are stronger. |
 | **The Magpie's Hoard** | The shop. Three columns (Talon, Plumage, Song) by four tiers. At the Home Roost and at lane Magpie stalls. |
 | **Magpie stall** | A lane shop: one per lane per flock, between the Hawk and the Heron. |
 | **Talon** | (1) Item category for gun power. (2) Damage type of guns and melee. |
@@ -101,13 +112,13 @@ the first minute and still has decisions to make at minute 35.
 | **Slide** | Crouching while running: a fast, low slide that carries momentum. |
 | **Mantle** | Pull-up onto a ledge within reach while holding Jump. |
 | **Updraft** | A rideable wind current strung above each lane, base to base (zipline). Boost and dismount at will. |
-| **Updraft station** | A marked mount point on an Updraft (gates, near Herons and Hawks, and centre). |
+| **Updraft station** | A signposted latch point and line end on an Updraft (gates, near Herons and Hawks, and centre). You can latch anywhere along the line by holding Jump. |
 | **Chimney** | A vertical warm-air shaft that lifts you to a rooftop. |
 | **Vine** | A climbable vine or rope on a wall or tree. |
 | **Beak shot** | A gun hit on a hero's head hitbox. Deals critical damage (×1.65 by default). |
 | **Falloff** | Gun damage reduction with distance, between a start and end range. |
 | **Parry** | A short block window (F) that stuns an enemy whose melee lands in it. |
-| **Heavy melee** | Charged melee (hold Q): slower, stronger, lunges, can be parried. Claims the Phoenix Ember. |
+| **Heavy melee** | Charged melee (hold Q): slower, stronger, lunges, can be parried. Claims Phoenix Embers and runes, breaks Woven Nests. |
 | **Bounty** | Seeds paid for killing a hero, raised for shut-downs and for comeback kills. |
 | **Comeback bonus** | Bounty and Egg multiplier paid to the flock with the lower total net worth. |
 | **Ping** | A map marker placed with middle mouse (tap: contextual; hold: wheel). |
@@ -136,7 +147,6 @@ the first minute and still has decisions to make at minute 35.
 | Upgrade ability 1–4 | Alt + 1–4 | Spends AP on the next tier. |
 | Inspect / upgrade abilities | Left Alt (tap) | Frees the pointer for the ability panel. Esc or Close returns to aiming (§12.4). |
 | Item actives | Z, X, N, V | Bound to the first four active items in slot order (rebindable per slot). |
-| Interact | E | Pick up the Golden Egg, deliver, mount an Updraft at a station. |
 | Shoulder swap | G | §4.2. |
 | Shop (Magpie's Hoard) | B | Opens only in a shop zone; elsewhere shows the read-only shop. |
 | Scoreboard | Tab (hold) | §12. |
@@ -146,6 +156,24 @@ the first minute and still has decisions to make at minute 35.
 
 In a normal browser tab, W + C and W + Left Shift + C are safe default chords for forward crouch/slide and
 dash-slide. Left Ctrl with W can close the tab. See §12.9 for legacy saves, binding conflicts and mouse buttons.
+
+**There is no Interact key (D-EP-039, rule).** Every world object answers to movement, Jump, melee or shooting:
+
+| Object | How you use it |
+|---|---|
+| Updraft | Hold Jump within reach of the cable to latch on; a fresh Jump press jumps off, crouch drops off (§3.7) |
+| Chimney | Walk or jump into the shaft base (§3.8) |
+| Vine, ladder | Move into it holding forward (§3.8) |
+| Golden Egg | A light or heavy melee hit picks it up; Melee while carrying sets it down; entering the Hatching Stone delivers it (§7.11) |
+| Phoenix Ember, Feather rune | One heavy melee hit claims it (§7.10, §7.12) |
+| Nest | Shoot it, hit it, or (Twig and Keepsake) run through it fast; Woven Nests need a heavy melee hit (§7.9) |
+| Bell Feeder | Melee only (§7.14) |
+| Seed sprig, crumb, keepsake, Berry | Move over it (§7.9, §7.15) |
+| Hide, Lookout, Cellar Run, ivy curtain | Walk in or stand on it (§7.15) |
+| Bough Spring | Step onto the pad (§7.15) |
+| Shops | B inside a shop zone (§8.8) |
+
+Saved bindings for the old Interact action are dropped on load; E becomes free to bind.
 
 ### 3.2 Ground movement
 
@@ -172,7 +200,7 @@ dash-slide. Left Ctrl with W can close the tab. See §12.9 for legacy saves, bin
 | Air jump | Press Jump again while airborne: 1 pip, once per airtime. Set vertical velocity to +8.94 m/s and keep horizontal velocity. |
 | Wall jump | Press Jump while airborne in contact with a near-vertical solid wall or within 0.1 s of leaving it. Push away at 6 m/s and carry the along-wall component of horizontal velocity. First push is free; later pushes in the same airtime cost 0.5 pip each. A heavy lunge can bring the hero into wall-jump range before landing. |
 | Wall fatigue | At full strength, a wall jump sets vertical velocity to +7 m/s. Each wall jump and each airborne heavy-melee commitment starts 1.25 s of fatigue. While fatigued, the next wall jump launches between +3.5 and +7 m/s, recovering linearly over that interval. |
-| Jump priority | A ledge pull-up or traversal dismount takes precedence in its context. Otherwise resolve dash-jump, ground/coyote jump, wall jump, then air jump. A wall jump with insufficient stamina leaves the air jump available under its own cost. Buffer a fresh Jump press for landing only when no jump can start immediately. |
+| Jump priority | A ledge pull-up or traversal dismount takes precedence in its context. A Jump held for 0.2 s within reach of an Updraft latches it (§3.7) when no mantle is available; the press itself still starts the normal jump. Otherwise resolve dash-jump, ground/coyote jump, wall jump, then air jump. A wall jump with insufficient stamina leaves the air jump available under its own cost. Buffer a fresh Jump press for landing only when no jump can start immediately. |
 
 ### 3.4 Stamina, dash and dash-jump
 
@@ -219,13 +247,14 @@ Traversal reference: [Deadlock Wiki movement guide](https://deadlock.wiki/Moveme
 
 | Parameter | Value |
 |---|---|
-| Layout | One per lane, gate to gate, 12 m above the lane path at the rider's feet. Stations at both gates and the midpoint, and 6 m along the lane toward each owning gate from its Heron and Hawk (§6.3). |
-| Mount | E within 2 m of a station, or jump into the line while airborne within 1.5 m of it. Mounting takes 0.3 s. |
-| Direction | Toward the end the camera faces when mounting |
+| Layout | One per lane, gate to gate, 12 m above the lane path at the rider's feet. Stations at both gates and the midpoint, and 6 m along the lane toward each owning gate from its Heron and Hawk (§6.3), are signposted latch points and the line's ends; you can latch anywhere along it. |
+| Latch (mount) | Hold Jump for 0.2 s while your feet are within 2.5 m horizontally of the cable's line on the ground and the cable is 0.5–14 m above your feet. From the ground the press starts a normal jump, and the hold then pulls you straight up to the cable at 30 m/s (at most 0.47 s for 14 m). Airborne within 1.5 m of the cable, the hold attaches you in 0.15 s. A tap of Jump never latches. The pull-up allows nothing but looking; a stun or displacement during it drops you. |
+| Latch lockouts | No latch for 3 s after taking damage from an enemy hero (fits the reference), or for 1.0 s after leaving an Updraft |
+| Direction | Toward the end the camera faces at the moment you latch |
 | Ride speed | 11 m/s |
 | Boost | Dash while riding: 18 m/s for 3 s; 12 s cooldown per hero; costs no stamina; can't boost for 3 s after taking hero damage |
 | While riding | Gun, reload, melee and item actives allowed. Casting an ability dismounts (and then casts). Parry is disabled. |
-| Dismount | Space: jump off with +4 m/s up and 70% of ride velocity. Crouch: drop off with 70% of ride velocity. Reaching the end of the line drops you at the station. |
+| Dismount | A fresh Jump press (Jump released since latching, then pressed): jump off with +4 m/s up and 70% of ride velocity. Crouch: drop off with 70% of ride velocity. Holding Jump through the ride does nothing. Reaching the end of the line drops you at the station. |
 | Forced dismount | Stun, knockback, knock-up, pull, root or grounded |
 | Not allowed | Egg carrier |
 
@@ -234,7 +263,7 @@ Traversal reference: [Deadlock Wiki movement guide](https://deadlock.wiki/Moveme
 | | Chimney | Vine |
 |---|---|---|
 | What | Vertical warm-air shaft inside or beside a building, 1.5 m radius | Climbable vine or rope on a wall or tree |
-| Use | Walk or jump into the shaft base | Move into the vine holding W |
+| Use (no key) | Walk or jump into the shaft base | Move into the vine holding forward; ladders are Vines |
 | Motion | Lifted at 9 m/s; exit at the top with +6 m/s up, onto the roof or balcony | Climb at 4.5 m/s up (S climbs down at 4.5 m/s); A/D shimmy 2 m/s |
 | Allowed | Gun and reload while rising | Nothing but climbing; Space jumps off backwards at 5 m/s |
 | Heights | 8–14 m | 5–12 m |
@@ -257,8 +286,8 @@ Start at the Dawn Hedgerow gate. Follow the lane past the Heron, taking the side
 Enter the middle of the lane between the Heron and the Hawk, dash forward, then press Jump as the timing cue
 appears. Hold crouch before landing to carry speed into a slide. Turn toward the east 1.2 m hedge at
 x = −92…−88, z = −49…−47.5, then hold Jump into its face to mantle. Keep crouch held to carry a fast
-approach onto the top. Continue to the station 6 m gateward of the Hawk, face the bridge, press Interact to
-mount, press Dash to boost over the Hawk and press Jump to dismount. Observe the stamina spent on the
+approach onto the top. Continue to the station 6 m gateward of the Hawk, face the bridge, hold Jump under the
+cable to latch on, press Dash to boost over the Hawk, then release and press Jump to dismount. Observe the stamina spent on the
 dash-jump, the retained landing speed and the unobstructed pass above the tower.
 
 ---
@@ -418,9 +447,9 @@ Each hero has one gun (§9 lists every value). Common rules:
 | Timing | Hit 0.25 s after release, finish 0.55 s after release | Windup starts on press; lunge starts on commitment, hit at 0.60 s from press, then 0.40 s recovery |
 | Reach | Sweep 2.8 m ahead, 1.2 m radius | Lunges up to 3.5 m in the aim direction, clipped by solid geometry, then sweeps 2.8 m |
 | Damage (Talon) | 50 + 3 per level | 115 + 6 per level |
-| Extra | Can be parried. | Knockback 3 m. Can be parried. Claims the Phoenix Ember. |
+| Extra | Can be parried. Picks up the Golden Egg. | Knockback 3 m. Can be parried. Claims Phoenix Embers and Feather runes, breaks Woven Nests, picks up the Golden Egg. |
 | Feedback | Quick sweep pose and air swish, with hit feedback on contact. | Draw-back pose and crosshair charge, distinct lunge and swing cue, hit or miss followed by a visible recovery. |
-| Notes | Cancels reload. Can't beak-shot. Gun damage % does not apply to melee. Both hit Nests, fledglings and structures (structures take 50% melee damage). |
+| Notes | Cancels reload. Can't beak-shot. Gun damage % does not apply to melee; melee damage % (§10) does. Both hit Nests, Bell Feeders, fledglings and structures (structures take 50% melee damage). |
 
 ### 5.8 Parry
 
@@ -473,7 +502,8 @@ durations are reduced by the target's **status resist** (stacks multiplicatively
 | **Undying** | Health can't fall below 1; damage that would go lower is ignored. | 1.5–5 s | Positive status. |
 | **Marked** | A tag from a named source (e.g. Marked Prey); no effect alone; other effects key off it. | 5–14 s | One per source. |
 | **Carried** | Attached to another unit's socket (Pelican's Gulp); also stunned and intangible. | ≤ 1.25 s | Released on carrier stun or death. |
-| **Egg carrier** | Can't fire, cast, use items, parry or ride Updrafts/Chimneys/Vines; −15% move speed; revealed. | while carrying | §7.11. |
+| **Egg carrier** | Can't fire, cast, use items, parry or mantle; can't use Updrafts, Chimneys, Vines, Bough Springs or the Cellar Run; +1.5 m/s move speed, +1 stamina pip, immune to slows; revealed. | while carrying | §7.11. |
+| **Hidden** | Inside a Hide: enemies outside it can't see or target the hero (§7.15). | while inside | Not invisibility; true sight reveals. |
 
 ### 5.10 Shields and barriers
 
@@ -593,10 +623,11 @@ Lane lengths along the path: Hedgerow and Pinewood 289 m gate to gate; Riverbank
 | Old Mill Bridge | x −5…5, z −22…22, deck y 0 | Riverbank lane crosses the Hollow on it |
 | Egg Perches / Hatching Stones | (−50, 0), (50, 0) | Raised plazas 1 m high; 3 m delivery circle |
 | Feather rune bridges | over Hedgerow at (−95, 0) and over Pinewood at (95, 0) | Footbridges 6 m up spanning the lane; rune sits mid-span |
-| Thickets tier 1 | (−65, −22), (−30, −52), (30, −52), (65, −22) | 4 per half |
-| Thickets tier 2 | (−60, −80), (60, −80) | 2 per half |
+| Thickets tier 1 | (−65, −22), (−30, −52), (30, −52), (65, −22) | 4 per half, outdoor yards |
+| Thickets tier 2 | (−60, −80), (60, −80) outdoor; (−21, 1.2, −103), (21, 1.2, −103) in the Granaries; (−23, −4, −33), (23, −4, −33) under the Market Hall and the Water Mill | 6 per half (§6.10) |
 | Thickets tier 3 | (−40, −12), (40, −12) | 2 per half, next to the Egg Perches |
 | Updraft stations | each gate, z = 0, and 6 m along the lane toward each owning gate from its Heron and Hawk | 12 m above the lane path |
+| Buildings, Nests, Feeders, Hides, Springs, Berries, Lookouts, the Cellar Run | §6.9 and §6.10 | Stage 4 detail pass (D-EP-033) |
 
 Hawks and Herons stay grounded at their listed x/z anchors. Their collision and visible geometry, including
 animated poses, stay at or below 10 m above the lane to leave at least 2 m below the Updraft rider's feet.
@@ -615,19 +646,87 @@ Each side lane bends toward its base after its Heron (§6.2), creating a "corner
 
 ### 6.5 Jungle
 
-- Between the lanes on each half: city blocks of 2–4 buildings separated by 5–8 m alleys, small squares and
-  wooded yards. Two jungle zones per half (west and east of Riverbank).
-- **Rooftops and balconies:** at least 40% of jungle buildings have walkable roofs reached by Chimney, Vine or
-  balcony stairs. Rooftops connect with rope bridges or gaps ≤ 6 m (a level dash-jump travels about 7.3 m in the air).
-- **Chimneys:** 6 per half, at least one within 25 m of every tier-2 and tier-3 Thicket and of each Hawk. Rise
-  8–14 m.
-- **Vines:** 10 per half on walls and big trees, 5–12 m tall, at least one on every lane's Hawk-side building
-  and one at each Egg Perch plaza.
-- **Thickets** at the coordinates in §6.3, each in a yard of 12–16 m with two entrances.
-- **Nests:** 16 per half: 8 in alleys, 4 on rooftops, 4 at lane edges between Hawk and Heron. They respawn
-  (§7.9).
+The jungle is the city between the lanes. Each flock's half has two **quarters**, west and east of Riverbank. The
+west quarter is authored and mirrored in x for the east quarter: same footprints, openings and anchors, rebuilt in
+timber, with the Water Mill standing in for the Market Hall (§6.8). Both quarters are then mirrored in z for Dusk.
+A quarter has three zones, south to north:
+
+| Zone (west quarter) | Extent | Character | Holds |
+|---|---|---|---|
+| **Gatefields** | z −114…−88 | Brick storehouses beside the base wall; the quietest zone, farmed early by its own flock | Granary (Rat Thicket, Bell Feeder), Warehouse, the Weasel yard's south entrance |
+| **Lantern Row** | z −88…−44 | Lantern-hung alleys between the Heron and Hawk lines; the main rotation corridor between Hedgerow and Riverbank | Tavern (Cellar Run stairs), Hollow-tree House, Weasel and Lantern Beetle yards, a Hide, both Bough Spring pads |
+| **Old Square** | z −44…0 | Open squares and tall buildings toward the centre; the contested zone | Bell Tower (Feeder, Lookout), Market Hall (Toad Thicket), West Beetle and Badger yards, Egg Perch plaza, both Spring landings |
+
+**Paths** (west quarter; widths are clear ground between solids):
+
+| Path | Route | Width | Use |
+|---|---|---|---|
+| **Back Lane** | x = −73 from the Hedgerow lane at z −86 to z −4, behind the Hedgerow east terrace | 5 m (6 m beside the Hollow-tree House) | Hedgerow side rotation; the three enterable east-terrace houses open onto it |
+| **Granary Lane** | z = −95 from the Hedgerow lane at x −50 to the Riverbank lane | 6 m | Base-side cross route |
+| **Lantern Row** | z = −74 from x −54 to the Riverbank lane | 8 m | Main cross route between Heron lines |
+| **Bell Street** | z = −45 from Back Lane to the market square | 4.5 m | Hawk-line cross route; passes the Hide, the Bell Tower and the Market Hall |
+| **Perch Road** | z = 0 from the rune-bridge ramp (−84) through the Egg plaza to the Hollow's west ramp (−22) | 6 m | Centre route; its own mirror image |
+
+- **Sightlines:** no jungle street gives more than 45 m of clear sight at standing height, except Perch Road
+  (60 m, from the rune ramp to the plaza). Lantern Row is broken by crate stacks every ~20 m.
 - **Cover rule:** no open ground wider than 25 m without hard cover (wall, crate stack, tree) except the lanes'
   market squares and the Hollow floor.
+- **Flank routes:** (1) Hedgerow ↔ Back Lane through the three enterable east-terrace houses; (2) Riverbank ↔ Old
+  Square through the Market Hall arcade and its west doors; (3) Riverbank ↔ the Cellar Run by the lane stairs;
+  (4) west quarter ↔ east quarter under Riverbank through the Cellar Run; (5) the roof route: Warehouse roof →
+  rope bridge → Hollow-tree crown → Back Lane; (6) the Hedgerow garden route behind the west terrace, past a Hide,
+  to the Hawk.
+- **Rooftops and balconies:** at least 40% of jungle buildings have walkable roofs reached by stairs, Chimney, Vine,
+  ladder or Bough Spring. Rooftops connect with rope bridges or gaps ≤ 6 m (a level dash-jump travels about 7.3 m
+  in the air).
+- **Chimneys:** 6 per half, at least one within 25 m of every tier-2 and tier-3 Thicket and of each Hawk. Rise
+  8–14 m. Two per quarter are inside buildings (Warehouse at (−46, −83), Market Hall at (−21.7, −26)).
+- **Vines:** at least 10 per half on walls and big trees, 5–12 m tall: one on every lane's Hawk-side building, one at
+  each Egg Perch plaza, one on each Bell Tower (south face to the 9 m balcony), one on each Market Hall (square
+  face, moved from (−14, −38) to (−16, −36)) and one on each Granary gable.
+- **Thickets** at the coordinates in §6.3; outdoor camps sit in a yard of 12–16 m with two entrances; indoor camps
+  follow §6.8.
+- **Nests:** 100 on the map (§6.10, §7.9). They respawn.
+
+```
+West quarter of the Dawn half (2 m per column, 4 m per row; Dusk mirrors z, the east quarter mirrors x)
+      x: -130                                               0
+      +-----------------------------------------------------------------+
+    0 |              .......                EEEEEEE          o      ....|
+   -4 |              .......                 EEEEE333333     o      ....|
+   -8 |       tttttt ....... ttttt              33333333     oo     ....|
+  -12 |       tttttt ....... ttttt              33333333       oo   ....|
+  -16 |       tttttt ....... ttttt   111111     33333333        oooo....|
+  -20 |       tttttt ....... ttttt   111111                        ooooo|
+  -24 |       tttttt ....... ttttt   111111              MMMMMMM    ....|
+  -28 |       tttttt ....... ttttt                       MMMMMMM :: ....|
+  -32 |       tttttt ...k... ttttt                       MMMMMMM :: ....|
+  -36 |   hh  tttttt ....... ttttt       BBBB            MMMMMMM :: ....|
+  -40 |       TTTTTT ....... TTTTT       BBBB                    :: ....|
+  -44 |       TTTTTT ....... TTTTT    ^                          :: ....|
+  -48 |       TTTTTT ....... TTTTT               hhh  111111     :: ....|
+  -52 |       TTTTTT ....... TTTTT                    111111  ^  :: ....|
+  -56 |       XXX  $ ....... ttttt   OOOOO            111111        ....|
+  -60 |       XXX    ....... ttttt   OOOOOO    VVVVV                DDDD|
+  -64 |       TTTTTT ....... TTTTT   OOOOO     VV===================DDDD|
+  -68 |       TTTTTT ....... TTTTT             VVVVV                DDDD|
+  -72 |       TTTTTT ...n...                                        ....|
+  -76 |       TTTTTT ..........        222222                       ....|
+  -80 |                ...........     222222   WWWWWWWWWW          ....|
+  -84 |                ..............  222222   WWWWWWWWWW          ....|
+  -88 |                  ...............        WWWWWWWWWW          ....|
+  -92 |                     ................                        ....|
+  -96 |                        ................                     ....|
+ -100 |                            ...............        GGGGGGG   ....|
+ -104 |                               ...............     GGGGGGG   ....|
+ -108 |                                  .............              ....|
+ -112 |                                  ###############################|
+      +-----------------------------------------------------------------+
+ . lane   : market square   # base wall   k Hawk   n Heron   $ Hedgerow stall   t terrace house   T enterable
+ terrace house   X Seed Exchange (stall house)   G Granary   W Warehouse   V Tavern   O Hollow-tree House
+ B Bell Tower   M Market Hall   h Hide   ^ Bough Spring pad   = Cellar Run   D Magpie Den   E Egg Perch plaza
+ 1 2 3 Thicket yard by tier   o rim of the Hollow
+```
 
 ### 6.6 Bases
 
@@ -644,6 +743,170 @@ Each side lane bends toward its base after its Heron (§6.2), creating a "corner
   Updraft stations, with link types (walk, jump, dash-jump, mantle, chimney, vine, updraft, drop) for bots.
 - Named points: every object in §6.3, plus bot "safe spots" behind each tower and "ambush spots" near each
   Thicket.
+- Stage 4: the nav graph also covers every storey, cellar and roof of the enterable buildings and the Cellar Run.
+  Doors and stairs are walk links, ladders are vine links, hatches and skylights are drop links, leap windows are
+  mantle links and Bough Springs are a new `spring` link. Every node carries its interior volume id (none outdoors),
+  and every Nest, Feeder, Berry, Hide, Lookout and Spring anchor is a named point.
+
+### 6.8 Buildings: the kit and the archetypes
+
+Old Mossmarket is a market town for birds that the forest has grown through. Stage 4 makes its key buildings
+enterable (D-EP-033). Every enterable building is assembled from one kit, so heroes, the camera and bots meet the
+same sizes everywhere.
+
+**Kit (rule):**
+
+| Element | Size and behaviour |
+|---|---|
+| Storey | 4.0 m floor to floor; 0.4 m slab; 3.6 m clear. Rooms are at least 5 × 5 m; corridors at least 3 m wide and at most 20 m long without a side opening |
+| Walls | 0.5 m thick outside and inside (the nav sample step). Walls, floors and roofs block movement, sight, bullets, projectiles and areas |
+| Door | 2.4 m wide × 3.0 m tall opening (the tallest hero is 2.1 m). Loading doors and arches 3.0–4.0 m wide × 3.6 m |
+| Shot window | 1.6 m wide × 1.0 m tall, sill 1.2 m above the floor. Bullets, projectiles, ability areas and sight pass; heroes can't (an invisible movement blocker fills it) |
+| Leap window | 2.0 m wide × 2.4 m tall, sill 0.9 m. A mantle or jump goes through it; it also works as a shot window |
+| Stairs | 2.0 m wide ramps rising 4 m over 8 m (26.6°); straight, or two flights with a 2 × 2 m landing |
+| Ladder | A Vine (§3.8) 1 m wide on an inner wall, topped by a 2 × 2 m hatch; used where stairs don't fit |
+| Interior Chimney | A §3.8 shaft through a stairwell void that exits through a 3 m roof opening |
+| Balcony | 2.0 m deep, 1.0 m rail (shoot over it, mantle onto it), reached through an upper door or leap window |
+| Roofs | Flat roofs are walkable, with a 0.8 m parapet; gable roofs are 30° and walkable. A 2 × 2 m roof hatch with a ladder serves every flat roof that has no Chimney |
+| Exits | Every enterable building has at least two ground exits on different faces; only juke alcoves are dead ends |
+| Ivy curtain | Hangs in a doorway or arch. Blocks sight and `unit` targeting both ways; never blocks movement, bullets, projectiles or areas. A hero within 3 m of a curtain sees through it |
+| Juke alcove | A 3 × 3 m dead-end nook behind an ivy curtain |
+
+**Archetypes:**
+
+| Archetype | Footprint, storeys | Doors and windows | Vertical routes | Interior and what it links | Contents (per building) |
+|---|---|---|---|---|---|
+| **Market Hall** | 14 × 16 m; ground hall, gallery at 4 m, flat roof at 8.4 m; undercroft at −4 m (10 × 12 m) | Square face: an open arcade of four 3 m arches. Jungle face: 2 doors. One door on each short face. Gallery: 4 shot windows over the square, 2 leap windows to a jungle-side balcony | Two stairs to the gallery along the jungle wall; interior Chimney to the roof; Vine on the square face; stairs down to the undercroft, plus a 3 m passage south to a street grate with a ladder | A hall with four 1 m pillars and 1.2 m market counters as cover, the gallery 3 m wide on three sides around an open void you can drop through. Links the lane's market square to Old Square and to the roof | Toad Thicket (undercroft), 1 Twig Nest (counters), 1 Woven Nest (undercroft), 1 Keepsake Nest (gallery), Berry (roof), Bough Spring landing (roof) |
+| **Water Mill** | The Market Hall's footprint, openings and routes, mirrored | As the Market Hall, with a waterwheel in the river on the lane face | As the Market Hall | Mill machinery replaces the counters; the undercroft is a wet millrace | As the Market Hall |
+| **Bell Tower** | 8 × 8 m; floors at 0, 4.5, 9 and 13.5 m (the belfry); solid spire to 20 m | 2 ground doors (north, south). 2 shot windows per face on the 4.5 m and 9 m floors. The belfry has an open 3 × 3 m arch on every face and a 1.2 m parapet | Ladders: ground → 4.5 m on the west wall, 4.5 → 9 m on the north wall, 9 → 13.5 m on the east wall, each through a hatch. A Vine on the south face reaches a 9 m leap window; a 2 m balcony on the west face at 9 m | A vertical fight: every floor sees the next through its hatch. The best Old Square vantage | Bell Feeder, Lookout and Berry (belfry), 1 Twig Nest (ground), Bough Spring landing (9 m balcony) |
+| **Granary** | 14 × 10 m on 1.2 m stone staddles; storage hall, loft at 5.2 m, 30° gable roof (ridge 10.5 m) | A 4 m loading door on each long face. A leap window on each gable end at loft level | Ramps 2 m wide at both short ends up to the staddle deck; 2 ladders to the loft at opposite corners; 2 hay hatches (2 × 2 m) drop from the loft into the hall; a Vine on the west gable | Grain sacks (1.2 m) as cover in the hall. Links Granary Lane to the base-side lane edge | Rat Thicket (hall), Bell Feeder (loft; one hybrid camp with the Rats), 1 Twig Nest (loft) |
+| **Warehouse** | 20 × 14 m; one 7 m storey, mezzanine catwalk at 4 m, flat roof at 8 m | Loading doors (4.0 × 3.6 m) on both short faces; one door on each long face with an ivy curtain. Two 3 × 3 m skylights | 2 stairs to the catwalk; crate stacks (1.5 m and 3.0 m) form a mantle chain to it; interior Chimney to the roof; drop in through the skylights; rope bridge to the Hollow-tree crown | The catwalk (3 m wide) runs along both long walls and the west wall. A juke alcove in the south-west corner. Links the Weasel yard to Lantern Row, Granary Lane and the roof route | 2 Twig Nests and 1 Woven Nest (floor), 1 Keepsake Nest (catwalk), Twig Nest and Berry (roof) |
+| **Tavern** | 10 × 12 m; taproom and kitchen, upper floor at 4 m, gable roof (ridge 10 m); cellar at −4.5 m | Front door (Lantern Row), back door with an ivy curtain, side door (west). Upper floor: 2 rooms (4.5 × 5.5 m) off a 3 m corridor, a 2 m balcony over the front door | 1 interior stair up; cellar stairs down into the Cellar Run | Taproom (9 × 7 m) with a 1.2 m counter; kitchen (9 × 4 m). The west entrance of the Cellar Run | 1 Twig Nest (taproom), 1 Woven Nest (cellar) |
+| **Hollow-tree House** | A giant trunk, outer radius 5 m, wall 1 m; crown deck of radius 6 m at 12 m | 2 ground arches 3 m wide (north, south); 2 knot-hole leap windows at 6 m (east, south) | A 2 m spiral ramp inside rises 12 m in 1.5 turns (23°); a 2 m rope bridge runs from the crown's south-east edge (−61, 12, −66) to the Warehouse roof (−47, 8, −79), 19 m long | Climb inside, fight at the knot-holes, take the roof route. The canopy stays at 28–30 m | 1 Keepsake Nest, Lookout and Berry (crown) |
+| **Terrace House** | 8–8.5 m along the lane × 11–13 m deep; 2 storeys, flat (8–9 m) or gable roof | Front door on the lane, back door on the garden or Back Lane; upper door onto the 4 m lane balcony | 1 interior stair; roof hatch with a ladder on flat roofs | One room per floor. Links Hedgerow to Back Lane (east terrace) or to the gardens (west terrace) | Some hold a Twig Nest (§6.10) |
+| **Seed Exchange** | A Terrace House with an open shopfront and a flat roof at 10 m | 2 arches onto the lane; back door to the gardens | Roof hatch and ladder | Holds the Hedgerow Magpie stall counter inside its shopfront | Lookout (roof) |
+| **Stilt House** | Pinewood huts (6 × 5 m) on the 6 m platforms (§6.4) | 2 doors, shot windows on every face | The existing ramps and rope stairs | Links the Pinewood platforms through cover | — |
+| **Hide** | 3 × 6 m shed, 3.2 m tall | One door on a short end, with an ivy curtain; a 0.4 m slit window band at 1.4 m along one long face | — | A bird hide: stand inside to vanish (§7.15) | — |
+| **Dovecote** | Round tower, radius 3 m, 12 m tall (centre, beside each rune bridge) | Ground door facing the lane | Interior ladder to the top | — | Lookout and Berry (top) |
+
+### 6.9 Where the buildings stand
+
+Footprints are for the west quarter of the Dawn half. The east quarter mirrors x (the Water Mill stands in for the
+Market Hall), and Dusk mirrors z. They replace the blockout houses they overlap; blockout houses that don't overlap
+stay as solid fill. Each quarter has 8 enterable jungle buildings plus its lane's enterable houses.
+
+| Building | Archetype | Footprint (x; z) | Main faces |
+|---|---|---|---|
+| Granary | Granary | x −28…−14; z −108…−98 | Doors north (Granary Lane) and south; ramps west and east |
+| Warehouse | Warehouse | x −48…−28; z −92…−78 | Loading doors west (Weasel yard) and east; doors north (Lantern Row) and south (Granary Lane) |
+| Tavern | Tavern | x −51…−41; z −70…−58 | Front north; back south; side west |
+| Hollow-tree House | Hollow tree | centre (−65, −62), radius 5 | Arches north and south |
+| Bell Tower | Bell Tower | x −62…−54; z −42…−34 | Doors north and south (Bell Street) |
+| Market Hall (east: Water Mill) | Market Hall | x −30…−16; z −41…−25 | Arcade east onto the market square; doors west; grate at (−23, −43.5) |
+| Hide, Old Square | Hide | x −47…−41; z −49.5…−46.5 | Door west |
+| Hide, Hedgerow gardens (east: Pinewood band) | Hide | x −124.5…−121.5; z −43…−37 | Door east, facing the lane |
+| Seed Exchange | Seed Exchange | x −116…−109; z −62…−54 | Shopfront east onto Hedgerow |
+| Enterable terrace houses | Terrace House | west terrace x −116…−103 at z −78…−70, −70…−62, −54…−46, −46…−38; east terrace x −87…−76 at z −74…−65.5, −57…−48.5, −48.5…−40 | Lane and back |
+| Cellar Run | Tunnel (§6.10) | x −46…−8; z −66…−62; floor y −4.5 | Tavern cellar, lane stairs, the Magpie Den |
+| Magpie Den | Chamber | x −8…8; z −70…−58; floor y −4.5 (its own mirror in x) | Arches west and east with ivy curtains |
+| Dovecote | Dovecote | (−121, 0) and (121, 0), radius 3 (centre) | Door toward the lane |
+
+Near the bases, the Granary and the Warehouse sit 6–10 m from the Hedgerow gate and its Wardens and guard the
+Gatefields. Along the lanes, Hedgerow gets its enterable terraces and the Seed Exchange, Riverbank its Market Hall
+and Water Mill, and Pinewood its Stilt Houses.
+
+### 6.10 What there is to do inside and around them
+
+All anchors are for the west quarter of the Dawn half unless marked; mirror as in §6.9. Rules and numbers are in
+§7.8–§7.15.
+
+**Thickets (12 per half, 24 on the map).** Two indoor kinds per quarter.
+
+| Camp | Anchor (x, y, z) | Tier | Family | Setting |
+|---|---|---|---|---|
+| West Beetle yard | (−65, 0, −22) | 1 | Beetles | Outdoor yard, entrances north and east |
+| Lantern Beetle yard | (−30, 0, −52) | 1 | Beetles | Outdoor yard, entrances north and west |
+| Weasel yard | (−60, 0, −80) | 2 | Weasels | Outdoor yard, entrances south and east |
+| Granary | (−21, 1.2, −103) | 2 | Rats | **Indoor:** Granary hall; one hybrid camp with the loft's Bell Feeder |
+| Undercroft | (−23, −4, −33) | 2 | Toads | **Indoor:** Market Hall undercroft (east: the Water Mill's millrace) |
+| Badger Sett | (−40, 0, −12) | 3 | Badgers | Outdoor yard (16 m), entrances north and east |
+
+**Bell Feeders (2 per quarter, 8 on the map):** Bell Tower belfry (−58, 13.5, −38); Granary loft (−21, 5.2, −101).
+
+**Nests (24 per quarter plus 4 in the Hollow: 100 on the map).**
+
+| Variant | Anchors (x, y, z) |
+|---|---|
+| Twig (17) | Tavern taproom (−49, 0, −68) · alley (−33, 0, −61) · Bell Tower ground (−55, 0, −40) · Warehouse floor (−44, 0, −84), (−30, 0, −80) · Granary loft (−17, 5.2, −105) · Market Hall counters (−26, 0, −30) · terrace interiors (−110, 0, −74), (−81, 0, −52) · rooftops: Warehouse (−36, 8, −88), east-terrace flat roof (−81, 9, −53) · Hedgerow balcony (−101.5, 4, −64) · lane edges (−89.5, 0, −56), (−8.5, 0, −62) · alleys (−70, 0, −30), (−58, 0, −50), (−24, 0, −70) |
+| Woven (4) | Warehouse floor (−34, 0, −86) · Cellar Run (−28, −4.5, −64) · Tavern cellar (−46, −4.5, −66) · Market Hall undercroft (−20, −4, −30) |
+| Keepsake (3) | Hollow-tree crown (−65, 12, −62) · Warehouse catwalk (−38, 4, −90.5) · Market Hall gallery (−28.5, 4, −33) |
+| Twig, centre (4) | Hollow floor (−14, −10, −8), (14, −10, −8), (−14, −10, 8), (14, −10, 8) |
+
+These replace the 32 Nest anchors of Stage 3.
+
+**Hides (2 per quarter, 8 on the map):** Old Square (−44, 0, −48); Hedgerow gardens (−123, 0, −40), whose east-quarter
+mirror stands in the Pinewood pine band.
+
+**Bough Springs (2 per quarter, 8 on the map):** pad at (−68, 0, −44) lands on the Bell Tower's 9 m west balcony at
+(−63, 9, −38), apex 11 m; pad at (−20, 0, −52) lands on the Market Hall roof at (−22, 8.4, −37), apex 11.5 m.
+
+**Berries (5 per quarter plus 2 at the centre, 22 on the map):** Bell Tower belfry (−56, 13.5, −36), Hollow-tree crown
+(−63, 12, −60), Market Hall roof (−18, 8.4, −27), Warehouse roof (−30, 8, −80), Hedgerow west balcony (−101.5, 4,
+−46); centre: Dovecote tops (−121, 12, 0) and (121, 12, 0).
+
+**Lookouts (14 on the map):** Bell Tower belfry (−58, 13.5, −38) and Hollow-tree crown (−65, 12, −62) in every
+quarter; the Seed Exchange roof (−112.5, 10, −58) on Hedgerow and the existing 10 m lookout (112, 10, −40) on
+Pinewood in each half; the two Dovecote tops at the centre.
+
+**Ivy curtains (8 per quarter, 32 on the map):** both Hide doors, the Tavern's back door, the Warehouse's north and
+south doors, the Magpie Den's west arch, and two juke alcoves: the Warehouse's south-west corner and a Back Lane
+alcove at (−74.5, 0, −30) set into the terrace back.
+
+**The Cellar Run (one per half).** A tunnel 4 m wide with 3.5 m clear height, floor at y −4.5, along z −66…−62 from
+the Tavern cellar (x −46) under the Riverbank lane to the east quarter's Tavern (x 46). Entrances: the two Tavern
+cellar stairs, and a lane stair on each bank: west at x −12…−10, z −74…−66, descending north; east on the far bank of
+the river at x 14…16, same z. Halfway, under the lane, is the **Magpie Den**: a 16 × 12 m chamber with a neutral
+shop counter (shop zone radius 5 m at (0, −4.5, −64)) that both flocks can use. Rules: §7.15.
+
+**Shop counters:** the Hedgerow stall stands inside the Seed Exchange's shopfront at (−105, 0, −58) as before; the
+Pinewood stall under its stilt house; the Riverbank stall (10, 0, −60) gets a roofed counter; the Magpie Den adds a
+neutral fourth counter per half.
+
+**Feather runes** stay on the rune bridges at (±95, 6, 0); the Egg Perches stay at (±50, 1, 0); the Roc's Ember
+spots are in §7.12.
+
+### 6.11 Interiors: sight, sound, abilities and units
+
+- **Sight:** walls, floors and roofs block sight (§11.1). Shot windows, arches and open doors pass it. Ivy curtains
+  block it except within 3 m. The 40 m vision rule doesn't change indoors.
+- **Sound:** each storey, cellar and the Cellar Run is one interior volume. A sound made inside a volume and heard
+  from outside it is 6 dB quieter and low-passed at 2 kHz.
+- **Minimap:** buildings show as outlines. A hero on an upper storey shows a small ▲ beside the dot; one in a cellar
+  or the Cellar Run shows ▼.
+- **Abilities:** `point` placement clamps to the floor under the crosshair, never through a ceiling. A ground area
+  placed on a floor stays on that floor, and cylinder areas are 3 m tall unless an ability says otherwise, so an
+  area on one storey never reaches the next.
+- **Units:** fledglings never leave their lanes. Thicket creatures stay within their leash (§7.8), so indoor camps
+  stay indoors. The Egg carrier can't use the Cellar Run (§7.11).
+- **Camera:** ceilings pull the camera in by the §4.4 rule. The 5 × 5 m minimum room keeps the hero in view.
+
+### 6.12 Budget for the Level Designer
+
+The game must stay at 60 FPS with 12 birds and about 150 fledglings (§16, M3 and M4).
+
+| Budget | Limit (today's measure) |
+|---|---|
+| Solid collision prims, whole map | ≤ 3,000 (590). QA raises the `main.test.ts` ceiling from 1,500 to 3,000 in W5 |
+| Prims per quarter (buildings, props, Nests' colliders) | ≤ 600 |
+| Map build / nav build (median, `npm run perf`) | ≤ 100 ms / ≤ 250 ms, unchanged |
+| Nav nodes | ≤ 2,500 (891) |
+| Map triangles drawn | ≤ 180,000 High · ≤ 110,000 Medium · ≤ 60,000 Low (Low draws no interior props) |
+| Map draw calls | Static geometry merged per material in 64 × 64 m cells: ≤ 60 map draw calls in any frame at Medium. The full-match ceiling of 248 (D-QA-BROWSER-002) stands |
+| Nests, Berries, Feeders | One instanced mesh per kind and variant, ≤ 80 triangles each (Feeders ≤ 300); broken or taken ones are hidden instances |
+| Thicket creatures | ≤ 80 at once (76 with every camp up); ≤ 300 triangles each, instanced per family |
+| Lights | No new dynamic lights. Interiors use the hemisphere light and emissive lanterns; interior props cast no shadows |
+| Interior culling | Interior props, Nests and Berries are not drawn beyond 45 m |
+| Sim | Dormant camps and every static interactable cost no per-tick work beyond `ctx.spatial` overlap queries; all Stage 4 objectives together ≤ 0.1 ms per tick |
 
 ---
 
@@ -755,66 +1018,172 @@ its flock loses.
 
 ### 7.8 Thickets (neutral camps)
 
-| Tier | Camp | Creatures | Attack | Seeds (whole camp) | First spawn | Respawn after clear |
-|---|---|---|---|---|---|---|
-| 1 | Beetle Thicket | 2 stag beetles, 350 HP each | 15 Talon per hit, 1/s, melee | 140 | 2:00 | 3:00 |
-| 2 | Weasel Thicket | 3 weasels, 650 HP each | 25 Talon per hit, 1/s, melee with 4 m dash-bites | 360 | 6:00 | 4:00 |
-| 3 | Badger Sett | 1 badger 3000 HP + 2 cubs 600 HP | Badger 60 Talon per hit 1/s; every 6 s a slam: 6 m, 120 Song, knockback 4 m | 900 | 10:00 | 5:00 |
+24 camps (12 per half, §6.10): 8 of tier 1, 12 of tier 2 (8 of them indoors), 4 of tier 3.
 
-- Seed values grow +2% per minute after the camp's first spawn time. Each creature pays its share to the hero
-  who lands its killing blow **(assumed)**; no pods drop from neutrals.
-- Creatures attack whoever damaged them most in the last 3 s. A creature pulled more than 20 m from its camp,
-  or not damaged for 6 s, walks home and heals to full.
-- 8 camps per half, 16 total (§6.3).
+| Tier | Family | Creatures | Attacks | Seeds per creature (base) | First spawn | Respawn after full clear |
+|---|---|---|---|---|---|---|
+| 1 | Beetles | 3 stag beetles, 200 HP | 12 Talon bite every 1.0 s, 2.0 m reach | 45 (camp 135) | 2:00 | 1:30 |
+| 2 | Weasels | 3 weasels, 480 HP | 22 Talon bite every 1.0 s; every 6 s a dash-bite: 6 m lunge, 40 Talon | 100 (camp 300) | 5:00 | 4:45 |
+| 2 | Rats (indoor) | 5 rats, 220 HP | 10 Talon bite every 0.7 s; each bite applies 20% heal reduction for 2 s | 60 (camp 300) | 5:00 | 4:45, once the camp's Bell Feeder is also broken |
+| 2 | Toads (indoor) | 2 toads, 720 HP | Tongue lash: 30 Song every 1.5 s, 16 m range. Every 8 s a slime spit at its target: a 3 m puddle for 4 s, 20 Song per second and 30% slow | 150 (camp 300) | 5:00 | 4:45 |
+| 3 | Badgers | 1 badger 2,000 HP + 2 cubs 420 HP | Badger: 50 Talon every 1.0 s; every 6 s a Slam (0.6 s telegraph ring): 6 m radius, 110 Song, 4 m knockback. Cubs: 20 Talon every 1.0 s | badger 560, cubs 120 (camp 800) | 8:00 | 5:30 |
+
+- **Resists:** tiers 1 and 2 have 30% Talon and 25% Song resist; tier 3 has 40% and 35%.
+- **Scaling**, fixed when the camp spawns: HP +2% and damage +0.5% per minute of match time. Seeds are paid at death:
+  base × (1 + 0.015 × minutes).
+- **Dormant:** a camp sleeps until a hero comes within 30 m. A sleeping camp does nothing and costs no sim work. While
+  it sleeps, damage from a hero more than 35 m away does nothing, so camps can't be sniped from a lane.
+- **Aggro:** the first damage to any creature wakes the whole camp. Each creature attacks the hero who dealt the camp
+  the most damage in the last 3 s and needs line of sight to do so. Slams and puddles hit every hero inside them.
+- **Leash:** 18 m from the camp anchor; indoor camps also stop at their room's doors. A creature may chase 3 m beyond
+  the leash while it still sees its target. Past that, or after 6 s without taking damage, it walks home and heals
+  to full, and the camp sleeps again 5 s later.
+- **Payout:** a creature's seeds are split evenly between the hero who lands the killing blow and every allied hero
+  who damaged it in the last 5 s, rounded down per hero. No pods drop from neutrals. This replaces the Stage 3
+  last-hitter rule.
+- **Respawn:** a camp respawns all at once, at the time above after its last creature dies. Leaving one creature
+  alive stops a camp from respawning.
+- Fledglings and creatures ignore each other.
 
 ### 7.9 Nests (breakables)
 
-- 80 HP; any damage breaks them (melee breaks one in two light hits).
-- Pay 30 seeds (+3% per minute of match time) to the breaker.
-- 25% chance (seeded) to drop a crumb buff for 60 s: **Quick crumb** +15% fire rate, **Light crumb** +1 m/s move
-  speed, or **Sweet crumb** +15 SP (equal chances). A new crumb replaces an older one.
-- Respawn 4:00 after breaking. 32 on the map (§6.5).
+100 Nests on the map (§6.10). Twig and Keepsake Nests never block movement; Woven Nests are solid (1.2 m wide, 1.0 m
+tall), so they work as low cover.
+
+| Variant | Look | Breaks on | Drops | Count |
+|---|---|---|---|---|
+| **Twig Nest** | A small loose nest of twigs | Any bullet, melee or ability hit, or a hero passing through it at ≥ 8.5 m/s (sprint, dash, slide, an Updraft drop) | 60%: a seed sprig worth 24 + 1.8 per minute of match time. A separate 15% roll: a crumb | 72 (4 in the Hollow) |
+| **Woven Nest** | A large tight nest bound with a leather strap | One heavy melee hit; nothing else harms it | Always: a seed sprig worth 48 + 3.6 per minute. A separate 25% roll: a crumb | 16 |
+| **Keepsake Nest** | A nest with a trinket glinting in it | As the Twig Nest | 50%: a keepsake (§7.13) | 12 |
+
+- **Drops are pickups.** A seed sprig, crumb or keepsake lies where the Nest broke. Any hero of either flock collects
+  it by moving within 1.5 m, so the hero who breaks a Nest from range must still fetch the drop. A pickup stays until
+  collected; a sprig's value is fixed when it drops.
+- **Spawn:** 3:00. Nests below ground (cellars, undercroft, the Cellar Run): 5:00. The four in the Hollow: 10:00.
+- **Respawn:** 3:00 after the Nest breaks (below ground: 5:00), or that long after its drop is collected, whichever
+  is later.
+- **Crumbs** (60 s, lost on death; a new crumb replaces an older one; equal chances): **Quick crumb** +15% fire rate,
+  **Light crumb** +1 m/s move speed, **Sweet crumb** +15 SP. Crumbs are a PERCH addition **(deviation)**.
+- All drop and crumb rolls use the seeded RNG.
 
 ### 7.10 Feather runes
 
-| Rune | Buff (90 s, lost on death) |
+| Rule | Value |
 |---|---|
-| **Swift feather** | +2 m/s move speed, stamina regenerates twice as fast |
-| **Fierce feather** | +25% gun damage, +15% fire rate |
-| **Sage feather** | +25 SP, +15% cooldown reduction |
-| **Stout feather** | +300 max HP, +15 HP/s regeneration |
+| Spots | One on each rune bridge, at (−95, 6, 0) and (95, 6, 0) |
+| Spawn | 5:00, then every 5:00, on both bridges at once. An unclaimed rune is replaced by the next spawn |
+| Claim | A heavy melee hit on the rune (1.0 m sphere). Walking through it does nothing |
+| Types | Each spawn offers two different types. The 10:00 spawn offers the two types the 5:00 spawn didn't. Later spawns draw a seeded pair that differs from the pair before it |
+| Duration | 150 s **(deviation)**; lost on death. A new rune replaces the one a hero holds |
+| Strength | Set when claimed: linear from the 5:00 value to the 40:00 value with match time, held at the 40:00 value after |
 
-- Spawn on both rune bridges at 6:00, then 4:00 after that bridge's rune is picked up.
-- Type chosen by seeded RNG; the two bridges never offer the same type at the same time.
-- Picked up by walking through (1.5 m). A hero can hold one rune; a new one replaces the old.
+| Rune | At 5:00 | At 40:00 |
+|---|---|---|
+| **Swift feather** | +1.5 m/s sprint, +1 stamina pip, +25% stamina regeneration, +30% Updraft speed | +3.0 m/s, +2 pips, +60%, +60% |
+| **Fierce feather** | +12% fire rate, +30% magazine size | +30%, +60% |
+| **Sage feather** | +15 SP, +10% CDR | +60 SP, +20% CDR |
+| **Stout feather** | +200 max HP, +5 HP/s regeneration | +700 max HP, +35 HP/s |
 
 ### 7.11 The Golden Egg
 
 | Rule | Value |
 |---|---|
-| First spawn | 10:00, on an Egg Perch chosen by seeded RNG; the other perch is the Hatching Stone |
-| Next spawn | 5:00 after a delivery, on the perch it was delivered to (perch and stone swap) |
-| Pick up | Interact (E) within 2 m for 0.5 s; hero damage interrupts |
-| Carrier | Egg carrier status (§5.9): −15% move speed; can walk, jump, dash and slide; can't fire, cast, use items, parry, mantle or ride Updrafts, Chimneys or Vines; revealed to enemies; a golden light beam above the carrier is visible map-wide |
-| Drop | On the carrier's death or stun, or by pressing E. Anyone can pick it up 1.0 s after a drop. Untouched for 30 s, it returns to its spawn perch |
-| Deliver | Stand in the Hatching Stone circle (3 m) and channel 2.0 s; any hero damage interrupts |
-| Payout | Every hero of the delivering flock: 500 + 50 per full minute after 10:00 (max 1500). The carrier gets +250. Comeback: ×1.25 if the delivering flock's total net worth is lower |
+| First spawn | 10:00, on an Egg Perch chosen by seeded RNG. The other perch is that Egg's Hatching Stone |
+| Next spawns | At every 5:00 mark (15:00, 20:00 …) on the perch that didn't hold the last Egg. An Egg nobody has touched is replaced. While an Egg is carried or lies dropped, the next spawn waits for the first mark after that Egg is delivered or spoils |
+| Arrival | Lowered from the canopy over 10 s with the spawn jingle; it can't be picked up until it lands |
+| Pick up | Any light or heavy melee hit on the Egg (1.0 m sphere). Light counts as well as heavy so a hero under fire can grab it in 0.25 s; the commitment of a heavy hit stays reserved for claims (Embers, runes), and the contest over the Egg is the carry itself |
+| Carrier | Egg carrier status (§5.9): can't fire, cast, use items, parry or mantle, and can't use Updrafts, Chimneys, Vines, Bough Springs or the Cellar Run. +1.5 m/s move speed, +1 stamina pip, immune to slows. Revealed, with a golden beam visible map-wide |
+| Trailing carrier | If the carrier's flock has the lower total net worth: +2% Talon and Song resist and +0.2 m/s sprint per 1% of net-worth deficit, up to +30% and +3 m/s at a 15% deficit |
+| Drop | On the carrier's death, a stun, a displacement or an enemy hero's melee hit; or the carrier presses Melee, which sets the Egg down 1 m ahead. Nobody can pick it up for 1.0 s after a drop |
+| Unattended | 180 s after landing or after a drop with nobody picking it up, the Egg starts rolling along the nav path toward its Hatching Stone at 2 m/s. It can still be picked up |
+| Spoil | 45 s after its first pickup the Egg starts to cool: its value falls linearly to 0 over the next 45 s, and at 0 it cracks and is gone |
+| Deliver | Automatic: the moment the carrier enters the Hatching Stone circle (3 m), the Egg is delivered (D-EP-039; the reference also delivers on arrival). There is no channel |
+| Value | E = 400 + 70 × match minutes when the Egg lands (1,100 at 10:00, 1,800 at 20:00, 2,500 at 30:00), × the spoil fraction at delivery; × 1.25 if the delivering flock has the lower total net worth |
+| Hatching | The Egg hatches into 6 golden seed pods worth E / 6 each, which follow the pod timing of §8.2 (rise 0.6 s, ripe 1.4 s). A delivering-flock hero who shoots one secures it: the courier keeps all of it if they secure it, otherwise securer and courier split it 50/50. An enemy hero who shoots one denies it and gets 25% of its value. A pod nobody hits goes to the courier |
+| Keepsakes | The courier gets 3 keepsakes (§7.13). Every other hero of the delivering flock within 30 m of the Stone gets 1 **(deviation: the reference gives the courier 4 and escorts none)** |
 
-### 7.12 The Roc and the Phoenix Ember
+### 7.12 The Roc and the Phoenix Embers
 
 | Rule | Value |
 |---|---|
-| Spawn | 20:00 **(assumed)**; respawns 7:00 after it dies |
-| Model | A 9 m tall giant raptor with flame-tipped wings, asleep in the Hollow until damaged |
-| HP and resists | 30000 + 1000 per minute after 20:00 (fixed at spawn); 20% Talon and 20% Song resist |
-| Aggro | The hero that dealt it the most damage in the last 5 s; sticky for 3 s. It targets heroes inside the Hollow or on the bridge (within 25 m) |
-| Talon Rake | Every 2.5 s: 8 m cone (90°) at its target: 140 Talon |
+| Wake | 20:00, with a HUD countdown from 19:00 **(deviation: the reference boss is present from the start; PERCH keeps the 20:00 beat for the three-act match, §1)** |
+| Model | A 9 m tall giant raptor with flame-tipped wings, asleep in the Hollow |
+| HP | 24,000 when it wakes; +300 max HP per minute it lives (current HP rises with it). Regenerates 15 HP/s. 15% Talon resist, 0% Song resist |
+| Who can hurt it | Only heroes standing inside the Hollow (floor and ramps, y ≤ −2). Damage from the bridge or the rim does nothing, so the bridge is where the other flock contests |
+| Aggro | The nearest hero inside the Hollow, re-chosen every 1.0 s. With nobody inside, it doesn't attack |
+| Talon Rake | Every 2.5 s: an 8 m cone (90°) at its target, 140 Talon |
 | Gale Flap | Every 10 s: 15 m radius, 80 Song, 10 m knockback outward |
-| Enrage | Below 30% HP: +30% attack speed; every 8 s a Sky Shriek silences heroes within 20 m for 1.5 s |
-| Reset | With no hero in the Hollow or on the bridge for 8 s, it heals to full and sleeps |
-| Bounty | 250 seeds per hero of the flock that lands the killing blow |
-| Ember drop | Floats 1.5 m above the spot where the Roc died; claimable after 1.0 s; the first **heavy melee** that connects with it (1.0 m sphere) claims it for that hero's flock. Unclaimed after 60 s, it goes to the flock that killed the Roc |
-| Ember buff | 180 s for the claiming flock; survives death. Heroes: respawn time −50%, +15% Talon and Song damage, +8 HP/s regeneration. Fledglings spawned during it: +50% HP, +40% damage, and +30% more vs structures |
+| Enrage | At 25% HP, a map-wide roar; +30% attack speed, and every 8 s a Sky Shriek silences heroes within 20 m for 1.5 s |
+| Reset | With no hero in the Hollow for 8 s it heals to full |
+| Kill reward | Every hero of the flock whose hero lands the killing blow: 300 + 5 × match minutes seeds and 2 keepsakes (§7.13) |
+| Embers | On death, 3 Phoenix Embers fall to the Hollow floor at (10, −10, 0), (−5, −10, 8.66) and (−5, −10, −8.66) over 6 s. Once landed, one heavy melee hit (1.0 m sphere) by a hero of **either** flock claims one. Unclaimed Embers burn out 60 s after landing |
+| Claim | The claimer heals to full HP and gets 200 + 5 × match minutes seeds. The claimer's flock gains 1 **Rekindle** charge (at most 3 per Roc kill) |
+| Rekindle | A flock buff for 180 s from its first claim (a warning shows with 30 s left). A hero who dies while it holds revives where they fell 3 s later at full HP. Each hero can revive once, and each revive spends a charge; the buff ends when the charges or the time run out. A kill on a hero who then revives pays no bounty and isn't counted, but on-kill item effects still trigger |
+| Siege flight | Fledglings that spawn for a flock while it holds Rekindle get +40% HP and +30% damage vs structures **(deviation: a PERCH addition that keeps sieges possible within 25–40 minutes, D-DIR-004)** |
+| Respawn | 7:00 after the first kill, 6:00 after the second, 5:00 after each later kill |
+
+### 7.13 Keepsakes (permanent stat boons)
+
+A keepsake is a small permanent boon that magpie hoards hide around the town. It survives death and lasts the match.
+
+| Source | Keepsakes |
+|---|---|
+| Keepsake Nest (§7.9) | 50% chance to drop 1, as a pickup |
+| Bell Feeder full chime (§7.14) | 1 for a light chime, 3 for a heavy chime |
+| Golden Egg delivery (§7.11) | 3 to the courier, 1 to each escort within 30 m |
+| The Roc (§7.12) | 2 to every hero of the killing flock |
+
+Each keepsake is one type, drawn by weight from the hero's seeded stream. The type the hero received last has its
+weight halved for the next draw. Its strength depends on the match time when it is gained:
+
+| Type | Weight | 0:00–9:59 | 10:00–29:59 | 30:00+ |
+|---|---|---|---|---|
+| Gun damage | 1 | +2.5% | +3.5% | +5% |
+| Fire rate | 1 | +1.5% | +2% | +3% |
+| Magazine size | 1 | +4% | +6% | +8% |
+| Max HP | 2 | +15 | +25 | +35 |
+| Song power | 1 | +2 | +3 | +4 |
+| Talon resist | 1 | +0.75% | +1% | +1.5% |
+| Song resist | 1 | +0.75% | +1% | +1.5% |
+| Cooldown reduction | 1 | +0.5% | +0.75% | +1% |
+| Move speed | 0.5 | +0.1 m/s | +0.15 m/s | +0.2 m/s |
+| Stamina regeneration | 0.5 | +2% | +3% | +4% |
+
+- Keepsakes of one type add together and count as **one source** in the §5.3 resist stack and the §10 CDR stack.
+- Caps from keepsakes alone: 15% per resist, 10% CDR, +2.0 m/s move speed.
+- The HUD shows a keepsake count beside the level, and hovering it lists the totals (§12.4).
+
+### 7.14 Bell Feeders
+
+A hanging brass seed feeder with a bell. Peck it with melee and seeds shake out, but it swings back at you, and
+breaking it on the bell's beat earns keepsakes.
+
+| Rule | Value |
+|---|---|
+| Where | 8 on the map: each Bell Tower belfry, and each Granary loft as one hybrid camp with that Granary's Rats (§6.10) |
+| Spawn | 8:00; respawns 5:00 after it breaks (Granary: 5:00 after both the Feeder and its Rat camp are cleared) |
+| HP | 480. Only melee damages it: a light hit deals 60, a heavy hit 120, whatever the hero's level or items |
+| Swing-back | Each melee hit swings the Feeder into the hitter for 70 Song damage (resists apply), except while it chimes |
+| Seeds | F = 300 + 3 × match minutes, set at the first hit. A light hit pays the hitter F / 16, a heavy hit F / 8. The breaking hit also pays F / 2, split evenly among the heroes who hit the Feeder in the last 5 s |
+| Chime | Once the Feeder is down to 180 HP its bell swings and its lamp blinks: lit 0.5 s in every 1.5 s (60%), or lit 0.3 s in every 1.0 s (40%), chosen by seeded RNG. No swing-back while it chimes |
+| Full chime | If the breaking hit lands while the lamp is lit, its hitter gets keepsakes: 1 for a light hit, 3 for a heavy hit. Off the beat, the Feeder pays seeds only |
+| Sound | Every hit rings the bell within 70 m; the Bell Tower's bell carries 120 m |
+
+### 7.15 Jungle and interior interactables
+
+| Interactable | Count | Rule |
+|---|---|---|
+| **Berries** (a dewberry cluster) | 22 (§6.10) | On high, hard-to-reach spots. Move within 1.2 m to eat: heal 15% of max HP over 4 s. First at 2:30; respawns 3:00 after it is eaten. Not shown on the minimap |
+| **Hide** (a bird hide) | 8 | A hero wholly inside a Hide is **hidden**: enemies outside the Hide can't see or target them, and they leave the enemy minimap. Inside, they regenerate 3 HP/s + 0.25% of max HP per second and stamina 100% faster. They show for 2 s after they deal damage or apply a status to an enemy, and stay visible while an enemy hero is in the same Hide. True sight reveals them. Allies see each other |
+| **Bough Spring** (a bent branch) | 8 | Stepping onto the 1.2 m pad launches a hero on its authored arc to its landing point (§6.10), at most once per hero per 1.0 s. Air control is 30% after the apex. If an enemy hero damages the rider in the first 0.6 s, the launch is clipped: vertical speed drops to 0 and the rider is slowed 30% for 1.5 s **(deviation: the reference stuns and deals % damage)**. Grounded and the Egg carrier can't use Springs |
+| **Lookout** | 14 | Standing within 3 m of a Lookout raises the hero's sight radius from 40 m to 60 m (§11.1). A PERCH addition **(deviation)** |
+| **Ivy curtain** | 32 | §6.8: blocks sight and `unit` targeting both ways except within 3 m; never blocks movement, shots or areas |
+| **The Cellar Run** | 2 | Inside the tunnel a hero gets +30% run speed (sprint, dashes and slides unchanged) **(deviation: the reference gives +50%)**. The Egg carrier can't enter: the stair heads block the carrier only |
+| **Magpie Den** | 2 | A neutral shop in each half's Cellar Run, usable by both flocks, with a 5 m zone. Shop rules §8.8 |
+
+Not adopted from the reference: teleporters (the Cellar Run gives the cross-lane route on a map this size), the
+king-of-the-hill rift event, the stamina-draining fog district, and the 1-seed vermin in tunnels. D-DIR-010 lists the
+full mapping.
 
 ---
 
@@ -874,11 +1243,13 @@ A perfect solo laner (every last hit and every pod) earns 100% V; letting fledgl
 | Nest Warden | 250 each | Every hero of the destroying flock |
 | Roost Shrine | 500 each | Every hero of the destroying flock |
 | Patron | none (the match ends) | — |
-| Thicket camp | 140 / 360 / 900 per tier, +2% per minute after first spawn | Per creature, to its killer (§7.8) |
-| Nest | 30, +3% per minute | The breaker |
-| Golden Egg | 500 + 50 per minute after 10:00 (max 1500), carrier +250, ×1.25 comeback | Every hero of the delivering flock (§7.11) |
-| The Roc | 250 | Every hero of the flock that lands the killing blow |
-| Feather runes, crumbs, the Ember | No seeds (buffs only) | — |
+| Thicket camp | 135 / 300 / 800 per tier, × (1 + 0.015 × minutes) | Per creature, split between its killer and allied heroes who damaged it in the last 5 s (§7.8) |
+| Nest | Twig: 60% chance of 24 + 1.8 per minute; Woven: 48 + 3.6 per minute | Whoever collects the seed sprig (§7.9) |
+| Bell Feeder | F = 300 + 3 per minute: F / 16 per light hit, F / 8 per heavy hit, F / 2 for the break | The hitters (§7.14) |
+| Golden Egg | E = 400 + 70 per minute at landing, as 6 pods; ×1.25 comeback | The courier and the heroes who secure or deny its pods (§7.11) |
+| The Roc | 300 + 5 per minute | Every hero of the flock that lands the killing blow (§7.12) |
+| Phoenix Ember | 200 + 5 per minute | The hero who claims it (§7.12) |
+| Feather runes, crumbs, keepsakes, Rekindle | No seeds (buffs only) | — |
 
 ### 8.5 Levels, AP and the ultimate
 
@@ -940,12 +1311,13 @@ chime.
 - 12 base slots; any item category in any slot. Each item can be owned once.
 - 4 flex slots, unlocked for the whole flock: slot 1 at its first enemy Hawk destroyed, slot 2 at its second,
   slot 3 at its first enemy Heron, slot 4 at its first enemy Shrine. Unlocks are permanent.
-- The first four **active** items, in slot order, are bound to Z, X, N, V.
+- A hero can own at most **4 active items**; the shop refuses a fifth (reference rule, adopted in Stage 4). The
+  actives, in slot order, are bound to Z, X, N, V.
 
 ### 8.8 Shop rules (the Magpie's Hoard)
 
-- Buy and sell only inside a shop zone: the Home Roost or one of your flock's three Magpie stalls. The shop can
-  be browsed anywhere (read-only).
+- Buy and sell only inside a shop zone: the Home Roost, one of your flock's three Magpie stalls, or either Magpie
+  Den (neutral, both flocks, §7.15). The shop can be browsed anywhere (read-only).
 - Buying an item whose component you own costs (item cost − component cost) and replaces the component in its
   slot. Without the component it costs the full price and needs a free slot.
 - Sell refund: 50% of the item's full cost; 100% if sold within 20 s of buying it during the same shop visit.
@@ -954,8 +1326,8 @@ chime.
 ### 8.9 Respawn
 
 **Respawn time = min(55, 8 + 1.2 × minutes) seconds**, rounded to 0.1 s: 8 s at 0:00, 20 s at 10:00, 32 s at
-20:00, 44 s at 30:00, 55 s from 39:10. The Ember buff halves it. Heroes respawn at the Home Roost with full HP
-and full magazine; cooldowns keep running while dead.
+20:00, 44 s at 30:00, 55 s from 39:10. Heroes respawn at the Home Roost with full HP and full magazine;
+cooldowns keep running while dead. A Rekindle charge (§7.12) instead revives a hero where they fell after 3 s.
 
 ### 8.10 Income targets (for Balance)
 
@@ -967,7 +1339,8 @@ and full magazine; cooldowns keep running while dead.
 | 40:00 | 48,000 | 28 |
 
 The flock net-worth gap should rarely exceed 25% for more than 5 minutes; comeback multipliers (§8.3, §7.11) are
-the levers.
+the levers. Stage 4 adds jungle income (24 camps, 100 Nests, 8 Feeders): the targets above stand, and Balance
+scales the §7.8–§7.14 seed values together if bot telemetry runs more than 10% over them.
 
 ---
 
@@ -1490,12 +1863,15 @@ properties: targeting, cooldown, charges, cast time, channel, range). Names are 
 
 ## 10. Items
 
-48 items: 16 per category, 4 per tier. Tier costs: T1 800, T2 1,600, T3 3,200, T4 6,400 seeds. 11 actives.
+64 items (D-EP-034): the 48 Stage 1 items plus 16 Stage 4 items (marked ★): 21 Talon, 21 Plumage, 22 Song;
+16 per tier. Tier costs: T1 800, T2 1,600, T3 3,200, T4 6,400 seeds. 15 actives; a hero can own at most 4 (§8.7).
+§10.4 explains the gaps the new items fill.
 
 **Stacking rules (rule):** gun damage %, Song damage %, fire rate %, move speed and flat stats add. Cooldown
 reduction (CDR) and status resist stack multiplicatively (`1 − Π(1 − xᵢ)`), CDR capped at 50%, status resist at
-60%. Lifesteal adds. Resists follow §5.3. "Gun damage" never applies to melee or abilities. Item Song damage
-scales with SP where it says so. Active cooldowns are not reduced by CDR unless stated.
+60%. Lifesteal adds. Resists follow §5.3. "Gun damage" never applies to melee or abilities; "melee damage" applies
+to light and heavy melee only. Item Song damage scales with SP where it says so. Active cooldowns are not reduced
+by CDR unless stated. An effect "per shot" on a shotgun counts once per trigger pull per target.
 
 ### 10.1 Talon (gun power)
 
@@ -1517,6 +1893,11 @@ scales with SP where it says so. Active cooldowns are not reduced by CDR unless 
 | `carrion-feast` | Carrion Feast | 4 | 6,400 | 28% Talon lifesteal, +200 HP; a hero kill or assist heals 15% of max HP | — | `bloodbeak` |
 | `thunderclap-quills` | Thunderclap Quills | 4 | 6,400 | +10% gun damage; every 6th shot that hits a target deals +150 Talon damage and slows 30% for 1.5 s | — | — |
 | `talon-tempest` | Talon Tempest | 4 | 6,400 | +20% fire rate, +20% reload speed | **Tempest:** for 5 s, +60% fire rate and shots use no ammo. CD 45 s | `flurry-feathers` |
+| `hooked-spur` ★ | Hooked Spur | 1 | 800 | +20% melee damage, +60 HP; a heavy melee hit on a hero slows it 25% for 1.5 s | — | — |
+| `sourberry-rounds` ★ | Sourberry Rounds | 2 | 1,600 | +8% gun damage, +4% fire rate; gun hits on heroes apply 35% heal reduction for 2.5 s | — | — |
+| `wasp-barbs` ★ | Wasp Barbs | 2 | 1,600 | +6% gun damage, +6 SP; each shot that hits a hero also deals 8 + 0.15×SP Song damage | — | — |
+| `stoop-dive` ★ | Stoop Dive | 3 | 3,200 | +30% melee damage, +10% gun damage, +100 HP; a heavy melee hit on a hero slows it 25% for 1.5 s | **Stoop:** dash over 0.35 s to the enemy hero nearest the crosshair within 18 m (6° cone) and strike on arrival: 140 Talon damage, 40% slow for 2 s, disarm 1 s. CD 30 s | `hooked-spur` |
+| `kestrel-eye` ★ | Kestrel's Eye | 4 | 6,400 | +25% gun damage, +60% falloff start and end, +15% projectile speed; gun hits from 25 m or farther deal +20% damage and reveal the target for 3 s | — | `long-fletching` |
 
 ### 10.2 Plumage (health, resists, regeneration, movement)
 
@@ -1526,7 +1907,7 @@ scales with SP where it says so. Active cooldowns are not reduced by CDR unless 
 | `thick-quills` | Thick Quills | 1 | 800 | +12% Talon resist, +50 HP | — | — |
 | `dew-drinker` | Dew Drinker | 1 | 800 | +2.5 HP/s; +10 HP/s more after 8 s without taking damage | — | — |
 | `featherlight` | Featherlight | 1 | 800 | +1.0 m/s sprint speed, +20% stamina regeneration | — | — |
-| `shade-ward` | Shade Ward | 2 | 1,600 | +15% Song resist, +100 HP | — | — |
+| `shade-ward` | Shade Ward | 2 | 1,600 | +15% Song resist, +100 HP | — | `grit-gizzard` (Stage 4) |
 | `healing-dew` | Healing Dew | 2 | 1,600 | +3 HP/s; +12 HP/s more after 8 s without taking damage | **Dew:** heal 320 over 5 s. CD 40 s | `dew-drinker` |
 | `talon-bulwark` | Talon Bulwark | 2 | 1,600 | Talon shield 250 that refills after 10 s without taking damage; +8% Talon resist | — | `thick-quills` |
 | `second-wind` | Second Wind | 2 | 1,600 | +1 stamina pip, +0.5 m/s move speed, +1.0 m/s sprint speed | — | `featherlight` |
@@ -1538,6 +1919,11 @@ scales with SP where it says so. Active cooldowns are not reduced by CDR unless 
 | `thunderbird-heart` | Thunderbird Heart | 4 | 6,400 | +750 HP, +8 HP/s, +10% healing received | — | `stout-breast` |
 | `unbowed-crest` | Unbowed Crest | 4 | 6,400 | +30% status resist, +350 HP, +15% Song resist | **Unbowed:** unstoppable and +20% Talon and Song resist for 3 s. CD 60 s | `iron-crest` |
 | `nestmother-mantle` | Nestmother's Mantle | 4 | 6,400 | +400 HP; aura 15 m: allied heroes (you included) get +10% Talon and Song resist and +4 HP/s | — | — |
+| `grit-gizzard` ★ | Grit Gizzard | 1 | 800 | +10% Song resist, +60 HP | — | — |
+| `rescue-call` ★ | Rescue Call | 2 | 1,600 | +125 HP, +1.5 HP/s | **Rescue:** the allied hero nearest the crosshair within 25 m (6° cone), or yourself if there is none, heals 150 + 1.0×SP over 3 s and gets +15% Talon and Song resist for 3 s. CD 40 s | — |
+| `kite-lift` ★ | Kite Lift | 3 | 3,200 | +1 stamina pip, +0.5 m/s move speed, +1.5 m/s sprint speed, +150 HP | **Lift:** rise 8 m straight up, then glide for up to 4 s (falling at 2 m/s, steering at run speed + 2 m/s, gun allowed); +15% Talon resist while airborne. Ends on landing or Jump. CD 35 s | `second-wind` |
+| `burr-coat` ★ | Burr Coat | 3 | 3,200 | +250 HP, +10% Talon resist; an enemy hero within 20 m who deals you gun damage takes 15% of it (before your resists) back as Song damage | — | — |
+| `heartwood-bark` ★ | Heartwood Bark | 4 | 6,400 | +450 HP, +18% Talon resist; Talon shield 500 that refills after 8 s without taking damage; −30% melee damage taken | — | `talon-bulwark` |
 
 ### 10.3 Song (ability power)
 
@@ -1559,9 +1945,49 @@ scales with SP where it says so. Active cooldowns are not reduced by CDR unless 
 | `gloom-curse` | Gloom Curse | 4 | 6,400 | +18 SP | **Curse:** the enemy hero nearest the crosshair within 25 m (6° cone) is silenced, disarmed and slowed 30% for 2.5 s. CD 60 s | `muting-whistle` |
 | `boundless-song` | Boundless Song | 4 | 6,400 | +40 SP, +20% ability range, ultimate cooldown −20% | — | `carrying-voice` |
 | `echo-chamber` | Echo Chamber | 4 | 6,400 | +20 SP; ability damage to heroes repeats 1.0 s later at 25% (damage only); ability damage shreds Song resist by 14% for 6 s | — | `mocking-note` |
+| `nettle-sting` ★ | Nettle Sting | 1 | 800 | +6 SP; your ability damage to heroes applies 25% heal reduction for 3 s | — | — |
+| `warblers-trill` ★ | Warbler's Trill | 1 | 800 | +6 SP, +4% fire rate; after you cast an ability, your next gun shot within 5 s that hits a hero deals +25 + 0.6×SP Song damage | — | — |
+| `tangle-pod` ★ | Tangle Pod | 2 | 1,600 | +8 SP, +75 HP | **Tangle:** lob a pod up to 25 m (arcing, 0.6 s flight) that bursts in a 4 m radius: 70 + 0.8×SP Song damage, 35% slow and grounded for 2 s. CD 35 s | — |
+| `blight-spores` ★ | Blight Spores | 3 | 3,200 | +14 SP; your ability damage to heroes applies 40% heal reduction for 4 s and Blight: Song damage of 3% of the target's current HP + 0.06×SP per second for 4 s | — | `nettle-sting` |
+| `skylark-cadence` ★ | Skylark Cadence | 4 | 6,400 | +24 SP, +10% fire rate, +10% CDR; after you cast an ability, your next 3 gun hits on heroes within 6 s each deal +45 + 0.8×SP Song damage and slow 20% for 1 s | — | `warblers-trill` |
+| `rookery-dirge` ★ | Rookery Dirge | 4 | 6,400 | +20 SP, +300 HP, +10% Song resist; aura 12 m: enemy heroes inside take Song damage of 1.5% of their max HP + 0.05×SP per second and have −8% Song resist | — | — |
 
-**Actives (11):** Flurry Feathers, Tailwind Volley, Talon Tempest, Healing Dew, Preening Rite, Covey Ward,
-Unbowed Crest, Muting Whistle, Whirlwind Knot, Encore, Gloom Curse. Every active uses the §9.25 primitives.
+**Actives (15):** Flurry Feathers, Tailwind Volley, Talon Tempest, Stoop Dive ★, Healing Dew, Preening Rite,
+Covey Ward, Unbowed Crest, Rescue Call ★, Kite Lift ★, Muting Whistle, Whirlwind Knot, Encore, Gloom Curse,
+Tangle Pod ★. Every active uses the §9.25 primitives.
+
+**Component chains:** quick-preen → flurry-feathers → talon-tempest · quill-clip → tailwind-volley ·
+beak-whetstone → hawkeye-lens · bloodbeak → carrion-feast · ★ hooked-spur → stoop-dive · ★ long-fletching →
+kestrel-eye · thick-quills → talon-bulwark → ★ heartwood-bark · dew-drinker → healing-dew · featherlight →
+second-wind → ★ kite-lift · down-padding → stout-breast → thunderbird-heart · ★ grit-gizzard → shade-ward →
+iron-crest → unbowed-crest · lilt-seed → rising-song · quick-refrain → tempo-shift · muting-whistle → gloom-curse ·
+carrying-voice → boundless-song · mocking-note → echo-chamber · ★ nettle-sting → blight-spores · ★ warblers-trill →
+skylark-cadence.
+
+**New primitive parameters (for the Architect):** a `meleeDamage` and a `meleeDamageTaken` stat for `statMod`;
+"% of the target's current HP" for `damage` (Blight, Rookery Dirge uses max HP); a `trigger` granted on cast that
+fires on the next N gun hits within a window (Warbler's Trill, Skylark Cadence); `unit` targeting of allies with a
+self fallback (Rescue Call). Reflection (Burr Coat) is a `trigger` on damaged with a `damage` to the source.
+
+### 10.4 Stage 4 gap review
+
+The 48 items covered raw gun power, health and resists, and ability power well. The review found these gaps; each
+row names the item that fills it.
+
+| Gap in the 48 | Why it matters now | Filled by |
+|---|---|---|
+| No melee item | Heavy melee now claims Embers and runes, breaks Woven Nests, picks up the Egg and rings Feeders | Hooked Spur → Stoop Dive; Heartwood Bark's melee resist |
+| No gun-side anti-heal | Supports, lifesteal and Rekindle fights had no gun counter | Sourberry Rounds |
+| No hybrid gun-and-Song item at low tiers | Hybrid kits (Toucan, Frigatebird, Peacock, Nightjar) had nothing between categories | Wasp Barbs, Warbler's Trill → Skylark Cadence |
+| No gap-closer active | Assassins and divers had no item to reach a target | Stoop Dive |
+| Long Fletching had no upgrade; no long-range T4 | Long-range poke had no late core | Kestrel's Eye |
+| No tier-1 Song resist | Early Song burst had no cheap answer; Shade Ward had no component | Grit Gizzard → Shade Ward |
+| No ally-targeted save | Supports could only heal themselves or everyone near them | Rescue Call |
+| No mobility active | Escapes and initiation relied on kits alone; the new rooftops reward height | Kite Lift |
+| No damage reflection | Tanks had no answer to gun carries but resists | Burr Coat |
+| Talon Bulwark had no upgrade | The Talon-tank line stopped at tier 2 | Heartwood Bark |
+| No ability-side anti-heal or current-HP damage | Spirit builds couldn't break sustain or tanks | Nettle Sting → Blight Spores |
+| Only one area-control active, and no area aura | Area-control heroes lacked an item that shapes fights | Tangle Pod, Rookery Dirge |
 
 ---
 
@@ -1607,11 +2033,11 @@ The match setting picks one difficulty for all bots, or "Mixed" (allies Hunter, 
 |---|---|---|
 | **Lane** | Laning phase (before 10:00) or its lane's wave needs escort | Stays behind its own wave (within 25 m of its fledglings, never ahead of the front); last-hits when an enemy fledgling's HP ≤ its next shot's damage; shoots ripe pods (secure) and denies own pods; pokes the enemy hero when no last hit is due and its HP ≥ the enemy's; never stands in enemy tower range unless enemy fledglings are being hit by it |
 | **Fight** | An enemy hero is visible within 35 m and the local fight score (allied vs enemy effective HP × DPS within 30 m) ≥ 0.9 | Targets the enemy with the lowest effective HP in range, preferring supports and carries; uses abilities per difficulty; strafes and dashes between shots (Hunter+) |
-| **Retreat** | HP below the difficulty threshold, fight score < 0.6, or 2+ more enemies than allies in 30 m | Moves to the nearest allied tower, then the Home Roost if HP < 30%; uses escape abilities and Updrafts |
-| **Shop** | Unspent seeds ≥ next build item's price and (in a shop zone, or HP < 50%, or the Raptor 3,000-seed rule) | Walks to the nearest own shop, buys down the build list, spends AP |
-| **Farm** | Its lane is pushed past the centre or a Thicket within 60 m is up and no enemy hero is visible | Clears Thickets (tier matched to level: T3 from level 10), breaks Nests on the way |
-| **Objective** | Egg spawns within 60 s, a rune spawns within 40 m and 20 s, Roc conditions (below) | Moves to the objective with nearby allies |
-| **Push / siege** | After 20:00, or Ember active, or 2+ enemies dead, and an allied wave is near an enemy structure | Groups with 3+ allies and pushes with the wave; doesn't hit Brood-Warded structures unless no enemy heroes are visible |
+| **Retreat** | HP below the difficulty threshold, fight score < 0.6, or 2+ more enemies than allies in 30 m | Moves to the nearest allied tower, then the Home Roost if HP < 30%; uses escape abilities and Updrafts. Hunter+ breaks line of sight through the nearest building (§11.7) and uses a Hide within 20 m when chased below 30% HP |
+| **Shop** | Unspent seeds ≥ the price of the next item its policy picks (§11.4) and (in a shop zone, or HP < 50%, or the Raptor 3,000-seed rule) | Walks to the nearest usable shop (own stalls, the Home Roost or a Magpie Den), buys, spends AP |
+| **Farm** | Its lane is pushed past the centre, or a Thicket or Bell Feeder within 60 m is up, and no enemy hero is visible | Clears Thickets by tier: tier 1 at any level, tier 2 from level 5, tier 3 from level 12 alone or level 9 with an ally. Breaks Nests and collects drops on the way (§11.7). Works Bell Feeders from 8:00 when HP > 60% |
+| **Objective** | Egg lands within 60 s, a rune spawns within 50 m and 20 s, Roc conditions (below) | Moves to the objective with nearby allies |
+| **Push / siege** | After 20:00, or Rekindle active, or 2+ enemies dead, and an allied wave is near an enemy structure | Groups with 3+ allies and pushes with the wave; doesn't hit Brood-Warded structures unless no enemy heroes are visible |
 | **Defend** | An enemy group of 2+ heroes is attacking an allied structure | The 3 nearest bots rotate to defend |
 
 **Laning assignment:** two heroes per lane (2-2-2). The human picks first (hero select); bots fill lanes by
@@ -1621,61 +2047,124 @@ control) where possible.
 **Rotations:** a bot leaves its lane when its lane's enemy Hawk is down and its own Hawk is safe, when the Egg or
 a rune is due, or after 10:00 when its lane partner can hold the wave alone (Hunter+).
 
-**Golden Egg:** the 3 bots nearest the spawn go; the bot with the lowest net worth carries; the others escort
-within 10 m. Enemy bots treat the carrier as their top target. A bot carrier drops the Egg (E) and fights if a
-lone enemy reaches it and it is healthy.
+**Golden Egg:** the 3 bots nearest the landing perch go; the bot with the lowest net worth picks it up with a light
+melee and carries; the others escort within 10 m and stay within 30 m of the Stone for the escort keepsake. The
+carrier takes the shortest nav route that avoids Updrafts, Springs and the Cellar Run, and walks into the Stone.
+Escorts then secure the hatched pods, leaving pods nearest the carrier to the carrier; enemy bots shoot pods to deny
+them. Enemy bots treat the carrier as their top target and open with melee or a displacement to make it drop. A bot
+carrier sets the Egg down (Melee) and fights if a lone enemy reaches it and it is healthy.
 
 **The Roc:** a flock's bots start the Roc when ≥ 4 allies are alive and within 40 m of the Hollow, and either 2+
-enemies are dead or no enemy hero has been seen within 80 m for 10 s. The healthiest melee-range bot claims the
-Ember with heavy melee. Bots contest an enemy Roc attempt they can see with all allies within 80 m.
+enemies are dead or no enemy hero has been seen within 80 m for 10 s. They fight from the Hollow floor (the only
+place the Roc can be hurt) and keep one Hunter+ bot on the bridge as a lookout. When the Embers fall, the three
+healthiest bots within 25 m each take the nearest unclaimed Ember with a heavy melee. Bots contest an enemy Roc
+attempt they can see with all allies within 80 m and try to steal its Embers.
+
+**Feather runes:** a bot claims with a heavy melee; it prefers Fierce or Swift if it's a gun carry, poke or
+skirmisher, Sage if it's a burst, control or support, and Stout if it's a tank.
 
 **Sieging:** from 20:00 bots group in fives or sixes behind a wave, take Hawk → Heron → Wardens → Shrines →
 Patron in order, focus the Patron's weak point in phase 2 (Hunter+), and fall back when 2+ allies die.
 
 ### 11.4 Buying and AP
 
-- Bots buy the next item on their hero's build list that they can afford, respecting components (an upgrade is
-  bought only after its component). When all slots are full, they sell the lowest-tier item that isn't a
-  component of the next purchase.
+- **Policy (D-EP-036).** Bots don't follow a fixed list. Each candidate item gets a score: score = base(hero, item)
+  + Σ synergy(item, each owned item, upgrade chains included) + phase(item, match phase). Bots sample their next
+  purchase from softmax(score / T) using the seeded bot stream, with temperature T = 1.0 for Chick, 0.5 for Hunter
+  and 0.2 for Raptor. Phases: early before 10:00, mid 10:00–21:59, late from 22:00.
+- **Prior until the Build Lab delivers (W6):** base is 1.0 for the first item on the hero's §11.5 list, falling
+  0.05 per position, and 0.2 for items not on it; synergy is +0.3 when the hero owns the item's component; phase is
+  +0.3 for an item in the archetype's §11.8 core for the current phase and +0.15 for its situational picks when
+  their condition holds. The Build Lab replaces all three terms with learned values.
+- Bots respect components (an upgrade is bought only after its component, or at full price into a free slot) and
+  the 4-active cap. When all slots are full, they sell the lowest-scoring item that isn't a component of the next
+  purchase.
 - Bots spend AP as soon as they get it, following the hero's AP priority: the ultimate's tiers whenever
   affordable, otherwise T1s in priority order, then T2s, then T3s.
 
 ### 11.5 Build lists and AP priority (one per hero)
 
-| Hero | Build list (in order) | AP priority (after the ultimate) |
-|---|---|---|
-| `shrike` | lilt-seed, quick-refrain, dew-drinker, carrying-voice, long-chorus, shade-ward, tempo-shift, rising-song, muting-whistle, iron-crest, boundless-song, gloom-curse, unbowed-crest, encore | 1 > 3 > 2 |
-| `albatross` | thick-quills, down-padding, dew-drinker, lilt-seed, talon-bulwark, shade-ward, stout-breast, covey-ward, iron-crest, healing-dew, thunderbird-heart, unbowed-crest, nestmother-mantle | 2 > 1 > 3 |
-| `kingfisher` | beak-whetstone, lilt-seed, featherlight, mocking-note, crescendo, second-wind, hawkeye-lens, rising-song, shade-ward, song-siphon, echo-chamber, second-clutch | 3 > 1 > 2 |
-| `lyrebird` | lilt-seed, quick-refrain, dew-drinker, down-padding, healing-dew, second-verse, covey-ward, tempo-shift, shade-ward, rising-song, nestmother-mantle, iron-crest, encore | 1 > 3 > 2 |
-| `owl` | beak-whetstone, quill-clip, long-fletching, lilt-seed, hawkeye-lens, featherlight, crescendo, tailwind-volley, shade-ward, apex-talon, rising-song, second-clutch | 1 > 2 > 3 |
-| `pelican` | quick-preen, quill-clip, close-talons, dew-drinker, flurry-feathers, bloodbeak, foragers-talon, tailwind-volley, pinion-shred, shade-ward, carrion-feast, apex-talon, talon-tempest | 2 > 3 > 1 |
-| `secretarybird` | featherlight, quick-preen, lilt-seed, close-talons, second-wind, flurry-feathers, crescendo, thick-quills, talon-bulwark, rising-song, skipping-stone, thunderclap-quills, second-clutch | 1 > 2 > 3 |
-| `starling` | lilt-seed, mocking-note, carrying-voice, quick-refrain, crescendo, second-verse, rising-song, tempo-shift, shade-ward, echo-chamber, boundless-song, encore | 1 > 2 > 3 |
-| `hornbill` | quick-preen, close-talons, quill-clip, down-padding, foragers-talon, flurry-feathers, long-fletching, pinion-shred, stout-breast, tailwind-volley, apex-talon, thunderclap-quills, talon-tempest | 1 > 2 > 3 |
-| `flamingo` | lilt-seed, dew-drinker, quick-refrain, featherlight, healing-dew, long-chorus, covey-ward, tempo-shift, second-wind, preening-rite, nestmother-mantle, rising-song | 1 > 2 > 3 |
-| `penguin` | thick-quills, down-padding, featherlight, lilt-seed, talon-bulwark, second-wind, shade-ward, stout-breast, iron-crest, whirlwind-knot, thunderbird-heart, unbowed-crest | 1 > 2 > 3 |
-| `puffin` | lilt-seed, quick-refrain, dew-drinker, long-chorus, carrying-voice, second-verse, tempo-shift, shade-ward, rising-song, iron-crest, boundless-song, nestmother-mantle | 1 > 2 > 3 |
-| `peacock` | lilt-seed, mocking-note, quick-refrain, crescendo, featherlight, rising-song, tempo-shift, song-siphon, second-wind, echo-chamber, encore, second-clutch | 1 > 2 > 3 |
-| `vulture` | lilt-seed, dew-drinker, thick-quills, quick-refrain, long-chorus, song-siphon, talon-bulwark, tempo-shift, rising-song, down-padding, stout-breast, thunderbird-heart, nestmother-mantle | 1 > 2 > 3 |
-| `swift` | featherlight, quick-preen, close-talons, quill-clip, second-wind, flurry-feathers, skipping-stone, bloodbeak, tailwind-volley, carrion-feast, apex-talon, talon-tempest | 3 > 1 > 2 |
-| `hummingbird` | featherlight, close-talons, lilt-seed, dew-drinker, second-wind, bloodbeak, healing-dew, song-siphon, skipping-stone, preening-rite, carrion-feast, second-clutch | 1 > 2 > 3 |
-| `cassowary` | thick-quills, down-padding, lilt-seed, featherlight, talon-bulwark, shade-ward, second-wind, stout-breast, iron-crest, whirlwind-knot, unbowed-crest, thunderbird-heart | 1 > 2 > 3 |
-| `toucan` | lilt-seed, carrying-voice, quill-clip, quick-refrain, long-fletching, crescendo, tempo-shift, rising-song, shade-ward, boundless-song, tailwind-volley, encore | 1 > 2 > 3 |
-| `woodpecker` | quick-preen, quill-clip, close-talons, thick-quills, flurry-feathers, pinion-shred, talon-bulwark, foragers-talon, tailwind-volley, apex-talon, thunderclap-quills, talon-tempest | 1 > 2 > 3 |
-| `nightjar` | lilt-seed, mocking-note, beak-whetstone, featherlight, muting-whistle, crescendo, second-wind, rising-song, hawkeye-lens, gloom-curse, echo-chamber, second-clutch | 1 > 2 > 3 |
-| `frigatebird` | quill-clip, beak-whetstone, long-fletching, featherlight, lilt-seed, hawkeye-lens, second-wind, tailwind-volley, pinion-shred, shade-ward, apex-talon, iron-crest | 1 > 3 > 2 |
-| `cockatoo` | lilt-seed, quick-refrain, mocking-note, crescendo, dew-drinker, second-verse, rising-song, tempo-shift, whirlwind-knot, healing-dew, echo-chamber, encore | 1 > 3 > 2 |
-| `swan` | lilt-seed, dew-drinker, down-padding, quick-refrain, healing-dew, covey-ward, long-chorus, preening-rite, stout-breast, tempo-shift, nestmother-mantle, thunderbird-heart | 1 > 2 > 3 |
-| `kiwi` | close-talons, lilt-seed, featherlight, mocking-note, crescendo, second-wind, song-siphon, skipping-stone, rising-song, muting-whistle, gloom-curse, second-clutch | 1 > 2 > 3 |
+| Hero | Build list (in order) | Stage 4 items (★) | AP priority (after the ultimate) |
+|---|---|---|---|
+| `shrike` | lilt-seed, quick-refrain, dew-drinker, carrying-voice, long-chorus, shade-ward, tempo-shift, rising-song, muting-whistle, iron-crest, boundless-song, gloom-curse, unbowed-crest, encore | nettle-sting, tangle-pod | 1 > 3 > 2 |
+| `albatross` | thick-quills, down-padding, dew-drinker, lilt-seed, talon-bulwark, shade-ward, stout-breast, covey-ward, iron-crest, healing-dew, thunderbird-heart, unbowed-crest, nestmother-mantle | grit-gizzard, heartwood-bark | 2 > 1 > 3 |
+| `kingfisher` | beak-whetstone, lilt-seed, featherlight, mocking-note, crescendo, second-wind, hawkeye-lens, rising-song, shade-ward, song-siphon, echo-chamber, second-clutch | hooked-spur, stoop-dive | 3 > 1 > 2 |
+| `lyrebird` | lilt-seed, quick-refrain, dew-drinker, down-padding, healing-dew, second-verse, covey-ward, tempo-shift, shade-ward, rising-song, nestmother-mantle, iron-crest, encore | rescue-call | 1 > 3 > 2 |
+| `owl` | beak-whetstone, quill-clip, long-fletching, lilt-seed, hawkeye-lens, featherlight, crescendo, tailwind-volley, shade-ward, apex-talon, rising-song, second-clutch | kestrel-eye | 1 > 2 > 3 |
+| `pelican` | quick-preen, quill-clip, close-talons, dew-drinker, flurry-feathers, bloodbeak, foragers-talon, tailwind-volley, pinion-shred, shade-ward, carrion-feast, apex-talon, talon-tempest | sourberry-rounds | 2 > 3 > 1 |
+| `secretarybird` | featherlight, quick-preen, lilt-seed, close-talons, second-wind, flurry-feathers, crescendo, thick-quills, talon-bulwark, rising-song, skipping-stone, thunderclap-quills, second-clutch | hooked-spur, stoop-dive | 1 > 2 > 3 |
+| `starling` | lilt-seed, mocking-note, carrying-voice, quick-refrain, crescendo, second-verse, rising-song, tempo-shift, shade-ward, echo-chamber, boundless-song, encore | nettle-sting, blight-spores | 1 > 2 > 3 |
+| `hornbill` | quick-preen, close-talons, quill-clip, down-padding, foragers-talon, flurry-feathers, long-fletching, pinion-shred, stout-breast, tailwind-volley, apex-talon, thunderclap-quills, talon-tempest | sourberry-rounds, kestrel-eye | 1 > 2 > 3 |
+| `flamingo` | lilt-seed, dew-drinker, quick-refrain, featherlight, healing-dew, long-chorus, covey-ward, tempo-shift, second-wind, preening-rite, nestmother-mantle, rising-song | grit-gizzard, rescue-call | 1 > 2 > 3 |
+| `penguin` | thick-quills, down-padding, featherlight, lilt-seed, talon-bulwark, second-wind, shade-ward, stout-breast, iron-crest, whirlwind-knot, thunderbird-heart, unbowed-crest | grit-gizzard, kite-lift, heartwood-bark | 1 > 2 > 3 |
+| `puffin` | lilt-seed, quick-refrain, dew-drinker, long-chorus, carrying-voice, second-verse, tempo-shift, shade-ward, rising-song, iron-crest, boundless-song, nestmother-mantle | tangle-pod, rookery-dirge | 1 > 2 > 3 |
+| `peacock` | lilt-seed, mocking-note, quick-refrain, crescendo, featherlight, rising-song, tempo-shift, song-siphon, second-wind, echo-chamber, encore, second-clutch | warblers-trill, skylark-cadence | 1 > 2 > 3 |
+| `vulture` | lilt-seed, dew-drinker, thick-quills, quick-refrain, long-chorus, song-siphon, talon-bulwark, tempo-shift, rising-song, down-padding, stout-breast, thunderbird-heart, nestmother-mantle | nettle-sting, rookery-dirge | 1 > 2 > 3 |
+| `swift` | featherlight, quick-preen, close-talons, quill-clip, second-wind, flurry-feathers, skipping-stone, bloodbeak, tailwind-volley, carrion-feast, apex-talon, talon-tempest | wasp-barbs, kite-lift | 3 > 1 > 2 |
+| `hummingbird` | featherlight, close-talons, lilt-seed, dew-drinker, second-wind, bloodbeak, healing-dew, song-siphon, skipping-stone, preening-rite, carrion-feast, second-clutch | hooked-spur, kite-lift | 1 > 2 > 3 |
+| `cassowary` | thick-quills, down-padding, lilt-seed, featherlight, talon-bulwark, shade-ward, second-wind, stout-breast, iron-crest, whirlwind-knot, unbowed-crest, thunderbird-heart | burr-coat, heartwood-bark | 1 > 2 > 3 |
+| `toucan` | lilt-seed, carrying-voice, quill-clip, quick-refrain, long-fletching, crescendo, tempo-shift, rising-song, shade-ward, boundless-song, tailwind-volley, encore | wasp-barbs, kestrel-eye | 1 > 2 > 3 |
+| `woodpecker` | quick-preen, quill-clip, close-talons, thick-quills, flurry-feathers, pinion-shred, talon-bulwark, foragers-talon, tailwind-volley, apex-talon, thunderclap-quills, talon-tempest | sourberry-rounds, wasp-barbs | 1 > 2 > 3 |
+| `nightjar` | lilt-seed, mocking-note, beak-whetstone, featherlight, muting-whistle, crescendo, second-wind, rising-song, hawkeye-lens, gloom-curse, echo-chamber, second-clutch | warblers-trill, stoop-dive | 1 > 2 > 3 |
+| `frigatebird` | quill-clip, beak-whetstone, long-fletching, featherlight, lilt-seed, hawkeye-lens, second-wind, tailwind-volley, pinion-shred, shade-ward, apex-talon, iron-crest | kite-lift, kestrel-eye | 1 > 3 > 2 |
+| `cockatoo` | lilt-seed, quick-refrain, mocking-note, crescendo, dew-drinker, second-verse, rising-song, tempo-shift, whirlwind-knot, healing-dew, echo-chamber, encore | warblers-trill, blight-spores | 1 > 3 > 2 |
+| `swan` | lilt-seed, dew-drinker, down-padding, quick-refrain, healing-dew, covey-ward, long-chorus, preening-rite, stout-breast, tempo-shift, nestmother-mantle, thunderbird-heart | grit-gizzard, rescue-call | 1 > 2 > 3 |
+| `kiwi` | close-talons, lilt-seed, featherlight, mocking-note, crescendo, second-wind, song-siphon, skipping-stone, rising-song, muting-whistle, gloom-curse, second-clutch | hooked-spur, stoop-dive, blight-spores | 1 > 2 > 3 |
 
-Every one of the 48 items appears in at least one list.
+Each Stage 4 item enters a hero's list just before the first listed item of a higher tier. Every one of the 64
+items appears in at least one list. These lists are the Build Lab's round-1 prior (§11.4), not fixed builds.
 
 ### 11.6 Hero picks for bots
 
 Bots pick after the player, one at a time, alternating flocks, choosing an archetype their flock lacks (order:
 support, tank/initiator, gun carry, area control, then any), and a random hero (seeded) of that archetype that
 isn't taken. A flock never has two heroes of the same archetype when another is free.
+
+### 11.7 Bots in the detailed map
+
+Bots see and move by the same rules as the player: walls and ivy curtains block their sight (§6.11), and they use
+doors, stairs, ladders, hatches, Springs and the Cellar Run through the nav links of §6.7.
+
+| Feature | Chick | Hunter | Raptor |
+|---|---|---|---|
+| **Interior routes** | Streets only, unless the street route is blocked | Takes an interior route when an enemy is visible on the street route and the interior route is at most 1.3× longer | As Hunter, plus fights from shot windows and gallery edges, and drops through hatches and skylights to escape |
+| **Breaking LOS when retreating** | Never | Through the nearest door within 15 m | As Hunter, and routes through ivy curtains so chasers lose sight |
+| **Nests** | Breaks Nests on its path with the gun | Detours up to 12 m to break a Nest and up to 10 m to collect any drop | As Hunter; breaks Woven Nests with heavy melee only when no enemy hero is visible |
+| **Thickets** | Tier 1 only | §11.3 tiers; pulls indoor camps to their doorway to fight them in the open | As Hunter; finishes a camp's last creature before leaving so it can respawn; leaves one creature of an enemy camp alive when it must leave |
+| **Bell Feeders** | Never | Lights to 180 HP, then a heavy hit on the beat: 50% full chimes | As Hunter: 90% full chimes |
+| **Berries** | Never | Detours up to 25 m when HP < 70% and out of combat | As Hunter, and plans its rotation past them |
+| **Hides** | Never | Retreats into a Hide within 20 m when chased below 30% HP | As Hunter, and waits in Hides beside lanes and Thickets to ambush (counts as an ambush spot) |
+| **Bough Springs** | Never | As nav links | As nav links, and to escape when chased |
+| **Lookouts** | Never | Never | Holds a Lookout while guarding an objective (Egg landing, Roc fight) if no enemy is visible |
+| **Updrafts** | Latches at stations | Latches anywhere under the cable | As Hunter, plus boosts and drop-attacks |
+| **Magpie Den** | Never | Shops there when it is the nearest usable shop | As Hunter |
+| **Feather runes** | Walks to them; claims with a heavy hit | Objective state (§11.3) | As Hunter; denies the enemy's preferred type by claiming it |
+
+Telemetry for the M3 gate counts per match: Nests broken, drops collected, camps cleared by tier, Feeder full
+chimes, keepsakes gained, Berries eaten, Hide entries, Spring launches, Cellar Run trips, runes claimed, Eggs
+delivered and pods secured or denied, Roc kills and Embers claimed by each flock, and Rekindle revives.
+
+### 11.8 Recommended builds per archetype (guidance for the Build Lab)
+
+The Build Lab (D-EP-036) learns each hero's recommended build; this table is the designer's prior and the shape
+every learned build takes: an **early core** bought by about 8:00 (about 3,200 seeds), a **mid core** by about
+20:00 (about 7,000 more), a **late core** of tier-4 items, and **situational** picks with the condition that calls
+for them. The Build Lab may substitute within a core, but each recommended build keeps this shape, respects the
+4-active cap and lists 3–4 items per core and 3–5 situational picks.
+
+| Archetype (heroes) | Early core | Mid core | Late core | Situational |
+|---|---|---|---|---|
+| **Gun carry** (pelican, hornbill, woodpecker) | quick-preen, quill-clip, close-talons, dew-drinker | flurry-feathers, foragers-talon, pinion-shred, sourberry-rounds ★ | apex-talon, talon-tempest, carrion-feast | grit-gizzard ★ → shade-ward vs Song burst · bloodbeak vs poke · preening-rite vs disables · thunderclap-quills vs divers · kestrel-eye ★ for hornbill's long lanes |
+| **Spirit burst** (starling, peacock, cockatoo) | lilt-seed, mocking-note, quick-refrain, warblers-trill ★ | crescendo, rising-song, tempo-shift | echo-chamber, boundless-song, skylark-cadence ★ | nettle-sting ★ → blight-spores ★ vs healers · grit-gizzard ★ vs burst · second-clutch when dived · muting-whistle vs channelled ultimates · encore for ultimate-heavy kits |
+| **Tank / initiator** (albatross, penguin, cassowary) | thick-quills, down-padding, grit-gizzard ★, featherlight | talon-bulwark, shade-ward, stout-breast, whirlwind-knot | heartwood-bark ★, unbowed-crest, thunderbird-heart | burr-coat ★ vs gun carries · iron-crest vs disables · kite-lift ★ to initiate from height · nestmother-mantle in grouped fights · rookery-dirge ★ for cassowary |
+| **Support** (lyrebird, flamingo, swan) | lilt-seed, dew-drinker, quick-refrain, grit-gizzard ★ | healing-dew, rescue-call ★, covey-ward, long-chorus | nestmother-mantle, encore, unbowed-crest | preening-rite vs disables · second-verse for charge kits · tangle-pod ★ to peel · iron-crest · tempo-shift |
+| **Assassin** (kingfisher, nightjar, kiwi) | hooked-spur ★, lilt-seed, featherlight, beak-whetstone | stoop-dive ★, crescendo, second-wind, mocking-note | echo-chamber, gloom-curse, second-clutch | hawkeye-lens for gun-leaning kits · blight-spores ★ vs healers · kite-lift ★ to escape · song-siphon for sustain · muting-whistle early |
+| **Area control** (shrike, puffin, vulture) | lilt-seed, quick-refrain, dew-drinker, carrying-voice | long-chorus, tangle-pod ★, tempo-shift, rising-song | rookery-dirge ★, boundless-song, nestmother-mantle | nettle-sting ★ vs healers · iron-crest vs disables · covey-ward in grouped fights · second-verse for charge kits |
+| **Long-range poke** (owl, toucan, frigatebird) | beak-whetstone, quill-clip, long-fletching, lilt-seed | hawkeye-lens, tailwind-volley, second-wind, wasp-barbs ★ | kestrel-eye ★, apex-talon, second-clutch | kite-lift ★ vs divers · grit-gizzard ★ → shade-ward vs burst · pinion-shred vs tanks · boundless-song for toucan |
+| **Mobility skirmisher** (secretarybird, swift, hummingbird) | featherlight, close-talons, quick-preen, hooked-spur ★ | second-wind → kite-lift ★, flurry-feathers, wasp-barbs ★, bloodbeak | carrion-feast, talon-tempest, thunderclap-quills | stoop-dive ★ for secretarybird · preening-rite vs disables · sourberry-rounds ★ vs healers · skipping-stone vs grouped enemies · second-clutch |
+
+Every Stage 4 item (★) appears at least once. The shop's Recommended strip (§12.6) shows the hero's learned build
+from W6; until then it shows this table's row for the hero's archetype.
 
 ---
 
@@ -1745,8 +2234,10 @@ Boot → Main menu ─┬─ Play → Match setup → Hero select → Loading �
 - **Top centre:** flock net worth totals, match timer, and per-lane structure pips for both flocks.
 - **Top right:** kill feed (§12.8). Below it: respawn timers of dead allies.
 - **Objective banners** (top centre, under the timer): Egg spawn countdown from 60 s before, Egg carrier
-  status, Roc spawn countdown and state, rune spawns.
-- **Status icons** above the portrait: buffs (teal border) and debuffs (red border) with timers.
+  status and its spoil timer, Roc spawn countdown and state, Embers landed and claimed, your flock's Rekindle
+  charges and time, rune spawns.
+- **Status icons** above the portrait: buffs (teal border) and debuffs (red border) with timers; runes and crumbs
+  show here. A **keepsake count** sits beside the level; hovering it (pointer free) lists the totals per type.
 - **World-space:** health bars over heroes (allies green, enemies red; level number on the bar), fledglings
   (thin bars), structures (wide bars with Brood Ward shield icon), pods (gold or grey-blue glow), ping markers,
   ability telegraphs, offscreen damage direction arcs (red), low-HP vignette below 25% HP.
@@ -1767,7 +2258,9 @@ shortcut. Releasing the modifier after the shortcut keeps the panel closed.
 - Shows: allied heroes (portrait dots ringed in flock colour), visible enemy heroes (red-ringed dots;
   last-seen ghosts fade over 6 s), fledgling waves (small flock-coloured dots), structures (icons with an HP
   ring), Thickets (icon when alive, grey when cleared), runes, Egg and carrier, Roc state, pings, your camera
-  cone. Visibility follows §11.1.
+  cone. Visibility follows §11.1. Stage 4 adds building outlines with the ▲ / ▼ storey markers (§6.11), Bell
+  Feeders (icon once seen, grey when broken), Magpie Dens, Hides and Bough Springs (static icons) and Embers on the
+  ground. Nests and Berries are not shown.
 - **Ping (middle mouse):** tap pings what is under the crosshair (or the minimap cursor): enemy → "Attack",
   objective → "Take", allied structure → "Defend", ground → "Go here". Hold opens a wheel: **Danger**,
   **On my way**, **Retreat**, **Need help**. Pings show in the world (icon and distance, 6 s), on the minimap
@@ -1784,15 +2277,17 @@ shortcut. Releasing the modifier after the shortcut keeps the panel closed.
   its component (cost shows the discounted price).
 - Hover: tooltip with every stat, the active (cooldown and effect), its component and what it upgrades into.
 - Left click buys (in a shop zone); right click an owned item sells it (refund shown). Outside shop zones the
-  shop is read-only with the banner "Visit a Magpie stall or your Home Roost to trade".
+  shop is read-only with the banner "Visit a Magpie stall, a Magpie Den or your Home Roost to trade". A fifth
+  active is refused with "You can carry four actives".
 - Right panel: your 12 slots + 4 flex slots (locked ones show what unlocks them), wallet and net worth, and a
-  "Suggested" strip from the hero's build list (§11.5). A search box filters by name or stat.
+  **Recommended** strip: the hero's early, mid and late cores and situational picks (§11.8, learned by the Build
+  Lab from W6, D-EP-036), with owned items ticked. A search box filters by name or stat.
 
 ### 12.7 Scoreboard (Tab)
 
 Two flock tables side by side: hero portrait, name (you highlighted), level, kills / deaths / assists, net worth,
-last hits / denies, item icons (16), and a dead marker with respawn time. Footer per flock: total net worth,
-structures destroyed, Eggs delivered, Ember claims. Header: match time and seed.
+last hits / denies, keepsakes, item icons (16), and a dead marker with respawn time. Footer per flock: total net
+worth, structures destroyed, Eggs delivered, Roc kills, Embers claimed. Header: match time and seed.
 
 ### 12.8 Kill feed and damage numbers
 
@@ -1934,8 +2429,11 @@ a louder, longer cue audible to enemies within 40 m.
 | Patron attacks / phase 2 | Raven caw or owl screech on each attack; phase 2: a long layered cry and a drum hit |
 | **Egg jingle** | Five-note rising glockenspiel motif (C6 E6 G6 C7 E7) on spawn, map-wide; a softer two-note version on pickup; a fanfare on delivery |
 | **Roc roar** | Layered: low formant growl (80–200 Hz) + distorted screech (1.5 kHz) + noise rumble, 2.5 s; on spawn (map-wide, quiet), on aggro and on enrage |
-| Ember claim | Whoosh + bright major choir chord |
-| Rune spawn / pickup | Wind chime / chime with a whoosh up |
+| Ember claim | Whoosh + bright major choir chord; Rekindle revive: a rising flame crackle and the same chord, heard within 60 m |
+| Rune spawn / claim | Wind chime / chime with a whoosh up |
+| Nest break / pickup | Twig snap (Woven: a heavier creak and snap) / soft seed rattle; a keepsake pickup adds a small bright glint |
+| Bell Feeder | A brass bell clang per hit (70 m; Bell Tower 120 m), a wooden knock on the swing-back, a three-bell peal on a full chime |
+| Berry / Hide / Spring | A juicy pop / a muffled hush on entering a Hide / a springy twang on launch |
 | Pings | Attack: sharp tick; Take: two rising notes; Defend: low bell; Go here: soft pop; Danger: double low beep; Help: three quick notes |
 | UI | Hover tick, click knock, buy = seed rattle + chime, sell = falling rattle, error = muted buzz |
 
@@ -2051,12 +2549,16 @@ Destroy the enemy Patron (both phases). There are no draws and no time limit. Th
 |---|---|
 | 0:00 | Heroes spawn at the Home Roost with 0 seeds and level 1; passive income starts at 0:30 |
 | 0:30 | First fledgling wave; then a wave every 30 s on every lane |
-| 2:00 | Tier-1 Thickets spawn (respawn 3:00 after clear) |
-| 6:00 | Tier-2 Thickets spawn (respawn 4:00); Feather runes appear on both rune bridges (then 4:00 after each pickup) |
+| 2:00 | Tier-1 Thickets spawn (respawn 1:30 after a full clear) |
+| 2:30 | Berries appear (respawn 3:00 after eaten) |
+| 3:00 | Nests appear above ground (respawn 3:00) |
+| 5:00 | Tier-2 Thickets spawn (respawn 4:45); below-ground Nests appear (respawn 5:00); first Feather runes on both bridges (then every 5:00) |
+| 8:00 | Tier-3 Thickets spawn (respawn 5:30); Bell Feeders appear (respawn 5:00) |
 | 9:00 | HUD countdown for the Golden Egg (60 s) |
-| 10:00 | **Golden Egg** spawns (then 5:00 after each delivery); tier-3 Thickets spawn (respawn 5:00); waves grow to 3 + 2 |
+| 10:00 | **Golden Egg** lands (then at the 5:00 marks, §7.11); Hollow Nests appear; keepsakes reach their middle strength; waves grow to 3 + 2 |
 | 19:00 | HUD countdown for the Roc |
-| 20:00 | **The Roc** wakes in the Hollow (respawn 7:00 after death); waves grow to 4 + 2 |
+| 20:00 | **The Roc** wakes in the Hollow (respawn 7:00, 6:00, then 5:00 after each death); waves grow to 4 + 2 |
+| 30:00 | Keepsakes reach full strength |
 | 35:00 | Late-game pressure **(design lever)**: Brood Ward weakens from ×0.35 to ×0.6 damage taken, and fledglings get +25% damage vs structures |
 
 Respawn time grows throughout (§8.9): 8 s at the start, 32 s at 20:00, 55 s from about 39:00.
@@ -2065,21 +2567,23 @@ Respawn time grows throughout (§8.9): 8 s at the start, 32 s at 20:00, 55 s fro
 
 **Laning (0:00–10:00).** Two heroes per lane (2-2-2). The game is last hits, pods and denies, poking with guns
 and short ability trades, and shop trips to the Magpie stalls. Hawks punish heroes who attack heroes under them.
-First Thickets at 2:00 and runes at 6:00 give the first reasons to leave the lane. Expected: 0–1 Hawks down,
-heroes level 8–10, first T2 items.
+Beetle yards at 2:00, Nests and Berries from 2:30–3:00, and runes at 5:00 give the first reasons to leave the
+lane; the Feeders and Badger Setts at 8:00 pull the first jungle fights. Expected: 0–1 Hawks down, heroes level
+8–10, first T2 items, a handful of keepsakes each.
 
 **Mid game (10:00–22:00).** The first Egg forces a 3v3 or 4v4 fight in the jungle at 10:00. Hawks fall (first
 flex slots), heroes rotate between lanes, take T2/T3 Thickets and runes, and push Herons (more flex slots).
 Expected: 2–4 Hawks and 1–2 Herons down per flock by 22:00, heroes level 15–19, first T3 items.
 
-**Late game (22:00–end).** Grouped 6v6 fights around the Roc and the Ember; the Ember's faster respawns and
-stronger fledglings make sieges possible. Flocks break Wardens (Brood Ward makes waves essential), then the
+**Late game (22:00–end).** Grouped 6v6 fights around the Roc and its Embers; Rekindle's revives and stronger
+fledglings make sieges possible. Flocks break Wardens (Brood Ward makes waves essential), then the
 Shrines, then the two-phase Patron. Expected: first Shrine around 28–32 min, match end 28–38 min.
 
 ### 15.4 Comeback and anti-snowball levers
 
 - Bounties scale with the victim's net worth and pay up to ×1.5 to the poorer flock (§8.3).
-- The Egg pays ×1.25 to the poorer flock (§7.11).
+- The Egg pays ×1.25 to the poorer flock, and a trailing flock's carrier gets resists and sprint (§7.11).
+- Phoenix Embers can be stolen by either flock (§7.12).
 - Brood Ward and the structure gates force the winning flock to push with waves, buying time.
 - Respawn times cap at 55 s; the 35:00 lever stops stalemates.
 
@@ -2100,7 +2604,7 @@ An item fails if it can't be shown with a screenshot, a test or a telemetry numb
 - [ ] Dash-jump carries about 7.3 m while airborne; slide from a run reaches 9 m/s and decays in ~1 s; slopes
       extend slides.
 - [ ] Hold Jump into a 2.2 m ledge to mantle in 0.35 s; a 2.6 m rise in the same approach never mantles.
-- [ ] Updraft: mount at a station, ride at 11 m/s, boost to 18 m/s, shoot while riding, Space dismount arcs up.
+- [ ] Updraft: latch by holding Jump under the cable, ride at 11 m/s, boost to 18 m/s, shoot while riding, a fresh Jump press dismounts with an upward arc.
 - [ ] Chimney lifts to a roof; Vine climbs at 4.5 m/s.
 - [ ] Camera: shoulder swap in 0.15 s; pull-in against a wall with no clipping; crosshair shots land where the
       crosshair is, including when standing behind cover (muzzle-blocked shots hit the cover).
@@ -2143,12 +2647,40 @@ An item fails if it can't be shown with a screenshot, a test or a telemetry numb
 ### M3 — Full roster
 
 - [ ] All 24 heroes castable with documented numbers; the 40 m line-up screenshot shows 24 distinct silhouettes.
-- [ ] All 48 items purchasable; all 11 actives work.
-- [ ] Golden Egg: carrier restrictions, reveal beam, drop on stun/death, delivery channel and payout.
-- [ ] The Roc: aggro, attacks, reset; Ember claimed only by heavy melee; Ember buff values.
-- [ ] Thickets respawn on schedule; Nests pay and drop crumbs; runes alternate types.
+- [ ] All 64 items purchasable with the §10 component chains; all 15 actives work; a fifth active is refused.
+- [ ] No Interact key anywhere (D-EP-039): latch an Updraft by holding Jump under the cable away from a station,
+      dismount with a fresh Jump press and with crouch; show that a tap never latches and the 3 s damage lockout.
+- [ ] Golden Egg: lands at 10:00 then on 5:00 marks on alternating perches; light-melee pickup; carrier limits,
+      buffs and reveal beam; drops on melee, stun, displacement and death; rolls after 180 s; spoils 45 + 45 s;
+      delivers on entering the Stone; six pods secured, split and denied; keepsakes to courier and escorts.
+- [ ] The Roc: wakes 20:00; takes damage only from heroes in the Hollow; nearest-hero aggro, attacks, enrage at
+      25%, reset; three Embers claimable by either flock with one heavy melee; Rekindle revives in place once per
+      hero; respawns 7:00, 6:00, 5:00.
+- [ ] Thickets: 24 camps with first spawns at 2:00 / 5:00 / 8:00; dormancy and the 35 m sniping rule; leash and
+      reset; payout split among recent damagers; respawn only after a full clear.
+- [ ] Nests: 100 in three variants; momentum breaks; Woven only by heavy melee; drops are pickups for either flock;
+      spawn and respawn times, including below ground and in the Hollow.
+- [ ] Keepsakes: weights, the halved repeat, strength by match time, caps; Bell Feeders: melee only, swing-back,
+      seeds per hit, full chime only on the lamp; runes: 5:00 cadence, heavy-melee claim, pair rules, scaling.
+- [ ] Detailed map: every §6.9 building enterable with at least two exits and its §6.8 routes; the Cellar Run and
+      Magpie Den; Berries, Hides, Bough Springs, Lookouts and ivy curtains behave per §7.15; the §6.12 budget is met
+      and the M4 FPS scene still holds 60 FPS with one hero inside the Warehouse and one on a Bell Tower.
 - [ ] Bots: 20 seeded headless matches, 11 bots, zero crashes; telemetry shows last hits, denies, Egg and Roc
-      attempts, and sieges.
+      attempts, sieges, and the §11.7 map counters.
+- [ ] Build Lab (D-EP-036, D-EP-037): at least 1,000 matches and convergence; every hero has a recommended build in
+      the §11.8 shape in the shop and the wiki; bot builds are varied but beat a random baseline on synergy.
+
+**M3 gate coverage** (STATUS.md M3 gate → where the GDD specifies it):
+
+| Gate item | GDD |
+|---|---|
+| All 24 heroes and 64 items | §9, §10 (gap review §10.4) |
+| Golden Egg, Roc/Ember, Thickets and runes work | §7.8, §7.10–§7.12, §15.2 |
+| Detailed map: enterable buildings with things to do in them, a jungle with Thicket camps, Nests throughout; 60 FPS | §6.5, §6.8–§6.12, §7.9, §7.13–§7.15 |
+| 11 bots finish 20 seeded headless matches | §11.3, §11.7 |
+| Build Lab and recommended builds; varied, synergistic bot buying | §11.4, §11.5, §11.8, §12.6 |
+| Launchable 1 + 11 bots with any of the 24 heroes | §9.0, §12.1–§12.3 |
+| No Interact key (D-EP-039) | §3.1, §3.7, §7.11 |
 
 ### M4 — Balance and polish
 
@@ -2186,21 +2718,30 @@ and have no one-to-one counterpart.
 | Nest Wardens | Base Guardians | Two per lane at the base | — |
 | Roost Shrines | Shrines | Two; both must fall before the Patron | — |
 | Brood Ward | Backdoor protection | Big damage reduction without attacking troopers nearby | ×0.35 value ours |
-| Thickets | Neutral camps | Tiered, respawning | Seeds to the last hitter (assumed) |
-| Nests | Breakable crates | Small payout, sometimes a small buff | — |
-| Feather runes | Bridge power-ups | Timed buffs from fixed spots | 90 s, four types (ours) |
-| Golden Egg, Hatching Stone | Soul Urn, drop-off | Carrier can't shoot or cast, revealed, team payout with a comeback bonus | 10:00 then 5:00 after delivery |
-| The Roc | Mid-Boss | Central pit boss | Spawns at 20:00 (assumed) |
-| Phoenix Ember | Rejuvenator | Claimed by melee; faster respawns, stronger troopers, team buff | Heavy melee only; 180 s |
-| The Magpie's Hoard (Talon / Plumage / Song) | Curiosity Shop (Weapon / Vitality / Spirit) | 3 columns × 4 tiers, components consumed, sell refunds, base and lane shops | 50% / 100%-in-20-s refund (assumed) |
+| Thickets | Neutral camps (Haunts) | Three tiers at 2:00 / 5:00 / 8:00, respawn after a full clear, dormant until approached, resists, seeds split among recent damagers, leash | Our families, values and indoor camps |
+| Nests (Twig, Woven, Keepsake) | Crates, tough crates, buff containers | Seed and boon pickups any hero can take; tough ones need heavy melee; momentum breaks; 3:00 spawn and respawn | Crumbs are a PERCH addition |
+| Keepsakes | Permanent stat buffs | Ten stat types, weighted draw, three strengths by match time, from breakables, the Urn and the boss | Our values, a halved-repeat rule, caps |
+| Bell Feeders | Sinner's Sacrifice machines | Melee-only, retaliate per hit, pay per hit, timed final hit gives boons | Our timing lamp and values |
+| Berries | Healing snacks | High pickups that heal over time from 2:30 | 15% over 4 s |
+| Hides | Steam vents | Hidden from enemies and faster regeneration while inside | A shed you enter, not a vent |
+| Bough Springs | Jump pads | Fixed launch arcs; damage early in the launch punishes | Slow instead of stun |
+| Ivy curtains, juke alcoves | Cosmic Veil, juke rooms | Sight-blocking curtains that don't block movement | Blocks both ways |
+| Cellar Run, Magpie Den | Tunnels, secret shops | A faster underground route; a shop both teams use | +30% speed, under the middle lane; no teleporters |
+| Lookouts | — | — | PERCH addition: +20 m sight |
+| Feather runes | Powerups | Two spots every 5:00 from 5:00, heavy-melee claim, four types, strength scales with time, lost on death | 150 s |
+| Golden Egg, Hatching Stone | Soul Urn, drop-off | Melee pickup, carrier can't shoot or cast, is revealed and moves faster, drops to melee and stuns, decays if held, delivers on arrival, payout as deniable orbs plus boons, comeback help | Escorts get a keepsake; spawns alternate between two centre perches |
+| The Roc | Mid-Boss | Central pit boss, hurt only from inside the pit, HP that grows over time, respawn 7/6/5 minutes | Wakes at 20:00 (deviation); our attack set |
+| Phoenix Embers, Rekindle | Rejuvenator crystals and credits | Three drops claimed by heavy melee by either team; full heal and seeds; in-place revives once per hero for 3 minutes | Our fledgling siege buff (deviation) |
+| The Magpie's Hoard (Talon / Plumage / Song) | Curiosity Shop (Weapon / Vitality / Spirit) | 3 columns × 4 tiers, components consumed, sell refunds, base and lane shops, at most 4 actives | 50% / 100%-in-20-s refund (assumed); no spend-based category bonuses |
 | Magpie stalls | Lane shops | Shopping outside base | — |
+| No Interact key | Ziplines latched by holding jump; urn picked up by melee | Every world object answers to movement, Jump, melee or shooting | — |
 | Flex slots | Flex slots | Unlocked by objectives, team-wide | 12 base + 4 flex (ours) |
 | Talon / Song damage, Talon / Song resist | Weapon / Spirit damage and resists | Two damage types with separate resists | Multiplicative resist stacking |
 | Song power (SP) | Spirit Power | Ability scaling stat | — |
 | Beak shot | Headshot | Real head hitbox, crit multiplier in data | ×1.65 default |
 | Level, AP, upgrade tiers 1/2/5 | Levels, Ability Points, ability upgrades | 4 abilities, three tiers each | Ultimate unlocks at level 6 (assumed) |
 | Molts | Boons | Per-level base stat growth | — |
-| Updrafts | Ziplines | Lane ziplines with boost and dismount | — |
+| Updrafts | Ziplines | Lane ziplines latched from below by holding Jump, with boost, dismount and a damage lockout | Our speeds and boost |
 | Chimneys, Vines | Vent shafts, ropes | Vertical traversal | — |
 | Dash, dash-jump, slide, mantle, stamina | Same movement set | Stamina-gated dash, dash-jump, slide, mantle | Values ours |
 | Light / heavy melee, parry | Light / heavy melee, parry | Parry stuns a melee attacker; heavy melee claims the boss drop | — |

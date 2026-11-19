@@ -1360,3 +1360,69 @@ gated before.
   wiki patch notes.
 **Why:** the user's instruction: assess abilities carefully in the simulated games, rework those that are too good or
 fairly useless, and use as many simulations as needed.
+### D-DIR-010 · 19/11/2026 — Stage 4 jungle, breakables and objectives follow the reference's mechanics
+**Decision:** using deadlock.wiki as a mechanics reference only (D-EP-002, D-EP-033), GDD §6–§7 adopt:
+- **Neutral camps → Thickets:** three tiers first at 2:00 / 5:00 / 8:00, respawning only after a full clear,
+  dormant until approached and immune to long-range sniping, with resists, a leash and seeds split among the allied
+  heroes who damaged a creature in the last 5 s (replacing the assumed last-hitter rule). PERCH: 24 camps, our
+  families (Beetles, Weasels, Rats, Toads, Badgers), 8 indoor camps, our numbers.
+- **Crates, tough crates and buff containers → Twig, Woven and Keepsake Nests:** drops are pickups any hero can take,
+  tough ones need a heavy melee, fast movement breaks the light ones, 3:00 spawn and respawn (5:00 below ground,
+  10:00 in the Hollow). Deviation: PERCH keeps its crumb buffs.
+- **Permanent stat buffs → keepsakes:** ten stat types by weight, three strengths by match time, from Keepsake
+  Nests, Bell Feeders, the Egg and the Roc. PERCH: our values, a halved-repeat rule and caps.
+- **Melee machines → Bell Feeders:** melee only, retaliation per hit, seeds per hit, keepsakes for a timed final hit.
+  PERCH: a blinking lamp sets the beat; our values.
+- **Healing snacks → Berries; steam vents → Hides; jump pads → Bough Springs; one-way veils and juke rooms → ivy
+  curtains and alcoves; tunnels and secret shops → the Cellar Run and Magpie Dens.** Deviations: Hides are sheds,
+  curtains block both ways, a clipped Spring launch slows instead of stunning, the Cellar Run gives +30% speed.
+- **Powerups → Feather runes:** both spots every 5:00 from 5:00, claimed by heavy melee, pair rules, strength scaling
+  from 5:00 to 40:00, lost on death. Deviation: 150 s.
+- **Urn → Golden Egg:** melee pickup, a faster, slow-immune carrier who still can't shoot or cast, drops to melee,
+  stuns and displacement, cools if held, rolls toward the Stone if left, delivers on arrival, pays as deniable pods
+  plus boons, with comeback help for a trailing carrier. Deviation: escorts within 30 m get a keepsake.
+- **Mid-boss and its crystals → the Roc and three Phoenix Embers:** hurt only from inside the Hollow, HP that grows
+  while it lives, nearest-hero aggro, three heavy-melee claims open to both flocks, each a full heal and a Rekindle
+  charge (one in-place revive per hero for 180 s), respawn 7 / 6 / 5 minutes. Deviations: it wakes at 20:00, keeps
+  PERCH's attack set, and Rekindle also strengthens new fledglings (siege flight).
+- **Shop rule:** at most 4 active items.
+Not adopted: teleporters (the map is small enough for the Cellar Run), the rift capture event, the fog district,
+tunnel vermin, and spend-based category bonuses (Molts already grow heroes). Lookouts are a PERCH addition.
+**Why:** the user asked that building, jungle and box features follow the reference. Each deviation keeps PERCH's
+three-act 25–40 minute match, its bot fairness rule, or a simpler rule where the reference's detail adds little on
+a 260 × 300 m map. GDD Appendix A carries the row-by-row mapping and **(deviation)** marks each difference.
+
+### D-DIR-011 · 19/11/2026 — No Interact key (for D-EP-039)
+**Decision:** the Interact action is removed. Updrafts latch on a 0.2 s held Jump with the feet within 2.5 m
+horizontally of the cable's ground line and the cable 0.5–14 m above them (pulled up at 30 m/s; a 0.15 s attach
+when airborne within 1.5 m), anywhere along the line. A fresh Jump press jumps off and crouch drops off; holding
+Jump does nothing while riding. No latch for 3 s after enemy hero damage or for 1.0 s after leaving a line. The
+Golden Egg is picked up by any light or heavy melee hit (light keeps a contested pickup quick; the heavy
+commitment stays for Ember and rune claims), set down with Melee by its carrier, and delivered the moment the
+carrier enters the Hatching Stone. Phoenix Embers stay heavy-melee claims. Chimneys, Vines, ladders, Nests,
+Feeders, pickups, Hides, Springs, Lookouts and curtains all work by movement, Jump, melee or shooting; shops stay
+on B. Saved Interact bindings are dropped and E becomes free.
+**Why:** the user's instruction. Holding Jump under a line is how the reference latches its ziplines, a tap still
+jumps, and a fresh press to dismount stops the held latch from throwing the rider straight off.
+
+### D-DIR-012 · 19/11/2026 — Sixteen new items and archetype build shapes
+**Decision:** GDD §10 adds 16 items (Talon 5, Plumage 5, Song 6, for 21 / 21 / 22 by category and 16 per tier),
+four of them actives, for 15 actives in all: Hooked Spur, Sourberry Rounds, Wasp Barbs, Stoop Dive, Kestrel's Eye,
+Grit Gizzard, Rescue Call, Kite Lift, Burr Coat, Heartwood Bark, Nettle Sting, Warbler's Trill, Tangle Pod, Blight
+Spores, Skylark Cadence and Rookery Dirge. They give Long Fletching and Talon Bulwark an upgrade and Shade Ward a
+component. §10.4 records the gaps they fill (melee, anti-heal on guns and abilities, hybrid gun-and-Song, a
+gap-closer, an ally save, mobility, reflection, a long-range late core, cheap Song resist, area shaping). §11.8
+gives each archetype an early, mid and late core and situational picks, as the Build Lab's prior and the shape of
+every learned build; §11.4 defines the scored, temperature-sampled buying policy and its prior until W6.
+**Why:** D-EP-034 and D-EP-036. Heavy melee now claims Embers and runes and breaks Woven Nests, so melee needed
+items, and the Build Lab needs a sensible starting point and a fixed output shape for the shop and the wiki.
+
+### D-DIR-013 · 19/11/2026 — One building kit and a map budget for Old Mossmarket
+**Decision:** every enterable building uses the GDD §6.8 kit (4 m storeys, 0.5 m walls, 2.4 × 3.0 m doors, shot and
+leap windows, 26.6° stairs, ladders as Vines, at least two exits). Each jungle quarter has eight enterable
+buildings (a Market Hall or Water Mill, Bell Tower, Granary, Warehouse, Tavern, Hollow-tree House and two Hides) at
+the §6.9 footprints, plus enterable terraces, the Seed Exchange and Stilt Houses on the lanes. The budget is
+≤ 3,000 solid prims (≤ 600 per quarter), ≤ 2,500 nav nodes, ≤ 60 map draw calls at Medium and ≤ 0.1 ms per tick for
+all Stage 4 objectives, and the existing build-time and full-match draw-call ceilings stand.
+**Why:** one kit lets the Level Designer, the camera and bots rely on the same sizes everywhere; the footprints keep
+every §6.3 anchor and leave 5 m alleys; the budget holds 60 FPS with 12 birds and about 150 fledglings.
