@@ -41,6 +41,39 @@ describe('marching (GDD §7.1)', () => {
     expect(closest).toBeGreaterThan(0);
   }, T);
 
+  it('an actual wave leaves its lane through a breached gate and hits both Shrines and the Patron', async () => {
+    const sb = await createSandbox({ map: 'main', heroes: ['shrike'], options: { waves: true, structures: true } });
+    const source = sb.heroes[0]!;
+    const dusk = sb.ctx.store.list('structure').filter((s) => s.team === 'dusk');
+    const kill = (id: EntityId) => {
+      sb.apply({ kind: 'damage', amount: 100_000, type: 'talon' }, id, sb.cause(source, { via: 'weapon' }));
+      sb.step();
+    };
+    for (const type of ['hawk', 'heron', 'warden']) {
+      for (const s of dusk.filter((s) => s.structure.type === type)) kill(s.id);
+    }
+    sb.ctx.objectives.nextWaveAt = sb.sim.tick + 1;
+    sb.step();
+    sb.ctx.objectives.nextWaveAt = Number.MAX_SAFE_INTEGER;
+    const attackers = fledglings(sb).filter((u) => u.team === 'dawn' && u.unit.lane === 'riverbank');
+    for (const u of fledglings(sb)) if (!attackers.includes(u)) sb.ctx.store.despawn(u.id);
+    const shrines = dusk.filter((s) => s.structure.type === 'shrine');
+    const patron = dusk.find((s) => s.structure.type === 'patron')!;
+    const nextHit = (ids: readonly EntityId[]) => sb.eventsOf('damage.applied').find((e) =>
+      e.via === 'unit' && ids.includes(e.target) && attackers.some((u) => u.id === e.source));
+    // Follow the original Dawn spawn all the way across the lane, then past both independent base targets.
+    const remaining = shrines.map((s) => s.id);
+    while (remaining.length > 0) {
+      sb.clearEvents();
+      expect(sb.stepUntil(() => !!nextHit(remaining), 75 * TICK_RATE)).not.toBeNull();
+      const target = nextHit(remaining)!.target;
+      remaining.splice(remaining.indexOf(target), 1);
+      kill(target);
+    }
+    sb.clearEvents();
+    expect(sb.stepUntil(() => !!nextHit([patron.id]), 20 * TICK_RATE)).not.toBeNull();
+  }, T);
+
   it('holds at the enemy Wardens until structures exist, queued 1.5 m apart in its file', async () => {
     const sb = await firstWave();
     for (const u of fledglings(sb)) if (u.team === 'dusk') sb.ctx.store.despawn(u.id);
@@ -161,7 +194,23 @@ describe('vision (GDD §11.1, §5.9)', () => {
     expect(canSee('dawn', sb.entity(foe))).toBe(true);
   }, T);
 
-  it('invisible enemies show only within 8 m or in true sight; revealed shows them to all', async () => {
+  it('Fog Bank conceals its ally from outside eyes and admits an eye inside the same resolved volume', async () => {
+    const { sb, a, b } = await arena();
+    put(sb, a, -17);
+    put(sb, b, 5);
+    sb.ctx.store.spawn({
+      kind: 'area', team: 'dusk', pos: { x: 20, y: 0, z: 0 }, yaw: 0, vel: { x: 0, y: 0, z: 0 }, radius: 7,
+      area: { owner: b, ability: null, shape: 'cylinder', dimensions: { kind: 'cylinder', radius: 7, half: 5 },
+        concealsAlliesOutside: true, expiresAt: 100 },
+    });
+    sb.step();
+    expect(canSee('dawn', sb.entity(b))).toBe(false);
+    put(sb, a, -6);
+    sb.step();
+    expect(canSee('dawn', sb.entity(b))).toBe(true);
+  }, T);
+
+  it('invisible enemies show within 8 m or tiered true sight; reveal shows them on the minimap', async () => {
     const { sb, a, b } = await arena();
     put(sb, a, 0);
     put(sb, b, 20);
@@ -176,10 +225,18 @@ describe('vision (GDD §11.1, §5.9)', () => {
     sb.modify(a, 'trueSight', { conditions: ['trueSight'] });
     sb.step();
     expect(canSee('dawn', sb.entity(b))).toBe(true);
+    sb.modify(a, 'trueSight', { conditions: ['trueSight'], stats: [{ stat: 'trueSightRadius', op: 'max', value: 12 }] });
+    sb.step();
+    expect(canSee('dawn', sb.entity(b))).toBe(false);
     sb.modify(a, 'trueSight', null);
     sb.modify(b, 'revealed', { conditions: ['revealed'] });
     put(sb, b, 39);
     put(sb, a, -39);
+    sb.step();
+    expect(sb.entity(b).seenBy).toBe(SeenBy.dusk);
+    expect(sb.entity(b).mapOnlySeenBy).toBe(SeenBy.dawn);
+    expect(sb.view.entities.find((e) => e.id === b)?.mapSeenBy).toBe(SeenBy.all);
+    sb.modify(b, 'invisible', null);
     sb.step();
     expect(sb.entity(b).seenBy).toBe(SeenBy.all);
   }, T);

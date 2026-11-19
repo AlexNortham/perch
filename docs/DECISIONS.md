@@ -964,3 +964,32 @@ its full refund. Clearing that tick on a change of anchor or death ends the visi
 current cooldown, including explicit refunds from ability effects, for repurchase in the same match.
 **Why:** the UI can display the same refund the simulation validates. Buying back Flurry Feathers should respect its
 30 s cooldown even when its price is fully refunded.
+### D-OBJ-005 · 19/11/2026 — Siege attacks, collision and base movement
+**Decision:** spawn all 30 anchor cylinders in structure matches. Hawk and Heron tops are 10 m, 2 m below the
+12 m rider. Attack ranges use feet-to-base distance. Homing bolts commit to a target at launch and resolve at
+the announced arrival tick. Heron stomp and Patron Rain recheck the marked area at impact. Wardens defend the
+gates. Invulnerability gates govern incoming damage. Place the phase-two heart on the
+forward surface of the 8 m Patron body, 6 m above its base. Past its lane's enemy gate a wave pursues open
+base targets even outside normal lane aggro range.
+**Why:** permits a normal wave to walk from the gate to both Shrines and the Patron, preserves ordinary attack
+credit and gives presentation a single timed attack event for warnings and impacts.
+
+### D-OBJ-006 · 19/11/2026 — Individual stat blocks ahead of synchronized wave spawns
+**Decision:** prepare one private stat block per tick within a 36-tick lead before its scheduled wave,
+according to the wave's exact tick and composition. All entities and their spawn events still enter the match
+together. Rescheduling falls back to fresh blocks. Each wave shares its immutable attack definitions.
+**Why:** the CPU profile showed repeated construction of empty-modifier stat blocks during a single wave
+tick. Spreading the calls preserves the stat service as the writer and keeps spawned units independently mutable.
+
+### D-OBJ-007 · 19/11/2026 — Separate observer sight and map revelation
+**Decision:** invisible and revealed entities keep their map icon beyond normal detection range. World sight
+checks each eye's proximity, active true sight and resolved Fog Bank membership. An ordinary observer inside
+the same bank can see its occupants. The fallback for a legacy true-sight effect with no radius is 30 m.
+**Why:** abilities, targeting and actor drawing read world sight. Map views can disclose a revealed opponent
+without making it available as a unit target.
+
+### D-OBJ-008 · 19/11/2026 — The 35:00 structure lever adds in step 4
+**Decision:** from 35:00 a fledgling attack carries two target-kind bonuses on structures, ×1.5 and +25%, which
+damage step 4 adds (×1.75 in all) instead of multiplying them (×1.875). Brood Ward weakens to ×0.6 at the same time.
+**Why:** GDD §5.2 step 4 makes conditional target-kind bonuses additive within the step, and D-OBJ-004 kept the ×1.5
+as a pipeline bonus so the lever could add to it.

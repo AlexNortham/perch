@@ -89,7 +89,7 @@ export const FLEDGLING_AI = {
 } as const;
 
 /**
- * Structure footprint radii (the anchors' placeholder bodies; StructureInfo.body.radius from W4). Fledglings step
+ * Structure cylinder radii at the authored anchors. Fledglings step
  * round them (Level Designer: Hawks, Herons and Wardens stand on the lane path).
  */
 export const STRUCTURE_RADIUS: Readonly<Record<Exclude<StructureType, 'nest'>, number>> = {
@@ -107,11 +107,33 @@ export const VISION = {
   structure: 30,
   /** Invisible enemies are seen within this of an eye. */
   invisible: 8,
-  /**
-   * True sight radius. The GDD gives it per ability (Night Eyes 30 m, Night Sense 20–30 m) but the status carries no
-   * radius yet: TODO(interface request) a radius on the true-sight status.
-   */
+  /** Default for true-sight holders whose effect supplies no radius. */
   trueSight: 30,
   /** Non-hero entities are re-evaluated every this many ticks (heroes every tick); ARCHITECTURE §11 allows 0.25 s. */
   staggerTicks: 6,
+} as const;
+
+/** GDD §§5.11, 7.2–7.7 and 15.3. Heights include the complete collider. */
+export const STRUCTURE_BODY = {
+  hawk: { hp: 4500, height: 10 }, heron: { hp: 9000, height: 10 },
+  warden: { hp: 4000, height: 7 }, shrine: { hp: 8000, height: 4 }, patron: { hp: 15_000, height: 11 },
+} as const;
+
+export const DEFENCE = {
+  hawk: { range: 22, heroHit: 70, unitHit: 50, interval: 1, ramp: 0.15, cap: 0.75 },
+  warden: { range: 24, heroHit: 80, unitHit: 60, interval: 1, ramp: 0.15, cap: 0.75 },
+  heron: { range: 30, heroHit: 25, unitHit: 12.5, interval: 0.25, ramp: 0.025, cap: 0.5 },
+  boltSpeed: 60,
+  muzzleHeightFraction: 0.8,
+  scanTicks: 6,
+  priority: { aggressor: 0, current: 1, fledgling: 2, hero: 3 },
+  stomp: { range: 7, damage: 120, push: 5, interval: 4, warning: 0.5 },
+  pulse: { range: 12, damage: 120, interval: 3 },
+  volley: { range: 35, damage: 50, feathers: 6, targets: 3, phase1: 3, phase2: 2 },
+  screech: { range: 14, damage: 100, push: 8, interval: 10 },
+  rain: { range: 35, radius: 3, targets: 4, damage: 180, warning: 1, interval: 6 },
+  gale: { range: 30, cosHalf: Math.SQRT1_2, damage: 60, push: 10, interval: 12 },
+  transition: { duration: 3, range: 20, push: 8, hp: 20_000, heartHeight: 6, heartRadius: 1 },
+  ward: { range: 30, early: 0.35, late: 0.6, lateAtS: 35 * 60, lateFledglingMult: 1.25 },
+  roost: { interval: 1, healFraction: 0.2, damage: 300 },
 } as const;
