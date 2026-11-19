@@ -113,6 +113,10 @@ export const createVfx = (renderer: Renderer): Vfx => {
   };
 
   return {
+    reset() {
+      fx.clear();
+      bound.reset();
+    },
     onEvents(events, view) {
       if (events.length === 0) return;
       world.view = view;

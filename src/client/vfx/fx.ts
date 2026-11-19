@@ -169,6 +169,11 @@ export class Transients {
     return this.seed / RNG_RANGE;
   }
 
+  /** Drop every live effect (new session). */
+  clear(): void {
+    for (const r of this.recs) r.live = false;
+  }
+
   get liveCount(): number {
     let n = 0;
     for (const r of this.recs) if (r.live) n++;

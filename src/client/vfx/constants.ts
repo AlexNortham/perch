@@ -74,6 +74,21 @@ export const AREA = {
   pulseDepth: 0.2,
 } as const;
 
+/** Melee pose cues drawn from EntityView.meleePose while it lasts. */
+export const MELEE = {
+  height: 1.2,
+  reach: 1.6,
+  chargeHz: 4,
+  chargeRadius: 0.22,
+  guardRadius: 0.9,
+  lightLunge: 1.6,
+  heavyLunge: 2.4,
+  charge: 0xffd27a,
+  light: 0xffffff,
+  heavy: 0xffe9a0,
+  parry: 0xbfeaff,
+} as const;
+
 /** Summon placeholders (until the Technical Artist models them). */
 export const SUMMON = {
   trap: { radiusScale: 1.4, height: 0.25, colourDim: 0.6 },
