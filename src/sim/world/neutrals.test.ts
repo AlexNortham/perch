@@ -134,7 +134,8 @@ describe('the Golden Egg (GDD §7.11)', () => {
     const stone = sb.ctx.map.eggPerches[1 - sb.ctx.objectives.egg!.perch]!.pos;
     const rollsAt = sb.ctx.objectives.egg!.rollsAt!;
     expect(rollsAt).toBe((mmss(10) + EGG.lowerS + EGG.unattendedS) * TICK_RATE);
-    advanceTo(sb, rollsAt / TICK_RATE + 0.1);
+    sb.ctx.objectives.egg!.rollsAt = sb.sim.tick + 1; // roll now rather than simulating three minutes
+    sb.step(2);
     expect(seen(sb, 'eggRolling')).toHaveLength(1);
     const from = { ...egg.pos };
     advanceBy(sb, 3);
@@ -175,7 +176,9 @@ describe('the Roc, Embers and Rekindle (GDD §7.12)', () => {
     sb.step();
     expect(roc(sb)!.unit.asleep).toBe(true);
     expect(roc(sb)!.stats.conditions.has('invulnerable')).toBe(true);
-    advanceTo(sb, mmss(20, 1));
+    expect(sb.ctx.objectives.rocAt).toBe(ROC.wakeS * TICK_RATE);
+    sb.ctx.objectives.rocAt = sb.sim.tick + 1; // wake it now: the same code path as 20:00, without simulating 20 minutes
+    sb.step(2);
     const r = roc(sb)!;
     expect(r.unit.asleep).toBe(false);
     expect(r.stats.conditions.has('invulnerable')).toBe(false);
@@ -238,14 +241,16 @@ describe('the Roc, Embers and Rekindle (GDD §7.12)', () => {
     expect(sb.ctx.teams.dawn.rekindle!.charges, 'a revive spends a charge').toBe(1);
     advanceTo(sb, (claimedAt / TICK_RATE) + EMBERS.rekindleS + 0.1);
     expect(sb.ctx.teams.dawn.rekindle, 'ends after 180 s').toBeUndefined();
-    advanceTo(sb, sb.ctx.objectives.rocAt! / TICK_RATE + 0.1);
+    sb.ctx.objectives.rocAt = sb.sim.tick + 1;
+    sb.step(2);
     expect(roc(sb)?.unit.asleep).toBe(false);
   }, T);
 
   it('heals to full after 8 s with nobody in the Hollow', async () => {
     const sb = await open({ heroes: ['shrike', 'lyrebird'] });
     const a = sb.heroes[0]!;
-    advanceTo(sb, mmss(20, 1));
+    sb.ctx.objectives.rocAt = sb.sim.tick + 1;
+    sb.step(2);
     const r = roc(sb)!;
     tough(sb, a);
     sb.place(a, FLOOR);
@@ -373,7 +378,7 @@ describe('keepsakes (GDD §7.13)', () => {
   it('draw weighted types from the bucket, cap per stat, publish one source, survive death', async () => {
     const sb = await open({ heroes: ['shrike', 'lyrebird'] });
     const [hero, foe] = sb.heroes as [EntityId, EntityId];
-    advanceTo(sb, mmss(35));
+    advanceTo(sb, 5);
     for (let i = 0; i < 400; i++) {
       sb.ctx.store.spawn({ kind: 'pickup', team: 'neutral', pos: { ...sb.hero(hero).pos }, vel: { x: 0, y: 0, z: 0 }, yaw: 0, radius: 0.4,
         pickup: { type: 'keepsake', variant: '', value: 0, expiresAt: null, carrier: null } });
@@ -383,7 +388,7 @@ describe('keepsakes (GDD §7.13)', () => {
     expect(k.count).toBe(400);
     expect(k.totals.talonResist).toBeCloseTo(KEEPSAKES.caps.talonResist!, 6);
     expect(k.totals.cooldownReduction).toBeCloseTo(KEEPSAKES.caps.cooldownReduction!, 6);
-    expect(k.totals.maxHealth! % 35).toBeCloseTo(0, 6);
+    expect(k.totals.maxHealth! % KEEPSAKES.types[3][3][0]).toBeCloseTo(0, 6);
     const mods = sb.hero(hero).stats.sources.get('world:keepsakes')!.stats!;
     expect(new Set(mods.map((m) => m.stat)).size).toBe(mods.length);
     expect(seen(sb, 'keepsakeGained')).toHaveLength(400);
