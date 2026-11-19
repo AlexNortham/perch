@@ -36,8 +36,9 @@ describe('HUD display mapping', () => {
   });
 
   it('upgrade availability needs AP and a tier below 3', () => {
-    expect(abilityDisplay(slot({ tier: 2 }), 1, 0, 1).canUpgrade).toBe(true);
-    expect(abilityDisplay(slot({ tier: 3 }), 1, 0, 1).canUpgrade).toBe(false);
+    expect(abilityDisplay(slot({ tier: 2 }), 1, 0, 5).canUpgrade).toBe(true);
+    expect(abilityDisplay(slot({ tier: 2 }), 1, 0, 1).canUpgrade).toBe(false);
+    expect(abilityDisplay(slot({ tier: 3 }), 1, 0, 9).canUpgrade).toBe(false);
     expect(abilityDisplay(slot(), 1, 0, 0).canUpgrade).toBe(false);
   });
 

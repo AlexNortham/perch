@@ -1050,3 +1050,14 @@ swallowed fledgling to its feet before the lethal damage, so the economy pod spa
 Each structure is a single mesh whose geometry is swapped between prebuilt variants (eye glow, Heron leg pose) instead of
 separate glow and leg meshes, and towers do not cast shadows. A structure stays at one draw call, so the lane scenes stay
 under QA's ceilings (24 and 41 against 32 and 48). The dome is one InstancedMesh for all wards.
+### D-UI-003 · 19/11/2026 — Panels render once and update cells; one description element per fact
+**Decision:** the upgrade dialog and Hoard build their DOM once per hero or catalogue and only write changed text. Each
+ability description and tier effect exists in exactly one element, shown by `:hover`/`:focus-within` CSS, so keyboard and
+pointer both reveal it and QA locators resolve one node. Panels never mutate the view; they call `actions.submit`.
+**Why:** change-gated writes keep frames cheap (D-UI-001); one node per text avoids strict-locator clashes.
+
+### D-UI-004 · 19/11/2026 — Options capture drains the rest of a mouse press
+**Decision:** after a mouse capture the window swallows mouseup, auxclick, pointerup, click and contextmenu until mouseup
+(1 s cap). pointerdown is never swallowed, because cancelling it suppresses mousedown. Reserved browser chords (Ctrl/Meta
+with W, T, N, Q, R, Tab) get a note matched to `navigator.keyboard.lock`, and are never blocked (D-EP-030).
+**Why:** side buttons navigate history on release and the trailing click re-armed capture.

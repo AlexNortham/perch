@@ -1,8 +1,8 @@
 /** The Options screen: controls (rebinding) and the settings the store already holds. Changes apply and save at once. */
 import type { AppActions, BindAction, Bindings, Quality, Settings } from '../app/contracts';
 import { DEFAULT_SETTINGS } from '../app/settings';
-import { ACTIONS, ACTION_LABELS, capture, describeRebind, keyName, resetAction } from './bindings';
-import { FOV_RANGE, QUALITIES, SENSITIVITY_RANGE } from './constants';
+import { ACTIONS, ACTION_LABELS, canLockKeyboard, capture, chordNote, chordWarnings, describeRebind, keyName, resetAction } from './bindings';
+import { FOV_RANGE, PERCENT, QUALITIES, SENSITIVITY_RANGE, VOLUME_RANGE } from './constants';
 
 const make = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, content?: string): HTMLElementTagNameMap[K] => {
   const e = document.createElement(tag);
@@ -12,7 +12,11 @@ const make = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, conten
 };
 
 /** Mouse button index → the binding code input uses. */
-const mouseCode = (button: number): string => `Mouse${button}`;
+/** Everything a mouse press or its release can do besides mousedown: navigation, context menu, focus clicks. */
+const NAV_EVENTS = ['mouseup', 'auxclick', 'pointerup', 'click', 'contextmenu'] as const;
+/** Safety limit for swallowing the tail of a captured press. */
+const MOUSE_DRAIN_MS = 1000;
+const mouseCode =(button: number): string => `Mouse${button}`;
 
 export function optionsScreen(initial: Settings, actions: AppActions, onBack: () => void): HTMLElement {
   let cur = initial;
@@ -28,6 +32,7 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
 
   const renderBinds = (): void => {
     list.replaceChildren();
+    const warnings = chordWarnings(cur.bindings);
     for (const action of ACTIONS) {
       const row = make('div', 'pu-bind');
       const key = make('button', capturing === action ? 'pu-key cap' : 'pu-key', capturing === action ? 'Press a key…' : keyName(cur.bindings[action]));
@@ -42,6 +47,12 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
       reset.addEventListener('click', () => applyRebind(action, resetAction(cur.bindings, action, DEFAULT_SETTINGS.bindings), true));
       row.append(make('span', 'pu-bind-name', ACTION_LABELS[action]), key, reset);
       list.append(row);
+      const warn = warnings.find((w) => w.action === action);
+      if (warn) {
+        const note = make('div', 'pu-bind-warn', `${keyName(cur.bindings[action])} + ${warn.chords.map((c) => c.split(' + ')[1]).join(' / ')}: ${chordNote(canLockKeyboard())}`);
+        note.dataset['warn'] = action;
+        list.append(note);
+      }
     }
   };
 
@@ -57,16 +68,34 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
     capturing = action;
     status.textContent = `Press a key or mouse button for ${ACTION_LABELS[action]} (Esc cancels).`;
     status.classList.remove('swap');
+    const swallow = (e: Event): void => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
     const end = (): void => {
       window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('keyup', swallow, true);
       window.removeEventListener('mousedown', onMouse, true);
-      window.removeEventListener('contextmenu', block, true);
+      for (const t of NAV_EVENTS) window.removeEventListener(t, swallow, true);
       capturing = null;
       stopCapture = null;
+    };
+    /** The captured press still has its up, click and auxiliary events to come (side buttons navigate history): eat them. */
+    const drainMouse = (): void => {
+      const stop = (): void => {
+        for (const t of NAV_EVENTS) window.removeEventListener(t, swallow, true);
+        window.removeEventListener('mouseup', later, true);
+      };
+      const later = (): void => void setTimeout(stop, 0);
+      // Registered first so it still runs after the swallowing listener stops propagation.
+      window.addEventListener('mouseup', later, true);
+      for (const t of NAV_EVENTS) window.addEventListener(t, swallow, true);
+      setTimeout(stop, MOUSE_DRAIN_MS);
     };
     const finish = (code: string): void => {
       const r = capture(cur.bindings, action, code);
       end();
+      if (code.startsWith('Mouse')) drainMouse();
       if (r) applyRebind(action, r);
       else {
         status.textContent = 'Cancelled.';
@@ -74,20 +103,18 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
       }
     };
     const onKey = (e: KeyboardEvent): void => {
-      e.preventDefault();
-      e.stopImmediatePropagation();
+      swallow(e);
       if (!e.repeat) finish(e.code);
     };
     const onMouse = (e: MouseEvent): void => {
-      e.preventDefault();
-      e.stopImmediatePropagation();
+      swallow(e);
       finish(mouseCode(e.button));
     };
-    const block = (e: Event): void => e.preventDefault();
     stopCapture = end;
     window.addEventListener('keydown', onKey, true);
+    window.addEventListener('keyup', swallow, true);
     window.addEventListener('mousedown', onMouse, true);
-    window.addEventListener('contextmenu', block, true);
+    for (const t of NAV_EVENTS) window.addEventListener(t, swallow, true);
     renderBinds();
   }
 
@@ -115,7 +142,7 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
     row.append(make('span', 'pu-opt-name', label), input, out);
     return row;
   };
-  const pct = (v: number): string => `${Math.round(v * 100)}%`;
+  const pct = (v: number): string => `${Math.round(v * PERCENT)}%`;
 
   const quality = make('div', 'pu-opt');
   quality.append(make('span', 'pu-opt-name', 'Graphics quality'));
@@ -133,7 +160,7 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
   quality.append(seg);
 
   const vol = (label: string, key: keyof Settings['volume']): HTMLElement =>
-    slider(label, `volume-${key}`, [0, 1, 0.01], () => cur.volume[key], (v) => ({ ...cur, volume: { ...cur.volume, [key]: v } }), pct);
+    slider(label, `volume-${key}`, VOLUME_RANGE, () => cur.volume[key], (v) => ({ ...cur, volume: { ...cur.volume, [key]: v } }), pct);
 
   const resetAll = make('button', 'pu-btn pu-quiet', 'Reset all controls');
   resetAll.type = 'button';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_BINDINGS } from '../input';
-import { ACTIONS, capture, describeRebind, keyName, rebind, resetAction } from './bindings';
+import { DEFAULT_BINDINGS } from '../app/bindings';
+import { ACTIONS, canLockKeyboard, capture, chordNote, chordWarnings, describeRebind, keyName, rebind, resetAction } from './bindings';
 
 describe('key bindings', () => {
   it('names keys readably', () => {
@@ -30,6 +30,19 @@ describe('key bindings', () => {
     expect(r.swapped).toBe('dash');
     expect(describeRebind('jump', 'ShiftLeft', r.swapped, r.bindings)).toContain('Dash swapped to Space');
     expect(rebind(DEFAULT_BINDINGS, 'jump', 'Space').swapped).toBeNull();
+  });
+
+  it('warns, never blocks, when Ctrl crouch can pair with a reserved key', () => {
+    expect(chordWarnings(DEFAULT_BINDINGS).filter((w) => w.action === 'crouch')).toEqual([]);
+    const ctrl = rebind(DEFAULT_BINDINGS, 'crouch', 'ControlLeft').bindings;
+    expect(ctrl.crouch).toBe('ControlLeft');
+    const [w] = chordWarnings(ctrl);
+    expect(w?.action).toBe('crouch');
+    expect(w?.chords).toContain('Left Ctrl + W');
+    expect(chordNote(true)).toBe('Works in fullscreen in Chrome and Edge.');
+    expect(chordNote(false)).toBe('In Firefox this combination closes the tab.');
+    expect(canLockKeyboard({ keyboard: { lock: () => undefined } })).toBe(true);
+    expect(canLockKeyboard({})).toBe(false);
   });
 
   it('reset restores a key, swapping if it is taken', () => {
