@@ -933,3 +933,16 @@ tiers, actual shots, and pointer lock. Keep Practice Hub, the upgrade panel, ord
 picker behind `PERCH_PENDING=1` until their producers land. In siege, confirm a locked ultimate and passive earnings
 while inspecting.
 **Why:** player-visible state can prove input and session wiring alongside QA's rule-level assertions.
+
+### D-ECON-003 · 19/11/2026 — Pay earned Seeds and Molts together
+**Decision:** round each hero's share at payment and credit both wallet and lifetime earnings. For every crossed
+threshold, apply that hero's growth table and emit one level event. Combat heals the HP gain and Abilities grants
+the event's AP and ultimate unlock. Use the two flocks' pre-payment worth to calculate a hero bounty.
+**Why:** buying and selling must preserve earned levels. A single bounty can cross several thresholds.
+
+### D-ECON-004 · 19/11/2026 — Track refunds by shop visit and preserve active cooldowns on sale
+**Decision:** the inventory records the current allied shop anchor. Each purchase records an inclusive last tick for
+its full refund. Clearing that tick on a change of anchor or death ends the visit. A sale preserves the active's
+current cooldown, including explicit refunds from ability effects, for repurchase in the same match.
+**Why:** the UI can display the same refund the simulation validates. Buying back Flurry Feathers should respect its
+30 s cooldown even when its price is fully refunded.

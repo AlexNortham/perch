@@ -1005,3 +1005,23 @@ and visible siege progression.
 **Interface requests:** sent stable accessible names for the upgrade dialog, ability controls, and labelled
 dummy HP bars through the EP. The W3 worst-tick follow-up and production-browser regressions are tracked
 outside this browser acceptance suite.
+
+### W4 · Economy & Items · 19/11/2026
+
+**Done:** `w4/economy` through `fe66f9d` implements lifetime earnings, bounty splits, level/AP/Molt events,
+four flock flex unlocks and all sixteen D-EP-026 items. Normal trade and active commands use the hero's position,
+wallet, inventory, modifiers and effect handlers. D-ECON-003/004 record the reward and refund decisions.
+
+**Rules:** isolated install with `npm ci --prefer-offline --no-audit --no-fund`. The QA market baseline
+failed 15/15 before implementation. With `PERCH_PENDING=1`, market passed 12/15 and pods passed 13/13.
+Owner tests and core telemetry give 43/48 combined, including real fixture structure deaths, two Molt heals,
+full AP, aimed rifle hits, actual reload, activation, regeneration, movement and casting. See
+`out/economy/rules.log` and `out/economy/market-baseline.log`.
+
+**Integration:** `tests/rules/market.test.ts` needs World structures for “§§8.4–8.6 a Heron bounty crosses two
+thresholds, applies both Molts and heals the gained max HP”, “§§8.4/8.7 dawn gets one flex slot for each agreed
+fall, with capacity 12 through 16” and “§§8.4/8.7 dusk gets one flex slot for each agreed fall, with capacity
+12 through 16”. `src/sim/items/items.test.ts` needs W4 Combat for “Close Talons boosts a real gun hit only
+within 15 m” and “Whetstone adds its flat damage once across a mixed shotgun volley”. Run both files with
+`PERCH_PENDING=1` at integration. Combat should also verify held HP and ammo caps when an item sale reduces
+the maximum.
