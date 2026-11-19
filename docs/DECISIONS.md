@@ -943,3 +943,18 @@ Artist, Hero A (A2) and Hero B (B1) start fresh from main; Audio starts when a s
 merge because it touches every owner's files. Models follow D-EP-019. ChatGPT's worktrees under `~\.codex\` are left
 untouched.
 **Why:** the user asked Claude to pick development back up from ChatGPT; resuming its branches keeps its work.
+
+### D-RENDER-009 · 19/11/2026 — W4 consumers: traces, ghosts, fade and cues come from the contract
+**Decision:** hitscan tracers draw from `weapon.traces` (every pellet end, misses included, from the real muzzle); the
+impact scan stays only as a fallback when a shot has no traces event. Enemies render only when `canSee` for the local
+flock; allied invisible heroes draw at 0.35 opacity; the local hero's materials fade over the last metre before the
+camera (per-mesh clones, restored at full opacity). Areas draw from `AreaInfo.dimensions`. `meleePose` and the
+parry/whiff/structure events have their own cues; `Vfx.reset` clears transients, pods, tethers and flashes. Render
+host, palette and drawn now live in `app/`; the old render/vfx modules re-export them.
+**Why:** one source of truth per fact, as INTERFACES §12 and the W4 follow-ups require.
+
+### D-ABIL-010 · 19/11/2026 — W4 consumers: abilities use heroAimRay and publish area geometry
+**Decision:** unit/point/direction targeting uses `core/aim.heroAimRay`; lasting areas store resolved
+`dimensions` and `concealsAlliesOutside`; summons honour `extraCount` and `preferHeroes` (default true); moving
+areas stop carrying a target after `move.maxCarry` metres and pass `move.onWall` to the carry displacement.
+**Why:** W4-contract-followups, Abilities and Rendering sections.
