@@ -1,7 +1,9 @@
+import { defaultBindings } from '../input';
 import { DEFAULT_BINDINGS } from './bindings';
 import type { BindAction, Bindings, Quality, Settings } from './contracts';
 
-const STORAGE_KEY = 'perch.settings.v2';
+const STORAGE_KEY = 'perch.settings.v3';
+const V2_KEY = 'perch.settings.v2';
 const LEGACY_KEY = 'perch.settings.v1';
 const QUALITIES: readonly Quality[] = ['low', 'medium', 'high'];
 const FOV_MIN = 75;
@@ -20,6 +22,11 @@ export const DEFAULT_SETTINGS: Settings = {
   quality: 'medium',
   damageNumbers: true,
 };
+
+/** Settings for a new profile: the input module's bindings for this browser (D-EP-030). */
+function freshSettings(): Settings {
+  return { ...DEFAULT_SETTINGS, bindings: defaultBindings() };
+}
 
 /** localStorage, or null where it is blocked (privacy modes, some file:// pages). */
 function storage(): Storage | null {
@@ -41,7 +48,7 @@ function obj(v: unknown): Record<string, unknown> {
 /** Keep only well-formed known fields from stored JSON; everything else falls back to the defaults. */
 export function sanitizeSettings(raw: unknown): Settings {
   const r = obj(raw);
-  const d = DEFAULT_SETTINGS;
+  const d = freshSettings();
   const vol = obj(r['volume']);
   const keys = obj(r['bindings']);
   const bindings = Object.fromEntries(
@@ -72,8 +79,10 @@ export function loadSettings(store: Storage | null = storage()): Settings {
   try {
     const raw = store?.getItem(STORAGE_KEY);
     if (raw) return sanitizeSettings(JSON.parse(raw));
+    const v2 = store?.getItem(V2_KEY);
+    if (v2) return persist(v2ToV3(sanitizeSettings(JSON.parse(v2))), store);
     const legacy = store?.getItem(LEGACY_KEY);
-    if (!legacy) return DEFAULT_SETTINGS;
+    if (!legacy) return freshSettings();
     const old = obj(JSON.parse(legacy));
     const bindings = { ...obj(old['bindings']) };
     // Reserve custom codes first. Only legacy defaults are candidates for migration.
@@ -91,12 +100,23 @@ export function loadSettings(store: Storage | null = storage()): Settings {
     };
     if (migrateCrouch) bindings['crouch'] = free(DEFAULT_BINDINGS.crouch);
     if (migrateSlot) bindings['item3'] = free(DEFAULT_BINDINGS.item3);
-    const migrated = sanitizeSettings({ ...old, bindings });
-    saveSettings(migrated, store);
-    return migrated;
+    return persist(v2ToV3(sanitizeSettings({ ...old, bindings })), store);
   } catch {
-    return DEFAULT_SETTINGS;
+    return freshSettings();
   }
+}
+
+function persist(s: Settings, store: Storage | null): Settings {
+  saveSettings(s, store);
+  return s;
+}
+
+/** v2→v3 (D-EP-030): where keyboard lock exists, an untouched auto-assigned C crouch becomes Left Ctrl. */
+function v2ToV3(s: Settings): Settings {
+  const locked = defaultBindings().crouch;
+  const untouched = s.bindings.crouch === DEFAULT_BINDINGS.crouch && locked !== DEFAULT_BINDINGS.crouch;
+  const taken = Object.entries(s.bindings).some(([a, c]) => a !== 'crouch' && c === locked);
+  return untouched && !taken ? { ...s, bindings: { ...s.bindings, crouch: locked } } : s;
 }
 
 /** Persist settings; silently keeps them in memory only when storage is blocked or full. */

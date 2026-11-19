@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createSim } from '../../sim/index';
 import { IDLE_COMMAND, ViewFlag, Button } from '../../sim/core/contracts';
 import { projectPoint } from './targeting';
@@ -96,7 +96,7 @@ describe('settings store', () => {
     saveSettings(changed, store);
     expect(loadSettings(store)).toEqual(changed);
     expect(loadSettings(null)).toEqual(DEFAULT_SETTINGS);
-    store.setItem('perch.settings.v2', '{not json');
+    store.setItem('perch.settings.v3', '{not json');
     expect(loadSettings(store)).toEqual(DEFAULT_SETTINGS);
     const throwing = { ...memoryStorage(), getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('full'); } };
     expect(loadSettings(throwing)).toEqual(DEFAULT_SETTINGS);
@@ -109,6 +109,28 @@ describe('settings store', () => {
     const settings = loadSettings(store);
     expect(settings.bindings).toMatchObject({ crouch: 'KeyC', item3: 'KeyH', melee: 'KeyN' });
     expect(loadSettings(store)).toEqual(settings);
+  });
+
+  it('v2 to v3: where keyboard lock exists an untouched C crouch becomes Left Ctrl; custom or taken ones stay', () => {
+    vi.stubGlobal('navigator', { keyboard: { lock: () => Promise.resolve(), unlock: () => undefined } });
+    try {
+      expect(loadSettings(memoryStorage()).bindings.crouch).toBe('ControlLeft');
+      const migrate = (bindings: Record<string, string>) => {
+        const store = memoryStorage();
+        store.setItem('perch.settings.v2', JSON.stringify({ bindings }));
+        const s = loadSettings(store);
+        expect(store.getItem('perch.settings.v3')).not.toBeNull();
+        return s.bindings.crouch;
+      };
+      expect(migrate({ crouch: 'KeyC' })).toBe('ControlLeft');
+      expect(migrate({ crouch: 'KeyJ' })).toBe('KeyJ');
+      expect(migrate({ crouch: 'KeyC', melee: 'ControlLeft' })).toBe('KeyC');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    const store = memoryStorage();
+    store.setItem('perch.settings.v2', JSON.stringify({ bindings: { crouch: 'KeyC' } }));
+    expect(loadSettings(store).bindings.crouch).toBe('KeyC');
   });
 
   it('keeps well-formed fields and clamps the rest', () => {

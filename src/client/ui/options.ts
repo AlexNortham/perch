@@ -1,6 +1,6 @@
 /** The Options screen: controls (rebinding) and the settings the store already holds. Changes apply and save at once. */
 import type { AppActions, BindAction, Bindings, Quality, Settings } from '../app/contracts';
-import { DEFAULT_SETTINGS } from '../app/settings';
+import { defaultBindings } from '../input';
 import { ACTIONS, ACTION_LABELS, canLockKeyboard, capture, chordNote, chordWarnings, describeRebind, keyName, resetAction } from './bindings';
 import { FOV_RANGE, PERCENT, QUALITIES, SENSITIVITY_RANGE, VOLUME_RANGE } from './constants';
 
@@ -41,10 +41,10 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
       key.addEventListener('click', () => startCapture(action));
       const reset = make('button', 'pu-reset', 'Reset');
       reset.type = 'button';
-      reset.title = `Reset ${ACTION_LABELS[action]} to ${keyName(DEFAULT_SETTINGS.bindings[action])}`;
-      reset.disabled = cur.bindings[action] === DEFAULT_SETTINGS.bindings[action];
+      reset.title = `Reset ${ACTION_LABELS[action]} to ${keyName(defaultBindings()[action])}`;
+      reset.disabled = cur.bindings[action] === defaultBindings()[action];
       reset.dataset['reset'] = action;
-      reset.addEventListener('click', () => applyRebind(action, resetAction(cur.bindings, action, DEFAULT_SETTINGS.bindings), true));
+      reset.addEventListener('click', () => applyRebind(action, resetAction(cur.bindings, action, defaultBindings()), true));
       row.append(make('span', 'pu-bind-name', ACTION_LABELS[action]), key, reset);
       list.append(row);
       const warn = warnings.find((w) => w.action === action);
@@ -167,7 +167,7 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
   resetAll.dataset['resetAll'] = '1';
   resetAll.addEventListener('click', () => {
     stopCapture?.();
-    save({ ...cur, bindings: DEFAULT_SETTINGS.bindings });
+    save({ ...cur, bindings: defaultBindings() });
     status.textContent = 'All controls reset to defaults.';
     status.classList.remove('swap');
     renderBinds();

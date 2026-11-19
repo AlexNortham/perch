@@ -89,7 +89,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     crosshairPing: () => resolvePing(),
     startMatch: (setup) => {
       audio.resume();
-      void switchSession(mode === 'practice' ? practiceConfig(setup.seed, setup.hero) : matchConfig(setup), 'player', 'match');
+      void switchSession(mode === 'practice' ? practiceConfig(setup.seed, setup.hero) : matchConfig(setup), 'player', 'match', req.t);
     },
     toMenu: () => {
       mode = 'siege';
@@ -192,13 +192,14 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     screen = next;
     input.setEnabled(next === 'match' && session.hero !== null);
     if (next === 'match') audio.resume();
+    else if (next !== 'pause') input.exitFullscreen();
     const telemetry = next === 'end' ? session.sim.telemetry() : null;
     ui.show(next, { view: session.curr, settings, seed: session.seed, telemetry, catalogue: session.sim.itemCatalogue, mode });
   }
 
-  async function switchSession(config: SimConfig, cam: CameraPreset, next: Screen): Promise<void> {
+  async function switchSession(config: SimConfig, cam: CameraPreset, next: Screen, fastForwardS = 0): Promise<void> {
     const id = ++sessionRequest;
-    const fresh = await startSession(config, cam, 0);
+    const fresh = await startSession(config, cam, fastForwardS);
     if (id !== sessionRequest) return;
     session = fresh;
     activateSession();

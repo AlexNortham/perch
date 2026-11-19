@@ -26,6 +26,9 @@ function keyboardOf(nav: Navigator | undefined): KeyboardLock | null {
 export function defaultBindings(nav: Navigator | undefined = globalThis.navigator): Bindings {
   return keyboardOf(nav) ? { ...DEFAULT_BINDINGS, crouch: LOCKED_CROUCH } : DEFAULT_BINDINGS;
 }
+const HISTORY_BACK = 3;
+const HISTORY_FORWARD = 4;
+const HISTORY_EVENTS = ['mousedown', 'mouseup', 'pointerup', 'auxclick'] as const;
 const CROUCH: readonly BindAction[] = ['crouch'];
 
 /** Actions that are a held `Button` bit, and the ability slot each of the four ability actions upgrades. */
@@ -246,6 +249,12 @@ export function createInput(
     releaseAll();
   };
 
+  /** Mouse 4 and 5 are browser Back and Forward: this page never wants them to navigate, bound or not, in play or in Options. */
+  const onHistoryButton = (ev: Event): void => {
+    const b = (ev as MouseEvent).button;
+    if (b === HISTORY_BACK || b === HISTORY_FORWARD) ev.preventDefault();
+  };
+
   function lock(): void {
     try {
       // Newer browsers return a promise that rejects without a user gesture; that just leaves the click to do it.
@@ -283,6 +292,7 @@ export function createInput(
     if (!doc.fullscreenElement) unlockKeys();
   };
 
+  for (const t of HISTORY_EVENTS) doc.addEventListener(t, onHistoryButton, true);
   doc.addEventListener('keydown', onKeyDown);
   doc.addEventListener('keyup', onKeyUp);
   doc.addEventListener('mousedown', onMouseDown);
@@ -356,6 +366,7 @@ export function createInput(
       resolvePing = resolve;
     },
     dispose() {
+      for (const t of HISTORY_EVENTS) doc.removeEventListener(t, onHistoryButton, true);
       doc.removeEventListener('keydown', onKeyDown);
       doc.removeEventListener('keyup', onKeyUp);
       doc.removeEventListener('mousedown', onMouseDown);
