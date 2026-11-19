@@ -1503,3 +1503,22 @@ ready, and don't let them hold a stage up for days.
 It runs on the simulation track (D-EP-044) and merges when validated. `docs/BALANCE.md` records every change and the
 evidence behind it.
 **Why:** the user's instruction: balance things like health and damage as well.
+
+### D-EP-046 · 19/11/2026 — Feel as close to the reference as possible
+**Decision:** PERCH aims to play and feel as close as possible to the reference game. Any perceptible difference in:
+- camera framing or field of view
+- movement speed or snappiness
+- time to kill or fight length
+- wave and objective pacing
+- HUD layout or flow
+- effect readability
+- map scale, density or verticality
+- shop flow
+
+is treated as a defect to fix, unless keeping it is a deliberate, recorded decision. The Game Director runs a
+side-by-side gap analysis against the user's gameplay videos (`docs/reference/feel-reference.md`), and each gap gets an
+owner, a concrete fix and a stage (Stage 4 now, or Stage 5). The originality boundary still holds (D-EP-002): matching
+covers mechanics, feel, pacing, layout and flow, never names, characters, art, music or the reference's exact map
+layout (the map matches its scale, density, verticality and lane structure).
+**Why:** the user's instruction: anything in PERCH that seems different or feels different from the reference should
+be considered for change; they want it as close as possible.
