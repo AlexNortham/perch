@@ -1856,3 +1856,57 @@ radius). Percentages of a stat with a base (magazine size) are 'pct'; regenerati
 cleanses any slowing status each tick. Swift's +Updraft speed waits for a physics stat.
 **Why:** flat reach matches how a hero reads "within 1.5 m"; the band stops collecting through a floor. The stat
 service has no immunity op, and cleansing keeps every other negative status (stuns drop the Egg).
+
+### D-LEVEL-005 · 19/11/2026 — One shell builder for every enterable building
+**Decision:** `src/sim/world/map/data/interiors.ts` builds every enterable building from the GDD §6.8 kit:
+- wall columns split at gap edges, and merged where they are equal;
+- slabs carved around stair, ladder and hatch holes (a hole against a wall runs on under it);
+- stairs as ramps, and ladders through 2 × 2 m hatches;
+- balconies and landing boards;
+- flat roofs with parapets, or 30° or 50° gables.
+
+Its prims are `fabric`: they collide but seed no generated nav, and the builder authors the building's waypoints and links instead. Solid fill houses are `Building` records with no rooms.
+**Why:** one kit keeps heroes, the camera and bots on the same sizes. Authored interior nav keeps the graph under 2,000 nodes and its build near 60–75 ms.
+**Consequence:** 2,178 solid prims (of 3,000), at most 584 in a quarter (of 600).
+
+### D-LEVEL-006 · 19/11/2026 — The dressing descriptor lives beside MapData until the contract takes it
+**Decision:** `loadDressing(id)` returns a `MapDressing` (`src/sim/world/map/dressing.ts`) with two parts:
+- per building, in `MapData.buildings` order: facade style; roof style, pitch, ridge, eaves, top and nest crown; facade marks (doors and windows on solid walls); balconies, landing boards and stairs;
+- props, including the bird street life of D-EP-048. Solid props skin a collision box; the rest are dressing only.
+
+No decorative cuboids go into `prims`.
+**Why:** D-EP-047 asks for a descriptor for every building and dressed area, and the contracts are frozen this wave.
+**Consequence:** an interface request to the Architect to fold it into `MapData`.
+
+### D-LEVEL-007 · 19/11/2026 — Where the Stage 4 map departs from GDD §6.8–6.10
+**Decision:**
+- The Tavern's front door faces Lantern Row (south) and its back door north.
+- The Granary's loft hatches are 2.2 m tall at a 0.2 m sill, because the loft is 2.4 m under 30° eaves.
+- The Hollow-tree trunk is an octagon with 2.5 m arches. Its knot-holes sit where the spiral passes them: sills at 6.9 m east and 4.9 m south.
+- The Bell Tower has one shot window per face per floor (prim budget).
+- The Market Hall's jungle doors are 2.0 m and the terrace upper windows 2.4 m wide, matching the opening above or below so no pier is thinner than 0.5 m.
+- The Badger Sett yard is 14 m, because 16 m hits the Egg plaza.
+- Moved by up to 2.5 m to clear stairs and holes: the Tavern taproom, Market Hall counter and alley Twig Nests, the Market Hall gallery Keepsake, and the crown's Keepsake and Lookout.
+- The interior Chimney shafts sit at (−36.4, −84.6) and (−20.9, −27.3), so every tier-2 and tier-3 camp and every Hawk has a Chimney within 25 m.
+- The Hollow's corner fills are 18.2 × 9.12 m slabs, so the undercrofts fit beside them.
+
+**Why:** geometry and budgets; every moved anchor keeps its room and role.
+
+### D-LEVEL-008 · 19/11/2026 — Nav through interiors
+**Decision:**
+- A link's ground profile stays on the current level when it continues, so walking under a low roof is not a climb onto it.
+- The detour rule skips a link only through a node at about the same height.
+- Ladders give vine links, hatches and skylights authored drop links, and Bough Springs one-way walk links that carry `spring`.
+- `nodeRoom` is the first room containing the node, with the Magpie Den listed before the tunnel.
+
+**Why:** GDD §6.7 and INTERFACES §14.3. The old rules would have joined storeys through floors and dropped Hide doorways.
+
+### D-LEVEL-009 · 19/11/2026 — G19 and G20 as measured rules
+**Decision:** `interiors.test.ts` measures every lane for:
+- cover at least every 10 m;
+- a raised route (4–8 m) every 30 m;
+- stairs up every 40 m;
+- at least three walkable roofs 8–12 m up beside the lanes in each quarter.
+
+Riverbank's span over the Hollow is exempt: by GDD §6.4, its long open sightline with the pit below is that stretch's verticality. Stilted roost stands, the first-leg façades and walkway, extra balconies and lane-edge cover deliver the rules. Wires never cross a lane and keep 3 m from Updraft cables (style guide §1.1).
+**Why:** feel gaps G19 and G20 turned into numbers QA can check.

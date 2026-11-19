@@ -2038,3 +2038,30 @@ constants duplicate `data/world.ts` (`CREATURES[].seeds`, `FEEDERS.seeds`, `NEST
 `EMBERS.claim`); one source would stop them drifting. Bot AI: creatures and the Roc are team 'neutral'.
 **Next:** flip the suites on as the map and combat land; rerun the budget on the full map (100 Nests and 24 camps add
 spatial-hash entries every tick).
+
+### W5a · Level Designer · 19/11/2026
+**Done:** Old Mossmarket rebuilt to D-EP-033 on `worktree-agent-acf352408673877f6` (from `integrate/w5` 926bd47), all in `src/sim/world/map/**`.
+- **Buildings:** one GDD §6.8 kit (D-LEVEL-005). Each quarter has 8 enterable jungle buildings: Granary, Warehouse, Tavern, Hollow-tree House, Bell Tower, Market Hall (east: Water Mill) and two Hides. Hedgerow has 7 enterable terrace houses and the Seed Exchange; Pinewood has 2 Stilt Houses; the centre has 2 Dovecotes. That makes 54 enterable buildings and 110 building records (fills included), 100 rooms, 368 openings and 40 ladders.
+- **Below ground:** the Cellar Run with the Magpie Den (a neutral 5 m shop), its lane stairs, two Tavern cellars, and two undercrofts with grate ladders, all carved out of the ground.
+- **Anchors (GDD §6.10):** 100 Nests (72 Twig, 16 Woven, 12 Keepsake), 24 Thickets with families (8 indoors), 8 Feeders (the Granary ones tied to their Rats), 22 Berries, 14 Lookouts, 8 Hides, 8 Springs, 32 ivy curtains, 2 tunnels, 12 jungle zones with their paths.
+- **Nav:** 1,861 nodes and 8,334 links through every storey, cellar and roof: doors, stairs, ladders (vine), hatches (drop), leap windows, Springs and `nodeRoom` (D-LEVEL-008).
+- **G19 and G20:** façades on Hedgerow's and Pinewood's first legs with a 4.5 m walkway, stilted roost stands, extra balconies and stairs, cover along lane edges, rope walkways between roofs (D-LEVEL-009).
+- **Dressing descriptor:** `loadDressing('main')` for the Environment Artist, covering D-EP-047, D-EP-048 and the style guide's §1: facade styles, roofs, nest crowns, facade marks, balconies, landing boards that collide, stairs, and 461 props.
+- **Map SVG:** `mapSvg` draws building outlines, rooms below ground, Hides, openings by kind, Springs and interactables.
+- **Deviations from the GDD:** D-LEVEL-007.
+**Verified:**
+- `bash scripts/check.sh`: PASS typecheck, lint, test (976 passed), perf and sim. The e2e step fails only on `match.spec.ts`, at "a shot landed and showed a damage number". The same spec also fails with the `integrate/w5` map files checked out, so the failure predates this work. The other 57 e2e specs pass, including draw-budget and determinism.
+- Map tests: 37 in `main.test.ts` (symmetry of every new record, prim budgets, every §6.3 and §6.10 anchor) and 25 in `interiors.test.ts` (every floor reachable, every door connects, indoor anchors inside their building and storey, counts, the Egg-carrier stair, jungle zones, G19/G20, dressing integrity).
+- `PERCH_PENDING=1`: the 9 map assertions in the thickets, nests, interactables and runes suites pass. The 2 that fail need Objectives' systems (Berry spawning, the hidden condition).
+- Budgets: `buildWorld` 21 ms and first nav 62 ms (cold); 2,178 solid prims (of 3,000); at most 584 prims in a quarter (of 600). Draw calls: lane/low 18 (of 32), lane/medium 26 (of 48), match/medium 36 (of 248); peak 107k triangles in the match scene. Sim seed 1, 12 bots, 3 min: 7,899 ticks/s (0.127 ms/tick).
+- Looked at: `npm run shots` overview and top-down, street level on Hedgerow, Riverbank and Pinewood, the Warehouse and Market Hall interiors, the terrace-roof walkway to the Bell Tower, and Lantern Row; SVGs of the whole map and the west Dawn quarter (`out/shots/l-*.png`, `out/map/*.png`).
+**Blocked:** nothing.
+**Interface requests:**
+- Architect: fold `MapDressing` into `MapData`, or bless `loadDressing`. It carries what `Building` lacks: facade style; roof style, pitch, ridge and nest crown; balconies, landing boards, stairs and props.
+- Systems (Physics, Combat): until physics and combat honour `PrimBase.blocks`, the 32 ivy curtains (`'sight'`) stop heroes in doorways and the shot-window fillers (`'movement'`) stop bullets.
+- Rendering: draw `'movement'` fillers as open windows (style guide §5.2) and `'sight'` prims as ivy.
+- UI: minimap outlines from `MapData.buildings`, and ▲/▼ from `rooms`.
+- Bot AI: `nodeRoom`, `spring` links, ladder vine links and hatch drop links are live.
+- QA: the `match.spec.ts` damage-number step fails on `integrate/w5` whatever the map.
+- Docs & Wiki: the map page's counts changed.
+**Next:** W6 detail polish (collision for any bay or perch the artist dresses deep), bot routing checks through interiors once Bot AI lands, and prim trimming if W6 additions need quarter budget (584 of 600 now).
