@@ -49,7 +49,7 @@ export type HeroId = (typeof HERO_IDS)[number];
 
 /** Who drives a hero: the local player or a bot at a difficulty. */
 export type BotDifficulty = 'easy' | 'normal' | 'hard';
-export type Controller = 'human' | BotDifficulty;
+export type Controller = 'human' | 'dummy' | BotDifficulty;
 
 /** The three lanes, west to east. */
 export type LaneId = 'hedgerow' | 'riverbank' | 'pinewood';

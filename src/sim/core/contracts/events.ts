@@ -60,9 +60,19 @@ export interface EntityDespawnedEvent {
 export interface WeaponFiredEvent {
   readonly type: 'weapon.fired';
   readonly shooter: EntityId;
+  /** Combat sets this on instantaneous gun rays. */
+  readonly hitscan?: boolean;
   readonly muzzle: Vec3;
   /** Unit direction toward the aim point (before per-pellet spread). */
   readonly dir: Vec3;
+}
+
+export interface HitscanTracesEvent {
+  /** Resolved rays for this trigger pull, in pellet order. Even misses have their true range endpoint. */
+  readonly type: 'weapon.traces';
+  readonly shooter: EntityId;
+  readonly muzzle: Vec3;
+  readonly ends: readonly Vec3[];
 }
 
 /** Emitter: sim/combat. Consumers: client (animation, audio). `done` false = started, true = finished. */
@@ -197,6 +207,8 @@ export interface EntityDiedEvent {
    * victims (economy shares those among heroes within 40 m).
    */
   readonly assisters: readonly EntityId[];
+  /** Credited lethal hit was a beak shot; kill feed can retain this after despawn. */
+  readonly beakShot?: boolean;
   readonly via: EffectVia;
   readonly pos: Vec3;
 }
@@ -210,6 +222,10 @@ export interface HeroRespawnedEvent {
 
 export type MovementAction =
   | 'jump'
+  | 'airJump'
+  | 'wallJump'
+  | 'downDash'
+  | 'mantleGlide'
   | 'dashJump'
   | 'dash'
   | 'land'
@@ -360,6 +376,21 @@ export interface StructureStateEvent {
   readonly state: 'phase2' | 'wardUp' | 'wardDown' | 'vulnerable';
 }
 
+export interface PatronDepletedEvent {
+  /** Combat floors phase-one Patron HP at one and emits once; world immediately gates and starts transition. */
+  readonly type: 'patron.depleted';
+  readonly structure: EntityId;
+}
+
+export interface StructureAttackEvent {
+  readonly type: 'structure.attack';
+  readonly structure: EntityId;
+  readonly attack: 'bolt' | 'beam' | 'stomp' | 'pulse' | 'volley' | 'screech' | 'rain' | 'gale' | 'transition';
+  readonly origin: Vec3;
+  readonly point: Vec3;
+  readonly impactAt: Tick;
+}
+
 export type ObjectiveAction =
   | 'eggSpawned'
   | 'eggTaken'
@@ -401,6 +432,7 @@ export type SimEvent =
   | MatchEndedEvent
   | EntitySpawnedEvent
   | EntityDespawnedEvent
+  | HitscanTracesEvent
   | WeaponFiredEvent
   | WeaponReloadEvent
   | ProjectileImpactEvent
@@ -424,6 +456,8 @@ export type SimEvent =
   | HeroLevelEvent
   | FlexSlotsEvent
   | WaveSpawnedEvent
+  | PatronDepletedEvent
+  | StructureAttackEvent
   | StructureStateEvent
   | ObjectiveEvent
   | PingEvent;

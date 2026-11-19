@@ -17,6 +17,10 @@ import type { EntityId } from './base';
  * consumer multiplies by (1 + value). The damage pipeline step (GDD §5.2) that reads a stat is noted as "step n".
  */
 export const STAT_DEFAULTS = {
+  /** True sight range in metres while the condition is active. */
+  trueSightRadius: 0,
+  /** Close Talons gun bonus against enemies within 15 m. */
+  closeGunDamage: 0,
   /** Hit points. */
   maxHealth: 0,
   /** HP per second, always on. */

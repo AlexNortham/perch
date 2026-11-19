@@ -5,7 +5,7 @@
  */
 import type { Controller, EntityId, HeroId, ItemId, PlayerTeam, StatusId, Team, Tick, Vec3 } from './base';
 import type { MovementModeKind } from './effects';
-import type { AbilitySlotState, EntityKind, ObjectiveState, OwnedItem } from './entity';
+import type { WeaponState, AbilitySlotState, AreaInfo, EntityKind, ObjectiveState, OwnedItem, ProjectileInfo, StructureInfo } from './entity';
 import type { MapId } from './map';
 
 /** Animation and state bits on EntityView.flags. */
@@ -56,6 +56,8 @@ export const ViewFlag = {
   EggCarrier: 0x200000,
   /** StructureInfo.weakPoint !== null */
   WeakPoint: 0x400000,
+  Meleeing: 0x800000,
+  Aiming: 0x1000000,
 } as const;
 
 export interface EntityView {
@@ -79,8 +81,16 @@ export interface EntityView {
   readonly flags: number;
   /** Heroes: Motor.mode (glide, flight, cling, toboggan, burrow) or null. */
   readonly mode: MovementModeKind | null;
+  readonly meleePose?: WeaponState['meleePose'];
   /** SeenBy bits: which flocks can see it (minimap, outlines). */
   readonly seenBy: number;
+  /** Full minimap visibility (world-visible bits plus map-only reveals). */
+  readonly mapSeenBy?: number;
+  readonly area?: Readonly<AreaInfo>;
+  readonly projectile?: Readonly<ProjectileInfo>;
+  readonly expiresAt?: Tick | null;
+  readonly structure?: Readonly<StructureInfo>;
+  readonly statuses?: readonly StatusView[];
 }
 
 export interface StatusView {
@@ -109,14 +119,18 @@ export interface HeroView {
   readonly denies: number;
   readonly ammo: number;
   readonly magazine: number;
+  readonly shopZone?: number | null;
+  /** Camera and input use the same sight scale. */
+  readonly aimZoom?: number;
   readonly stamina: number;
   readonly staminaMax: number;
+  readonly dashJumpReady?: boolean;
   readonly respawnAt: Tick | null;
   readonly talonShield: number;
   readonly songShield: number;
   readonly barrier: number;
   readonly shoulder: 1 | -1;
-  readonly abilities: readonly Readonly<AbilitySlotState>[];
+  readonly abilities: readonly (Readonly<AbilitySlotState> & { readonly nextUpgradeCost?: number | null })[];
   readonly items: readonly Readonly<OwnedItem>[];
   readonly actives: readonly (ItemId | null)[];
   readonly statuses: readonly StatusView[];

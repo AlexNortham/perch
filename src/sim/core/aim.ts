@@ -1,5 +1,5 @@
 import { CAMERA, CROUCH_SCALE } from '../data/core';
-import type { BodyPlan, LocalOffset, Vec3 } from './contracts';
+import type { BodyPlan, HeroEntity, LocalOffset, SightLine, Vec3 } from './contracts';
 import { clamp } from './math';
 
 /**
@@ -82,6 +82,19 @@ export function aimRay(
   };
   const toPivot = Math.hypot(pivot.x - origin.x, pivot.y - origin.y, pivot.z - origin.z);
   return { origin, dir, start: toPivot + CAMERA.aimStartPad };
+}
+
+/** Resolve the displayed crosshair in the sim; the muzzle-to-target leg still tests real cover. */
+export function heroAimRay(hero: HeroEntity, body: BodyPlan, sight: SightLine | undefined = hero.command.sight): AimRay {
+  const crouching = hero.motor.crouching || hero.motor.sliding;
+  const fallback = (): AimRay => aimRay(hero.pos, hero.yaw, hero.pitch, hero.shoulder, body, crouching);
+  if (!sight || hero.hero.controller !== 'human') return fallback();
+  const { origin, dir } = sight;
+  const dx = hero.pos.x - origin.x, dy = hero.pos.y + pivotHeight(body, crouching) - origin.y, dz = hero.pos.z - origin.z;
+  const length = Math.hypot(dir.x, dir.y, dir.z);
+  if (!Number.isFinite(length) || !length || !(Math.hypot(dx, dy, dz) <= CAMERA.boomMax + body.height)) return fallback();
+  const unit = { x: dir.x / length, y: dir.y / length, z: dir.z / length };
+  return { origin, dir: unit, start: Math.max(0, dx * unit.x + dy * unit.y + dz * unit.z + CAMERA.aimStartPad) };
 }
 
 /** Step 4 of the aim model: where shots leave the gun. */

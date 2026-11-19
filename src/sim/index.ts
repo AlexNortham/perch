@@ -8,6 +8,7 @@ import {
   PING_WINDOW_SECONDS,
   SPATIAL_CELL_SIZE,
   TEAM_SIZE,
+  TRAINING_TARGET,
   TICK_RATE,
 } from './data/core';
 import { Button, HERO_IDS, IDLE_COMMAND, PHASES } from './core/contracts';
@@ -82,10 +83,14 @@ function latchCommand(into: LatchedCommand, src: PlayerCommand): void {
   into.sell = src.sell;
   into.ping = src.ping && isFiniteVec(src.ping.pos) ? src.ping : null;
   into.concede = src.concede === true;
+  if (src.sight && isFiniteVec(src.sight.origin) && isFiniteVec(src.sight.dir)) {
+    into.sight = { origin: copy(src.sight.origin), dir: copy(src.sight.dir) };
+  } else delete into.sight;
 }
 
 /** A hero with no fresh command repeats its last one with the one-shot fields cleared. */
 function clearOneShots(c: LatchedCommand): void {
+  delete c.sight;
   c.pressed = 0;
   c.upgrade = null;
   c.buy = null;
@@ -114,6 +119,8 @@ function resolveConfig(c: SimConfig): ResolvedSimConfig {
     roster: [...c.roster],
     options: {
       waves,
+      practiceHub: c.options?.practiceHub ?? false,
+      structures: c.options?.structures ?? (map === 'main' && c.options?.waves === undefined && c.roster.length > 0),
       neutrals: c.options?.neutrals ?? waves,
       unlockAbilities: c.options?.unlockAbilities ?? false,
       startSeeds: c.options?.startSeeds ?? null,
@@ -132,20 +139,25 @@ function spawnHero(ctx: SimContext, slot: number, r: RosterSlot, indexInTeam: nu
   const anchor = spawns[indexInTeam % spawns.length];
   if (!anchor) throw new Error(`createSim: map '${ctx.map.id}' has no ${r.team} spawn`);
   const stats = ctx.stats.create(def.stats);
+  const humanSpawn = ctx.map.spawns.find((s) => s.team === 'dawn');
+  const training = r.controller === 'dummy' && ctx.config.options.practiceHub && humanSpawn ? {
+    pos: { x: humanSpawn.pos.x + (r.team === 'dawn' ? -1 : 1) * TRAINING_TARGET.side, y: humanSpawn.pos.y, z: humanSpawn.pos.z + TRAINING_TARGET.ahead },
+    hp: stats.final.maxHealth * (r.team === 'dawn' ? TRAINING_TARGET.alliedHpFraction : 1),
+  } : undefined;
   const [a1, a2, a3, a4] = def.abilities;
   return ctx.store.spawn({
     kind: 'hero',
     team: r.team,
-    pos: copy(anchor.pos),
+    pos: copy(training?.pos ?? anchor.pos),
     vel: vec3(),
     yaw: anchor.yaw,
     radius: def.body.radius,
-    hero: { heroId: r.hero, slot, controller: r.controller },
+    hero: { heroId: r.hero, slot, controller: r.controller, ...(training && { training }) },
     pitch: 0,
     shoulder: 1,
     command: { ...IDLE_COMMAND, yaw: anchor.yaw },
     health: {
-      hp: stats.final.maxHealth,
+      hp: training?.hp ?? stats.final.maxHealth,
       talonShield: 0,
       songShield: 0,
       barrier: 0,
@@ -171,7 +183,7 @@ function spawnHero(ctx: SimContext, slot: number, r: RosterSlot, indexInTeam: nu
     weapon: { ammo: stats.final.magazine, reloading: false, firing: false },
     abilities: {
       slots: [slotState(a1), slotState(a2), slotState(a3), slotState(a4)],
-      ap: 0,
+      ap: ctx.config.options.practiceHub && r.controller === 'human' ? TRAINING_TARGET.practiceAp : 0,
       casting: null,
       channelling: false,
     },
@@ -199,6 +211,7 @@ export async function createSim(config: SimConfig): Promise<Sim> {
     stats: createStatService(store),
     effects: createEffectRouter(),
     teams: { dawn: { team: 'dawn', flexSlots: 0, emberUntil: 0 }, dusk: { team: 'dusk', flexSlots: 0, emberUntil: 0 } },
+    itemCatalogue: [],
     objectives: { nextWaveAt: null, eggAt: null, runesAt: null, rocAt: null },
   };
 
@@ -283,6 +296,7 @@ export async function createSim(config: SimConfig): Promise<Sim> {
       view ??= buildView(ctx, telemetry, heroIds, localHero, winner);
       return view;
     },
+    itemCatalogue: core.itemCatalogue ?? [],
     get isOver() {
       return winner !== null;
     },

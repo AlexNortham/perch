@@ -41,11 +41,8 @@ export interface TargetFilter {
  */
 export interface DamageBonus {
   readonly mult: number;
-  /**
-   * Target's hp fraction is below this (executes). A number until the W3.5 contract round makes it a Magnitude so
-   * tiers can raise it; sim/combat resolves it with `ctx.effects.magnitude(…, cause)` from W3 (D-ARCH-015).
-   */
-  readonly targetHpBelow?: number;
+  /** Target hp fraction below this tier-resolved threshold. */
+  readonly targetHpBelow?: Magnitude;
   readonly targetKinds?: readonly EntityKind[];
   /** Source-to-target distance is at most this (m). */
   readonly maxDistance?: number;
@@ -68,13 +65,10 @@ export interface DamageEffect {
   /** The multiplier for such a beak shot. Default: combat data's `abilityBeakShotMult` (×1.5). */
   readonly beakShotMult?: number;
   readonly bonus?: readonly DamageBonus[];
-  /** Adds this fraction of the target's missing hp. Becomes a Magnitude in the W3.5 round (D-ARCH-015). */
-  readonly missingHpPct?: number;
-  /**
-   * Kills the target if its hp after the hit is below this fraction of max (execute). Becomes a Magnitude in the
-   * W3.5 round (D-ARCH-015).
-   */
-  readonly executeBelow?: number;
+  /** Fraction of missing hp added to damage. */
+  readonly missingHpPct?: Magnitude;
+  /** Execute below this post-hit fraction of max hp. */
+  readonly executeBelow?: Magnitude;
 }
 
 /** Restore hp, at once or spread over `overS`. Owner: sim/combat. */
@@ -138,6 +132,10 @@ export interface WeaponModEffect {
   readonly ammoFree?: boolean;
   /** Refill the magazine now. */
   readonly reload?: boolean;
+  /** Add this fraction of a magazine, capped at capacity (Bounding Hop). */
+  readonly reloadFraction?: number;
+  /** Step-four gun damage bonus on this mod, respecting onlyVsStatus. */
+  readonly gunDamage?: number;
   /** Each bullet hit also damages others within radius for this fraction of its damage. */
   readonly splash?: { readonly radius: number; readonly fraction: number };
   /** Bullets bounce to this many further targets. */
@@ -202,6 +200,8 @@ export interface DashEffect {
   readonly dir: 'aim' | 'move' | 'target';
   /** Peak height of a leap arc (0 for a flat dash). */
   readonly arcHeight?: number;
+  /** Aim dash upward pitch cap in degrees. Zero keeps both directions flat, positive caps preserve downward pitch. */
+  readonly maxPitchUpDeg?: number;
   /** Passes through units and heroes. */
   readonly passThrough?: boolean;
   /** Stops at the first enemy touched. */
@@ -279,7 +279,9 @@ export interface AreaEffect {
   readonly intervalS?: number;
   readonly attach: 'point' | 'source' | 'target';
   /** A moving area (Rogue Wave): travels along the target direction at `speed` m/s, optionally carrying the units it hits. */
-  readonly move?: { readonly speed: number; readonly carry: boolean };
+  readonly move?: { readonly speed: number; readonly carry: boolean; readonly maxCarry?: number; readonly onWall?: readonly Effect[] };
+  /** Fog Bank grants concealment only against observers outside its footprint. */
+  readonly concealsAlliesOutside?: boolean;
   readonly affects: TargetFilter;
   readonly effects: readonly Effect[];
   readonly onEnter?: readonly Effect[];
@@ -300,6 +302,9 @@ export interface SummonEffect {
   readonly durationS: Magnitude;
   /** The oldest of this source's summons with the same behaviour despawns beyond this. */
   readonly maxCount: number;
+  /** Tier-resolved cap increment for Burrow Colony. */
+  readonly extraCount?: Magnitude;
+  readonly preferHeroes?: boolean;
   /** Behaviour id: sim/abilities' built-ins ('trap', 'decoy', 'wall', 'turret') or a hero hook's name. */
   readonly behaviour: string;
   /** Traps: fire when an entity matching `affects` comes within `radius`. */
@@ -379,6 +384,8 @@ export interface TriggerDef {
   /** Fire on every Nth such event (default 1). */
   readonly count?: number;
   /** 0..1; 1 always fires. */
+  /** Restrict the other party of a hit (e.g. Mocking Note only shreds heroes). */
+  readonly heroesOnly?: boolean;
   readonly chance: number;
   /** Internal cooldown (seconds); 0 for none. */
   readonly cooldownS: number;

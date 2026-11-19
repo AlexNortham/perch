@@ -1,4 +1,4 @@
-import { ViewFlag } from './contracts';
+import { Button, ViewFlag } from './contracts';
 import type {
   Entity,
   EntityId,
@@ -9,7 +9,11 @@ import type {
   SimContext,
   SimView,
   TeamView,
+  StatusInstance,
+  StatusView,
 } from './contracts';
+import { AP_COSTS } from '../data/abilities';
+import { DEFAULT_AIM_ZOOM, OWL_AIM_ZOOM } from '../data/core';
 import { copy } from './math';
 import type { TelemetryCollector } from './telemetry';
 
@@ -39,6 +43,8 @@ function flagsOf(e: Entity): number {
       if (m.knockedUp) f |= ViewFlag.KnockedUp;
       if (e.abilities.casting !== null) f |= ViewFlag.Casting;
       if (e.abilities.channelling) f |= ViewFlag.Channelling;
+      if (e.weapon.meleePose && e.weapon.meleePose !== 'parry') f |= ViewFlag.Meleeing;
+      if (e.command.held & Button.Aim) f |= ViewFlag.Aiming;
       if (e.weapon.firing) f |= ViewFlag.Firing;
       if (e.weapon.reloading) f |= ViewFlag.Reloading;
       break;
@@ -76,6 +82,10 @@ function typeOf(e: Entity): string {
   }
 }
 
+function statusView(st: StatusInstance): StatusView {
+  return { id: st.def.id, name: st.def.name, negative: st.def.negative, stacks: st.stacks, expiresAt: st.expiresAt };
+}
+
 function entityView(e: Entity): EntityView {
   const health = 'health' in e ? e.health : null;
   return {
@@ -92,12 +102,20 @@ function entityView(e: Entity): EntityView {
     maxHp: 'stats' in e ? e.stats.final.maxHealth : 0,
     shield: health ? health.talonShield + health.songShield + health.barrier : 0,
     flags: flagsOf(e),
+    ...(e.kind === 'hero' && e.weapon.meleePose && { meleePose: e.weapon.meleePose }),
     mode: e.kind === 'hero' ? e.motor.mode : null,
     seenBy: e.seenBy,
+    mapSeenBy: e.seenBy | (e.mapOnlySeenBy ?? 0),
+    ...(e.kind === 'unit' && { statuses: e.statuses.map(statusView) }),
+    ...(e.kind === 'pickup' && { expiresAt: e.pickup.expiresAt }),
+    ...(e.kind === 'projectile' && { projectile: { ...e.projectile } }),
+    ...(e.kind === 'area' && { area: { ...e.area, ...(e.area.dimensions && { dimensions: { ...e.area.dimensions } }) } }),
+    ...(e.kind === 'structure' && { structure: { ...e.structure, body: { ...e.structure.body },
+      weakPoint: e.structure.weakPoint && { centre: copy(e.structure.weakPoint.centre), radius: e.structure.weakPoint.radius } } }),
   };
 }
 
-function heroView(h: HeroEntity, scores: TelemetryCollector): HeroView {
+function heroView(ctx: SimContext, h: HeroEntity, scores: TelemetryCollector): HeroView {
   const s = scores.score(h.id);
   return {
     id: h.id,
@@ -118,21 +136,18 @@ function heroView(h: HeroEntity, scores: TelemetryCollector): HeroView {
     magazine: h.stats.final.magazine,
     stamina: h.motor.stamina,
     staminaMax: h.stats.final.stamina,
+    dashJumpReady: h.motor.dashJumpReady ?? false,
     respawnAt: h.health.respawnAt,
     talonShield: h.health.talonShield,
     songShield: h.health.songShield,
     barrier: h.health.barrier,
     shoulder: h.shoulder,
-    abilities: h.abilities.slots.map((slot) => ({ ...slot })),
+    shopZone: h.inventory.shopZone ?? null,
+    aimZoom: ctx.heroes[h.hero.heroId].def.weapon.aimZoom ?? (h.hero.heroId === 'owl' ? OWL_AIM_ZOOM : DEFAULT_AIM_ZOOM),
+    abilities: h.abilities.slots.map((slot) => ({ ...slot, nextUpgradeCost: AP_COSTS[slot.tier] ?? null })),
     items: h.inventory.items.map((item) => ({ ...item })),
     actives: [...h.inventory.actives],
-    statuses: h.statuses.map((st) => ({
-      id: st.def.id,
-      name: st.def.name,
-      negative: st.def.negative,
-      stacks: st.stacks,
-      expiresAt: st.expiresAt,
-    })),
+    statuses: h.statuses.map(statusView),
   };
 }
 
@@ -154,7 +169,7 @@ export function buildView(
   const heroes: HeroView[] = [];
   for (const id of heroIds) {
     const h = ctx.store.getKind(id, 'hero');
-    if (h) heroes.push(heroView(h, scores));
+    if (h) heroes.push(heroView(ctx, h, scores));
   }
   return {
     tick: ctx.clock.tick,

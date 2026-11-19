@@ -1,6 +1,6 @@
 /**
  * Item data for the Magpie's Hoard (GDD §10). Owner of the rules: sim/items (buy, sell, upgrade, slots, passives,
- * triggers, actives). The item table lives in src/sim/data/items.ts.
+ * triggers, actives). Items registers its data table in ctx.itemCatalogue when its system is created.
  */
 import type { ItemId } from './base';
 import type { AbilityTargeting } from './abilities';

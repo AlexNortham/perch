@@ -6,7 +6,7 @@ import type { CameraPreset, MatchSetup, Quality } from './contracts';
 
 /**
  * The `?scene=` router for repeatable screenshots and quick starts:
- *   scene   menu (default) | blockout | sandbox | lane (the practice match Play starts) | match (1 + 11 bots)
+ *   scene   menu (default) | blockout | sandbox | practice (hub) | lane (Play) | match (1 + 11 bots)
  *   seed    integer match seed (default 1)
  *   hero    hero id for the human (default shrike)
  *   cam     camera preset (CAMERA_PRESETS); default 'overview' for menu and blockout, 'player' otherwise
@@ -14,7 +14,7 @@ import type { CameraPreset, MatchSetup, Quality } from './contracts';
  *   t       seconds of sim to fast-forward before the first frame (default 0)
  * Bad values fall back to the defaults.
  */
-export const SCENES = ['menu', 'blockout', 'sandbox', 'lane', 'match'] as const;
+export const SCENES = ['menu', 'blockout', 'sandbox', 'practice', 'lane', 'match'] as const;
 export type SceneName = (typeof SCENES)[number];
 
 export interface SceneRequest {
@@ -50,14 +50,23 @@ export function parseScene(search: string): SceneRequest {
 }
 
 /**
- * The match Play starts (D-ARCH-013): the human with the chosen hero on 'main' with fledgling waves on all three
- * lanes, plus `setup.bots` bot heroes (default 0, the practice match). Levels arrive in wave 4, so the practice match
- * unlocks all four abilities (the ultimate is level 6 otherwise); a match with bots keeps the real rules.
+ * The normal structure match uses both bases and the full progression rules. The free-cast arena is separate.
  */
 export function matchConfig(setup: MatchSetup): SimConfig {
   const { seed, hero, team, difficulty, bots = 0 } = setup;
   const roster = humanRoster(seed, hero, { team, difficulty, bots });
-  return bots === 0 ? { seed, map: 'main', roster, options: { unlockAbilities: true } } : { seed, map: 'main', roster };
+  return { seed, map: 'main', roster, options: { structures: true, waves: true, neutrals: false } };
+}
+
+export function practiceConfig(seed: number, hero: HeroId): SimConfig {
+  const candidates = (['shrike', 'albatross', 'lyrebird'] as const).filter((id) => id !== hero);
+  const [ally, enemy] = candidates;
+  if (!ally || !enemy) throw new Error('Practice needs two distinct target heroes');
+  return { seed, map: 'arena', roster: [
+    { team: 'dawn', hero, controller: 'human' },
+    { team: 'dawn', hero: ally, controller: 'dummy' },
+    { team: 'dusk', hero: enemy, controller: 'dummy' },
+  ], options: { practiceHub: true, unlockAbilities: true, waves: false, neutrals: false, structures: false } };
 }
 
 /** The sim each scene runs. The menu shows the real map, empty, as its backdrop (D-EP-017). */
@@ -67,6 +76,8 @@ export function sceneConfig(req: SceneRequest): SimConfig {
     case 'menu':
     case 'blockout':
       return { seed, map: 'main', roster: [], options: { waves: false, neutrals: false } };
+    case 'practice':
+      return practiceConfig(seed, hero);
     case 'sandbox':
       return { seed, map: 'arena', roster: humanRoster(seed, hero, { bots: 0 }), options: { unlockAbilities: true } };
     case 'lane':

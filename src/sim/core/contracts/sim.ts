@@ -7,6 +7,7 @@ import type { EffectRouter } from './effects';
 import type { Entity, EntityInit, EntityKind, EntityOf, ObjectiveState, TeamState } from './entity';
 import type { EventOf, SimEvent, SimEventType } from './events';
 import type { HeroModule } from './heroes';
+import type { ItemDef } from './items';
 import type { MapData, MapId } from './map';
 import type { PhysicsService } from './physics';
 import type { StatService } from './stats';
@@ -129,6 +130,10 @@ export interface RosterSlot {
 export interface SimOptions {
   /** Fledgling waves. Default: on for 'main', off for 'arena'. Honoured by sim/world. */
   readonly waves?: boolean;
+  /** Both bases, towers and Home Roost; on for standard main-map matches and off for isolated wave/arena fixtures. */
+  readonly structures?: boolean;
+  /** Menu Practice Hub, distinct from the test sandbox. Enables resettable training targets. */
+  readonly practiceHub?: boolean;
   /** Thickets, Nests, runes, the Egg and the Roc. Default: as `waves`. Honoured by sim/world. */
   readonly neutrals?: boolean;
   /** Every ability unlocked from the start (ability sandboxes). Default false. Honoured by sim/abilities. */
@@ -150,7 +155,7 @@ export interface ResolvedSimConfig {
   readonly seed: number;
   readonly map: MapId;
   readonly roster: readonly RosterSlot[];
-  readonly options: Required<SimOptions>;
+  readonly options: Required<Omit<SimOptions, 'structures' | 'practiceHub'>> & Pick<SimOptions, 'structures' | 'practiceHub'>;
 }
 
 /** What every system receives. Everything a system may touch outside its own state is here. */
@@ -169,6 +174,8 @@ export interface SimContext {
   readonly physics: PhysicsService;
   readonly teams: { readonly [T in PlayerTeam]: TeamState };
   readonly objectives: ObjectiveState;
+  /** Items supplies its stable catalogue to the composition root during system creation. */
+  readonly itemCatalogue?: ItemDef[];
 }
 
 /** The context before physics exists; what `createPhysics` receives. */
@@ -181,6 +188,7 @@ export interface Sim {
   /** Snapshot of the current tick (built on first read per tick). */
   readonly view: SimView;
   readonly isOver: boolean;
+  readonly itemCatalogue: readonly ItemDef[];
   readonly winner: PlayerTeam | null;
   /**
    * Advance one tick. `commands` drive heroes and override bots for that tick (later entries win); a hero with

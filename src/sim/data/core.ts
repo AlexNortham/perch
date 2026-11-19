@@ -4,7 +4,11 @@
  * live in that system's own data file (movement.ts, combat.ts, abilities.ts, economy.ts, items.ts, world.ts, ai.ts).
  */
 
-/** Fixed simulation rate. Every duration in the sim is a whole number of ticks. */
+/** Menu Practice Hub target placement, wound fraction and spendable practice points. */
+export const TRAINING_TARGET = { ahead: 9, side: 3, alliedHpFraction: 0.4, practiceAp: 32 } as const;
+export const DEFAULT_AIM_ZOOM = 0.8;
+export const OWL_AIM_ZOOM = 0.5;
+/** Fixed simulation rate. */
 export const TICK_RATE = 60;
 /** Length of one tick in seconds. */
 export const TICK_SECONDS = 1 / TICK_RATE;

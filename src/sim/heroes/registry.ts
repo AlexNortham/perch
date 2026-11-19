@@ -54,3 +54,13 @@ export const HEROES: Readonly<Record<HeroId, HeroModule>> = {
   swan,
   kiwi,
 };
+
+/** Characteristic body colours for the four original Stage 2 models. New kits publish HeroDef.swatch. */
+const ORIGINAL_SWATCHES: Partial<Record<HeroId, number>> = {
+  shrike: 0x8a8d94, albatross: 0xf2efe6, kingfisher: 0x1f8fff, lyrebird: 0x6f4f36,
+};
+const UNFINISHED_SWATCH = 0x898982;
+
+export function heroSwatch(id: HeroId): number {
+  return HEROES[id].def.swatch ?? ORIGINAL_SWATCHES[id] ?? UNFINISHED_SWATCH;
+}

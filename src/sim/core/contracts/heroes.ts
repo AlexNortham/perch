@@ -54,6 +54,8 @@ export interface WeaponDef {
   readonly beakShotMult?: number;
   /** Overrides CAMERA.aimRange (Owl). */
   readonly aimRange?: number;
+  /** Horizontal FOV and sensitivity scale while aiming. Default 0.8, Owl 0.5. */
+  readonly aimZoom?: number;
   /** Projectile guns: bullet radius (m). Default: combat data's (0.06 m). Lyrebird's Echo Lute 0.25 m. */
   readonly projectileRadius?: number;
   /**
@@ -80,6 +82,8 @@ export interface HeroDef {
   readonly id: HeroId;
   /** Player-facing name. */
   readonly name: string;
+  /** Identifying plumage, sRGB 0xRRGGBB. */
+  readonly swatch?: number;
   readonly archetype: Archetype;
   readonly body: BodyPlan;
   /** Base stats at level 1. Must include maxHealth, moveSpeed, stamina, weaponDamage and magazine. */

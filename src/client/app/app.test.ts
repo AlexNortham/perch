@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { createSim } from '../../sim/index';
+import { IDLE_COMMAND, ViewFlag, Button } from '../../sim/core/contracts';
+import { projectPoint } from './targeting';
 import { TICK_SECONDS } from '../../sim/data/core';
 import type { SimView } from '../../sim/core/contracts';
 import { createFixedStep, interpolate, MAX_STEPS_PER_FRAME } from './loop';
@@ -48,14 +51,42 @@ describe('scene router', () => {
     expect(at('match').roster.length).toBe(12);
   });
 
-  it('starts the practice match from Play and from ?scene=lane', () => {
-    // The practice match unlocks all four abilities (levels arrive in wave 4); matches with bots keep the real rules.
-    const practice = { map: 'main', roster: [{ team: 'dawn', hero: 'kiwi', controller: 'human' }], options: { unlockAbilities: true } };
+  it('starts the structure match from Play and from ?scene=lane', () => {
+    const practice = { map: 'main', roster: [{ team: 'dawn', hero: 'kiwi', controller: 'human' }], options: { structures: true, waves: true, neutrals: false } };
     expect(sceneConfig(parseScene('?scene=lane&hero=kiwi&seed=3'))).toEqual({ seed: 3, ...practice });
     expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3 })).toEqual({ seed: 3, ...practice });
     expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3, bots: 11 }).roster.length).toBe(12);
-    expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3, bots: 11 }).options).toBeUndefined();
+    expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3, bots: 11 }).options?.structures).toBe(true);
   });
+});
+
+describe('Practice Hub', () => {
+  it('uses real targets, ability tiers and a fresh wallet on each menu launch', async () => {
+    const cfg = sceneConfig(parseScene('?scene=practice&hero=lyrebird'));
+    const sim = await createSim(cfg);
+    const [player, ally, enemy] = sim.view.heroes;
+    expect(player?.ap).toBe(32);
+    expect(ally?.controller).toBe('dummy');
+    expect(enemy?.team).toBe('dusk');
+    const find = (id: number | undefined) => sim.view.entities.find((e) => e.id === id)!;
+    expect(find(ally?.id).hp).toBeLessThan(find(ally?.id).maxHp);
+    expect(find(enemy?.id).hp).toBe(find(enemy?.id).maxHp);
+    sim.step([{ hero: player!.id, command: { ...IDLE_COMMAND, upgrade: 0, held: Button.Aim } }]);
+    expect(sim.view.heroes[0]?.abilities[0]).toMatchObject({ tier: 1, nextUpgradeCost: 2 });
+    expect(sim.view.heroes[0]?.ap).toBe(31);
+    expect(find(player?.id).flags & ViewFlag.Aiming).toBeTruthy();
+    const siege = await createSim(matchConfig({ hero: 'lyrebird', team: 'dawn', difficulty: 'normal', seed: 1 }));
+    expect(siege.view.heroes[0]?.ap).toBe(0);
+    expect(siege.view.heroes[0]?.abilities[3]?.unlocked).toBe(false);
+    expect(siege.ctx.config.options.structures).toBe(true);
+  });
+});
+
+it('projects the rendered crosshair and rejects points behind the lens', () => {
+  const pose = { position: { x: 0, y: 0, z: 0 }, target: { x: 0, y: 0, z: 1 }, fovDeg: 90 };
+  expect(projectPoint({ x: 0, y: 0, z: 20 }, pose, 800, 400)).toEqual({ x: 400, y: 200 });
+  expect(projectPoint({ x: -1, y: 1, z: 2 }, pose, 800, 400)?.x).toBeCloseTo(600);
+  expect(projectPoint({ x: 0, y: 0, z: -1 }, pose, 800, 400)).toBeNull();
 });
 
 describe('settings store', () => {
@@ -65,11 +96,19 @@ describe('settings store', () => {
     saveSettings(changed, store);
     expect(loadSettings(store)).toEqual(changed);
     expect(loadSettings(null)).toEqual(DEFAULT_SETTINGS);
-    store.setItem('perch.settings.v1', '{not json');
+    store.setItem('perch.settings.v2', '{not json');
     expect(loadSettings(store)).toEqual(DEFAULT_SETTINGS);
     const throwing = { ...memoryStorage(), getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('full'); } };
     expect(loadSettings(throwing)).toEqual(DEFAULT_SETTINGS);
     expect(() => saveSettings(changed, throwing)).not.toThrow();
+  });
+
+  it('migrates old default bindings around customised codes', () => {
+    const store = memoryStorage();
+    store.setItem('perch.settings.v1', JSON.stringify({ bindings: { crouch: 'ControlLeft', item3: 'KeyC', melee: 'KeyN' } }));
+    const settings = loadSettings(store);
+    expect(settings.bindings).toMatchObject({ crouch: 'KeyC', item3: 'KeyH', melee: 'KeyN' });
+    expect(loadSettings(store)).toEqual(settings);
   });
 
   it('keeps well-formed fields and clamps the rest', () => {
