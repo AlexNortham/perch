@@ -9,13 +9,12 @@
  * most 0.1 s (ARCHITECTURE §11 allows 0.25 s). Line-of-sight raycasts run only when no cheaper eye sees the entity.
  */
 import { LAYERS_SOLID, SeenBy } from '../core/contracts';
-import type { Entity, EntityId, HeroEntity, PlayerTeam, SimContext } from '../core/contracts';
+import type { Entity, EntityId, AreaEntity, HeroEntity, PlayerTeam, SimContext } from '../core/contracts';
 import { VISION } from '../data/world';
 
 const TEAMS = ['dawn', 'dusk'] as const;
 const HERO2 = VISION.hero * VISION.hero;
 const INVISIBLE2 = VISION.invisible * VISION.invisible;
-const TRUE_SIGHT2 = VISION.trueSight * VISION.trueSight;
 const EPS = 1e-6;
 
 /** A hero's eye height: its head centre. */
@@ -48,15 +47,16 @@ interface Eyes {
   readonly hx: number[];
   readonly hy: number[];
   readonly hz: number[];
-  readonly hid: EntityId[];
+  readonly feetY: number[];
   /** True-sight holders. */
   tn: number;
   readonly tx: number[];
   readonly ty: number[];
   readonly tz: number[];
+  readonly tr2: number[];
 }
 
-const eyes = (): Eyes => ({ n: 0, x: [], y: [], z: [], r2: [], hn: 0, hx: [], hy: [], hz: [], hid: [], tn: 0, tx: [], ty: [], tz: [] });
+const eyes = (): Eyes => ({ n: 0, x: [], y: [], z: [], r2: [], hn: 0, hx: [], hy: [], hz: [], feetY: [], tn: 0, tx: [], ty: [], tz: [], tr2: [] });
 
 export function createVision(ctx: SimContext): { update(): void } {
   const byTeam: Record<PlayerTeam, Eyes> = { dawn: eyes(), dusk: eyes() };
@@ -86,12 +86,13 @@ export function createVision(ctx: SimContext): { update(): void } {
       E.hx[i] = h.pos.x;
       E.hy[i] = h.pos.y + eyeHeight(ctx, h);
       E.hz[i] = h.pos.z;
-      E.hid[i] = h.id;
+      E.feetY[i] = h.pos.y;
       if (h.stats.conditions.has('trueSight')) {
         const k = E.tn++;
         E.tx[k] = h.pos.x;
         E.ty[k] = h.pos.y;
         E.tz[k] = h.pos.z;
+        E.tr2[k] = (h.stats.final.trueSightRadius || VISION.trueSight) ** 2;
       }
     }
     for (const u of ctx.store.list('unit')) {
@@ -120,29 +121,37 @@ export function createVision(ctx: SimContext): { update(): void } {
     return ctx.physics.raycast(from, dir, d, LAYERS_SOLID, target) === null;
   };
 
-  const sees = (E: Eyes, e: Entity, invisible: boolean): boolean => {
+  // Fog Bank has a resolved radius (sphere or upright cylinder). Compare each eye to the same volume as its subject.
+  const fogs: AreaEntity[] = [];
+  const aroundTarget: AreaEntity[] = [];
+  const inFog = (a: AreaEntity, x: number, y: number, z: number): boolean => {
+    const d = a.area.dimensions;
+    if (d?.kind === 'sphere') return dist2(x, y, z, a.pos.x, a.pos.y, a.pos.z) <= d.radius ** 2;
+    return d?.kind === 'cylinder' && Math.abs(y - a.pos.y) <= d.half &&
+      (x - a.pos.x) ** 2 + (z - a.pos.z) ** 2 <= d.radius ** 2;
+  };
+  const outsideFog = (x: number, y: number, z: number): boolean =>
+    aroundTarget.some((fog) => !inFog(fog, x, y, z));
+
+  const sees = (E: Eyes, e: Entity, invisible: boolean, revealed: boolean): boolean => {
     const { x, y, z } = e.pos;
-    if (invisible) {
-      for (let i = 0; i < E.n; i++) {
-        if (dist2(E.x[i], E.y[i], E.z[i], x, y, z) <= INVISIBLE2) return true;
-      }
-      for (let i = 0; i < E.hn; i++) {
-        if (dist2(E.hx[i], E.hy[i], E.hz[i], x, y, z) <= INVISIBLE2) return true;
-      }
-      for (let i = 0; i < E.tn; i++) {
-        if (dist2(E.tx[i], E.ty[i], E.tz[i], x, y, z) <= TRUE_SIGHT2) return true;
-      }
-      return false;
+    if (revealed && !invisible && aroundTarget.length === 0) return true;
+    for (let i = 0; i < E.tn; i++) {
+      if ((invisible || aroundTarget.length > 0) && dist2(E.tx[i], E.ty[i], E.tz[i], x, y, z) <= E.tr2[i]!) return true;
     }
     for (let i = 0; i < E.n; i++) {
-      if (dist2(E.x[i], E.y[i], E.z[i], x, y, z) <= (E.r2[i] as number)) return true;
+      const hidden = invisible || (aroundTarget.length > 0 && outsideFog(E.x[i]!, E.y[i]!, E.z[i]!));
+      if (dist2(E.x[i], E.y[i], E.z[i], x, y, z) <= (hidden ? INVISIBLE2 : E.r2[i]!)) return true;
     }
     const py = y + aimHeight(ctx, e);
     for (let i = 0; i < E.hn; i++) {
       const hx = E.hx[i] as number;
       const hy = E.hy[i] as number;
       const hz = E.hz[i] as number;
-      if (dist2(hx, hy, hz, x, py, z) <= HERO2 && clear(hx, hy, hz, x, py, z, e.id)) return true;
+      const hidden = invisible || (aroundTarget.length > 0 && outsideFog(hx, E.feetY[i]!, hz));
+      if (hidden) {
+        if (dist2(hx, hy, hz, x, y, z) <= INVISIBLE2) return true;
+      } else if (revealed || (dist2(hx, hy, hz, x, py, z) <= HERO2 && clear(hx, hy, hz, x, py, z, e.id))) return true;
     }
     return false;
   };
@@ -150,18 +159,22 @@ export function createVision(ctx: SimContext): { update(): void } {
   return {
     update() {
       gather();
+      fogs.length = 0;
+      for (const a of ctx.store.list('area')) if (a.area.concealsAlliesOutside) fogs.push(a);
       const tick = ctx.clock.tick;
       for (const e of ctx.store.all()) {
         if (e.kind !== 'hero' && (e.id + tick) % VISION.staggerTicks !== 0) continue;
         const cond = 'stats' in e ? e.stats.conditions : null;
-        if (cond?.has('revealed')) {
-          e.seenBy = SeenBy.all;
-          continue;
+        aroundTarget.length = 0;
+        if (e.kind === 'hero' || e.kind === 'unit') for (const a of fogs) {
+          if (a.team === e.team && inFog(a, e.pos.x, e.pos.y, e.pos.z)) aroundTarget.push(a);
         }
+        const revealed = cond?.has('revealed') ?? false;
         const invisible = cond?.has('invisible') ?? false;
         let bits = e.team === 'neutral' ? 0 : SeenBy[e.team];
-        for (const t of TEAMS) if (t !== e.team && sees(byTeam[t], e, invisible)) bits |= SeenBy[t];
+        for (const t of TEAMS) if (t !== e.team && sees(byTeam[t], e, invisible, revealed)) bits |= SeenBy[t];
         e.seenBy = bits;
+        e.mapOnlySeenBy = revealed ? SeenBy.all & ~bits : 0;
       }
     },
   };

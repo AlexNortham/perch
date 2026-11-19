@@ -161,7 +161,23 @@ describe('vision (GDD §11.1, §5.9)', () => {
     expect(canSee('dawn', sb.entity(foe))).toBe(true);
   }, T);
 
-  it('invisible enemies show only within 8 m or in true sight; revealed shows them to all', async () => {
+  it('Fog Bank conceals its ally from outside eyes and admits an eye inside the same resolved volume', async () => {
+    const { sb, a, b } = await arena();
+    put(sb, a, -17);
+    put(sb, b, 5);
+    sb.ctx.store.spawn({
+      kind: 'area', team: 'dusk', pos: { x: 20, y: 0, z: 0 }, yaw: 0, vel: { x: 0, y: 0, z: 0 }, radius: 7,
+      area: { owner: b, ability: null, shape: 'cylinder', dimensions: { kind: 'cylinder', radius: 7, half: 5 },
+        concealsAlliesOutside: true, expiresAt: 100 },
+    });
+    sb.step();
+    expect(canSee('dawn', sb.entity(b))).toBe(false);
+    put(sb, a, -6);
+    sb.step();
+    expect(canSee('dawn', sb.entity(b))).toBe(true);
+  }, T);
+
+  it('invisible enemies show within 8 m or tiered true sight; reveal shows them on the minimap', async () => {
     const { sb, a, b } = await arena();
     put(sb, a, 0);
     put(sb, b, 20);
@@ -176,10 +192,18 @@ describe('vision (GDD §11.1, §5.9)', () => {
     sb.modify(a, 'trueSight', { conditions: ['trueSight'] });
     sb.step();
     expect(canSee('dawn', sb.entity(b))).toBe(true);
+    sb.modify(a, 'trueSight', { conditions: ['trueSight'], stats: [{ stat: 'trueSightRadius', op: 'max', value: 12 }] });
+    sb.step();
+    expect(canSee('dawn', sb.entity(b))).toBe(false);
     sb.modify(a, 'trueSight', null);
     sb.modify(b, 'revealed', { conditions: ['revealed'] });
     put(sb, b, 39);
     put(sb, a, -39);
+    sb.step();
+    expect(sb.entity(b).seenBy).toBe(SeenBy.dusk);
+    expect(sb.entity(b).mapOnlySeenBy).toBe(SeenBy.dawn);
+    expect(sb.view.entities.find((e) => e.id === b)?.mapSeenBy).toBe(SeenBy.all);
+    sb.modify(b, 'invisible', null);
     sb.step();
     expect(sb.entity(b).seenBy).toBe(SeenBy.all);
   }, T);
