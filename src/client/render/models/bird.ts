@@ -23,6 +23,10 @@ export interface BirdBuild {
   readonly castTail: number;
   /** Resting wing flare (radians): 0 tucked, more for a cloak. */
   readonly wingRest: number;
+  /** Starling's halo: a ring of tiny birds the rig spins about the head pivot. */
+  readonly halo?: BufferGeometry;
+  /** Flamingo: how far the right leg lifts when standing still (0 none, 1 fully). */
+  readonly idleLeg?: number;
 }
 
 export interface Dims {
@@ -83,6 +87,10 @@ export interface GunStyle {
   readonly thorns?: boolean;
   /** A lute body under the barrel: its radius. */
   readonly lute?: number;
+  /** Barrels side by side (a gatling cluster, a pistol pair): total count. */
+  readonly barrels?: number;
+  /** A scope on top. */
+  readonly scope?: boolean;
 }
 
 /** A gun with the muzzle tip at the pivot and the barrel running back along -z. */
@@ -90,7 +98,9 @@ export function gun(g: GunStyle): Parts {
   const metal = g.metal ?? PLUMAGE.gunMetal;
   const wood = g.wood ?? PLUMAGE.gunWood;
   const p = new Parts();
-  p.box(metal, [g.thick, g.thick, g.length], [0, 0, -g.length / 2]);
+  const n = g.barrels ?? 1;
+  for (let i = 0; i < n; i++) p.box(metal, [g.thick, g.thick, g.length], [(i - (n - 1) / 2) * g.thick * 1.5, 0, -g.length / 2]);
+  if (g.scope) p.cyl(metal, g.thick * 0.55, g.thick * 0.55, g.length * 0.3, [0, g.thick * 1.1, -g.length * 0.6], [Math.PI / 2, 0, 0]);
   p.box(wood, [g.thick * 1.6, g.thick * 2.2, g.length * 0.3], [0, -g.thick * 0.9, -g.length * 0.78]);
   if (g.bell) p.cone(metal, g.bell, g.length * 0.25, [0, 0, 0], [0, Math.PI, 0]);
   if (g.thorns) for (let i = 0; i < 5; i++) p.cone(PLUMAGE.thorn, g.thick * 0.5, g.thick * 2, [0, g.thick * 0.5, -g.length * (0.15 + i * 0.16)], [-Math.PI / 2, 0, 0]);
@@ -103,7 +113,7 @@ export function assemble(
   plan: BodyPlan,
   parts: Record<PartName, Parts>,
   pivot: Record<PartName, readonly [number, number, number]>,
-  extra: Pick<BirdBuild, 'sway' | 'castTail' | 'wingRest'>,
+  extra: Pick<BirdBuild, 'sway' | 'castTail' | 'wingRest' | 'halo' | 'idleLeg'>,
 ): BirdBuild {
   const geo = {} as Record<PartName, BufferGeometry>;
   const at = {} as Record<PartName, Vector3>;

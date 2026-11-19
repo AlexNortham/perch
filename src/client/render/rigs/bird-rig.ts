@@ -14,7 +14,7 @@ import { ViewFlag } from '../../../sim/core/contracts';
 import type { EntityView } from '../../../sim/core/contracts';
 import { PART_NAMES } from '../models/bird';
 import type { BirdBuild, PartName } from '../models/bird';
-import { CROUCH_SQUASH, RIG } from '../models/constants';
+import { CROUCH_SQUASH, MELEE, RIG } from '../models/constants';
 
 const PIVOT_HEIGHT = 0.45;
 
@@ -47,6 +47,12 @@ export class BirdRig extends Group {
   private dead = 0;
   /** Sink below ground while burrowed (m). */
   private sink = 0;
+  /** Melee state: the pose now showing, seconds since it began, and smoothed charge and parry weights. */
+  private meleeKind: EntityView['meleePose'] | null = null;
+  private meleeT = 0;
+  private charge = 0;
+  private parry = 0;
+  private readonly halo: Mesh | null = null;
 
   constructor(build: BirdBuild, plan: BodyPlan, material: Material) {
     super();
@@ -67,6 +73,13 @@ export class BirdRig extends Group {
       m.frustumCulled = false;
       this.mesh[n] = m;
       this.inner.add(m);
+    }
+    if (build.halo) {
+      this.halo = new Mesh(build.halo, material);
+      this.halo.name = 'halo';
+      this.halo.position.copy(build.pivot.head);
+      this.halo.frustumCulled = false;
+      this.inner.add(this.halo);
     }
   }
 
@@ -102,6 +115,34 @@ export class BirdRig extends Group {
     const tuck = -RIG.airTuck * this.air - (sliding ? RIG.slideTuck : 0);
     legL.rotation.x = swing + tuck;
     legR.rotation.x = -swing + tuck;
+    if (this.build.idleLeg) {
+      // Flamingo: stands on one leg when still.
+      const lift = this.build.idleLeg * (1 - Math.min(1, this.run)) * (1 - this.air) * (dead ? 0 : 1);
+      legR.rotation.x -= lift * MELEE.idleLegAngle;
+      legR.scale.y = 1 - lift * MELEE.idleLegFold;
+    }
+
+    // Melee (WeaponState.meleePose): charge hold, light and heavy swings (windup, lunge, recovery) and parry.
+    const pose = e.meleePose ?? null;
+    if (pose !== this.meleeKind) {
+      this.meleeKind = pose;
+      this.meleeT = 0;
+    } else this.meleeT += dt;
+    this.charge += ((pose === 'charging' ? 1 : 0) - this.charge) * k;
+    this.parry += ((pose === 'parry' ? 1 : 0) - this.parry) * k;
+    let lunge = 0;
+    let back = 0;
+    const strike = pose === 'light' || pose === 'heavy' ? MELEE[pose] : null;
+    if (strike) {
+      const u = Math.min(1, this.meleeT / strike.dur);
+      if (u < strike.windup) back = u / strike.windup;
+      else {
+        const v = (u - strike.windup) / (1 - strike.windup);
+        back = Math.max(0, 1 - v / 0.15);
+        lunge = v < 0.3 ? v / 0.3 : 1 - (v - 0.3) / 0.7;
+      }
+    }
+    const striking = Math.max(lunge, back);
 
     // Wings: tucked at rest, loose on the run, spread in the air, flared for a dash, cast or glide.
     let flare = Math.max(this.build.wingRest, RIG.wingTuck + RIG.wingRun * this.run);
@@ -124,10 +165,14 @@ export class BirdRig extends Group {
       flare = RIG.wingAir;
       flap = e.vel.y > 0 ? 1 : RIG.flapFall;
     }
+    if (this.charge > 0.01) flare += (MELEE.charge.wing - flare) * this.charge;
+    if (strike) flare += (strike.wing - flare) * striking;
+    if (this.parry > 0.01) flare += (MELEE.parry.wingFlare - flare) * this.parry;
     this.wingFlare += (flare - this.wingFlare) * k;
     const flutter = Math.sin(t * RIG.flapRate) * RIG.flapAmp * flap;
     wingL.rotation.z = this.wingFlare + flutter;
     wingR.rotation.z = -(this.wingFlare + flutter);
+    wingL.rotation.x = wingR.rotation.x = this.parry * MELEE.parry.wingSwing + lunge * 0.5;
 
     // Whole-body pitch about the hip, bob, roll and crouch.
     const pitchTarget = sliding
@@ -155,9 +200,12 @@ export class BirdRig extends Group {
     this.crouch += ((has(f, ViewFlag.Crouching) ? CROUCH_SQUASH : 1) - this.crouch) * k;
     this.squash.scale.y = this.crouch;
     const rig = this.rig;
-    rig.rotation.x = this.pitch + (this.flinch / RIG.flinchTime) * RIG.flinchPitch;
+    const lean = this.charge * MELEE.charge.pitch + this.parry * MELEE.parry.pitch + (strike ? lunge * strike.pitch - back * strike.back : 0);
+    rig.rotation.x = this.pitch + lean + (this.flinch / RIG.flinchTime) * RIG.flinchPitch;
+    rig.position.z = strike ? (lunge - back * strike.back * 0.3) * strike.reach * H : 0;
+    rig.position.x = Math.sin(t * MELEE.charge.shakeRate) * MELEE.charge.shake * this.charge;
     rig.rotation.z = Math.sin(this.phase) * this.build.sway * this.run + this.dead * RIG.deathRoll;
-    rig.position.y = this.pivotY + bob - (sliding ? RIG.slideDrop * this.pivotY : 0) - this.dead * (this.pivotY - RIG.deadClearance * H) - this.sink;
+    rig.position.y = this.pivotY + bob - (sliding ? RIG.slideDrop * this.pivotY : 0) - this.dead * (this.pivotY - RIG.deadClearance * H) - this.sink - this.charge * MELEE.charge.drop * H;
 
     // Casting: head up, tail lifts, a pulse through the body.
     this.cast += ((casting ? 1 : 0) - this.cast) * k;
@@ -169,7 +217,9 @@ export class BirdRig extends Group {
     // Head: looks where the hero aims, tilts at idle, circles when stunned, dips on reload and cast.
     this.stun += ((has(f, ViewFlag.Stunned) ? 1 : 0) - this.stun) * k;
     this.reload += ((has(f, ViewFlag.Reloading) ? 1 : 0) - this.reload) * k;
-    head.rotation.x = -clamp(e.pitch, -RIG.pitchLimit, RIG.pitchLimit) * RIG.headLook + RIG.castHeadUp * this.cast + RIG.reloadHead * this.reload;
+    head.rotation.x = -clamp(e.pitch, -RIG.pitchLimit, RIG.pitchLimit) * RIG.headLook + RIG.castHeadUp * this.cast + RIG.reloadHead * this.reload + this.charge * MELEE.charge.head + this.parry * MELEE.parry.head;
+    head.position.z = this.build.pivot.head.z + (lunge - back * 0.5) * MELEE.headThrust * H * 0.3;
+    if (this.halo) this.halo.rotation.y = t * MELEE.haloRate;
     head.rotation.y = Math.sin(t * RIG.stunRate) * RIG.stunSwing * this.stun;
     head.rotation.z = Math.sin(t * RIG.headTiltRate + e.id) * RIG.headTilt * idle + Math.cos(t * RIG.stunRate) * RIG.stunRoll * this.stun;
 
@@ -183,6 +233,6 @@ export class BirdRig extends Group {
     }
     const g = this.build.pivot.gun;
     gun.position.set(g.x, g.y - this.reload * RIG.reloadDrop * H, g.z - this.recoil * RIG.recoilKick);
-    gun.rotation.x = -clamp(e.pitch, -RIG.pitchLimit, RIG.pitchLimit) - this.recoil * RIG.recoilPitch + this.reload * (RIG.reloadDip + Math.sin(t * RIG.reloadWobbleRate) * RIG.reloadWobble);
+    gun.rotation.x = -clamp(e.pitch, -RIG.pitchLimit, RIG.pitchLimit) - this.recoil * RIG.recoilPitch + this.reload * (RIG.reloadDip + Math.sin(t * RIG.reloadWobbleRate) * RIG.reloadWobble) + (this.charge + this.parry + striking) * RIG.reloadDip;
   }
 }

@@ -29,6 +29,41 @@ export const PLUMAGE = {
   lyreBill: 0x4a3a30,
 } as const;
 
+/** Natural colours of the eight B1/A2 birds (GDD §9.5 to §9.12). */
+export const PLUMAGE_NEW = {
+  owlTawny: 0xb98a55,
+  owlCream: 0xeadcb8,
+  owlEye: 0xf08a1a,
+  pelicanWhite: 0xf4f1ea,
+  pelicanEdge: 0x8d9097,
+  pelicanPouch: 0xf2a23a,
+  pelicanBill: 0xe8b46a,
+  secGrey: 0xc4c7cc,
+  secBlack: 0x1a1a1e,
+  secFace: 0xf2762a,
+  starBlack: 0x25232e,
+  starGreen: 0x2f8a6a,
+  starPurple: 0x6a3f9a,
+  starSpeck: 0xf0eee6,
+  hornBlack: 0x1d1d21,
+  hornWhite: 0xf0eee4,
+  hornBill: 0xf2c030,
+  hornCasque: 0xe2492a,
+  flamingoPink: 0xf58aa8,
+  flamingoCoral: 0xe0506a,
+  flamingoBill: 0xf0a0b0,
+  flamingoTip: 0x1a1a1a,
+  penguinBlack: 0x1c1d24,
+  penguinWhite: 0xf3f1ea,
+  penguinGold: 0xf5b81f,
+  puffinBlack: 0x20222a,
+  puffinWhite: 0xf0eee8,
+  puffinOrange: 0xf26a1c,
+  puffinYellow: 0xf5c020,
+  puffinBlue: 0x7f93a8,
+  puffinFish: 0xc9d3dc,
+} as const;
+
 /** Rig tuning. Angles in radians, rates in 1/s, lengths as fractions of the hero's height unless noted. */
 export const RIG = {
   /** dt is clamped so a stalled tab does not snap poses. */
@@ -99,6 +134,27 @@ export const RIG = {
   headTilt: 0.08,
   headTiltRate: 0.9,
   stunRoll: 0.3,
+} as const;
+
+/**
+ * Melee poses (WeaponState.meleePose). Timed from the moment the pose appears: a short windup pull-back, the lunge,
+ * then recovery. `dur` seconds, `pitch` body lean at the lunge peak (rad), `reach` hip travel (fraction of height),
+ * `wing` flare at the peak, `windup` the fraction of `dur` spent pulling back.
+ */
+export const MELEE = {
+  light: { dur: 0.3, pitch: 0.55, reach: 0.14, wing: 1.1, windup: 0.22, back: 0.25 },
+  heavy: { dur: 0.65, pitch: 0.95, reach: 0.3, wing: 1.5, windup: 0.4, back: 0.6 },
+  /** Charging hold: lean back, wings raised, head drawn back. */
+  charge: { pitch: -0.45, wing: 1.45, head: -0.5, shake: 0.03, shakeRate: 38, drop: 0.06 },
+  /** Parry: wings thrown forward across the chest, body braced. */
+  parry: { wingFlare: 0.5, wingSwing: -1.35, pitch: -0.12, head: 0.35, hold: 0.9 },
+  /** Release back to neutral, 1/s. */
+  release: 10,
+  headThrust: 0.45,
+  /** Pouch and halo and one-leg idle. */
+  haloRate: 2.4,
+  idleLegAngle: 1.3,
+  idleLegFold: 0.45,
 } as const;
 
 /** Fledglings (GDD §7.1). Geometry is built at the nominal radius; poses scale it to entity.radius. */

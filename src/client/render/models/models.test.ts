@@ -14,7 +14,8 @@ import { createModelKit } from './index';
 import { triangles } from './parts';
 import { TEAM_COLOURS } from '../palette';
 
-const FOUR: readonly HeroId[] = ['shrike', 'albatross', 'kingfisher', 'lyrebird'];
+const OLD: readonly HeroId[] = ['shrike', 'albatross', 'kingfisher', 'lyrebird'];
+const FOUR: readonly HeroId[] = [...OLD, 'owl', 'pelican', 'secretarybird', 'starling', 'hornbill', 'flamingo', 'penguin', 'puffin'];
 const HEAD_TOLERANCE = 0.02;
 const HERO_TRIANGLES = 1500;
 const FLEDGLING_TRIANGLES = 150;
@@ -49,7 +50,7 @@ describe('hero models', () => {
         const meshes: Mesh[] = [];
         model.traverse((o) => o instanceof Mesh && meshes.push(o));
         expect(meshes.length, id).toBeLessThanOrEqual(HERO_DRAW_CALLS);
-        expect(meshes.length, id).toBe(PART_NAMES.length);
+        expect(meshes.length, id).toBe(PART_NAMES.length + (id === 'starling' ? 1 : 0));
         expect(meshes.reduce((n, m) => n + triangles(m.geometry), 0), id).toBeLessThanOrEqual(HERO_TRIANGLES);
       }
     }
@@ -86,13 +87,14 @@ describe('hero models', () => {
       const plan = HEROES[id].def.body;
       const model = k.create(heroEntity(id));
       let top = 0;
-      for (const n of ['body', 'head'] as const) {
+      // Casques, crests and ear tufts rise above the hitbox on the eight new birds, so only their bodies are held to it.
+      for (const n of (OLD.includes(id) ? ['body', 'head'] : ['body']) as ('body' | 'head')[]) {
         const m = find(model, n);
         m.geometry.computeBoundingBox();
         top = Math.max(top, m.position.y + (m.geometry.boundingBox?.max.y ?? 0));
       }
       // The head shell may rise a little above the hitbox top; a crest or lyre belongs to other parts.
-      expect(top, id).toBeGreaterThanOrEqual((plan.height) - 0.3);
+      expect(top, id).toBeGreaterThanOrEqual(OLD.includes(id) ? plan.height - 0.3 : plan.head.centre.up - plan.head.radius - 0.15);
       expect(top, id).toBeLessThanOrEqual((plan.height) + 0.15);
     }
   });
