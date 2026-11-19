@@ -101,7 +101,7 @@ the first minute and still has decisions to make at minute 35.
 | **Slide** | Crouching while running: a fast, low slide that carries momentum. |
 | **Mantle** | Automatic pull-up onto a ledge within reach. |
 | **Updraft** | A rideable wind current strung above each lane, base to base (zipline). Boost and dismount at will. |
-| **Updraft station** | A marked mount point on an Updraft (gates, Herons, Hawks, centre). |
+| **Updraft station** | A marked mount point on an Updraft (gates, near Herons and Hawks, and centre). |
 | **Chimney** | A vertical warm-air shaft that lifts you to a rooftop. |
 | **Vine** | A climbable vine or rope on a wall or tree. |
 | **Beak shot** | A gun hit on a hero's head hitbox. Deals critical damage (×1.65 by default). |
@@ -218,7 +218,7 @@ Traversal reference: [Deadlock Wiki movement guide](https://deadlock.wiki/Moveme
 
 | Parameter | Value |
 |---|---|
-| Layout | One per lane, base gate to base gate, 12 m above the lane path; stations (mount markers) at both gates, both Herons, both Hawks and the lane's midpoint (§6) |
+| Layout | One per lane, gate to gate, 12 m above the lane path at the rider's feet. Stations at both gates and the midpoint, and 6 m along the lane toward each owning gate from its Heron and Hawk (§6.3). |
 | Mount | E within 2 m of a station, or jump into the line while airborne within 1.5 m of it. Mounting takes 0.3 s. |
 | Direction | Toward the end the camera faces when mounting |
 | Ride speed | 11 m/s |
@@ -595,7 +595,12 @@ Lane lengths along the path: Hedgerow and Pinewood 289 m gate to gate; Riverbank
 | Thickets tier 1 | (−65, −22), (−30, −52), (30, −52), (65, −22) | 4 per half |
 | Thickets tier 2 | (−60, −80), (60, −80) | 2 per half |
 | Thickets tier 3 | (−40, −12), (40, −12) | 2 per half, next to the Egg Perches |
-| Updraft stations | each gate, each Heron, each Hawk, and z = 0 on every lane | 12 m above the lane path |
+| Updraft stations | each gate, z = 0, and 6 m along the lane toward each owning gate from its Heron and Hawk | 12 m above the lane path |
+
+Hawks and Herons stay grounded at their listed x/z anchors. Their collision and visible geometry, including
+animated poses, stay at or below 10 m above the lane to leave at least 2 m below the Updraft rider's feet.
+Attack targeting and stomp measurements use the original ground anchor and the ranges in §§7.2–7.3. The
+visible shot and beam can originate at the eyes and bill.
 
 ### 6.4 The lanes
 
@@ -693,7 +698,7 @@ Nests, the Roc and the Egg.
 | Gate | None: vulnerable from the start |
 | Bounty | 300 seeds per player to the destroying flock |
 | Unlocks | The flock's first Hawk kill unlocks flex slot 1; its second unlocks flex slot 2 (§8.7) |
-| Look | A hawk statue on a 10 m stone column, wings half-open; eyes glow in team colour while it has a target |
+| Look | A hawk statue on an 8 m stone column, wings half-open, with the whole tower at most 10 m tall; eyes glow in team colour while it has a target |
 
 ### 7.3 Stilt Heron (one per lane per flock)
 
@@ -705,7 +710,7 @@ Nests, the Roc and the Egg.
 | Stomp | Every 4 s while any enemy is within 7 m: 0.5 s telegraph (leg raised, ground ring), then 120 Song damage and 5 m knockback in a 7 m radius |
 | Bounty | 600 seeds per player |
 | Unlocks | The flock's first Heron kill unlocks flex slot 3 |
-| Look | A 12 m wading heron on stilt legs inside a timber frame; steps in place, beam from the bill |
+| Look | A wading heron on stilt legs inside a timber frame, all at or below 10 m, including its raised-leg pose; steps in place, beam from the bill |
 
 ### 7.4 Nest Wardens (two per lane per flock)
 
@@ -2097,6 +2102,8 @@ An item fails if it can't be shown with a screenshot, a test or a telemetry numb
 - [ ] Shop: buy, upgrade with component discount, sell 50% / 100% within 20 s, only in shop zones.
 - [ ] Flex slots unlock on the right objectives for the whole flock.
 - [ ] Hawk punishes a hero who shoots an allied hero under it (target switch within 0.5 s).
+- [ ] Ride and boost across each Hawk and Heron from both directions. Show at least 2 m of clearance below
+      the rider's feet across collision geometry and visible poses. Verify tower anchors and combat ranges.
 - [ ] Brood Ward reduces damage to ×0.35 without attacking fledglings; the dome shows and breaks.
 - [ ] Shrine gating; Patron phase 1 → transition → phase 2 with the weak point; a match can be won by hand.
 - [ ] HUD shows every §12.4 element; minimap follows the vision rule; pings work in world, minimap and feed.
