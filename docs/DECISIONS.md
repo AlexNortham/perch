@@ -1647,3 +1647,17 @@ pacing and mechanics, with no names, art or map layout copied.
 - **Stage 5 keeps** the VFX production pass, animation polish, lighting mood and final art polish (D-EP-042).
 **Why:** the user's instruction: incredible attention to detail in model design, map and characters; use the videos
 as visual guides; no placeholder cuboids; everything should look incredible.
+
+### D-EP-048 · 19/11/2026 — A world built by and for birds
+**Decision:** a standing design rule for the map and environment art. Every area should make a viewer think "yes, this
+is somewhere birds would be". Old Mossmarket is a world built by and for birds, not a human town with birds in it:
+- **Architecture:** dovecotes, belfries, stilted birdhouse dwellings, hollow-trunk homes, woven twig and reed
+  structures, nest-crowned roofs, perches and roost rails, landing ledges, strung wires and poles.
+- **Street life:** feeders and seed stalls, baths and fountains, seeds, berries and feathers, worm beds and insect
+  hives, nesting material, feather banners in flock colours.
+- **Jungle:** a layered canopy, roots, hollows, branch nests, reed beds, bramble thickets.
+- **Scale and verticality** suit perching, hopping and gliding.
+It stays readable in combat. The style guide carries it as a top-level principle with a review-checklist line, and the
+Level Designer, Environment Artist and Technical Artists apply it.
+**Why:** the user's instruction: since the game revolves around birds, look at every aspect of the map and think "yes,
+this is somewhere birds would be".
