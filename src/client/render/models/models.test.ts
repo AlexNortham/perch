@@ -1,4 +1,4 @@
-import { Group, InstancedMesh, Mesh, Vector3 } from 'three';
+import { Box3, Group, InstancedMesh, Mesh, Vector3 } from 'three';
 import type { Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 import { HERO_IDS, ViewFlag } from '../../../sim/core/contracts';
@@ -26,7 +26,7 @@ const entity = (id: number, over: Partial<EntityView> = {}): EntityView => ({
   id, kind: 'hero', team: 'dawn', type: 'shrike', pos: { x: 0, y: 0, z: 0 }, vel: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0,
   radius: 0.4, hp: 100, maxHp: 100, shield: 0, flags: ViewFlag.Grounded, mode: null, seenBy: 3, ...over,
 });
-const view = (entities: EntityView[], seconds = 1): SimView => ({ entities, seconds, localHero: null }) as unknown as SimView;
+const view = (entities: EntityView[], seconds = 1, heroes: unknown[] = [], localHero: number | null = null): SimView => ({ entities, seconds, localHero, heroes }) as unknown as SimView;
 const frameOf = (entities: EntityView[]): Frame => ({ prev: view(entities), curr: view(entities), alpha: 1, dt: 1 / 60 });
 const heroEntity = (id: HeroId, team: PlayerTeam = 'dawn'): EntityView => entity(1, { type: id, team });
 
@@ -188,5 +188,101 @@ describe('fledglings', () => {
     const instanced = scene.children.filter((o) => o instanceof InstancedMesh);
     expect(instanced.length).toBeLessThanOrEqual(FLEDGLING_DRAW_CALLS);
     expect(scene.children.filter((o) => o instanceof Mesh && !(o instanceof InstancedMesh))).toHaveLength(0);
+  });
+});
+
+describe('new birds, melee and practice targets', () => {
+  const kit = createModelKit();
+  const heroOf = (id: HeroId, over: Partial<EntityView> = {}): EntityView => entity(1, { type: id, ...over });
+
+  it('puts every muzzle on the body plan, and keeps the eight new silhouettes distinct from each other', () => {
+    const sizes = new Set<string>();
+    for (const id of FOUR) {
+      const plan = HEROES[id].def.body;
+      const model = kit.create(heroEntity(id));
+      model.updateWorldMatrix(true, true);
+      const gunPos = find(model, 'gun').getWorldPosition(new Vector3());
+      expect(gunPos.distanceTo(new Vector3(-plan.muzzle.right, plan.muzzle.up, plan.muzzle.forward)), id).toBeLessThan(HEAD_TOLERANCE);
+      const box = new Box3();
+      model.traverse((o) => {
+        if (!(o instanceof Mesh) || o.name === 'gun') return;
+        o.geometry.computeBoundingBox();
+        if (o.geometry.boundingBox) box.union(o.geometry.boundingBox.clone().translate(o.position));
+      });
+      sizes.add(box.getSize(new Vector3()).toArray().map((v) => v.toFixed(2)).join(','));
+    }
+    expect(sizes.size, 'no two of the twelve share a bounding box').toBe(FOUR.length);
+  });
+
+  it('poses light, heavy, charge and parry differently, then recovers', () => {
+    const rigOf = (pose?: EntityView['meleePose']): { lean: number; wing: number; z: number } => {
+      const model = kit.create(heroOf('shrike'));
+      const e = heroOf('shrike', pose ? { meleePose: pose } : {});
+      for (let i = 0; i < 12; i++) kit.pose(model, e, frameOf([e]));
+      const rig = model.children[0]?.children[0];
+      return { lean: rig?.rotation.x ?? 0, wing: find(model, 'wingL').rotation.z, z: rig?.position.z ?? 0 };
+    };
+    const idle = rigOf();
+    const charge = rigOf('charging');
+    const heavy = rigOf('heavy');
+    const parry = rigOf('parry');
+    expect(charge.lean, 'charge leans back').toBeLessThan(idle.lean);
+    expect(charge.wing, 'charge raises wings').toBeGreaterThan(idle.wing + 0.5);
+    expect(parry.wing, 'parry flares wings').toBeGreaterThan(idle.wing);
+    expect(Math.abs(heavy.lean - idle.lean) + Math.abs(heavy.z), 'heavy swing moves').toBeGreaterThan(0.05);
+    // Lunge, then recovery: a light swing's forward travel peaks and returns to rest once the pose clears.
+    const model = kit.create(heroOf('shrike'));
+    let peak = 0;
+    const swing = heroOf('shrike', { meleePose: 'light' });
+    for (let i = 0; i < 30; i++) {
+      kit.pose(model, swing, frameOf([swing]));
+      peak = Math.max(peak, model.children[0]?.children[0]?.position.z ?? 0);
+    }
+    const rest = heroOf('shrike');
+    for (let i = 0; i < 30; i++) kit.pose(model, rest, frameOf([rest]));
+    expect(peak, 'light swing lunges forward').toBeGreaterThan(0.05);
+    expect(Math.abs(model.children[0]?.children[0]?.position.z ?? 1)).toBeLessThan(0.001);
+  });
+
+  it('gives the Starling a spinning halo of eight birds and the Flamingo a one-leg idle', () => {
+    const star = kit.create(heroOf('starling'));
+    const halo = star.getObjectByName('halo');
+    expect(halo).toBeInstanceOf(Mesh);
+    const e = heroOf('starling');
+    kit.pose(star, e, { ...frameOf([e]), curr: view([e], 2) });
+    expect(Math.abs(halo?.rotation.y ?? 0)).toBeGreaterThan(0);
+    const fl = kit.create(heroOf('flamingo'));
+    const f = heroOf('flamingo');
+    for (let i = 0; i < 30; i++) kit.pose(fl, f, frameOf([f]));
+    expect(find(fl, 'legR').scale.y).toBeLessThan(0.7);
+    expect(find(fl, 'legL').scale.y).toBe(1);
+  });
+
+  it('marks Practice Hub dummies red (enemy) and teal (ally) on their hitboxes, and removes the mark for others', () => {
+    const local = entity(1, { type: 'shrike', team: 'dawn' });
+    const ally = entity(2, { type: 'albatross', team: 'dawn' });
+    const foe = entity(3, { type: 'lyrebird', team: 'dusk' });
+    const heroes = [
+      { id: 1, team: 'dawn', controller: 'human' },
+      { id: 2, team: 'dawn', controller: 'dummy' },
+      { id: 3, team: 'dusk', controller: 'dummy' },
+    ];
+    const f = (hs: unknown[]): Frame => ({ prev: view([local, ally, foe], 1, hs, 1), curr: view([local, ally, foe], 1, hs, 1), alpha: 1, dt: 1 / 60 });
+    const [m1, m2, m3] = [local, ally, foe].map((e) => kit.create(e));
+    for (const [m, e] of [[m1, local], [m2, ally], [m3, foe]] as const) if (m) kit.pose(m, e, f(heroes));
+    const mark = (m?: Object3D): Mesh | undefined => m?.getObjectByName('dummyMarker') as Mesh | undefined;
+    expect(mark(m1)).toBeUndefined();
+    expect(mark(m2)?.userData['kind']).toBe('ally');
+    expect(mark(m3)?.userData['kind']).toBe('enemy');
+    const colour = (m?: Mesh): number => (m?.geometry.getAttribute('color').getX(0) ?? -1);
+    expect(colour(mark(m3))).toBeGreaterThan(colour(mark(m2)));
+    // The head ring is centred on the real head hitbox.
+    const plan = HEROES.lyrebird.def.body;
+    const g = mark(m3)?.geometry;
+    g?.computeBoundingBox();
+    expect(g?.boundingBox?.max.y).toBeGreaterThan(plan.head.centre.up + plan.head.radius);
+    const f2 = f([{ id: 1, team: 'dawn', controller: 'human' }, { id: 3, team: 'dusk', controller: 'easy' }]);
+    if (m3) kit.pose(m3, foe, f2);
+    expect(mark(m3)).toBeUndefined();
   });
 });

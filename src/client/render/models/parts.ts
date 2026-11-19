@@ -15,6 +15,7 @@ import {
   Matrix4,
   Quaternion,
   SphereGeometry,
+  TorusGeometry,
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -81,6 +82,11 @@ export class Parts {
   /** Vertical cylinder centred at `at`. */
   cyl(hex: number, rTop: number, rBottom: number, height: number, at: V3 = ZERO, rot: V3 = ZERO): this {
     return this.push(new CylinderGeometry(rTop, rBottom, height, CYL_SIDES), hex, at, rot, [1, 1, 1]);
+  }
+
+  /** A ring (torus) of the given radius and tube thickness lying in the xy plane, turned by `rot`. */
+  ring(hex: number, radius: number, tube: number, at: V3 = ZERO, rot: V3 = ZERO, segments = 16): this {
+    return this.push(new TorusGeometry(radius, tube, 4, segments), hex, at, rot, [1, 1, 1]);
   }
 
   /** A thin cylinder from a to b. */

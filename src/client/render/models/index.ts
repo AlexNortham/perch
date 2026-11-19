@@ -16,6 +16,8 @@ import { FledglingGroup, FledglingProxy } from '../rigs/fledgling-rig';
 import { DomeGroup, StructureRig } from '../rigs/structure-rig';
 import type { StructureMaterials } from '../rigs/structure-rig';
 import type { BirdBuild } from './bird';
+import { dummyMarker } from './dummy';
+import type { DummyKind } from './dummy';
 import { FLEDGLING, STRUCTURE } from './constants';
 import { buildStructure } from './structures';
 import type { StructureBuild } from './structures';
@@ -74,6 +76,8 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
   const structureMats = { dawn: structureMaterials('dawn'), dusk: structureMaterials('dusk') };
   const domes = new DomeGroup(new MeshBasicMaterial({ color: STRUCTURE.domeColour, transparent: true, opacity: STRUCTURE.domeOpacity, depthWrite: false }));
   const structureBuilds = new Map<string, StructureBuild>();
+  const markerMaterial = new MeshBasicMaterial({ vertexColors: true });
+  const markers = new Map<string, Mesh>();
   let hitboxes = opt.hitboxes;
 
   const heroRig = (id: HeroId, team: PlayerTeam): BirdRig => {
@@ -100,6 +104,26 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
       groups.set(key, g);
     }
     return g;
+  };
+
+  /** Practice Hub targets (controller 'dummy'): rings on the real hitboxes, red for the enemy, teal for the ally. */
+  const syncDummy = (rig: BirdRig, kind: DummyKind | null): void => {
+    const existing = rig.squash.getObjectByName('dummyMarker');
+    if (existing && existing.userData['kind'] === kind) return;
+    existing?.removeFromParent();
+    if (!kind) return;
+    const key = `${rig.name}:${kind}`;
+    let m = markers.get(key);
+    if (!m) {
+      m = new Mesh(dummyMarker(rig.plan, kind), markerMaterial);
+      m.name = 'dummyMarker';
+      m.userData['kind'] = kind;
+      m.frustumCulled = false;
+      markers.set(key, m);
+    }
+    // One marker mesh per hero and kind, shared if two rigs want it: clone the mesh (the geometry stays shared).
+    const own = m.parent ? m.clone() : m;
+    rig.squash.add(own);
   };
 
   const syncHitboxes = (rig: BirdRig): void => {
@@ -144,6 +168,9 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
         const before = entityById(frame.prev, entity.id);
         model.animate(entity, frame.dt, t, before !== undefined && entity.hp < before.hp);
         syncHitboxes(model);
+        const heroView = frame.curr.heroes.find((h) => h.id === entity.id);
+        const viewerTeam = frame.curr.heroes.find((h) => h.id === frame.curr.localHero)?.team;
+        syncDummy(model, heroView?.controller === 'dummy' ? (heroView.team === viewerTeam ? 'ally' : 'enemy') : null);
         const hidden = (entity.flags & ViewFlag.Invisible) !== 0 && (entity.flags & ViewFlag.Revealed) === 0;
         const viewer = frame.curr.localHero === null ? undefined : entityById(frame.curr, frame.curr.localHero);
         model.visible = !hidden || viewer?.team === entity.team;

@@ -65,7 +65,7 @@ describe('structure models', () => {
     const map = loadMap('main');
     for (const s of map.structures) {
       if (s.type === 'patron') continue;
-      const model = kit.create(structure(s.type, s.team === 'neutral' ? 'dawn' : s.team));
+      const model = kit.create(structure(s.type, s.team));
       model.position.set(s.pos.x, s.pos.y, s.pos.z);
       expect(height(model), `${s.team} ${s.type}`).toBeLessThan(UPDRAFT_Y);
     }
