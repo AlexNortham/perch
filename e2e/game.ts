@@ -77,6 +77,43 @@ export async function aimAtDummy(page: Page, which: 'enemy' | 'ally'): Promise<v
   mousePos.set(page, at);
 }
 
+const STEER_MS = 250;
+const WAYPOINT_RADIUS_M = 6;
+const MIN_STEP_M = 0.3;
+const DEGREES_PER_COUNT = 0.06;
+
+/**
+ * Hold W and steer with real mouse movement through (x, z) waypoints. The heading is read from the hero's motion
+ * (`__perch.hero.pos`); a left turn is mouse movement to the left. Stops W when the last waypoint is reached.
+ */
+export async function walkTo(page: Page, waypoints: readonly { x: number; z: number }[], timeoutMs: number): Promise<void> {
+  const at = mousePos.get(page) ?? { x: VIEWPORT.width / 2, y: VIEWPORT.height / 2 };
+  const deadline = Date.now() + timeoutMs;
+  let prev = (await hero(page)).pos;
+  let heading: number | null = null;
+  let next = 0;
+  await page.keyboard.down('KeyW');
+  try {
+    while (next < waypoints.length) {
+      expect(Date.now(), 'reached the waypoints in time').toBeLessThan(deadline);
+      await page.waitForTimeout(STEER_MS);
+      const pos = (await hero(page)).pos;
+      const goal = waypoints[next]!;
+      if (Math.hypot(goal.x - pos.x, goal.z - pos.z) < WAYPOINT_RADIUS_M) { next++; continue; }
+      if (Math.hypot(pos.x - prev.x, pos.z - prev.z) >= MIN_STEP_M) heading = Math.atan2(pos.x - prev.x, pos.z - prev.z);
+      prev = pos;
+      if (heading === null) continue;
+      let error = Math.atan2(goal.x - pos.x, goal.z - pos.z) - heading;
+      error = Math.atan2(Math.sin(error), Math.cos(error));
+      at.x -= (error * 180 / Math.PI) / DEGREES_PER_COUNT;
+      await page.mouse.move(at.x, at.y);
+    }
+  } finally {
+    await page.keyboard.up('KeyW');
+    mousePos.set(page, at);
+  }
+}
+
 export async function fire(page: Page): Promise<void> {
   const before = await hero(page);
   await page.mouse.down();

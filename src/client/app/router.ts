@@ -11,7 +11,7 @@ import type { CameraPreset, MatchSetup, Quality } from './contracts';
  *   hero    hero id for the human (default shrike)
  *   cam     camera preset (CAMERA_PRESETS); default 'overview' for menu and blockout, 'player' otherwise
  *   quality low | medium | high (overrides the saved setting)
- *   t       seconds of sim to fast-forward before the first frame (default 0)
+ *   t       seconds of sim to fast-forward before the first frame, also for a match started from the menu (default 0)
  * Bad values fall back to the defaults.
  */
 export const SCENES = ['menu', 'blockout', 'sandbox', 'practice', 'lane', 'match'] as const;
