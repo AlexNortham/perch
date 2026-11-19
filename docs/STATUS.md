@@ -10,7 +10,9 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
 - **Milestone:** M0 — Foundations
 - **Roster:** 24 heroes (D-EP-015), shipped in six batches of four from W3 to W6
 - **Stage 1 (M0) closed 19/11/2026.** W1 and W2 on main; QA gate APPROVE (W2 · QA gate entry). See PLAYABLE.md.
-- **Next:** W2.5 contract round (Architect), then W3 = Stage 2 "One bird in a lane" (briefs in docs/briefs/W3-*.md)
+- **W2.5 contract round merged 19/11/2026** (28 requests: 22 accepted, 6 modified; INTERFACES.md §11).
+- **W3 running since 03:07** — Stage 2 "One bird in a lane": Camera & Input, Technical Artist, Hero Engineer A,
+  Rendering & VFX, Objectives, Economy & Items, Systems follow-up, UI/HUD (briefs in docs/briefs/W3-*.md)
 - **Last `npm run check`:** PASS on integrate/w2 (5/5 steps, 71 s); sim 0.33 ms per tick at 6v6 (stub bots)
 
 ## How the studio works
