@@ -112,6 +112,8 @@ export const VISION = {
   trueSight: 30,
   /** Non-hero entities are re-evaluated every this many ticks (heroes every tick); ARCHITECTURE §11 allows 0.25 s. */
   staggerTicks: 6,
+  /** Neutral creatures and the Roc: every this many ticks (0.25 s, the ARCHITECTURE §11 limit); they cost raycasts. */
+  neutralStaggerTicks: 15,
 } as const;
 
 /** GDD §§5.11, 7.2–7.7 and 15.3. Heights include the complete collider. */

@@ -5,8 +5,9 @@
  * one of its structures or 40 m of one of its living heroes with line of sight, or while it is revealed. An invisible
  * one is seen only within 8 m of an eye or inside a true-sight holder's radius. Revealing it adds a map icon.
  *
- * Heroes are evaluated every tick; every other entity every VISION.staggerTicks ticks (by id), so its bits lag by at
- * most 0.1 s (ARCHITECTURE §11 allows 0.25 s). Line-of-sight raycasts run only when no cheaper eye sees the entity.
+ * Heroes are evaluated every tick; other entities every VISION.staggerTicks ticks (by id), so their bits lag by at
+ * most 0.1 s, and neutral creatures every VISION.neutralStaggerTicks (0.25 s, the ARCHITECTURE §11 limit). Line-of-sight
+ * raycasts run only when no cheaper eye sees the entity.
  *
  * Stage 4 (GDD §§6.8, 7.15): a hero within 3 m of a Lookout sees 60 m; ivy curtains (`blocks: 'sight'` prims) block
  * a hero's line of sight both ways unless the viewer is within 3 m of the curtain; a hero hidden in a Hide is seen by
@@ -264,7 +265,7 @@ export function createVision(ctx: SimContext, hides: Hides | null = null): { upd
       enemies.length = 0;
       for (const h of ctx.store.list('hero')) if (!h.health.dead) enemies.push(h);
       for (const e of ctx.store.all()) {
-        if (e.kind !== 'hero' && (e.id + tick) % VISION.staggerTicks !== 0) continue;
+        if (e.kind !== 'hero' && (e.id + tick) % (e.team === 'neutral' ? VISION.neutralStaggerTicks : VISION.staggerTicks) !== 0) continue;
         if (e.team === 'neutral' && (e.kind !== 'unit' || e.unit.asleep)) {
           e.seenBy = SeenBy.all;
           continue;

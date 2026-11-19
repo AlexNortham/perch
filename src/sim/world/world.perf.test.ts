@@ -1,7 +1,7 @@
 /* eslint-disable no-restricted-properties -- a benchmark measures wall time; the clock never reaches the sim */
 import { performance } from 'node:perf_hooks';
 import { describe, expect, it } from 'vitest';
-import type { EffectCause, Sim } from '../core/contracts';
+import type { EffectCause, HeroEntity, Sim } from '../core/contracts';
 import { PERF_RUNS } from '../../../tests/helpers/perf';
 import { allBotRoster, createSim } from '../index';
 
@@ -12,25 +12,28 @@ const MEASURE_TICKS = 1200;
 /** Re-aggro every camp this often while measuring, so they keep fighting instead of walking home. */
 const AGGRO_EVERY_TICKS = 120;
 
-/** Hit one creature of every camp from a hero, waking the camp and setting it on that hero. */
+const cause = (h: HeroEntity): EffectCause => ({ source: h.id, team: h.team, via: 'weapon', ability: null, item: null, values: null,
+  songPower: 0, proc: false, origin: { ...h.pos } });
+
+/** Hit one creature of every camp from the hero standing in it, waking the camp and setting it on that hero. */
 function aggroAll(sim: Sim): void {
   const heroes = sim.ctx.store.list('hero');
-  sim.ctx.store.list('unit').forEach((u, i) => {
-    if (u.unit.camp == null) return;
-    const h = heroes[i % heroes.length]!;
-    const cause: EffectCause = { source: h.id, team: h.team, via: 'weapon', ability: null, item: null, values: null, songPower: 0,
-      proc: false, origin: { ...h.pos } };
-    sim.ctx.effects.apply({ kind: 'damage', amount: 1, type: 'talon' }, { entity: u.id, point: { ...u.pos }, dir: { x: 0, y: 0, z: 1 } }, cause);
-  });
+  for (const u of sim.ctx.store.list('unit')) {
+    if (u.unit.camp == null) continue;
+    const h = heroes[u.unit.camp % heroes.length]!;
+    sim.ctx.effects.apply({ kind: 'damage', amount: 1, type: 'talon' }, { entity: u.id, point: { ...u.pos }, dir: { x: 0, y: 0, z: 1 } }, cause(h));
+  }
 }
 
 /**
- * ms per tick of a 12-bot siege match at 1:25 with waves, and with `neutrals` every Stage 4 objective forced live at
- * 1:00: all 16+ camps spawned and fighting (re-aggroed every 2 s), every Nest, Feeder and Berry up, both runes, the
- * Egg and the awake Roc.
+ * ms per tick of a siege match at 1:25 with waves and twelve dummy heroes (which never act) standing, unkillable, 4 m
+ * from a camp each and the Roc's lair; with `neutrals`, every Stage 4 objective is forced live at 1:00: every camp
+ * spawned and fighting its hero (re-aggroed every 2 s), every Nest, Feeder and Berry up, both runes, the Egg and the
+ * awake Roc. Dummies keep the two matches identical apart from the objectives.
  */
 async function objectives(neutrals: boolean): Promise<{ ms: number; creatures: number; breakables: number; pickups: number }> {
-  const sim = await createSim({ seed: 1, map: 'main', roster: allBotRoster(1, 12), options: { waves: true, structures: true, neutrals } });
+  const roster = allBotRoster(1, 12).map((s) => ({ ...s, controller: 'dummy' as const }));
+  const sim = await createSim({ seed: 1, map: 'main', roster, options: { waves: true, structures: true, neutrals } });
   const o = sim.ctx.objectives;
   const step = (n: number, aggro = false): void => {
     for (let i = 0; i < n; i++) {
@@ -39,6 +42,14 @@ async function objectives(neutrals: boolean): Promise<{ ms: number; creatures: n
       sim.drainEvents();
     }
   };
+  const spots = [...sim.ctx.map.thickets.map((a) => a.pos), sim.ctx.map.hollow!.centre];
+  sim.ctx.store.list('hero').forEach((h, i) => {
+    const at = spots[i % spots.length]!;
+    const point = { x: at.x + 4, y: at.y, z: at.z };
+    sim.ctx.stats.set(h.id, 'perf:tough', { stats: [{ stat: 'maxHealth', op: 'add', value: 1e9 }] });
+    sim.ctx.effects.apply({ kind: 'heal', amount: 1e9 }, { entity: h.id, point, dir: { x: 0, y: 0, z: 1 } }, cause(h));
+    sim.ctx.effects.apply({ kind: 'teleport', to: 'point', face: 'keep' }, { entity: h.id, point, dir: { x: 0, y: 0, z: 1 } }, cause(h));
+  });
   step(60 * 60);
   if (neutrals) {
     const now = sim.tick + 1;
