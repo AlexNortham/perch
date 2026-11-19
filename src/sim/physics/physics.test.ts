@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Layer, LAYERS_SOLID } from '../core/contracts';
 import type { EntityId, MapData, MapId, PlayerTeam, SimContext, Vec3 } from '../core/contracts';
 import { createSim } from '../index';
+import { HEROES } from '../heroes/registry';
 
 const fixture = vi.hoisted(() => ({ map: null as MapData | null }));
 vi.mock('../world/map', async (importOriginal) => {
@@ -80,10 +81,13 @@ describe('PhysicsService on the arena', () => {
     const { ctx } = sim;
     const [a, b] = ctx.store.list('hero');
     if (!a || !b) throw new Error('heroes missing');
-    const from = { x: a.pos.x, y: 1, z: a.pos.z - 5 };
+    // The hit capsule runs from the feet to the bottom of the head (the head is a separate hitbox): at half that
+    // height it is as wide as the hero's radius, whatever the bird's body plan.
+    const body = HEROES[a.hero.heroId].def.body;
+    const from = { x: a.pos.x, y: (body.head.centre.up - body.head.radius) / 2, z: a.pos.z - 5 };
     const hit = ctx.physics.raycast(from, { x: 0, y: 0, z: 1 }, 10, Layer.Hero);
     expect(hit?.entity).toBe(a.id);
-    expect(hit?.distance).toBeCloseTo(5 - 0.4, 3);
+    expect(hit?.distance).toBeCloseTo(5 - body.radius, 3);
     expect(ctx.physics.raycast(from, { x: 0, y: 0, z: 1 }, 10, Layer.Hero, a.id)).toBeNull();
     const out: EntityId[] = [];
     expect(ctx.physics.overlap({ kind: 'sphere', radius: 1 }, { x: b.pos.x, y: 1, z: b.pos.z }, Layer.Hero, out)).toEqual([b.id]);

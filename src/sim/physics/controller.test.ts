@@ -831,7 +831,7 @@ describe('physics-owned effects', () => {
     );
     expect(victim.motor.attachedTo).toBe(b.h.id);
     b.step(FWD, 20);
-    expect(victim.pos.z - b.h.pos.z).toBeCloseTo(0.8, 6);
+    expect(victim.pos.z - b.h.pos.z).toBeCloseTo(b.h.radius + victim.radius, 6); // touching, whatever the bodies
     b.step(FWD, 11);
     expect(victim.motor.attachedTo).toBeNull();
     expect(victim.motor.grounded).toBe(false);
@@ -921,7 +921,8 @@ describe('wave 3 follow-ups (Character Controller 1–5, EP findings)', () => {
     const flatDash = await bench(null, { x: -20, y: 0, z: -30 });
     flatDash.apply({ kind: 'dash', distance: 12, durationS: 0.35, dir: 'aim', arcHeight: 0 }, { dir: up });
     flatDash.step({}, 21);
-    expect(flatDash.h.pos.y).toBeCloseTo(0, 2);
+    // Flat within a few centimetres: the character controller's ground contact varies a little with capsule size.
+    expect(Math.abs(flatDash.h.pos.y)).toBeLessThan(0.05);
     expect(flatDash.h.pos.z + 30).toBeCloseTo(12, 1);
   });
 
@@ -972,7 +973,7 @@ describe('wave 3 follow-ups (Character Controller 1–5, EP findings)', () => {
     const g = unitAt(b, { x: 0, y: 0, z: -27 });
     b.apply({ kind: 'attach', durationS: 0.5, onRelease: [{ kind: 'displace', mode: 'up', distance: 1 }] }, { entity: g.id });
     b.step(FWD, 20);
-    expect(g.pos.z - b.h.pos.z).toBeCloseTo(0.8, 6);
+    expect(g.pos.z - b.h.pos.z).toBeCloseTo(b.h.radius + g.radius, 6);
     expect(g.stats.conditions.has('rooted')).toBe(true);
     b.step({}, 11);
     expect(g.pos.y).toBeGreaterThan(0);
