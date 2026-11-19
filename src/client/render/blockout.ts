@@ -1,282 +1,538 @@
 /**
- * The map blockout: every MapData prim merged into one mesh per material group, plus readable overlays for the map's
- * features (lane ribbons, Updraft cables and stations, Chimney shafts, Vines, shop zones, structure placeholders)
- * and a decorative forest beyond the bounds. Pure Three.js (no DOM), so it builds in unit tests too.
+ * The map layer: every MapData prim drawn as bevelled, painted, AO-baked architecture from the material library
+ * (style guide §4.3, §7), merged per 64 m cell (batch.ts), plus the map's features in the §1.4 affordance language
+ * (paved lanes with kerbs, Updraft masts with pulley and pennant, flowering Vines in rope-wrapped frames, Chimney
+ * shimmer, seed stalls at shops) and a forest of instanced giant trees beyond the bounds. Pure Three.js (no DOM),
+ * so it builds in unit tests. The Environment Artist dresses over this; nothing here collides.
  */
 import {
-  BoxGeometry,
+  AdditiveBlending,
   BufferAttribute,
   BufferGeometry,
   Color,
-  ConeGeometry,
   CylinderGeometry,
   DoubleSide,
   Group,
-  IcosahedronGeometry,
-  InstancedMesh,
   Matrix4,
   Mesh,
-  MeshLambertMaterial,
-  Object3D,
   PlaneGeometry,
   Quaternion,
-  RingGeometry,
+  ShaderMaterial,
   TorusGeometry,
   Vector3,
 } from 'three';
-import type { Material } from 'three';
+import type { Camera, Material } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import type { BlockoutPrim, MapData, MaterialTag, Vec3 } from '../../sim/core/contracts';
-import {
-  BACKDROP,
-  CABLE_RADIUS,
-  CABLE_SEGMENTS_PER_POINT,
-  CHIMNEY_OPACITY,
-  CHIMNEY_RADIUS,
-  CYLINDER_SEGMENTS,
-  LANE_LIFT,
-  LANE_OPACITY,
-  MARKER_PLINTH_HEIGHT,
-  MARKER_PLINTH_SCALE,
-  PRIM_FOOT_MIN_HEIGHT,
-  PRIM_FOOT_SHADE,
-  PRIM_JITTER,
-  SHOP_CANOPY,
-  SHOP_RING_LIFT,
-  SHOP_RING_WIDTH,
-  STATION_POST_RADIUS,
-  STATION_RING_RADIUS,
-  STATION_RING_TUBE,
-  STRUCTURE_MARKERS,
-  TEAM_EMISSIVE,
-  TORUS_SEGMENTS,
-  TRUNK_SEGMENTS,
-  UPDRAFT_HEIGHT,
-  VINE_DEPTH,
-  VINE_WIDTH,
-  WATER_EMISSIVE,
-} from './constants';
-import { ENV_COLOURS, LANE_COLOURS, MATERIAL_COLOURS, TEAM_COLOURS } from '../app/palette';
+import type { BlockoutPrim, Climb, MapData, MaterialTag, PlayerTeam, Vec3 } from '../../sim/core/contracts';
+import { CellBatch, LodInstances, updateBands } from './batch';
+import { bakeAO, paint, retarget } from './materials';
+import type { MaterialId, MaterialLibrary, PaintOptions } from './materials';
+import { chamferBox, column, leafClump, stairs, trunk, tube, wedge } from './shapes';
+import { ART, BACKDROP, CHIMNEY_RADIUS, LANE_ART, SHOP_ART, STATION_ART, SUN, UPDRAFT_HEIGHT, VINE_ART } from './constants';
+import { SHIMMER_FRAGMENT, SHIMMER_VERTEX } from './shimmer';
 
 export interface Blockout {
   /** Everything built from the map; add it to the scene. */
   readonly root: Group;
-  /** Structure-anchor placeholders; hide them once the world spawns real structures. */
-  readonly markers: Object3D;
+  /** Per frame: distance bands, instanced LOD and animated materials. */
+  update(camera: Camera, seconds: number): void;
+  /** Point every mesh at another quality's library (after a quality change). */
+  setLibrary(lib: MaterialLibrary): void;
   dispose(): void;
 }
 
-/** Prims merge into one mesh per group: most tags share a matte material; water and team colours have their own. */
-type PrimGroup = 'matte' | 'water' | 'dawn' | 'dusk';
-const groupOf = (tag: MaterialTag): PrimGroup => (tag === 'water' || tag === 'dawn' || tag === 'dusk' ? tag : 'matte');
+type District = 'hedgerow' | 'riverbank' | 'pinewood' | 'dawn' | 'dusk';
+
+/** What each district builds with (style guide §7.6). */
+interface Palette {
+  readonly stone: MaterialId;
+  readonly stoneTint?: number;
+  readonly brick: MaterialId;
+  readonly wood: MaterialId;
+  readonly roof: MaterialId;
+  readonly gable: MaterialId;
+  readonly paving: MaterialId;
+}
+const PALETTES: Readonly<Record<District, Palette>> = {
+  hedgerow: { stone: 'ashlar', brick: 'brick', wood: 'timberDark', roof: 'roofClay', gable: 'brick', paving: 'flagstone' },
+  riverbank: { stone: 'plaster', brick: 'brick', wood: 'timber', roof: 'roofSlate', gable: 'plaster', paving: 'flagstone' },
+  pinewood: { stone: 'granite', brick: 'brickBurnt', wood: 'timberRed', roof: 'roofShingle', gable: 'timberRed', paving: 'cobble' },
+  dawn: { stone: 'sandstone', brick: 'brick', wood: 'timber', roof: 'roofClay', gable: 'sandstone', paving: 'flagstone' },
+  dusk: { stone: 'granite', stoneTint: ART.duskStoneTint, brick: 'brickBurnt', wood: 'timberDark', roof: 'roofSlate', gable: 'granite', paving: 'flagstone' },
+};
 
 const UP = new Vector3(0, 1, 0);
-const HALF = 0.5;
-const SEGMENTS_ROUND = 48;
-const ROOST_SCALE = 1.5;
-const PILLAR_SIDES = 6;
-const CAP_HEIGHT_RATIO = 0.25;
-const HASH_A = 12.9898;
-const HASH_B = 43758.5453;
 const XYZ = 3;
-const WHITE = 0xffffff;
-const WHITE_COLOUR = new Color(WHITE);
-const SHOP_CANOPY_SIDES = 4;
-/** Ramps in local unit space (see RampPrim): floor at y −½, slope rising from local −z to the top edge at +z. */
-const WEDGE = (() => {
-  const [l, h] = [-HALF, HALF];
-  const A = [l, l, l], B = [h, l, l], C = [h, l, h], D = [l, l, h], E = [l, h, h], F = [h, h, h];
-  const tris = [A, B, C, A, C, D, D, C, F, D, F, E, A, F, B, A, E, F, A, D, E, B, F, C];
-  const g = new BufferGeometry();
-  g.setAttribute('position', new BufferAttribute(new Float32Array(tris.flat()), XYZ));
-  return g;
-})();
-const BOX = new BoxGeometry(1, 1, 1);
-const CYLINDER = new CylinderGeometry(1, 1, 1, CYLINDER_SEGMENTS);
+const TRI = 3;
+const v3 = (p: Vec3): Vector3 => new Vector3(p.x, p.y, p.z);
 
-/** Deterministic 0..1 noise from an integer (stable colours and tree placement between runs). */
+/** Deterministic 0..1 from an integer (stable choices between runs). */
 const hash = (n: number): number => {
-  const s = Math.sin(n * HASH_A) * HASH_B;
+  const s = Math.sin(n * ART.hashA) * ART.hashB;
   return s - Math.floor(s);
 };
-const v3 = (p: Vec3): Vector3 => new Vector3(p.x, p.y, p.z);
-const yawQuat = (yaw: number): Quaternion => new Quaternion().setFromAxisAngle(UP, yaw);
-const trs = (pos: Vector3, q: Quaternion, scale: Vector3): Matrix4 => new Matrix4().compose(pos, q, scale);
 
-/**
- * A flat-shaded, vertex-coloured copy of `template` placed by `m`: non-indexed with face normals (faceted look, no
- * derivative shading) and a darker foot on tall pieces (cheap ambient occlusion).
- */
-function piece(template: BufferGeometry, m: Matrix4, hex: number, shade = 1, foot = false): BufferGeometry {
-  const g = template.index ? template.toNonIndexed() : template.clone();
-  for (const name of Object.keys(g.attributes)) if (name !== 'position') g.deleteAttribute(name);
-  g.applyMatrix4(m);
-  g.computeVertexNormals();
+/** District of a point: inside a Home Roost, else the nearest lane. */
+function districts(map: MapData): (x: number, z: number) => District {
+  const roost = (team: PlayerTeam): Vector3 | null => {
+    const s = map.spawns.filter((a) => a.team === team);
+    if (s.length === 0) return null;
+    return s.reduce((acc, a) => acc.add(v3(a.pos)), new Vector3()).divideScalar(s.length);
+  };
+  const bases = [['dawn', roost('dawn')], ['dusk', roost('dusk')]] as const;
+  const segDist = (x: number, z: number, a: Vec3, b: Vec3): number => {
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / Math.max(dx * dx + dz * dz, ART.epsilon)));
+    return Math.hypot(x - a.x - dx * t, z - a.z - dz * t);
+  };
+  return (x, z) => {
+    for (const [team, c] of bases) if (c && Math.hypot(x - c.x, z - c.z) < ART.baseRadius) return team;
+    let best: District = 'riverbank';
+    let bestD = Infinity;
+    for (const l of map.lanes) {
+      for (let k = 0; k + 1 < l.path.length; k++) {
+        const a = l.path[k];
+        const b = l.path[k + 1];
+        if (!a || !b) continue;
+        const d = segDist(x, z, a, b);
+        if (d < bestD) {
+          bestD = d;
+          best = l.id;
+        }
+      }
+    }
+    return best;
+  };
+}
+
+/** Split a non-indexed geometry's triangles into those facing up (normal.y > minY) and the rest. */
+function splitUp(g: BufferGeometry, minY: number): [BufferGeometry | null, BufferGeometry | null] {
   const pos = g.getAttribute('position');
-  let minY = Infinity;
-  let maxY = -Infinity;
-  for (let i = 0; i < pos.count; i++) {
-    minY = Math.min(minY, pos.getY(i));
-    maxY = Math.max(maxY, pos.getY(i));
+  const nor = g.getAttribute('normal');
+  const up: number[][] = [[], []];
+  const side: number[][] = [[], []];
+  const a = new Vector3();
+  const b = new Vector3();
+  const c = new Vector3();
+  for (let t = 0; t + TRI - 1 < pos.count; t += TRI) {
+    a.fromBufferAttribute(pos, t);
+    b.fromBufferAttribute(pos, t + 1);
+    c.fromBufferAttribute(pos, t + 2);
+    const n = b.clone().sub(a).cross(c.clone().sub(a)).normalize();
+    const into = n.y > minY ? up : side;
+    for (let k = 0; k < TRI; k++) {
+      into[0]?.push(pos.getX(t + k), pos.getY(t + k), pos.getZ(t + k));
+      into[1]?.push(nor.getX(t + k), nor.getY(t + k), nor.getZ(t + k));
+    }
   }
-  const height = maxY - minY;
-  const footShade = foot && height >= PRIM_FOOT_MIN_HEIGHT;
-  const c = new Color(hex).multiplyScalar(shade);
-  const colours = new Float32Array(pos.count * XYZ);
-  for (let i = 0; i < pos.count; i++) {
-    const f = footShade ? PRIM_FOOT_SHADE + (1 - PRIM_FOOT_SHADE) * ((pos.getY(i) - minY) / height) : 1;
-    colours.set([c.r * f, c.g * f, c.b * f], i * XYZ);
-  }
-  g.setAttribute('color', new BufferAttribute(colours, XYZ));
-  return g;
+  const make = ([p, n]: number[][]): BufferGeometry | null => {
+    if (!p || p.length === 0) return null;
+    const out = new BufferGeometry();
+    out.setAttribute('position', new BufferAttribute(new Float32Array(p), XYZ));
+    out.setAttribute('normal', new BufferAttribute(new Float32Array(n ?? []), XYZ));
+    return out;
+  };
+  g.dispose();
+  return [make(up), make(side)];
 }
 
-function primPiece(p: BlockoutPrim, index: number): BufferGeometry {
-  const shade = 1 + (hash(index) * 2 - 1) * PRIM_JITTER;
-  const colour = MATERIAL_COLOURS[p.material];
-  if (p.shape === 'cylinder') {
-    const m = trs(v3(p.centre), new Quaternion(), new Vector3(p.radius, p.height, p.radius));
-    return piece(CYLINDER, m, colour, shade, true);
+interface Ctx {
+  readonly batch: CellBatch;
+  /** Trunk prims whose tops no foliage prim covers: they get a canopy. */
+  readonly foliage: readonly BlockoutPrim[];
+  readonly district: (x: number, z: number) => District;
+  readonly toSun: Vector3;
+}
+
+/** Paint and queue one piece; walls standing on something get the contact band and damp gradient. */
+function put(ctx: Ctx, g: BufferGeometry | null, id: MaterialId, opts: PaintOptions & { ground?: number; band?: 'near' | 'mid' | 'far'; rays?: boolean; cast?: boolean } = {}): void {
+  if (!g) return;
+  const painted = paint(g, id, opts);
+  if (opts.ground !== undefined) {
+    const ground = opts.ground;
+    bakeAO(painted, { rays: false, ground: () => ground });
   }
-  const m = trs(v3(p.centre), yawQuat(p.yaw), v3(p.size));
-  return piece(p.shape === 'box' ? BOX : WEDGE, m, colour, shade, true);
+  ctx.batch.add(painted, { band: opts.band ?? 'far', ...(opts.rays !== undefined && { rays: opts.rays }), ...(opts.cast !== undefined && { cast: opts.cast }) });
 }
 
-/** A straight cylinder from a to b. */
-function strut(a: Vector3, b: Vector3, radius: number, hex: number, sides = CABLE_SEGMENTS_PER_POINT): BufferGeometry {
-  const dir = b.clone().sub(a);
-  const q = new Quaternion().setFromUnitVectors(UP, dir.clone().normalize());
-  const mid = a.clone().add(b).multiplyScalar(HALF);
-  return piece(new CylinderGeometry(1, 1, 1, sides, 1, true), trs(mid, q, new Vector3(radius, dir.length(), radius)), hex);
+/** A prim's transform: centre, yaw. */
+const place = (g: BufferGeometry, centre: Vec3, yaw: number): BufferGeometry => g.rotateY(yaw).translate(centre.x, centre.y, centre.z);
+
+/** Architectural trims (§5.1): plinth at the foot, string courses at each storey, a cornice at the top. */
+function trims(ctx: Ctx, p: BlockoutPrim & { shape: 'box' }, seed: number, stone: MaterialId, tint: number | undefined): void {
+  const { x: sx, y: sy, z: sz } = p.size;
+  const bottom = p.centre.y - sy / 2;
+  const band = (y0: number, h: number, out: number, id: MaterialId, k: number): void => {
+    const g = chamferBox(sx + 2 * out, h, sz + 2 * out, { chamfer: ART.trimChamfer });
+    put(ctx, place(g, { x: p.centre.x, y: y0 + h / 2, z: p.centre.z }, p.yaw), id, { seed: seed + k, band: 'mid', ...(tint !== undefined && { tint }), cast: false, ground: y0 });
+  };
+  band(bottom, ART.plinth.height, ART.plinth.out, stone, 1);
+  for (let y = ART.storey; y < sy - ART.cornice.height - ART.minTrimGap; y += ART.storey) band(bottom + y, ART.string.height, ART.string.out, stone, 2 + y);
+  band(bottom + sy - ART.cornice.height, ART.cornice.height, ART.cornice.out, stone, ART.corniceSeed);
 }
 
-/** A flat ribbon of half-width `hw` along a polyline, mitred at the joints, facing up. */
-function ribbon(path: readonly Vec3[], hw: number, lift: number, hex: number): BufferGeometry | null {
-  if (path.length < 2) return null;
+function boxPrim(ctx: Ctx, p: BlockoutPrim & { shape: 'box' }, i: number): void {
+  const pal = PALETTES[ctx.district(p.centre.x, p.centre.z)];
+  const { x: sx, y: sy, z: sz } = p.size;
+  const minDim = Math.min(sx, sy, sz);
+  const footprint = Math.min(sx, sz);
+  const bottom = p.centre.y - sy / 2;
+  const big = Math.max(sx, sz) > ART.hugePiece;
+  const chamfer = Math.max(ART.chamferMin, Math.min(ART.chamferMax, minDim * ART.chamferShare));
+  const geo = (): BufferGeometry => place(chamferBox(sx, sy, sz, { chamfer, bottom: bottom > ART.groundEps, loops: [ART.contactLoop, ART.dampLoop] }), p.centre, p.yaw);
+  const tag: MaterialTag = p.material;
+  const slab = sy < ART.slabHeight && footprint > ART.slabFootprint;
+  const common = { seed: i, yaw: p.yaw, ground: bottom, ...(big && { rays: false }) } as const;
+  switch (tag) {
+    case 'grass': {
+      const [top, side] = splitUp(geo(), ART.topNormalY);
+      put(ctx, top, 'grass', { ...common, ground: undefined });
+      put(ctx, side, 'earth', common);
+      return;
+    }
+    case 'ground':
+    case 'road': {
+      const [top, side] = splitUp(geo(), ART.topNormalY);
+      put(ctx, top, tag === 'road' ? pal.paving : 'earth', { ...common, ground: undefined });
+      put(ctx, side, pal.stone, common);
+      return;
+    }
+    case 'stone':
+    case 'brick':
+    case 'dawn':
+    case 'dusk': {
+      const id = tag === 'brick' ? pal.brick : pal.stone;
+      const fade = tag === 'dawn' ? ART.dawnFaded : tag === 'dusk' ? ART.duskFaded : pal.stoneTint;
+      const tint = fade;
+      if (slab) {
+        const [top, side] = splitUp(geo(), ART.topNormalY);
+        put(ctx, top, 'flagstone', { ...common, ground: undefined, ...(tint !== undefined && { tint }) });
+        put(ctx, side, id, { ...common, ...(tint !== undefined && { tint }) });
+        return;
+      }
+      const thin = footprint < ART.thinWall;
+      const [top, side] = splitUp(geo(), ART.topNormalY);
+      // Wall tops grow moss (§5.8); broad tops are walkable flat roofs, paved.
+      put(ctx, top, thin && p.centre.y + sy / 2 > ART.mossAbove ? 'moss' : 'flagstone', { ...common, ground: undefined });
+      put(ctx, side, id, { ...common, ...(tint !== undefined && { tint }) });
+      if (!big && sy >= ART.trimMinHeight && footprint >= ART.trimMinFootprint) trims(ctx, p, i * ART.seedStride, tag === 'brick' ? pal.stone : id, tint);
+      return;
+    }
+    case 'wood': {
+      const tall = sy > ART.postRatio * Math.max(sx, sz);
+      if (sy < ART.boardHeight) {
+        const [top, side] = splitUp(geo(), ART.topNormalY);
+        put(ctx, top, 'boards', { ...common, ground: undefined });
+        put(ctx, side, pal.wood, common);
+        return;
+      }
+      put(ctx, geo(), pal.wood, { ...common, turn: tall });
+      return;
+    }
+    case 'roof': {
+      const [top, side] = splitUp(geo(), ART.topNormalY);
+      put(ctx, top, pal.roof, { ...common, ground: undefined });
+      put(ctx, side, pal.gable, common);
+      return;
+    }
+    case 'metal':
+      put(ctx, geo(), 'iron', common);
+      return;
+    case 'water':
+      put(ctx, geo(), 'water', { ...common, ground: undefined, rays: false, cast: false });
+      return;
+    case 'foliage': {
+      put(ctx, place(chamferBox(sx, sy, sz, { chamfer: Math.min(ART.hedgeChamfer, minDim / 2), bottom: false }), p.centre, p.yaw), 'hedge', { ...common, ground: bottom });
+      hedgeFringe(ctx, p, i);
+      return;
+    }
+    case 'trunk':
+      put(ctx, geo(), 'bark', common);
+      return;
+  }
+}
+
+/** A 10–15 cm fringe of leaf cards along a hedge's top edges (§6.2), so the box reads clipped, not solid. */
+function hedgeFringe(ctx: Ctx, p: BlockoutPrim & { shape: 'box' }, seed: number): void {
+  const { x: sx, y: sy, z: sz } = p.size;
+  const parts: BufferGeometry[] = [];
+  const perimeter = 2 * (sx + sz);
+  const n = Math.min(ART.fringeMax, Math.ceil(perimeter / ART.fringeSpacing));
+  for (let k = 0; k < n; k++) {
+    const t = (k + hash(seed * ART.seedStride + k)) / n;
+    let d = t * perimeter;
+    let x = -sx / 2;
+    let z = -sz / 2;
+    if (d < sx) x += d;
+    else if ((d -= sx) < sz) [x, z] = [sx / 2, z + d];
+    else if ((d -= sz) < sx) [x, z] = [sx / 2 - d, sz / 2];
+    else [x, z] = [-sx / 2, sz / 2 - (d - sx)];
+    const { cards } = leafClump(ART.fringeSize, 2, seed * ART.seedStride + k, ctx.toSun, ART.fringeSize * 2);
+    parts.push(cards.translate(x, sy / 2, z));
+  }
+  const merged = parts.length > 0 ? mergeGeometries(parts) : null;
+  for (const g of parts) g.dispose();
+  if (!merged) return;
+  ctx.batch.add(paint(place(merged, p.centre, p.yaw), 'leafCard', { uv: 'keep', tint: ART.hedgeLeafTint }), { kind: 'cutout', cast: false });
+}
+
+function rampPrim(ctx: Ctx, p: BlockoutPrim & { shape: 'ramp' }, i: number): void {
+  const pal = PALETTES[ctx.district(p.centre.x, p.centre.z)];
+  const { x: sx, y: sy, z: sz } = p.size;
+  const bottom = p.centre.y - sy / 2;
+  if (p.material === 'roof') {
+    const [top, side] = splitUp(place(wedge(sx, sy, sz), p.centre, p.yaw), ART.roofNormalY);
+    put(ctx, top, pal.roof, { seed: i });
+    put(ctx, side, pal.gable, { seed: i, ground: bottom });
+    return;
+  }
+  const slope = Math.atan2(sy, sz);
+  const id = p.material === 'wood' ? pal.wood : p.material === 'grass' ? 'earth' : pal.stone;
+  if (slope > ART.stairMin && slope < ART.stairMax) {
+    for (const s of stairs(sx, sy, sz)) put(ctx, place(s, p.centre, p.yaw), id, { seed: i, ground: bottom });
+    return;
+  }
+  put(ctx, place(wedge(sx, sy, sz), p.centre, p.yaw), p.material === 'grass' ? 'grass' : id, { seed: i });
+}
+
+function cylinderPrim(ctx: Ctx, p: BlockoutPrim & { shape: 'cylinder' }, i: number): void {
+  const pal = PALETTES[ctx.district(p.centre.x, p.centre.z)];
+  const base = { x: p.centre.x, y: p.centre.y - p.height / 2, z: p.centre.z };
+  if (p.material === 'trunk') {
+    put(ctx, trunk(p.radius, p.height, i).translate(base.x, base.y, base.z), 'bark', { uv: 'cylinder', seed: i });
+    const top = p.centre.y + p.height / 2;
+    const covered = ctx.foliage.some((f) => f.shape === 'cylinder' && Math.hypot(f.centre.x - p.centre.x, f.centre.z - p.centre.z) < f.radius && f.centre.y + f.height / 2 > top);
+    if (!covered) {
+      const r = p.radius * ART.crownOfTrunk;
+      canopy(ctx, { ...p, material: 'foliage', solid: false, radius: r, height: r * ART.crownHeight, centre: { x: p.centre.x, y: top + r * ART.crownLift, z: p.centre.z } }, i);
+    }
+    return;
+  }
+  if (p.material === 'foliage') {
+    canopy(ctx, p, i);
+    return;
+  }
+  const id: MaterialId = p.material === 'wood' ? pal.wood : p.material === 'water' ? 'water' : p.material === 'metal' ? 'iron' : pal.stone;
+  put(ctx, column(p.radius, p.height).translate(base.x, base.y, base.z), id, { uv: 'cylinder', seed: i, ground: base.y, turn: p.material === 'wood' });
+}
+
+/** A decorative foliage cylinder becomes a canopy of leaf clumps (§6.1): cards with an opaque dark core each. */
+function canopy(ctx: Ctx, p: BlockoutPrim & { shape: 'cylinder' }, i: number): void {
+  const n = Math.max(ART.canopyMinClumps, Math.min(ART.canopyMaxClumps, Math.round((p.radius * p.height) / ART.canopyAreaPerClump)));
+  const r = Math.min(p.radius * ART.clumpOfRadius, p.height * ART.clumpOfHeight);
+  for (let k = 0; k < n; k++) {
+    const s = i * ART.seedStride + k;
+    const a = hash(s) * Math.PI * 2;
+    const d = (p.radius - r) * Math.sqrt(hash(s + 1));
+    const y = p.centre.y + (hash(s + 2) - 1 / 2) * Math.max(0, p.height - r);
+    const count = Math.round(ART.cardsPerM2 * r * r);
+    const { cards, core } = leafClump(r, count, s, ctx.toSun, ART.canopyCard);
+    const at = (g: BufferGeometry): BufferGeometry => g.translate(p.centre.x + Math.cos(a) * d, y, p.centre.z + Math.sin(a) * d);
+    const tint = hash(s + ART.canopyTintSalt) < 1 / 2 ? ART.canopyTint : ART.canopyTintAlt;
+    ctx.batch.add(paint(at(cards), 'leafCard', { uv: 'keep', tint }), { kind: 'cutout', cast: false });
+    put(ctx, at(core), 'hedge', { tint: ART.coreTint, rays: false, cast: true });
+  }
+}
+
+/** Mitred side offsets of a lane path (half-width hw) at each point. */
+function sides(path: readonly Vec3[], hw: number): Vector3[] {
   const dir = (a: Vec3, b: Vec3): Vector3 => new Vector3(b.x - a.x, 0, b.z - a.z).normalize();
   const perp = (v: Vector3): Vector3 => new Vector3(v.z, 0, -v.x);
-  // Mitred offsets: along the bisector of the two segments, lengthened so the width stays hw on both.
-  const side = path.map((p, k) => {
+  return path.map((p, k) => {
     const prev = path[k - 1];
     const next = path[k + 1];
     const seg = next ? dir(p, next) : prev ? dir(prev, p) : new Vector3(0, 0, 1);
     const along = (prev ? dir(prev, p) : seg.clone()).add(next ? seg : dir(prev ?? p, p)).normalize();
     const n = perp(along);
-    return n.multiplyScalar(hw / Math.max(HALF, n.dot(perp(seg))));
+    return n.multiplyScalar(hw / Math.max(1 / 2, n.dot(perp(seg))));
   });
-  const verts: number[] = [];
-  for (let k = 0; k + 1 < path.length; k++) {
-    const [p, q, sp, sq] = [path[k], path[k + 1], side[k], side[k + 1]];
-    if (!p || !q || !sp || !sq) continue;
-    const L = (o: Vec3, s: Vector3, sign: number): number[] => [o.x + s.x * sign, o.y + lift, o.z + s.z * sign];
-    const [pl, pr, ql, qr] = [L(p, sp, 1), L(p, sp, -1), L(q, sq, 1), L(q, sq, -1)];
-    verts.push(...pl, ...pr, ...qr, ...pl, ...qr, ...ql);
-  }
-  const g = new BufferGeometry();
-  g.setAttribute('position', new BufferAttribute(new Float32Array(verts), XYZ));
-  // Winding follows the path direction, so the material is double-sided.
-  return piece(g, new Matrix4(), hex);
 }
 
-function updraftPieces(map: MapData): BufferGeometry[] {
-  const out: BufferGeometry[] = [];
+/** A paved strip across a lane from fraction `from` to `to` of its half-width (−1 left … 1 right), uv in metres. */
+function laneStrip(path: readonly Vec3[], side: readonly Vector3[], hw: number, from: number, to: number, lift: number): BufferGeometry {
+  const pos: number[] = [];
+  const uv: number[] = [];
+  let along = 0;
+  for (let k = 0; k + 1 < path.length; k++) {
+    const [a, b, sa, sb] = [path[k], path[k + 1], side[k], side[k + 1]];
+    if (!a || !b || !sa || !sb) continue;
+    const len = Math.hypot(b.x - a.x, b.z - a.z);
+    const n = Math.max(1, Math.ceil(len / LANE_ART.segment));
+    for (let j = 0; j < n; j++) {
+      const pt = (t: number, f: number): number[] => {
+        const s = sa.clone().lerp(sb, t);
+        return [a.x + (b.x - a.x) * t + s.x * f, a.y + (b.y - a.y) * t + lift, a.z + (b.z - a.z) * t + s.z * f];
+      };
+      const [t0, t1] = [j / n, (j + 1) / n];
+      const [v0, v1] = [along + len * t0, along + len * t1];
+      const quad = [[t0, from, v0], [t1, from, v1], [t1, to, v1], [t0, from, v0], [t1, to, v1], [t0, to, v0]] as const;
+      for (const [t, f, v] of quad) {
+        pos.push(...pt(t, f));
+        uv.push(f * hw, v);
+      }
+    }
+    along += len;
+  }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(new Float32Array(pos), XYZ));
+  g.setAttribute('uv', new BufferAttribute(new Float32Array(uv), 2));
+  // Wound with the path, so face normals may point down: force them up (the strip is flat on the ground).
+  g.setAttribute('normal', new BufferAttribute(new Float32Array(pos.length).map((_, i) => (i % XYZ === 1 ? 1 : 0)), XYZ));
+  return g;
+}
+
+/** Lanes (§2.5): calm paving down the middle, a kerb band of granite setts along both edges. */
+function lanes(ctx: Ctx, map: MapData): void {
+  for (const l of map.lanes) {
+    if (l.path.length < 2) continue;
+    const side = sides(l.path, l.halfWidth);
+    const kerb = 1 - LANE_ART.kerb / l.halfWidth;
+    const paving = LANE_ART.paving[l.id] as MaterialId;
+    ctx.batch.add(paint(laneStrip(l.path, side, l.halfWidth, -kerb, kerb, LANE_ART.lift), paving, { uv: 'keep', tint: LANE_ART.tint }), { rays: false, cast: false });
+    for (const [a, b] of [[-1, -kerb], [kerb, 1]] as const) {
+      ctx.batch.add(paint(laneStrip(l.path, side, l.halfWidth, a, b, LANE_ART.lift + LANE_ART.kerbLift), 'cobble', { uv: 'keep', tint: LANE_ART.kerbTint }), { rays: false, cast: false });
+    }
+  }
+}
+
+/** Updraft stations (§1.4): a tall timber mast with a crossarm, a brass pulley wheel and a feather pennant. */
+function updrafts(ctx: Ctx, map: MapData): void {
   for (const u of map.updrafts) {
     for (let k = 0; k + 1 < u.points.length; k++) {
       const a = u.points[k];
       const b = u.points[k + 1];
-      if (a && b) out.push(strut(v3(a), v3(b), CABLE_RADIUS, ENV_COLOURS.rope));
+      if (a && b) put(ctx, tube(v3(a), v3(b), STATION_ART.cable), 'rope', { uv: 'planar', rays: false, cast: false });
     }
-    for (const s of u.stations) {
+    u.stations.forEach((s, k) => {
       const top = v3(s);
-      out.push(strut(top.clone().setY(s.y - UPDRAFT_HEIGHT), top, STATION_POST_RADIUS, ENV_COLOURS.timberDark));
-      const ring = new TorusGeometry(STATION_RING_RADIUS, STATION_RING_TUBE, TORUS_SEGMENTS.radial, TORUS_SEGMENTS.tubular);
-      out.push(piece(ring, trs(top, new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), Math.PI / 2), new Vector3(1, 1, 1)), ENV_COLOURS.rope));
-    }
-  }
-  return out;
-}
-
-function vinePieces(map: MapData): BufferGeometry[] {
-  return map.climbs
-    .filter((c) => c.kind === 'vine')
-    .map((c) => {
-      const height = Math.max(0, c.top.y - c.bottom.y);
-      const centre = v3(c.bottom).add(v3(c.top)).multiplyScalar(HALF).addScaledVector(v3(c.out), VINE_DEPTH * HALF);
-      const yaw = Math.atan2(c.out.x, c.out.z);
-      return piece(BOX, trs(centre, yawQuat(yaw), new Vector3(VINE_WIDTH, height, VINE_DEPTH)), ENV_COLOURS.hedge, 1, true);
+      const foot = top.y - UPDRAFT_HEIGHT;
+      put(ctx, column(STATION_ART.mast, UPDRAFT_HEIGHT + STATION_ART.above).translate(top.x, foot, top.z), 'timberDark', { uv: 'cylinder', turn: true, ground: foot });
+      put(ctx, chamferBox(STATION_ART.arm, STATION_ART.armSection, STATION_ART.armSection, { chamfer: ART.trimChamfer }).translate(top.x, top.y + STATION_ART.above * STATION_ART.armAt, top.z), 'timberDark', {});
+      const wheel = new TorusGeometry(STATION_ART.wheel, STATION_ART.wheelTube, STATION_ART.wheelSides, STATION_ART.wheelSegments).toNonIndexed();
+      put(ctx, wheel.rotateY(Math.PI / 2).translate(top.x, top.y + STATION_ART.wheelUp, top.z), 'brass', { uv: 'cylinder', cast: false });
+      const pennant = new PlaneGeometry(STATION_ART.pennant.w, STATION_ART.pennant.h);
+      pennant.rotateZ(-Math.PI / 2).translate(STATION_ART.pennant.h / 2, 0, 0);
+      pennant.rotateY(hash(k + top.x) * Math.PI).translate(top.x, top.y + STATION_ART.above, top.z);
+      ctx.batch.add(paint(pennant, 'featherCard', { uv: 'keep', tint: STATION_ART.pennantTint }), { kind: 'cutout', cast: false });
     });
+  }
 }
 
-function shopPieces(map: MapData): BufferGeometry[] {
-  const out: BufferGeometry[] = [];
-  const flat = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -Math.PI / 2);
+/** Vines (§1.4): a rope-wrapped frame with thick flowering stems (cream blossom), unmistakable at 40 m. */
+function vines(ctx: Ctx, climbs: readonly Climb[]): void {
+  climbs.filter((c) => c.kind === 'vine').forEach((c, i) => {
+    const bottom = v3(c.bottom);
+    const top = v3(c.top);
+    const out = v3(c.out).setY(0).normalize();
+    const across = new Vector3().crossVectors(UP, out).normalize();
+    const h = top.y - bottom.y;
+    for (const sg of [-1, 1]) {
+      const at = bottom.clone().addScaledVector(across, (sg * VINE_ART.width) / 2).addScaledVector(out, VINE_ART.off);
+      put(ctx, column(VINE_ART.post, h).translate(at.x, at.y, at.z), 'rope', { uv: 'cylinder', ground: bottom.y });
+    }
+    const leaves: BufferGeometry[] = [];
+    const blossoms: BufferGeometry[] = [];
+    for (let s = 0; s < VINE_ART.stems; s++) {
+      const x0 = (s / (VINE_ART.stems - 1) - 1 / 2) * VINE_ART.width * VINE_ART.stemSpread;
+      const n = Math.max(2, Math.ceil(h / VINE_ART.step));
+      let prev = bottom.clone().addScaledVector(across, x0).addScaledVector(out, VINE_ART.off);
+      for (let k = 1; k <= n; k++) {
+        const y = (k / n) * h;
+        const sway = Math.sin(y * VINE_ART.waveFreq + s * 2 + i) * VINE_ART.wave;
+        const next = bottom.clone().addScaledVector(across, x0 + sway).addScaledVector(out, VINE_ART.off).setY(bottom.y + y);
+        put(ctx, tube(prev, next, VINE_ART.stem), 'bark', { uv: 'cylinder', rays: false, cast: false, tint: VINE_ART.stemTint });
+        const seed = (i * ART.seedStride + s) * ART.seedStride + k;
+        const { cards } = leafClump(VINE_ART.clump, VINE_ART.cardsPerClump, seed, ctx.toSun, VINE_ART.leafCard);
+        leaves.push(cards.translate(next.x, next.y, next.z));
+        if (hash(seed) < VINE_ART.blossomChance) {
+          const b = leafClump(VINE_ART.blossom, VINE_ART.blossomCards, seed + 1, ctx.toSun, VINE_ART.blossom * 2).cards;
+          blossoms.push(b.translate(next.x, next.y, next.z).translate(out.x * VINE_ART.blossomOut, 0, out.z * VINE_ART.blossomOut));
+        }
+        prev = next;
+      }
+    }
+    for (const [list, tint] of [[leaves, VINE_ART.leafTint], [blossoms, VINE_ART.blossomTint]] as const) {
+      const g = list.length > 0 ? mergeGeometries(list) : null;
+      for (const x of list) x.dispose();
+      if (g) ctx.batch.add(paint(g, 'leafCard', { uv: 'keep', tint }), { kind: 'cutout', cast: false });
+    }
+  });
+}
+
+/** Seed stalls at shops (§5.6): four posts and a striped canvas awning in faded flock tint, a painted floor ring. */
+function shops(ctx: Ctx, map: MapData): void {
   for (const s of map.shops) {
-    const colours = TEAM_COLOURS[s.team];
+    const k = s.kind === 'roost' ? SHOP_ART.roostScale : 1;
     const at = v3(s.pos);
-    const ring = new RingGeometry(s.radius - SHOP_RING_WIDTH, s.radius, SEGMENTS_ROUND);
-    out.push(piece(ring, trs(at.clone().setY(s.pos.y + SHOP_RING_LIFT), flat, new Vector3(1, 1, 1)), colours.primary));
-    const k = s.kind === 'roost' ? ROOST_SCALE : 1;
-    const postTop = at.clone().setY(s.pos.y + SHOP_CANOPY.post * k);
-    out.push(strut(at, postTop, STATION_POST_RADIUS * k, ENV_COLOURS.timber));
-    const cone = new ConeGeometry(SHOP_CANOPY.radius * k, SHOP_CANOPY.height * k, SHOP_CANOPY_SIDES);
-    const conePos = postTop.clone().setY(postTop.y + (SHOP_CANOPY.height * k) / 2);
-    out.push(piece(cone, trs(conePos, yawQuat(s.yaw + Math.PI / SHOP_CANOPY_SIDES), new Vector3(1, 1, 1)), colours.light));
+    const tint = s.team === 'dawn' ? ART.dawnFaded : ART.duskFaded;
+    const half = (SHOP_ART.width * k) / 2;
+    const q = new Quaternion().setFromAxisAngle(UP, s.yaw);
+    for (const [cx, cz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
+      const p = new Vector3(cx * half, 0, cz * half).applyQuaternion(q).add(at);
+      put(ctx, column(SHOP_ART.post, SHOP_ART.height * k).translate(p.x, at.y, p.z), 'timber', { uv: 'cylinder', turn: true, ground: at.y });
+    }
+    const roofG = new CylinderGeometry(0, half * Math.SQRT2 * SHOP_ART.overhang, SHOP_ART.rise * k, SHOP_ART.awningSides, 1, true).toNonIndexed();
+    roofG.rotateY(Math.PI / SHOP_ART.awningSides + s.yaw).translate(at.x, at.y + SHOP_ART.height * k + (SHOP_ART.rise * k) / 2, at.z);
+    put(ctx, roofG, 'canvas', { tint, rays: false });
+    put(ctx, flatRing(s.radius - SHOP_ART.ringWidth, s.radius).translate(at.x, at.y + SHOP_ART.ringLift, at.z), 'flagstone', { tint, rays: false, cast: false });
   }
-  return out;
 }
 
-function markerPieces(map: MapData): BufferGeometry[] {
-  const out: BufferGeometry[] = [];
-  for (const s of map.structures) {
-    const { radius, height } = STRUCTURE_MARKERS[s.type];
-    const colours = TEAM_COLOURS[s.team];
-    const base = v3(s.pos);
-    const plinth = trs(base.clone().setY(s.pos.y + MARKER_PLINTH_HEIGHT / 2), new Quaternion(), new Vector3(radius * MARKER_PLINTH_SCALE, MARKER_PLINTH_HEIGHT, radius * MARKER_PLINTH_SCALE));
-    out.push(piece(CYLINDER, plinth, MATERIAL_COLOURS.stone, 1));
-    const pillarH = height * (1 - CAP_HEIGHT_RATIO);
-    const pillar = new CylinderGeometry(radius * (1 - CAP_HEIGHT_RATIO), radius, 1, PILLAR_SIDES);
-    out.push(piece(pillar, trs(base.clone().setY(s.pos.y + MARKER_PLINTH_HEIGHT + pillarH / 2), yawQuat(s.yaw), new Vector3(1, pillarH, 1)), colours.primary, 1, true));
-    const capH = height * CAP_HEIGHT_RATIO;
-    const cap = new ConeGeometry(radius, capH, PILLAR_SIDES);
-    out.push(piece(cap, trs(base.clone().setY(s.pos.y + MARKER_PLINTH_HEIGHT + pillarH + capH / 2), yawQuat(s.yaw), new Vector3(1, 1, 1)), colours.light));
+/** A flat ring on the ground, facing up. */
+function flatRing(inner: number, outer: number): BufferGeometry {
+  const pos: number[] = [];
+  const n = SHOP_ART.ringSides;
+  for (let k = 0; k < n; k++) {
+    const [a0, a1] = [(k / n) * Math.PI * 2, ((k + 1) / n) * Math.PI * 2];
+    const p = (r: number, a: number): number[] => [Math.cos(a) * r, 0, -Math.sin(a) * r];
+    pos.push(...p(inner, a0), ...p(outer, a0), ...p(outer, a1), ...p(inner, a0), ...p(outer, a1), ...p(inner, a1));
   }
-  return out;
+  const g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(new Float32Array(pos), XYZ));
+  g.computeVertexNormals();
+  return g;
 }
 
-function lambert(opts: ConstructorParameters<typeof MeshLambertMaterial>[0]): MeshLambertMaterial {
-  return new MeshLambertMaterial({ vertexColors: true, ...opts });
-}
-
-/** Merge pieces into one mesh, or nothing if there are none. */
-function merged(parts: BufferGeometry[], material: Material, name: string, cast = true): Mesh | null {
-  if (parts.length === 0) {
-    material.dispose();
-    return null;
-  }
-  const geometry = mergeGeometries(parts);
+/** Chimneys (§1.4): a column of warm shimmer rising through the shaft (additive, never opaque). */
+function chimneys(map: MapData): Mesh | null {
+  const parts = map.climbs
+    .filter((c) => c.kind === 'chimney')
+    .map((c) => {
+      const h = Math.max(0, c.top.y - c.bottom.y);
+      const g = new CylinderGeometry(CHIMNEY_RADIUS, CHIMNEY_RADIUS, h, BACKDROP.shimmerSides, 1, true);
+      return g.translate(c.bottom.x, c.bottom.y + h / 2, c.bottom.z);
+    });
+  if (parts.length === 0) return null;
+  const g = mergeGeometries(parts);
   for (const p of parts) p.dispose();
-  const mesh = new Mesh(geometry, material);
-  mesh.name = name;
-  mesh.castShadow = cast;
-  mesh.receiveShadow = true;
+  const mat = new ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uColour: { value: new Color(BACKDROP.shimmerColour) }, uStrength: { value: BACKDROP.shimmerStrength } },
+    vertexShader: SHIMMER_VERTEX,
+    fragmentShader: SHIMMER_FRAGMENT,
+    transparent: true,
+    depthWrite: false,
+    blending: AdditiveBlending,
+    side: DoubleSide,
+  });
+  const mesh = new Mesh(g, mat);
+  mesh.name = 'chimneys';
+  mesh.renderOrder = 1;
   return mesh;
 }
 
-/** Per-tree random draws (see hash): salts for each property. */
-const TREE = { place: 0, jitter: 1, height: 2, radius: 3, canopy: 4, spin: 5, green: 6, stride: 7 } as const;
-
 /**
- * Rings of giant trees around the bounds and a floor to the horizon (decoration only). Tree size and spacing scale with the
- * map's depth up to BACKDROP.refDepth, so a small test map sits in a clearing rather than a wall of trunks.
+ * The forest beyond the bounds (decoration only): a ground plane to the horizon and rings of giant trees, each an
+ * instanced bark trunk and a canopy of leaf clumps. Sizes and spacing scale with the map's depth.
  */
-function backdrop(map: MapData): Object3D[] {
+function backdrop(map: MapData, lib: MaterialLibrary, toSun: Vector3): { objects: (Mesh | Group)[]; instances: LodInstances[] } {
   const { min, max } = map.bounds;
-  const floorMat = new MeshLambertMaterial({ color: ENV_COLOURS.moss });
-  const floor = new Mesh(new PlaneGeometry(BACKDROP.floorSize, BACKDROP.floorSize), floorMat);
+  const floorG = new PlaneGeometry(BACKDROP.floorSize, BACKDROP.floorSize).rotateX(-Math.PI / 2).toNonIndexed();
+  floorG.translate((min.x + max.x) / 2, BACKDROP.floorY, (min.z + max.z) / 2);
+  const floor = new Mesh(paint(floorG, 'grass', { tint: BACKDROP.floorTint }), lib.opaque);
   floor.name = 'backdrop-floor';
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set((min.x + max.x) / 2, BACKDROP.floorY, (min.z + max.z) / 2);
   floor.receiveShadow = true;
+  floor.userData['budget'] = 'map';
 
   const k = Math.min(1, Math.max(BACKDROP.minScale, (max.z - min.z) / BACKDROP.refDepth));
   const spacing = BACKDROP.treeSpacing * k;
@@ -284,83 +540,88 @@ function backdrop(map: MapData): Object3D[] {
   for (let r = 0; r < BACKDROP.rings; r++) {
     const o = BACKDROP.margin + r * BACKDROP.ringSpacing * k;
     const [x0, x1, z0, z1] = [min.x - o, max.x + o, min.z - o, max.z + o];
-    const sides = [[x0, z0, x1, z0], [x1, z0, x1, z1], [x1, z1, x0, z1], [x0, z1, x0, z0]] as const;
-    for (const [ax, az, bx, bz] of sides) {
+    const edges = [[x0, z0, x1, z0], [x1, z0, x1, z1], [x1, z1, x0, z1], [x0, z1, x0, z0]] as const;
+    for (const [ax, az, bx, bz] of edges) {
       const n = Math.max(1, Math.round(Math.hypot(bx - ax, bz - az) / spacing));
       for (let i = 0; i < n; i++) {
-        const id = spots.length * TREE.stride;
-        const t = (i + hash(id + TREE.place) * BACKDROP.scatter) / n;
-        const j = (hash(id + TREE.jitter) - HALF) * BACKDROP.scatter * spacing;
+        const id = spots.length * BACKDROP.stride;
+        const t = (i + hash(id) * BACKDROP.scatter) / n;
+        const j = (hash(id + 1) - 1 / 2) * BACKDROP.scatter * spacing;
         spots.push({ x: ax + (bx - ax) * t + j, z: az + (bz - az) * t + j });
       }
     }
   }
-  const pick = (range: { min: number; max: number }, id: number): number => (range.min + (range.max - range.min) * hash(id)) * k;
-  const trunks = new InstancedMesh(piece(new CylinderGeometry(1, 1, 1, TRUNK_SEGMENTS), new Matrix4(), WHITE), lambert({}), spots.length);
-  const canopies = new InstancedMesh(piece(new IcosahedronGeometry(1, 0), new Matrix4(), WHITE), lambert({}), spots.length);
-  const greens = [ENV_COLOURS.canopy, ENV_COLOURS.pine, ENV_COLOURS.hedge].map((h) => new Color(h));
-  const bark = [ENV_COLOURS.timberDark, MATERIAL_COLOURS.trunk].map((h) => new Color(h));
-  const still = new Quaternion();
-  spots.forEach((s, i) => {
-    const id = i * TREE.stride;
-    const h = pick(BACKDROP.trunkHeight, id + TREE.height);
-    const r = pick(BACKDROP.trunkRadius, id + TREE.radius);
-    const cr = pick(BACKDROP.canopyRadius, id + TREE.canopy);
-    trunks.setMatrixAt(i, trs(new Vector3(s.x, h / 2, s.z), still, new Vector3(r, h, r)));
-    const cy = h + cr * BACKDROP.canopySquash * (HALF - BACKDROP.canopySink);
-    const spin = yawQuat(hash(id + TREE.spin) * Math.PI);
-    canopies.setMatrixAt(i, trs(new Vector3(s.x, cy, s.z), spin, new Vector3(cr, cr * BACKDROP.canopySquash, cr)));
-    canopies.setColorAt(i, greens[Math.floor(hash(id + TREE.green) * greens.length)] ?? WHITE_COLOUR);
-    trunks.setColorAt(i, bark[i % bark.length] ?? WHITE_COLOUR);
+  // Variants built at unit-ish size and instanced with a uniform scale (bark and leaves keep their proportions).
+  const trunkG = paint(trunk(BACKDROP.trunkRadius, BACKDROP.trunkHeight, BACKDROP.trunkSeed), 'bark', { uv: 'cylinder' });
+  const canopyParts = BACKDROP.clumps.map(({ x, y, z, r }, i) => {
+    const { cards, core } = leafClump(r, BACKDROP.cardsPerClump, BACKDROP.canopySeed + i, toSun, r * BACKDROP.cardOfClump);
+    return { cards: cards.translate(x, y, z), core: core.translate(x, y, z) };
   });
-  // Receive only: their long evening shadows would darken both bases.
-  trunks.receiveShadow = true;
-  canopies.receiveShadow = true;
-  trunks.name = 'backdrop-trunks';
-  canopies.name = 'backdrop-canopies';
-  return [floor, trunks, canopies];
+  const cards = paint(mergeGeometries(canopyParts.map((c) => c.cards)), 'leafCard', { uv: 'keep', tint: BACKDROP.leafTint });
+  const cores = paint(mergeGeometries(canopyParts.map((c) => c.core)), 'hedge', { tint: ART.coreTint });
+  for (const c of canopyParts) {
+    c.cards.dispose();
+    c.core.dispose();
+  }
+  const trunks = new LodInstances([{ geometry: trunkG, maxDistance: Infinity }], lib.opaque, spots.length, { name: 'backdrop-trunks' });
+  const leaves = new LodInstances([{ geometry: cards, maxDistance: Infinity }], lib.cutout, spots.length, { name: 'backdrop-canopy', depth: lib.cutoutDepth });
+  const coreSet = new LodInstances([{ geometry: cores, maxDistance: Infinity }], lib.opaque, spots.length, { name: 'backdrop-cores' });
+  const m = new Matrix4();
+  const q = new Quaternion();
+  const colour = new Color();
+  spots.forEach((s, i) => {
+    const id = i * BACKDROP.stride;
+    const scale = k * (BACKDROP.scaleMin + (BACKDROP.scaleMax - BACKDROP.scaleMin) * hash(id + 2));
+    q.setFromAxisAngle(UP, hash(id + BACKDROP.yawSalt) * Math.PI * 2);
+    m.compose(new Vector3(s.x, 0, s.z), q, new Vector3(scale, scale, scale));
+    trunks.add(m);
+    colour.setScalar(BACKDROP.shadeMin + (1 - BACKDROP.shadeMin) * hash(id + BACKDROP.shadeSalt));
+    leaves.add(m, colour.clone());
+    coreSet.add(m);
+  });
+  return { objects: [floor], instances: [trunks, leaves, coreSet] };
 }
 
-export function buildBlockout(map: MapData): Blockout {
+export function buildBlockout(map: MapData, lib: MaterialLibrary): Blockout {
   const root = new Group();
   root.name = 'blockout';
-
-  const byGroup: Record<PrimGroup, BufferGeometry[]> = { matte: [], water: [], dawn: [], dusk: [] };
-  map.prims.forEach((p, i) => byGroup[groupOf(p.material)].push(primPiece(p, i)));
-  const emissive = (hex: number, k: number) => ({ emissive: hex, emissiveIntensity: k });
-  const meshes = [
-    merged(byGroup.matte, lambert({}), 'prims'),
-    merged(byGroup.water, lambert(emissive(MATERIAL_COLOURS.water, WATER_EMISSIVE)), 'prims-water', false),
-    merged(byGroup.dawn, lambert(emissive(TEAM_COLOURS.dawn.primary, TEAM_EMISSIVE)), 'prims-dawn'),
-    merged(byGroup.dusk, lambert(emissive(TEAM_COLOURS.dusk.primary, TEAM_EMISSIVE)), 'prims-dusk'),
-    merged([...updraftPieces(map), ...vinePieces(map), ...shopPieces(map)], lambert({}), 'features'),
-  ];
-
-  const lanes = map.lanes.flatMap((l) => ribbon(l.path, l.halfWidth, LANE_LIFT, LANE_COLOURS[l.id]) ?? []);
-  const laneMat = lambert({ transparent: true, opacity: LANE_OPACITY, depthWrite: false, side: DoubleSide, forceSinglePass: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  meshes.push(merged(lanes, laneMat, 'lanes', false));
-
-  const chimneys = map.climbs
-    .filter((c) => c.kind === 'chimney')
-    .map((c) => strut(v3(c.bottom), v3(c.top), CHIMNEY_RADIUS, ENV_COLOURS.warmAir, CYLINDER_SEGMENTS));
-  const airMat = lambert({ transparent: true, opacity: CHIMNEY_OPACITY, depthWrite: false, side: DoubleSide, forceSinglePass: true, emissive: ENV_COLOURS.warmAir, emissiveIntensity: HALF });
-  meshes.push(merged(chimneys, airMat, 'chimneys', false));
-
-  const markerMesh = merged(markerPieces(map), lambert({}), 'structure-markers');
-  const markers = markerMesh ?? new Object3D();
-  for (const m of meshes) if (m) root.add(m);
-  root.add(markers, ...backdrop(map));
-
+  const toSun = new Vector3(SUN.azimuth.x * Math.cos(SUN.elevationDeg * ART.deg), Math.sin(SUN.elevationDeg * ART.deg), SUN.azimuth.z * Math.cos(SUN.elevationDeg * ART.deg)).normalize();
+  const ctx: Ctx = { batch: new CellBatch(), foliage: map.prims.filter((p) => p.material === 'foliage' && p.shape === 'cylinder'), district: districts(map), toSun };
+  map.prims.forEach((p, i) => {
+    if (p.shape === 'box') boxPrim(ctx, p, i);
+    else if (p.shape === 'ramp') rampPrim(ctx, p, i);
+    else cylinderPrim(ctx, p, i);
+  });
+  lanes(ctx, map);
+  updrafts(ctx, map);
+  vines(ctx, map.climbs);
+  shops(ctx, map);
+  const mapRoot = ctx.batch.build(lib, 'map');
+  root.add(mapRoot);
+  const shimmer = chimneys(map);
+  if (shimmer) root.add(shimmer);
+  const back = backdrop(map, lib, toSun);
+  root.add(...back.objects, ...back.instances.map((x) => x.root));
   return {
     root,
-    markers,
+    update(camera, seconds) {
+      updateBands(mapRoot, camera.position);
+      for (const x of back.instances) x.update(camera);
+      const time = shimmer ? (shimmer.material as ShaderMaterial).uniforms['uTime'] : undefined;
+      if (time) time.value = seconds;
+    },
+    setLibrary(next) {
+      retarget(root, next);
+    },
     dispose() {
       root.traverse((o) => {
         if (o instanceof Mesh) {
           o.geometry.dispose();
-          (o.material as Material).dispose();
+          const m = o.material as Material;
+          if (!m.userData['perchKind']) m.dispose();
         }
       });
+      for (const x of back.instances) x.dispose();
     },
   };
 }

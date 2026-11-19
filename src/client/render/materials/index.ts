@@ -40,7 +40,7 @@ import type { Quality } from '../../app/contracts';
 import { halve, renderLayer } from './generate';
 import { MATERIAL_IDS, RECIPES } from './data/recipes';
 import type { MaterialId, Recipe } from './data/recipes';
-import { MATERIAL_TIERS, MACRO_VARIATION, ENV_INTENSITY, WATER_FLOW, PIECE_VARIATION, AO, ALPHA_CUTOFF } from './constants';
+import { MATERIAL_TIERS, MACRO_VARIATION, EMISSIVE_HDR, ENV_INTENSITY, WATER_FLOW, PIECE_VARIATION, AO, ALPHA_CUTOFF } from './constants';
 
 export { MATERIAL_IDS, RECIPES } from './data/recipes';
 export type { MaterialId, Recipe } from './data/recipes';
@@ -258,7 +258,7 @@ export function getMaterialLibrary(quality: Quality): MaterialLibrary {
     tMatAlbedo: { value: albedo },
     tMatOrm: { value: orm },
     tMatNormal: { value: normal },
-    uMatEmissive: { value: MATERIAL_IDS.map((id) => RECIPES[id].emissive ?? 0) },
+    uMatEmissive: { value: MATERIAL_IDS.map((id) => (RECIPES[id].emissive ?? 0) * EMISSIVE_HDR) },
     uMatMacro: { value: MACRO_VARIATION.strength },
     uMatTime: { value: 0 },
     uMatWater: { value: layerOf('water') },
@@ -347,6 +347,8 @@ export interface PaintOptions {
   readonly offset?: readonly [number, number];
   /** Per-piece §4.4 variation (hue ±3°, value ±5 %) from this stable seed; none when absent. */
   readonly seed?: number;
+  /** Swap u and v: planks and grain run up the piece (posts, masts, vertical boards). */
+  readonly turn?: boolean;
 }
 
 const UP = new Vector3(0, 1, 0);
@@ -438,6 +440,9 @@ export function paint(geometry: BufferGeometry, id: MaterialId, opts: PaintOptio
       }
     }
   }
+  if (opts.turn) {
+    for (let i = 0; i < n; i++) [uv[i * 2], uv[i * 2 + 1]] = [uv[i * 2 + 1] ?? 0, uv[i * 2] ?? 0];
+  }
   g.setAttribute('uv', new BufferAttribute(uv, 2));
   g.setAttribute('matLayer', new BufferAttribute(new Float32Array(n).fill(layerOf(id)), 1));
   const tint = new Color(opts.tint ?? WHITE);
@@ -467,6 +472,10 @@ export interface AoOptions {
   readonly ground?: (x: number, z: number) => number;
   /** Overall strength 0..1 (default 1). */
   readonly strength?: number;
+  /** Trace occlusion rays (default true). False applies only the gradient terms: cheap, per piece. */
+  readonly rays?: boolean;
+  /** Darken faces turned down, under overhangs (default true). */
+  readonly underside?: boolean;
 }
 
 /** Hemisphere directions in tangent space (z = along the normal), cosine-weighted, fixed so bakes repeat. */
@@ -489,10 +498,12 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
   const max = new Vector3(-Infinity, -Infinity, -Infinity);
   geometry.computeBoundingBox();
   if (!geometry.boundingBox) return;
+  const rays = opts.rays ?? true;
   min.copy(geometry.boundingBox.min).subScalar(reach);
   max.copy(geometry.boundingBox.max).addScalar(reach);
   const size = new Vector3().subVectors(max, min);
   let voxel = opts.voxel ?? AO.voxel;
+  if (!rays) voxel = Math.max(voxel, reach);
   while ((size.x / voxel) * (size.y / voxel) * (size.z / voxel) > AO.maxVoxels) voxel *= AO.voxelGrowth;
   const nx = Math.max(1, Math.ceil(size.x / voxel));
   const ny = Math.max(1, Math.ceil(size.y / voxel));
@@ -504,32 +515,65 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
     const k = Math.floor((z - min.z) / voxel);
     return i < 0 || j < 0 || k < 0 || i >= nx || j >= ny || k >= nz ? -1 : (k * ny + j) * nx + i;
   };
-  const a = new Vector3();
-  const b = new Vector3();
-  const c = new Vector3();
-  const e1 = new Vector3();
-  const e2 = new Vector3();
-  for (const src of sources) {
+  // Voxelise: a triangle outside the grid is skipped; a big one is split in four until it is about a voxel, so
+  // only the part inside the grid costs anything (a 260 m ground slab next to a 10 m house stays cheap).
+  const [x0, y0, z0, x1, y1, z1] = [min.x, min.y, min.z, max.x, max.y, max.z];
+  const leaf = voxel * AO.leafVoxels;
+  // Only the space within reach of a baked vertex matters: a coarse mask of it lets voxelising skip the rest.
+  const coarse = Math.max(voxel * AO.coarseVoxels, reach);
+  const [cnx, cny, cnz] = [Math.ceil(size.x / coarse) + 1, Math.ceil(size.y / coarse) + 1, Math.ceil(size.z / coarse) + 1];
+  const need = new Uint8Array(cnx * cny * cnz);
+  const cIdx = (x: number, y: number, z: number): number => {
+    const i = Math.floor((x - x0) / coarse);
+    const j = Math.floor((y - y0) / coarse);
+    const k = Math.floor((z - z0) / coarse);
+    return i < 0 || j < 0 || k < 0 || i >= cnx || j >= cny || k >= cnz ? -1 : (k * cny + j) * cnx + i;
+  };
+  if (rays) {
+    const vp = geometry.getAttribute('position');
+    for (let v = 0; v < vp.count; v++) {
+      for (let dk = -1; dk <= 1; dk++) for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+        const at = cIdx(vp.getX(v) + di * coarse, vp.getY(v) + dj * coarse, vp.getZ(v) + dk * coarse);
+        if (at >= 0) need[at] = 1;
+      }
+    }
+  }
+  const mark = (x: number, y: number, z: number): void => {
+    const at = cell(x, y, z);
+    if (at >= 0) grid[at] = 1;
+  };
+  const voxelise = (ax: number, ay: number, az: number, bx: number, by: number, bz: number, cx: number, cy: number, cz: number): void => {
+    if (Math.max(ax, bx, cx) < x0 || Math.min(ax, bx, cx) > x1 || Math.max(ay, by, cy) < y0 || Math.min(ay, by, cy) > y1 || Math.max(az, bz, cz) < z0 || Math.min(az, bz, cz) > z1) return;
+    const ext = Math.max(Math.max(ax, bx, cx) - Math.min(ax, bx, cx), Math.max(ay, by, cy) - Math.min(ay, by, cy), Math.max(az, bz, cz) - Math.min(az, bz, cz));
+    if (ext <= coarse) {
+      const at = cIdx((ax + bx + cx) / XYZ, (ay + by + cy) / XYZ, (az + bz + cz) / XYZ);
+      if (at < 0 || !need[at]) return;
+    }
+    if (ext <= leaf) {
+      mark(ax, ay, az);
+      mark(bx, by, bz);
+      mark(cx, cy, cz);
+      mark((ax + bx + cx) / XYZ, (ay + by + cy) / XYZ, (az + bz + cz) / XYZ);
+      mark((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2);
+      mark((bx + cx) / 2, (by + cy) / 2, (bz + cz) / 2);
+      mark((cx + ax) / 2, (cy + ay) / 2, (cz + az) / 2);
+      return;
+    }
+    const [mx, my, mz] = [(ax + bx) / 2, (ay + by) / 2, (az + bz) / 2];
+    const [nx2, ny2, nz2] = [(bx + cx) / 2, (by + cy) / 2, (bz + cz) / 2];
+    const [ox, oy, oz] = [(cx + ax) / 2, (cy + ay) / 2, (cz + az) / 2];
+    voxelise(ax, ay, az, mx, my, mz, ox, oy, oz);
+    voxelise(mx, my, mz, bx, by, bz, nx2, ny2, nz2);
+    voxelise(ox, oy, oz, nx2, ny2, nz2, cx, cy, cz);
+    voxelise(mx, my, mz, nx2, ny2, nz2, ox, oy, oz);
+  };
+  for (const src of rays ? sources : []) {
     const pos = src.getAttribute('position');
     const idx = src.index;
     const count = idx ? idx.count : pos.count;
     for (let t = 0; t + TRI - 1 < count; t += TRI) {
-      a.fromBufferAttribute(pos, idx ? idx.getX(t) : t);
-      b.fromBufferAttribute(pos, idx ? idx.getX(t + 1) : t + 1);
-      c.fromBufferAttribute(pos, idx ? idx.getX(t + 2) : t + 2);
-      // Skip triangles wholly outside the grid; sample the rest at half-voxel spacing, clipped to the grid.
-      if (Math.max(a.x, b.x, c.x) < min.x || Math.min(a.x, b.x, c.x) > max.x || Math.max(a.y, b.y, c.y) < min.y || Math.min(a.y, b.y, c.y) > max.y || Math.max(a.z, b.z, c.z) < min.z || Math.min(a.z, b.z, c.z) > max.z) continue;
-      e1.subVectors(b, a);
-      e2.subVectors(c, a);
-      const steps = Math.min(AO.maxSamplesPerEdge, Math.ceil((Math.max(e1.length(), e2.length()) * 2) / voxel));
-      for (let i = 0; i <= steps; i++) {
-        for (let j = 0; j <= steps - i; j++) {
-          const s = i / steps;
-          const r = j / steps;
-          const at = cell(a.x + e1.x * s + e2.x * r, a.y + e1.y * s + e2.y * r, a.z + e1.z * s + e2.z * r);
-          if (at >= 0) grid[at] = 1;
-        }
-      }
+      const [i, j, k] = idx ? [idx.getX(t), idx.getX(t + 1), idx.getX(t + 2)] : [t, t + 1, t + 2];
+      voxelise(pos.getX(i), pos.getY(i), pos.getZ(i), pos.getX(j), pos.getY(j), pos.getZ(j), pos.getX(k), pos.getY(k), pos.getZ(k));
     }
   }
   const pos = geometry.getAttribute('position');
@@ -550,7 +594,7 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
     ty.crossVectors(n, tx);
     o.fromBufferAttribute(pos, v).addScaledVector(n, voxel * AO.lift);
     let occ = 0;
-    for (const [rx, ry, rz] of RAYS) {
+    for (const [rx, ry, rz] of rays ? RAYS : []) {
       const dx = tx.x * rx + ty.x * ry + n.x * rz;
       const dy = tx.y * rx + ty.y * ry + n.y * rz;
       const dz = tx.z * rx + ty.z * ry + n.z * rz;
@@ -564,7 +608,7 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
       }
     }
     let f = 1 - AO.concave * (occ / RAYS.length) * strength;
-    if (n.y < AO.downFacing) f *= 1 - AO.underside * strength;
+    if (opts.underside !== false && n.y < AO.downFacing) f *= 1 - AO.underside * strength;
     if (opts.ground && Math.abs(n.y) < AO.wallNormalY) {
       const h = pos.getY(v) - opts.ground(pos.getX(v), pos.getZ(v));
       if (h >= 0) {

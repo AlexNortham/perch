@@ -1,6 +1,8 @@
 /**
- * The renderer (client contract `Renderer`): a lit, fogged, shadowed Three.js scene with the map blockout
- * (blockout.ts) and one model per entity from the ModelKit (entities.ts). Owner: Rendering & VFX.
+ * The renderer (client contract `Renderer`): a golden-hour Three.js scene (style guide §10) with the map layer
+ * (blockout.ts, painted from the material library), one model per entity from the ModelKit (entities.ts), kit
+ * structure models at the map's anchors before a match spawns them, and post-processing at Medium and High.
+ * Owner: Rendering & VFX.
  */
 import {
   CanvasTexture,
@@ -8,19 +10,36 @@ import {
   DirectionalLight,
   EquirectangularReflectionMapping,
   FogExp2,
+  Frustum,
+  Group,
+  HalfFloatType,
   HemisphereLight,
+  InstancedMesh,
   LinearSRGBColorSpace,
   MathUtils,
+  Matrix4,
+  Mesh,
   NeutralToneMapping,
   PCFShadowMap,
+  PCFSoftShadowMap,
   PerspectiveCamera,
+  PMREMGenerator,
   Scene,
   SRGBColorSpace,
+  Vector2,
   Vector3,
   WebGLRenderer,
+  WebGLRenderTarget,
 } from 'three';
-import type { MapData } from '../../sim/core/contracts';
-import type { CameraPose, Quality, Renderer } from '../app/contracts';
+import type { Object3D, Texture } from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import type { EntityView, MapData } from '../../sim/core/contracts';
+import { STRUCTURE_BODY, STRUCTURE_RADIUS } from '../../sim/data/world';
+import type { CameraPose, Frame, ModelKit, Quality, Renderer } from '../app/contracts';
 import { buildBlockout } from './blockout';
 import type { Blockout } from './blockout';
 import { createEntityLayer } from './entities';
@@ -31,9 +50,11 @@ import {
   FAR_MIN,
   FOG_HEIGHT_REF,
   FOG_OPAQUE,
+  LIGHT,
   LIGHT_UNIT,
   NEAR,
   NEAR_PER_HEIGHT,
+  POST,
   QUALITY_PRESETS,
   SHADOW_BIAS,
   SHADOW_DISTANCE,
@@ -43,22 +64,29 @@ import {
   SHADOW_MIN_HALF,
   SHADOW_NORMAL_BIAS,
   SHADOW_RADIUS,
-  SKY_CURVE,
-  SKY_HORIZON_HAZE,
-  SKY_SIZE,
+  SKY,
   SUN,
   TONE_EXPOSURE,
 } from './constants';
 import { FIXTURE_MAP } from './fixture';
+import { getMaterialLibrary } from './materials';
 import { createModelKit } from './models';
-import { LIGHT_COLOURS, SKY_COLOURS } from '../app/palette';
+import { GRADE_FRAGMENT, GRADE_VERTEX } from './grade';
 
 export { DAWN_COLOURS, DUSK_COLOURS, TEAM_COLOURS } from '../app/palette';
 
+/** Per-category counts for the §11.3 budget tables (dev builds). */
+export interface BudgetReport {
+  readonly calls: number;
+  readonly triangles: number;
+  readonly categories: Readonly<Record<string, { meshes: number; triangles: number }>>;
+  readonly textureMB: number;
+}
+
 declare global {
   interface Window {
-    /** Dev builds only, for measurement: the last frame's draw calls and triangles, and a live quality switch. */
-    __perchRender?: { info(): { calls: number; triangles: number }; setQuality(q: Quality): void };
+    /** Dev builds only, for measurement: the last frame's draw calls and triangles (all passes), a live quality switch and a §11.3 budget breakdown. */
+    __perchRender?: { info(): { calls: number; triangles: number }; setQuality(q: Quality): void; budget(): BudgetReport };
   }
 }
 
@@ -68,10 +96,18 @@ const BYTE = 255;
 /** Shadow box half-sizes snap to this step so the texel size (and edge shimmer) only changes in jumps. */
 const SHADOW_HALF_STEP = 5;
 const UP = new Vector3(0, 1, 0);
+const TO_SUN = new Vector3(SUN.azimuth.x * Math.cos(SUN.elevationDeg * DEG), Math.sin(SUN.elevationDeg * DEG), SUN.azimuth.z * Math.cos(SUN.elevationDeg * DEG)).normalize();
+const MB = 1_048_576;
+const TRI = 3;
+/** Texture memory is reported to 0.1 MB. */
+const MB_STEPS = 10;
 
-/** Equirectangular sky (GDD §14.2): peach over Dawn's side (−z), violet over Dusk's (+z); fog colour below the horizon. */
+/**
+ * Equirectangular sky (§10.2): peach over Dawn's side (−z), violet over Dusk's (+z), a soft glow and halo around
+ * the sun, thin cloud bands lit from the sun side, and the lavender haze below the horizon.
+ */
 function skyTexture(): CanvasTexture {
-  const { width, height } = SKY_SIZE;
+  const { width, height } = SKY;
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -81,18 +117,35 @@ function skyTexture(): CanvasTexture {
   const img = ctx.createImageData(width, height);
   // Raw sRGB components (no conversion to linear): the canvas is sRGB.
   const c = (hex: number): Color => new Color().setHex(hex, LinearSRGBColorSpace);
-  const fog = c(LIGHT_COLOURS.fog);
+  const fog = c(LIGHT.fog);
+  const glow = c(SKY.sunGlow);
+  const cloud = c(SKY.cloud);
   const out = new Color();
+  const dir = new Vector3();
   for (let x = 0; x < width; x++) {
     // Three's equirect lookup: u = atan2(z, x) / 2π + ½.
     const theta = ((x + 1 / 2) / width - 1 / 2) * 2 * Math.PI;
     const north = (Math.sin(theta) + 1) / 2;
-    const horizon = c(SKY_COLOURS.southHorizon).lerp(c(SKY_COLOURS.northHorizon), north).lerp(fog, SKY_HORIZON_HAZE);
-    const zenith = c(SKY_COLOURS.southZenith).lerp(c(SKY_COLOURS.northZenith), north);
+    const horizon = c(SKY.southHorizon).lerp(c(SKY.northHorizon), north).lerp(fog, SKY.horizonHaze);
+    const zenith = c(SKY.southZenith).lerp(c(SKY.northZenith), north);
     for (let y = 0; y < height; y++) {
-      const up = 1 - 2 * ((y + 1 / 2) / height); // +1 zenith … −1 nadir
-      if (up <= 0) out.copy(fog);
-      else out.copy(horizon).lerp(zenith, up ** SKY_CURVE);
+      const alt = (1 / 2 - (y + 1 / 2) / height) * Math.PI;
+      const up = Math.sin(alt);
+      dir.set(Math.cos(theta) * Math.cos(alt), up, Math.sin(theta) * Math.cos(alt));
+      if (up <= 0) {
+        out.copy(fog);
+      } else {
+        out.copy(horizon).lerp(zenith, up ** SKY.curve);
+        const sun = Math.max(0, dir.dot(TO_SUN));
+        let band = 0;
+        for (let b = 0; b < SKY.cloudBands; b++) {
+          const centre = SKY.cloudLow + ((SKY.cloudHigh - SKY.cloudLow) * (b + 1 / 2)) / SKY.cloudBands;
+          const streak = 1 / 2 + Math.sin(theta * (SKY.cloudWaves + b * 2) + b * SKY.cloudPhase) / 2;
+          band += Math.exp(-(((up - centre) / SKY.cloudWidth) ** 2)) * streak * streak;
+        }
+        out.lerp(cloud.clone().lerp(glow, sun), Math.min(1, band) * SKY.cloudStrength * (1 + sun));
+        out.lerp(glow, Math.min(1, sun ** SKY.glowPower * SKY.glowStrength + sun ** SKY.haloPower * SKY.haloStrength));
+      }
       img.data.set([out.r * BYTE, out.g * BYTE, out.b * BYTE, BYTE], (y * width + x) * RGBA);
     }
   }
@@ -103,20 +156,55 @@ function skyTexture(): CanvasTexture {
   return tex;
 }
 
+/** A structure view for a map anchor, so the menu and blockout scenes show the real models, not placeholders. */
+function anchorView(map: MapData, i: number): EntityView | null {
+  const a = map.structures[i];
+  if (!a) return null;
+  const radius = STRUCTURE_RADIUS[a.type];
+  return {
+    id: -1 - i, kind: 'structure', team: a.team, type: a.type, pos: a.pos, vel: { x: 0, y: 0, z: 0 }, yaw: a.yaw, pitch: 0, radius,
+    hp: 1, maxHp: 1, shield: 0, flags: 0, mode: null, seenBy: 3,
+    structure: { type: a.type, lane: a.lane, phase: 1, target: null, body: { radius, height: STRUCTURE_BODY[a.type].height }, weakPoint: null },
+  } as EntityView;
+}
+
+/** Counts for the §11.3 budget: meshes in the camera frustum, by the `budget` tag on them or an ancestor. */
+function budgetOf(scene: Scene, camera: PerspectiveCamera, calls: number, triangles: number, textureMB: number): BudgetReport {
+  const frustum = new Frustum().setFromProjectionMatrix(new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+  const categories: Record<string, { meshes: number; triangles: number }> = {};
+  const visit = (o: Object3D, tag: string): void => {
+    if (!o.visible) return;
+    const t = (o.userData['budget'] as string | undefined) ?? tag;
+    if (o instanceof Mesh && (!o.frustumCulled || frustum.intersectsObject(o))) {
+      const g = o.geometry;
+      const tris = (g.index ? g.index.count : g.getAttribute('position').count) / TRI;
+      const n = o instanceof InstancedMesh ? o.count : 1;
+      if (n > 0) {
+        const c = (categories[t] ??= { meshes: 0, triangles: 0 });
+        c.meshes++;
+        c.triangles += tris * n;
+      }
+    }
+    for (const child of o.children) visit(child, t);
+  };
+  visit(scene, 'other');
+  return { calls, triangles, categories, textureMB };
+}
+
 export function createRenderer(container: HTMLElement, map: MapData, quality: Quality): Renderer {
   let preset = QUALITY_PRESETS[quality];
+  let lib = getMaterialLibrary(quality);
   let size = { width: Math.max(1, container.clientWidth), height: Math.max(1, container.clientHeight) };
 
   const scene = new Scene();
-  scene.background = skyTexture();
-  const fog = new FogExp2(LIGHT_COLOURS.fog, preset.fogDensity);
+  const sky = skyTexture();
+  scene.background = sky;
+  const fog = new FogExp2(LIGHT.fog, preset.fogDensity);
   scene.fog = fog;
-  scene.add(new HemisphereLight(LIGHT_COLOURS.hemiSky, LIGHT_COLOURS.hemiGround, SUN.hemiIntensity * LIGHT_UNIT));
-  const sun = new DirectionalLight(LIGHT_COLOURS.sun, SUN.intensity * LIGHT_UNIT);
-  const elevation = SUN.elevationDeg * DEG;
-  const toSun = new Vector3(SUN.azimuth.x * Math.cos(elevation), Math.sin(elevation), SUN.azimuth.z * Math.cos(elevation)).normalize();
-  const shadowRight = new Vector3().crossVectors(UP, toSun).normalize();
-  const shadowUp = new Vector3().crossVectors(toSun, shadowRight);
+  scene.add(new HemisphereLight(LIGHT.hemiSky, LIGHT.hemiGround, SUN.hemiIntensity * LIGHT_UNIT));
+  const sun = new DirectionalLight(LIGHT.sun, SUN.intensity * LIGHT_UNIT);
+  const shadowRight = new Vector3().crossVectors(UP, TO_SUN).normalize();
+  const shadowUp = new Vector3().crossVectors(TO_SUN, shadowRight);
   sun.shadow.bias = SHADOW_BIAS;
   sun.shadow.normalBias = SHADOW_NORMAL_BIAS;
   sun.shadow.radius = SHADOW_RADIUS;
@@ -125,17 +213,45 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   sun.shadow.camera.far = SHADOW_DISTANCE * 2;
   scene.add(sun, sun.target);
 
+  let env: Texture | null = null;
+  let composer: EffectComposer | null = null;
+  let bloom: UnrealBloomPass | null = null;
+  const camera = new PerspectiveCamera(1, size.width / size.height, NEAR, FAR_MIN);
+
   const makeGl = (): WebGLRenderer => {
-    const r = new WebGLRenderer({ antialias: preset.antialias, powerPreference: 'high-performance' });
+    const r = new WebGLRenderer({ antialias: preset.antialias && preset.post === 'none', powerPreference: 'high-performance' });
     r.setPixelRatio(Math.min(window.devicePixelRatio, preset.maxPixelRatio) * preset.renderScale);
     r.setSize(size.width, size.height);
     r.toneMapping = NeutralToneMapping;
     r.toneMappingExposure = TONE_EXPOSURE;
     r.shadowMap.enabled = preset.shadowMapSize > 0;
-    r.shadowMap.type = PCFShadowMap;
+    r.shadowMap.type = preset.post === 'full' ? PCFSoftShadowMap : PCFShadowMap;
+    // Counters add up over every pass of a frame (shadow, scene, bloom, output); render() resets them.
+    r.info.autoReset = false;
     r.domElement.style.cssText = 'display:block;width:100%;height:100%';
     sun.castShadow = preset.shadowMapSize > 0;
     sun.shadow.mapSize.set(preset.shadowMapSize, preset.shadowMapSize);
+    // §7.3: a small prefiltered environment from the sky, so metal and glass catch the sky instead of going black.
+    const pmrem = new PMREMGenerator(r);
+    env?.dispose();
+    env = pmrem.fromEquirectangular(sky).texture;
+    pmrem.dispose();
+    lib.setEnvironment(env);
+    composer?.dispose();
+    composer = null;
+    bloom = null;
+    if (preset.post !== 'none') {
+      const target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: preset.antialias ? POST.samples : 0 });
+      composer = new EffectComposer(r, target);
+      composer.addPass(new RenderPass(scene, camera));
+      const res = new Vector2(size.width, size.height).multiplyScalar(preset.post === 'half' ? 1 / 2 : 1);
+      bloom = new UnrealBloomPass(res, POST.bloomStrength, POST.bloomRadius, POST.bloomThreshold);
+      composer.addPass(bloom);
+      composer.addPass(new OutputPass());
+      composer.addPass(new ShaderPass({ uniforms: { tDiffuse: { value: null }, uWarm: { value: new Vector3(POST.warm.r, POST.warm.g, POST.warm.b) }, uCool: { value: new Vector3(POST.cool.r, POST.cool.g, POST.cool.b) }, uVignette: { value: POST.vignette } }, vertexShader: GRADE_VERTEX, fragmentShader: GRADE_FRAGMENT }));
+      composer.setPixelRatio(r.getPixelRatio());
+      composer.setSize(size.width, size.height);
+    }
     return r;
   };
   let gl = makeGl();
@@ -150,6 +266,14 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     ? { position: { x: cx, y: cy, z: cz }, target: { x: tx, y: ty, z: tz } }
     : null;
 
+  const kit: ModelKit = createModelKit();
+  const entities = createEntityLayer(scene, kit);
+  /** The real structure models at the map's anchors, shown until a match spawns structures. */
+  const anchors = new Group();
+  anchors.name = 'structure-anchors';
+  scene.add(anchors);
+  let anchorModels: { model: Object3D; view: EntityView }[] = [];
+
   let blockout: Blockout | null = null;
   let current: MapData | null = null;
   const setMap = (m: MapData): void => {
@@ -160,13 +284,19 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       scene.remove(blockout.root);
       blockout.dispose();
     }
-    blockout = buildBlockout(next);
+    blockout = buildBlockout(next, lib);
     scene.add(blockout.root);
+    anchors.clear();
+    anchorModels = next.structures.map((_, i) => anchorView(next, i)).filter((v): v is EntityView => v !== null).map((view) => {
+      const model = kit.create(view);
+      model.position.set(view.pos.x, view.pos.y, view.pos.z);
+      model.rotation.y = view.yaw;
+      anchors.add(model);
+      return { model, view };
+    });
   };
   setMap(map);
 
-  const camera = new PerspectiveCamera(1, size.width / size.height, NEAR, FAR_MIN);
-  const entities = createEntityLayer(scene, createModelKit());
   const host: RenderHost = { scene, beforeRender: null };
 
   let shadowHalf = 0;
@@ -191,7 +321,13 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     };
     centre.copy(target).addScaledVector(shadowRight, snap(shadowRight)).addScaledVector(shadowUp, snap(shadowUp));
     sun.target.position.copy(centre);
-    sun.position.copy(centre).addScaledVector(toSun, SHADOW_DISTANCE);
+    sun.position.copy(centre).addScaledVector(TO_SUN, SHADOW_DISTANCE);
+  };
+
+  const poseAnchors = (frame: Frame, show: boolean): void => {
+    anchors.visible = show;
+    if (!show) return;
+    for (const { model, view } of anchorModels) kit.pose(model, view, frame);
   };
 
   const renderer: Renderer = {
@@ -200,9 +336,10 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     },
     render(frame, cameraPose) {
       const pose = devPose ? { ...cameraPose, ...devPose } : cameraPose;
+      gl.info.reset();
       host.beforeRender?.(frame);
       const structures = entities.sync(frame, pose.position);
-      if (blockout) blockout.markers.visible = !structures;
+      poseAnchors(frame, !structures);
 
       // Haze thins with height: the player camera gets the full density, the overview cameras see the whole map.
       fog.density = preset.fogDensity * Math.min(1, FOG_HEIGHT_REF / Math.max(1, pose.position.y));
@@ -214,8 +351,13 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       camera.updateProjectionMatrix();
       camera.position.set(pose.position.x, pose.position.y, pose.position.z);
       camera.lookAt(pose.target.x, pose.target.y, pose.target.z);
+      camera.updateMatrixWorld();
+      const seconds = frame.prev.seconds + (frame.curr.seconds - frame.prev.seconds) * frame.alpha;
+      blockout?.update(camera, seconds);
+      lib.tick(seconds);
       fitShadow(pose);
-      gl.render(scene, camera);
+      if (composer) composer.render();
+      else gl.render(scene, camera);
     },
     setMap,
     setQuality(q) {
@@ -223,6 +365,8 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       if (next === preset) return;
       // Antialiasing is fixed when a WebGL context is created, so a new preset gets a new context.
       preset = next;
+      lib = getMaterialLibrary(q);
+      blockout?.setLibrary(lib);
       shadowHalf = 0;
       sun.shadow.map?.dispose();
       sun.shadow.map = null;
@@ -235,17 +379,25 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     resize(width, height) {
       size = { width: Math.max(1, width), height: Math.max(1, height) };
       gl.setSize(size.width, size.height);
+      composer?.setSize(size.width, size.height);
+      bloom?.setSize(size.width * (preset.post === 'half' ? 1 / 2 : 1), size.height * (preset.post === 'half' ? 1 / 2 : 1));
       camera.aspect = size.width / size.height;
       camera.updateProjectionMatrix();
     },
     dispose() {
       blockout?.dispose();
+      composer?.dispose();
+      env?.dispose();
       gl.dispose();
     },
   };
   registerHost(renderer, host);
   if (import.meta.env.DEV) {
-    window.__perchRender = { info: () => ({ calls: gl.info.render.calls, triangles: gl.info.render.triangles }), setQuality: renderer.setQuality };
+    window.__perchRender = {
+      info: () => ({ calls: gl.info.render.calls, triangles: gl.info.render.triangles }),
+      setQuality: renderer.setQuality,
+      budget: () => budgetOf(scene, camera, gl.info.render.calls, gl.info.render.triangles, Math.round((lib.textureBytes / MB) * MB_STEPS) / MB_STEPS),
+    };
   }
   return renderer;
 }
