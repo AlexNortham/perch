@@ -943,3 +943,21 @@ Artist, Hero A (A2) and Hero B (B1) start fresh from main; Audio starts when a s
 merge because it touches every owner's files. Models follow D-EP-019. ChatGPT's worktrees under `~\.codex\` are left
 untouched.
 **Why:** the user asked Claude to pick development back up from ChatGPT; resuming its branches keeps its work.
+
+### D-HEROB-001 · 19/11/2026 — Tiers switch effects on with empty areas, not zero durations
+**Decision:** `applyStatus` with a duration of 0 still lasts one tick, so a tier that adds a stun, slow, heal reduction,
+damage amp or burst uses a parallel area whose radius is 0 until the tier (Snake Stamp `stunR`, Mob `healR`, Scatter and
+Black Sun `burstR`, Night Eyes `ampRadius`, Moonlit Mark `rangeAll`). Tiers are bought in order, so a later tier may add
+a value that equals an earlier tier's total (Black Sun T3 `burstR` 13 = 10 + T1's 3).
+**Why:** `AbilityUpgrade` only adds, and a one-tick status would show on every cast.
+
+### D-HEROB-002 · 19/11/2026 — Refreshing amps are one instance; Footwork stacks share a timer
+**Decision:** statuses a zone refreshes every tick (Black Sun's Song amp, Night Eyes' damage amp) use stacking 'max' so
+refreshes don't add up. Footwork is one `stack` status (3, 5 s) whose timer restarts on each stack rather than per stack.
+**Why:** the shared `DAMAGE_AMP` is independent and overlapping refreshes doubled it; per-stack timers need a new status kind.
+
+### D-HEROB-003 · 19/11/2026 — Hooks that move or end things use the ordinary effects
+**Decision:** Viper Dance keeps the Secretarybird on its target by applying `teleport behindTarget` every tick; Silent Wing
+ends by applying a one-tick `movementMode`; Gulp attaches through `attach`. The only direct write is Pelican moving a
+swallowed fledgling to its feet before the lethal damage, so the economy pod spawns there.
+**Why:** keeps Physics the mover and gives credit and last hits through the real pipeline.
