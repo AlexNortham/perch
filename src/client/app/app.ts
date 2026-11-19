@@ -1,9 +1,11 @@
-import { TICK_RATE } from '../../sim/data/core';
-import type { EntityId, HeroId, Sim, SimConfig, SimView } from '../../sim/core/contracts';
+import { aimRay } from '../../sim/core/aim';
+import type { EntityId, HeroId, Ping, Sim, SimConfig, SimView, Vec3 } from '../../sim/core/contracts';
+import { CAMERA, TICK_RATE } from '../../sim/data/core';
+import { HEROES } from '../../sim/heroes/registry';
 import { createSim } from '../../sim/index';
 import { loadMap } from '../../sim/world/map';
 import { createAudio } from '../audio';
-import { createCamera } from '../camera';
+import { createCamera, rayWorldPoint } from '../camera';
 import { createInput } from '../input';
 import { createRenderer } from '../render';
 import { createUi } from '../ui';
@@ -16,8 +18,11 @@ import { loadSettings, saveSettings } from './settings';
 
 declare global {
   interface Window {
-    /** Set once the requested scene has rendered READY_FRAMES frames; the screenshot harness waits on it. */
-    __perch?: { ready: boolean; scene: SceneName };
+    /**
+     * Set once the requested scene has rendered READY_FRAMES frames; the screenshot harness waits on it. `hero` is a
+     * read-only test hook for e2e: the local hero's position and how many shots it has fired (null with no hero).
+     */
+    __perch?: { ready: boolean; scene: SceneName; hero: { pos: Vec3; shotsFired: number } | null };
   }
 }
 
@@ -56,6 +61,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   const step = createFixedStep();
   let screen: Screen = 'menu';
   let session: Session;
+  let shotsFired = 0;
   /** Set by the pause menu's Concede; sent with the next command. */
   let concedeNext = false;
 
@@ -94,6 +100,17 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     else if (down && screen === 'pause') show('match');
   };
   const input = createInput(stage, settings, onUiAction);
+  // A tap of the ping button pings the world point under the crosshair (GDD §12.5: the ground tap is "go here").
+  input.setPingResolver((): Ping | null => {
+    const s = session;
+    const view = s.curr;
+    const hero = view.heroes.find((h) => h.id === s.hero);
+    const me = s.hero === null ? undefined : entityById(view, s.hero);
+    if (!hero || !me) return null;
+    const ray = aimRay(me.pos, input.look.yaw, input.look.pitch, hero.shoulder, HEROES[hero.heroId].def.body, false);
+    const pos = rayWorldPoint(loadMap(view.map), ray.origin, ray.dir, CAMERA.aimRange, ray.start);
+    return pos && { kind: 'goHere', pos, target: null };
+  });
   session = await startSession(firstConfig, req.cam, req.t);
 
   function show(next: Screen): void {
@@ -123,6 +140,16 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   show(req.scene === 'menu' ? 'menu' : 'match');
 
   let frames = 0;
+  window.__perch = {
+    scene: req.scene,
+    get ready() {
+      return frames >= READY_FRAMES;
+    },
+    get hero() {
+      const local = session.hero === null ? undefined : entityById(session.curr, session.hero);
+      return local ? { pos: local.pos, shotsFired } : null;
+    },
+  };
   let last = performance.now();
   const frame = (now: number): void => {
     const dt = (now - last) / MS_PER_SECOND;
@@ -140,6 +167,12 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
       for (const e of events) {
         // A teleport that turned the local hero: adopt the yaw, or the next command would turn it back.
         if (e.type === 'movement' && e.hero === s.hero && e.yaw !== undefined) input.setLook({ ...input.look, yaw: e.yaw });
+        // A respawn puts the hero back at its spawn facing the way it spawned: the look follows.
+        if (e.type === 'hero.respawned' && e.hero === s.hero) {
+          const me = entityById(s.curr, e.hero);
+          if (me) input.setLook({ yaw: me.yaw, pitch: me.pitch });
+        }
+        if (e.type === 'weapon.fired' && e.shooter === s.hero) shotsFired++;
       }
       vfx.onEvents(events, s.curr);
       ui.onEvents(events, s.curr);
@@ -152,7 +185,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     vfx.update(f);
     ui.update(f);
     audio.update(f, pose);
-    if (++frames === READY_FRAMES) window.__perch = { ready: true, scene: req.scene };
+    frames++;
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
