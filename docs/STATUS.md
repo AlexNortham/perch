@@ -918,3 +918,27 @@ practice setup and inspect inputs. EP approved the shared tower envelope for Obj
 **Done:** w4/contracts based on b94ef61. INTERFACES §12 records 38 W3 dispositions (25 accepted, 4 modified, 9 satisfied, 0 rejected). D-ARCH-017–019 and docs/briefs/W4-contract-followups.md assign producers, consumers, ordinary routes and QA proof. 625e38f introduced entity/event/effect projections; 242c0a7 wired siege, practice targets, command intents, settings and sight; e04a184 was the EP-authorised temporary Input ownership of index.ts and input.test.ts for shared default imports and migration coverage. 92fc98e froze the contracts and follow-ups.
 **Verified:** separate npm ci --prefer-offline --no-audit --no-fund. Git Bash VITEST_MAX_WORKERS=1 npm run check passed all six steps (162 s, 503 tests + 6 serial perf + 11 browser tests, 117 inherited warnings). An unrestricted parallel unit run under concurrent browser work timed out in two existing 5 s sim tests; the single-worker run passed without changing assertions or timeouts. Two npm run sim -- --seed 1 --minutes 3 --bots 12 runs, 10,800 ticks, both hash 4e8cc26604dd382e (4.5 s and 2.9 s). Evidence in out/check/{test,perf,sim,e2e}.log, telemetry-seed-1.json and arch-replay.json. Inspected out/shots/arch-practice.png (scene=practice, Lyrebird, 1920×1080): standing Dawn/Dusk targets, arena HUD with 32 AP and all four abilities. Core/app test checks initial wounded ally, fresh siege AP, locked ultimate, practice tier expenditure, safe binding migration and world-to-screen projection.
 **Remaining:** W4 owners implement structures, item catalogue and trades, UI menus/panels, target reset, kit data, camera/combat/VFX consumers, movements, and audio against the frozen interfaces. The screenshot proves initial practice setup; player-driven damage/heal, target reset, menu access and live siege victory need integrated owner code and independent QA evidence. No open interface requests.
+
+### W4 · Browser QA · 19/11/2026
+**Done:** w4/browser-tests from b2a7a96. Play → Shrike → Dawn spawn in Old Mossmarket now measures movement
+and fires under pointer lock. Riverbank is reached by walking from the roost before E mounts, Shift boosts,
+the weapon fires and Space dismounts. The sampled walk/dash was 8.99/27.50 m/s and cruise/boost was 11/18 m/s.
+The 100-second fixed-camera Hedgerow cases peaked at 25, 41 and 217 calls against ceilings of 32, 48 and 248.
+
+**Verified:** Git Bash `VITEST_MAX_WORKERS=1 npm run check` passed typecheck, lint, test, perf, sim and e2e in
+177 s. Unit tests 503/503, perf 6/6, seed 1 completed 10,800 ticks with hash `4e8cc26604dd382e`, browser
+15 passed and 4 skipped. Lint had 117 inherited warnings. Inspected the Riverbank rider and the three Hedgerow
+scenes. See `out/check/browser-shots/`, the counters and movement samples in `out/check/browser-baseline.json`,
+and the six step logs under `out/check/` in this worktree.
+
+**Expected red:** `PERCH_PENDING=1 npx playwright test e2e/m2.spec.ts --workers=1` gave four failures
+(`out/check/browser-pending.log`). “Menu offers Practice Hub” failed because the button was absent.
+“Tapping Inspect opens Ability Upgrades” failed on the actual practice route because there was no dialog.
+“Ordinary Play presents the actual Dusk Patron” failed because live siege and its objective display were
+pending. “There are twelve selectable M2 hero cards” found four. The branches behind those first assertions
+need integrated proof for dummy resets and targeted healing, inspection purchases and pointer return,
+and visible siege progression.
+
+**Interface requests:** sent stable accessible names for the upgrade dialog, ability controls, and labelled
+dummy HP bars through the EP. The W3 worst-tick follow-up and production-browser regressions are tracked
+outside this browser acceptance suite.

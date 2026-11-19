@@ -68,7 +68,7 @@ test('Riverbank Updraft: mount at the real gate, ride, boost, shoot and jump off
   await open(page);
   await pickHero(page, 'Play', 'Shrike');
   await lockPointer(page);
-  const riverbank = loadMap('main').updrafts[1]!;
+  const riverbank = loadMap('main').updrafts.find(({ lane }) => lane === 'riverbank')!;
   const gate = riverbank.stations[0]!;
 
   // Take the western Home Roost ramp around the Patron's dais before lining up on the gate.
@@ -85,7 +85,7 @@ test('Riverbank Updraft: mount at the real gate, ride, boost, shoot and jump off
 
   const mounted = await hero(page);
   const riding = await afterTicks(page, mounted.tick, 24);
-  expect(riding.pos.y, 'rider ascends to the elevated line').toBeGreaterThan(mounted.pos.y + 6);
+  expect(riding.pos.y, 'rider ascends to the elevated line').toBeGreaterThan(approached.pos.y + 6);
   await page.screenshot({ path: info.outputPath('riverbank-updraft.png') });
   const cruise = await hero(page);
   const cruised = await afterTicks(page, cruise.tick, SPEED_SAMPLE_TICKS);
