@@ -13,7 +13,7 @@ const make = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, conten
 
 /** Mouse button index → the binding code input uses. */
 /** Everything a mouse press or its release can do besides mousedown: navigation, context menu, focus clicks. */
-const NAV_EVENTS = ['mouseup', 'auxclick', 'pointerup', 'click', 'contextmenu', 'pointerdown'] as const;
+const NAV_EVENTS = ['mouseup', 'auxclick', 'pointerup', 'click', 'contextmenu'] as const;
 /** Safety limit for swallowing the tail of a captured press. */
 const MOUSE_DRAIN_MS = 1000;
 const mouseCode =(button: number): string => `Mouse${button}`;
