@@ -14,7 +14,7 @@ import { BirdRig } from '../rigs/bird-rig';
 import { FledglingGroup, FledglingProxy } from '../rigs/fledgling-rig';
 import type { BirdBuild } from './bird';
 import { FLEDGLING } from './constants';
-import { GDD_PLANS, readDebugOptions } from './debug';
+import { readDebugOptions } from './debug';
 import type { DebugOptions } from './debug';
 import { fledglingGeometry } from './fledgling';
 import type { FledglingType } from './fledgling';
@@ -44,7 +44,7 @@ const isFledgling = (id: string): id is FledglingType => id === 'scrapper' || id
 
 export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitDebug {
   const dev = import.meta.env.DEV && typeof location !== 'undefined' ? readDebugOptions(location.search) : null;
-  const opt: DebugOptions = { gddPlans: false, hitboxes: false, lineup: [], wave: 0, yaw: 0, states: [], team: 'dawn', ...dev, ...overrides };
+  const opt: DebugOptions = { hitboxes: false, lineup: [], wave: 0, yaw: 0, states: [], team: 'dawn', ...dev, ...overrides };
 
   const material = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
   const builds = new Map<string, BirdBuild>();
@@ -59,7 +59,7 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
   let hitboxes = opt.hitboxes;
 
   const heroRig = (id: HeroId, team: PlayerTeam): BirdRig => {
-    const plan = (opt.gddPlans ? GDD_PLANS[id] : undefined) ?? HEROES[id].def.body;
+    const plan = HEROES[id].def.body;
     const key = `${id}:${team}`;
     let build = builds.get(key);
     if (!build) {

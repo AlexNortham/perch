@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-magic-numbers -- authored proportions and sample poses: the numbers are the data */
 /**
  * Dev-only model options, read from the URL (so `npm run shots -- --param …` reaches them), never in a build:
- *   modelGdd            use the GDD body plans for the four hand-built heroes (data may still be placeholder)
  *   hitboxes            draw each hero's head sphere and body capsule over its model
  *   modelLineup=a,b,c   replace the real heroes with a row of display models at the human's position, spaced 2.4 m
  *                       along x; ids may repeat (a pose sheet)
@@ -13,27 +12,8 @@
  */
 import { HERO_IDS, ViewFlag } from '../../../sim/core/contracts';
 import type { HeroId, PlayerTeam } from '../../../sim/core/contracts';
-import type { BodyPlan } from '../../../sim/core/contracts/heroes';
-
-/**
- * The four hand-built heroes' body plans as GDD §9.1 to §9.4 write them, for `?modelGdd` (the data files may still hold
- * W1 placeholders). Muzzles follow the plan's height.
- */
-const plan = (height: number, radius: number, headUp: number, headR: number): BodyPlan => ({
-  height,
-  radius,
-  head: { centre: { right: 0, up: headUp, forward: 0 }, radius: headR },
-  muzzle: { right: 0.25, up: height * 0.7, forward: 0.35 },
-});
-export const GDD_PLANS: Readonly<Partial<Record<HeroId, BodyPlan>>> = {
-  shrike: plan(1.75, 0.32, 1.55, 0.17),
-  albatross: plan(2.3, 0.5, 2.05, 0.2),
-  kingfisher: plan(1.6, 0.28, 1.42, 0.16),
-  lyrebird: plan(1.8, 0.3, 1.62, 0.15),
-};
 
 export interface DebugOptions {
-  gddPlans: boolean;
   hitboxes: boolean;
   lineup: readonly HeroId[];
   /** Fledglings per flock in a debug wave (two flocks face each other). */
@@ -77,7 +57,6 @@ export function readDebugOptions(search: string): DebugOptions {
   const list = (key: string): string[] => (q.get(key) ?? '').split(',').filter((s) => s !== '');
   const ids: readonly string[] = HERO_IDS;
   return {
-    gddPlans: q.has('modelGdd'),
     hitboxes: q.has('hitboxes'),
     lineup: list('modelLineup').filter((s): s is HeroId => ids.includes(s)),
     wave: Math.min(100, Math.max(0, Math.floor(Number(q.get('modelWave')) || 0))),

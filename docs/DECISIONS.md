@@ -634,3 +634,11 @@ steps needs no duplicate fields and no code change at the widening.
 them.
 **Why:** mapping them to `disarmed` and `silenced` would show as those states on the HUD and in the view flags, and
 silence ends channels, so a mode started by a channelled ability (Burrow) would end its own channel.
+
+### D-ART-001 · 19/11/2026 — One merged mesh per rig part, vertex colours, instanced chicks
+**Decision:** each hero is 8 meshes (body, head, two wings, two legs, tail, gun) built once per hero and team from its
+BodyPlan, sharing one flat-shaded vertex-colour material; team trim is baked into the vertex colours. Fledglings are
+one InstancedMesh per type and team (capacity 256), animated by whole-body matrix only. No numbers from the GDD are
+copied into the models: sizes come from `HEROES[id].def.body`.
+**Why:** about 8 draw calls per hero and 4 for any number of chicks, no per-frame allocation, and the models follow
+the data when hero engineers change a body plan.

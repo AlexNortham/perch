@@ -8,7 +8,7 @@ import type { Frame } from '../../app/contracts';
 import { BirdRig } from '../rigs/bird-rig';
 import { FledglingProxy } from '../rigs/fledgling-rig';
 import { PART_NAMES } from './bird';
-import { GDD_PLANS, STATES } from './debug';
+import { STATES } from './debug';
 import { fledglingGeometry } from './fledgling';
 import { createModelKit } from './index';
 import { triangles } from './parts';
@@ -55,13 +55,10 @@ describe('hero models', () => {
     }
   });
 
-  it.each([
-    ['the data plans', false],
-    ['the GDD plans', true],
-  ])('centres each of the four heads on its hitbox sphere (%s)', (_name, gdd) => {
-    const k = createModelKit({ gddPlans: gdd });
+  it('centres each of the four heads on its hitbox sphere, read from the hero data', () => {
+    const k = createModelKit();
     for (const id of FOUR) {
-      const plan = (gdd ? GDD_PLANS[id] : undefined) ?? HEROES[id].def.body;
+      const plan = HEROES[id].def.body;
       const model = k.create(heroEntity(id));
       model.position.set(3, 0.5, -2);
       model.rotation.y = 0.7;
@@ -84,9 +81,9 @@ describe('hero models', () => {
   });
 
   it('matches the model height to the body plan', () => {
-    const k = createModelKit({ gddPlans: true });
+    const k = createModelKit();
     for (const id of FOUR) {
-      const plan = GDD_PLANS[id];
+      const plan = HEROES[id].def.body;
       const model = k.create(heroEntity(id));
       let top = 0;
       for (const n of ['body', 'head'] as const) {
@@ -95,8 +92,8 @@ describe('hero models', () => {
         top = Math.max(top, m.position.y + (m.geometry.boundingBox?.max.y ?? 0));
       }
       // The head shell may rise a little above the hitbox top; a crest or lyre belongs to other parts.
-      expect(top, id).toBeGreaterThanOrEqual((plan?.height ?? 0) - 0.3);
-      expect(top, id).toBeLessThanOrEqual((plan?.height ?? 0) + 0.15);
+      expect(top, id).toBeGreaterThanOrEqual((plan.height) - 0.3);
+      expect(top, id).toBeLessThanOrEqual((plan.height) + 0.15);
     }
   });
 
