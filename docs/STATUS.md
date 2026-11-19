@@ -918,3 +918,20 @@ practice setup and inspect inputs. EP approved the shared tower envelope for Obj
 **Done:** w4/contracts based on b94ef61. INTERFACES §12 records 38 W3 dispositions (25 accepted, 4 modified, 9 satisfied, 0 rejected). D-ARCH-017–019 and docs/briefs/W4-contract-followups.md assign producers, consumers, ordinary routes and QA proof. 625e38f introduced entity/event/effect projections; 242c0a7 wired siege, practice targets, command intents, settings and sight; e04a184 was the EP-authorised temporary Input ownership of index.ts and input.test.ts for shared default imports and migration coverage. 92fc98e froze the contracts and follow-ups.
 **Verified:** separate npm ci --prefer-offline --no-audit --no-fund. Git Bash VITEST_MAX_WORKERS=1 npm run check passed all six steps (162 s, 503 tests + 6 serial perf + 11 browser tests, 117 inherited warnings). An unrestricted parallel unit run under concurrent browser work timed out in two existing 5 s sim tests; the single-worker run passed without changing assertions or timeouts. Two npm run sim -- --seed 1 --minutes 3 --bots 12 runs, 10,800 ticks, both hash 4e8cc26604dd382e (4.5 s and 2.9 s). Evidence in out/check/{test,perf,sim,e2e}.log, telemetry-seed-1.json and arch-replay.json. Inspected out/shots/arch-practice.png (scene=practice, Lyrebird, 1920×1080): standing Dawn/Dusk targets, arena HUD with 32 AP and all four abilities. Core/app test checks initial wounded ally, fresh siege AP, locked ultimate, practice tier expenditure, safe binding migration and world-to-screen projection.
 **Remaining:** W4 owners implement structures, item catalogue and trades, UI menus/panels, target reset, kit data, camera/combat/VFX consumers, movements, and audio against the frozen interfaces. The screenshot proves initial practice setup; player-driven damage/heal, target reset, menu access and live siege victory need integrated owner code and independent QA evidence. No open interface requests.
+
+### W4 · QA rules · 19/11/2026
+**Done** `w4/tests` from `9d9e974`. D-QA-008 covers production-backed siege rules, both flocks and all three
+Updraft lanes, real Combat bounties and growth, normal shop and ability commands, and repeatable Practice
+targets. The 18 m Riverbank pod secure/deny and the fresh Practice AP checks run by default.
+**Verified** `PERCH_PENDING=1 npx vitest run tests/rules/{siege,market,practice}.test.ts` produced 31 expected
+failures and one pass. Siege sees zero of 30 structures and zero Roost healing. Market sees level 1 instead
+of 5, zero bounty instead of the expected 480-Seed shutdown, and an empty catalogue. Practice delivers both
+weapon damage and Mended Song healing before failing to reset each target. Evidence is in
+`out/check/w4-rules-red.log`.
+**Default gate** Git Bash `VITEST_MAX_WORKERS=1 npm run check` passed all six steps in 156 s. Unit tests
+506 passed, 31 gated. Perf 6/6, with the world at +0.344 ms/tick for 166 fledglings. The 10,800-tick sim
+produced `4e8cc26604dd382e`. Browser tests 11/11. Lint reported 117 inherited warnings. The parallel run hit
+the existing 5 s concession timeout, preserved in `out/check/w4-parallel-test.log`. Reviewed
+`out/shots/review/practice.png` at 1920 × 1080 and confirmed both targets and the 32 AP HUD.
+**Limits** Sandbox placement and damage amplification isolate siege boundaries. The integrated manual siege
+at normal damage, visible tower clearance and browser interaction evidence are separate gates. No contract change requested.

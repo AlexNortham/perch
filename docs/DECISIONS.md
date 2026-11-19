@@ -886,3 +886,12 @@ and outcomes as the match. Check the two target paths, the AP panel and a fresh 
 ### D-ARCH-019 · 19/11/2026 — Safe browser bindings and visible movement/melee states
 **Decision:** migrate settings v1 to v2, reserve user-customised codes, then assign available safe defaults for crouch and item 3. New profiles use C and N respectively. Expose fractional stamina, the actual eligible dash-jump window, distinct air/wall jumps, down dash and mantle glide, and charge/light/heavy/parry poses. A rebound upgrade modifier opens inspect on a solo tap; a chord spends once.
 **Why:** the former default permitted native browser close-tab shortcuts during sliding. The new view states let HUD, Art, Audio and QA distinguish intent, windup, impact, available stamina and the real timing window. Heavy charge and browser history failures require separate real-input tests.
+
+### D-QA-008 · 19/11/2026 — M2 fit checks use ordinary commands and production rule outcomes
+**Decision:** Gate baseline-missing siege, economy, shop and Practice reset rules with `PERCH_PENDING=1` until
+integration. Use authored anchors, real structure spawns and Combat resolution, ordinary shop buy/sell and AP
+commands, and normal shots or support casts. Keep current Practice entry progression and 18 m secure/deny proofs
+always enabled.
+**Why:** Event and transaction assertions detect regressions in credit, lifetime earnings, upgrades and objective
+state. Sandbox placement and amplified damage isolate rule boundaries and keep the siege runs short. A full
+player-controlled match at normal damage remains a separate integration gate.
