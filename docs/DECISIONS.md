@@ -957,3 +957,9 @@ checks each eye's proximity, active true sight and resolved Fog Bank membership.
 the same bank can see its occupants. The fallback for a legacy true-sight effect with no radius is 30 m.
 **Why:** abilities, targeting and actor drawing read world sight. Map views can disclose a revealed opponent
 without making it available as a unit target.
+
+### D-OBJ-008 · 19/11/2026 — The 35:00 structure lever adds in step 4
+**Decision:** from 35:00 a fledgling attack carries two target-kind bonuses on structures, ×1.5 and +25%, which
+damage step 4 adds (×1.75 in all) instead of multiplying them (×1.875). Brood Ward weakens to ×0.6 at the same time.
+**Why:** GDD §5.2 step 4 makes conditional target-kind bonuses additive within the step, and D-OBJ-004 kept the ×1.5
+as a pipeline bonus so the lever could add to it.
