@@ -82,8 +82,6 @@ export const createEconomySystem: SystemFactory = (ctx) => {
       pos: { x: body.pos.x, y: y0, z: body.pos.z },
       vel: { x: 0, y: POD.riseM / POD.riseS, z: 0 },
       yaw: 0,
-      casting: null,
-      channelling: false,
       radius: POD.radius,
       pickup: { type: 'pod', variant: '', value, expiresAt: clock.tick + LIFE_TICKS, carrier: null },
     });

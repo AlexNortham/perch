@@ -548,3 +548,23 @@ config. `npm run shots -- --scene lane --hero kingfisher` → looked at: the pla
 to `Magnitude` once Combat reads them through `ctx.effects.magnitude` (D-ARCH-015).
 **Next:** wave 3 owners work through W3-contract-followups.md. Not done: unit tests for core/view.ts, vision.ts and
 math.ts (QA's review noted their absence; not in this brief).
+### W3 · Economy & Items · 19/11/2026
+**Done:** `src/sim/economy/index.ts` and `src/sim/data/economy.ts`. Seeds on `progress` (seeds and net worth, whole
+seeds, `seeds.gained` with a reason); the last-hit share (50% V to the enemy hero who landed it, else split among enemy
+heroes within 25 m, else lost); seed pods (spawn at the chest on a Scrapper or Slinger death, rise 1.6 m in 0.6 s,
+ripe 1.4 s, secured for 50% V by an enemy hero, denied for 25% V by the fledgling's own flock, wither if not hit;
+`pod.resolved` with outcome and position); resolved only by gun impacts (`via` 'weapon' or absent) and `melee`.
+Passive income (1 Seed/s from 0:30, GDD §8.4) so the seed curves move before bounties land; `startSeeds` honoured.
+**Verified:** `PERCH_PENDING=1 npx vitest run tests/rules/pods.test.ts` → 10 passed, 1 failed (see below). Co-located
+`src/sim/economy/economy.test.ts` 6 passed (share split, secure vs deny, ability hits, rising, wither, passive).
+`npm run check` → PASS typecheck, lint, test, sim, e2e (30 s). 35-minute headless run (seed 1, practice roster, no
+bots yet, 24 s wall): net worth per hero 571 at 10:00 and 2,071 at 35:00, all passive income (nobody kills a
+fledgling yet, so no pods). Pod behaviour is proven by the suites above, not by that run.
+**Blocked / suite issue:** the pods suite's deny test (`pods.test.ts` rule 4, line 100 via 159) calls `shootPod` on the
+pod after it was denied, but `shootPod` reads `sb.entity(pod).pos`, which throws once the pod has left the store; the
+secure test requires the pod gone after resolution, so both can't hold. It is a test-helper bug, not a GDD
+contradiction (GDD §8.2 rule 4: the pod share is gone). Suggested fix: capture `pos` before the first shot. I did not
+edit the suite.
+**Interface requests:** none. Pod hit radius is 1 m (GDD gives none): bullets leave the muzzle, not the camera, so a
+crosshair-centred shot at 6 m passes ~0.75 m from the pod.
+**Next:** wave 4: bounties, comeback, levels, Molts, AP, flex slots, shop and items. `data/items.ts` untouched.
