@@ -10,7 +10,7 @@ import type { EntityView, HeroId } from '../../../sim/core/contracts';
 import type { BirdRig } from '../rigs/bird-rig';
 import type { FledglingProxy } from '../rigs/fledgling-rig';
 import type { DebugOptions } from './debug';
-import { MELEE_CYCLE, STATES } from './debug';
+import { applyState, STATES } from './debug';
 import type { FledglingType } from './fledgling';
 
 const LINEUP_SPACING = 2.4;
@@ -75,13 +75,8 @@ export function createDebugScene(
       heroes.forEach(({ rig, e }, i) => {
         const state = STATES[opt.states.length > 0 ? (opt.states[i % opt.states.length] ?? 'idle') : 'idle'];
         if (!state) return;
-        e.flags = state.flags;
-        e.mode = state.mode ?? null;
-        e.vel.z = state.speed;
-        e.vel.y = state.vy ?? 0;
-        const repeats = state.melee === 'light' || state.melee === 'heavy';
-        e.meleePose = state.melee && (!repeats || t % MELEE_CYCLE < MELEE_CYCLE / 2) ? state.melee : undefined;
-        rig.animate(e, frame.dt, t, false);
+        const { hit, castSlot } = applyState(e, state, t, frame.dt);
+        rig.animate(e, frame.dt, t, hit, castSlot);
         syncHitboxes(rig);
       });
       // Proxies sit in the scene itself and read their world position and yaw, as the entity layer would set them.

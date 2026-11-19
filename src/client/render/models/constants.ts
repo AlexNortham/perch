@@ -137,6 +137,117 @@ export const RIG = {
 } as const;
 
 /**
+ * The held gun (D-ART-003). The gun bone carries the muzzle; both wings are solved onto its grip sockets every frame.
+ * Rotations in radians about the main grip in the gun's own frame (x pitches the muzzle down, y swings it to the
+ * bird's left, z rolls it); translations as fractions of the hero's height in the body frame unless noted.
+ */
+export const HOLD = {
+  /** Barrel turned in toward the centre line so the stock clears the flank. */
+  toe: 0.06,
+  /** A wing is at least this many times the aim-pose distance from its shoulder to its grip (never fully straight). */
+  reach: 1.3,
+  /** Share of the wing in the arm segment (the rest is the forearm and hand). */
+  upperShare: 0.5,
+  /** Which way each wing's wrist bends (body frame): the trigger wing out, down and back; the support wing out, down and forward. */
+  poleMain: { x: -0.25, y: -1, z: -0.45 },
+  poleSupport: { x: 0.6, y: -1, z: 0.6 },
+  /** Shot: the gun kicks back along the barrel (m) and the muzzle climbs; the chest gives a little. */
+  recoilKick: 0.04,
+  recoilClimb: 0.12,
+  recoilChest: -0.03,
+  /**
+   * Reload: the gun comes forward off the flank, rolls out, dips and turns in while the fore-end racks (rad/s).
+   * Pulls (reload, parry) are shares of the body radius sideways and forward, of the height upward.
+   */
+  reloadCant: 0.75,
+  reloadDip: 0.35,
+  reloadYaw: 0.15,
+  reloadPull: { x: 0.1, y: -0.03, z: 0.45 },
+  pumpRate: 9,
+  /** Casts that free the support wing: the gun drops to a one-winged low carry at the side. */
+  lowerDip: 0.95,
+  lowerDrop: 0.05,
+  /** Melee: the barrel swipes across (light), is raised and brought down (heavy), held up as a club (charge) or across the chest (parry). */
+  lightSwing: 0.9,
+  lightWind: -0.45,
+  heavyRaise: -1.1,
+  heavySmash: 0.55,
+  heavyLift: 0.08,
+  chargeRaise: -0.9,
+  chargeLift: 0.07,
+  parryYaw: 1.25,
+  parryRaise: -0.2,
+  parryPull: { x: 0.35, y: 0.03, z: 1.2 },
+  /** A stunned bird lets the gun sag. */
+  stunDip: 0.35,
+} as const;
+
+/** Legs: two segments and a foot, solved onto the ground when grounded (D-ART-003). */
+export const LEG_IK = {
+  /** Ankle height above the sole, in leg thicknesses. */
+  ankle: 1.2,
+  /** Each segment as a share of the hip-to-ankle height, so the knee stays bent at rest. */
+  bend: 0.56,
+  /** Feet tucked under the body in the air, forward on a slide, trailing when dead (shares of leg reach: down, forward). */
+  tuck: { down: 0.5, fwd: -0.3 },
+  slide: { down: 0.5, fwd: 0.65 },
+  limp: { down: 0.85, fwd: -0.25 },
+  climb: { down: 0.55, fwd: 0.35 },
+  climbSwing: 0.25,
+  /** Flamingo one-leg idle: the lifted foot folds up under the body. */
+  fold: { down: 0.32, fwd: 0.12 },
+  /** Toes point down this far in the air (rad). */
+  curl: 0.7,
+} as const;
+
+/**
+ * Gait: feet plant on the ground and move back under the bird at the ground speed, so they do not slide, up to a
+ * stride the legs can reach (`stride` × hip-to-ankle height); above the step-rate cap, a fast bird's feet slip.
+ */
+export const GAIT = {
+  /** Share of the step cycle a foot is on the ground. */
+  duty: 0.5,
+  stride: 1.1,
+  /** Step-cycle rate limits (rad/s): one full cycle is a step with each foot. */
+  rateMin: 5,
+  rateMax: 30,
+  minSpeed: 0.2,
+  /** Swing-foot clearance and body bob on the run, as shares of hip-to-ankle height. */
+  lift: 0.35,
+  bob: 0.08,
+  /** Hips drop on the run (stride reach) and on landing (share of hip height); landing recovers over `landTime` s. */
+  runDrop: 0.08,
+  landDrop: 0.2,
+  landTime: 0.3,
+  /** Air time (s) before a touchdown counts as a landing. */
+  landAfter: 0.15,
+} as const;
+
+/**
+ * Cast poses (BirdBuild.casts, per ability slot). Free-wing gestures put the support wing at `gesture` of its reach
+ * in a body-frame direction from its shoulder; 'aim' and 'leap' keep both wings on the gun.
+ */
+export const CAST_POSE = {
+  /** The pose when the slot is unknown (EntityView carries no cast slot yet). */
+  fallback: 'raise',
+  gesture: 0.88,
+  raise: { x: 0.35, y: 0.9, z: 0.2 },
+  throw: { x: 0.05, y: 0.2, z: 1 },
+  sweep: { x: 1, y: 0.1, z: 0.3 },
+  stomp: { x: 0.9, y: 0.35, z: 0.05 },
+  wave: 0.35,
+  waveRate: 6,
+  /** Leap: deep crouch (share of hip height) and forward lean; aim: braced lean. */
+  leapDrop: 0.3,
+  leapLean: 0.35,
+  aimLean: 0.08,
+  /** Stomp: the right foot lifts (share of hip height) and stamps, cycling at this rate (rad/s). */
+  stompLift: 0.55,
+  stompRate: 7,
+  throwLean: 0.15,
+} as const;
+
+/**
  * Melee poses (WeaponState.meleePose). Timed from the moment the pose appears: a short windup pull-back, the lunge,
  * then recovery. `dur` seconds, `pitch` body lean at the lunge peak (rad), `reach` hip travel (fraction of height),
  * `wing` flare at the peak, `windup` the fraction of `dur` spent pulling back.

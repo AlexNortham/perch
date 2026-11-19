@@ -6,7 +6,7 @@
  */
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
-import { assemble, dims, eyes, gun, headShell, leg, wing } from './bird';
+import { assemble, dims, eyes, headShell } from './bird';
 import type { BirdBuild } from './bird';
 import { GENERIC, PLUMAGE } from './constants';
 import { BIRD_BUILDS_B } from './heroes-b';
@@ -36,30 +36,16 @@ const shrike: Build = (plan, team) => {
     .box(PLUMAGE.black, [R * 0.7, H * 0.025, H * 0.62], [0, 0, -H * 0.31])
     .box(PLUMAGE.white, [R * 0.74, H * 0.03, H * 0.05], [0, 0, -H * 0.55])
     .box(team.primary, [R * 0.74, H * 0.032, H * 0.07], [0, 0, -H * 0.2]);
-  return assemble(
-    plan,
-    {
-      body,
-      head,
-      wingL: wing(1, PLUMAGE.black, H * 0.42, R * 1.2, R * 0.12, team.primary),
-      wingR: wing(-1, PLUMAGE.black, H * 0.42, R * 1.2, R * 0.12, team.primary),
-      legL: leg(PLUMAGE.leg, legLen, H * 0.02, R * 0.4),
-      legR: leg(PLUMAGE.leg, legLen, H * 0.02, R * 0.4),
-      tail,
-      gun: gun({ length: 0.7, thick: 0.065, thorns: true }),
-    },
-    {
-      body: [0, 0, 0],
-      head: [0, hc, 0],
-      wingL: [R * 0.9, sy, 0],
-      wingR: [-R * 0.9, sy, 0],
-      legL: [R * 0.4, legLen, 0],
-      legR: [-R * 0.4, legLen, 0],
-      tail: [0, cy + ry * 0.1, -R * 1.2],
-      gun: [0, 0, 0],
-    },
-    { sway: 0, castTail: -0.7, wingRest: 0.05 },
-  );
+  return assemble(plan, {
+    body, head, tail,
+    wing: { hex: PLUMAGE.black, len: H * 0.42, chord: R * 1.2, thick: R * 0.12, trim: team.primary },
+    leg: { hex: PLUMAGE.leg, len: legLen, thick: H * 0.02, foot: R * 0.4 },
+    gun: { length: 0.7, thick: 0.065, thorns: true },
+    pivot: { wingL: [R * 0.9, sy, 0], wingR: [-R * 0.9, sy, 0], legL: [R * 0.4, legLen, 0], legR: [-R * 0.4, legLen, 0], tail: [0, cy + ry * 0.1, -R * 1.2] },
+    // Thorn Larder, Briar Patch, Impaling Bolt, Butcher's Ring.
+    casts: ['throw', 'sweep', 'aim', 'raise'],
+    sway: 0, castTail: -0.7,
+  });
 };
 
 /** Albatross: the widest hero. Wings folded like a cloak down to the ground, thick neck, long pale hooked bill. */
@@ -78,32 +64,19 @@ const albatross: Build = (plan, team) => {
     .cone(PLUMAGE.albatrossBill, hr * 0.55, hr * 3.1, [0, -hr * 0.1, hr * 0.8])
     .cone(PLUMAGE.albatrossBillTip, hr * 0.3, hr * 0.9, [0, -hr * 0.1, hr * 0.8 + hr * 2.9], [1.0, 0, 0]);
   eyes(head, hr, 0.15, 0.6);
-  const wingLen = sy - 0.05;
   const tail = new Parts().ell(PLUMAGE.albatrossWing, [R * 0.5, H * 0.015, R * 0.9], [0, 0, -R * 0.7]);
-  return assemble(
-    plan,
-    {
-      body,
-      head,
-      wingL: wing(1, PLUMAGE.albatrossWing, wingLen, R * 1.9, R * 0.22, team.primary, 0.66),
-      wingR: wing(-1, PLUMAGE.albatrossWing, wingLen, R * 1.9, R * 0.22, team.primary, 0.66),
-      legL: leg(PLUMAGE.albatrossBill, legLen, H * 0.02, R * 0.5),
-      legR: leg(PLUMAGE.albatrossBill, legLen, H * 0.02, R * 0.5),
-      tail,
-      gun: gun({ length: 0.6, thick: 0.09, bell: 0.16 }),
-    },
-    {
-      body: [0, 0, 0],
-      head: [0, hc, 0],
-      wingL: [R * 1.0, sy, 0],
-      wingR: [-R * 1.0, sy, 0],
-      legL: [R * 0.4, legLen, 0],
-      legR: [-R * 0.4, legLen, 0],
-      tail: [0, cy, -R * 0.8],
-      gun: [0, 0, 0],
-    },
-    { sway: 0.12, castTail: -0.3, wingRest: 0.22 },
-  );
+  return assemble(plan, {
+    body, head, tail,
+    wing: { hex: PLUMAGE.albatrossWing, len: H * 0.36, chord: R * 1.5, thick: R * 0.14, trim: team.primary },
+    leg: { hex: PLUMAGE.albatrossBill, len: legLen, thick: H * 0.02, foot: R * 0.5 },
+    gun: { length: 0.6, thick: 0.09, bell: 0.16 },
+    pivot: { wingL: [R * 1.0, sy, 0], wingR: [-R * 1.0, sy, 0], legL: [R * 0.4, legLen, 0], legR: [-R * 0.4, legLen, 0], tail: [0, cy, -R * 0.8] },
+    // Gale Shield, Wing Slam, Salt Hide, Tempest Dive.
+    casts: ['sweep', 'leap', 'raise', 'leap'],
+    sway: 0.12, castTail: -0.3,
+    // The muzzle sits inside this wide chest (interface request): turn the stock out so the gun clears the flank.
+    toe: 0.2,
+  });
 };
 
 /** Kingfisher: small, forward-leaning sprinter with a dagger bill, stubby tail, blue back and orange chest. */
@@ -124,30 +97,16 @@ const kingfisher: Build = (plan, team) => {
   eyes(head, hr, 0.2, 0.62);
   const sy = cy + ry * 0.4;
   const tail = new Parts().cone(PLUMAGE.kingfisherBack, R * 0.4, H * 0.18, [0, 0, -H * 0.02], [0.5, Math.PI, 0]).ell(team.primary, [R * 0.3, H * 0.02, H * 0.03], [0, -H * 0.05, -H * 0.19]);
-  return assemble(
-    plan,
-    {
-      body,
-      head,
-      wingL: wing(1, PLUMAGE.kingfisherBack, H * 0.36, R * 1.1, R * 0.1, team.primary),
-      wingR: wing(-1, PLUMAGE.kingfisherBack, H * 0.36, R * 1.1, R * 0.1, team.primary),
-      legL: leg(PLUMAGE.kingfisherBelly, legLen, H * 0.025, R * 0.4),
-      legR: leg(PLUMAGE.kingfisherBelly, legLen, H * 0.025, R * 0.4),
-      tail,
-      gun: gun({ length: 0.38, thick: 0.055 }),
-    },
-    {
-      body: [0, 0, 0],
-      head: [0, hc, 0],
-      wingL: [R * 0.85, sy, -H * 0.05],
-      wingR: [-R * 0.85, sy, -H * 0.05],
-      legL: [R * 0.4, legLen, -H * 0.03],
-      legR: [-R * 0.4, legLen, -H * 0.03],
-      tail: [0, cy - ry * 0.35, -H * 0.2],
-      gun: [0, 0, 0],
-    },
-    { sway: 0, castTail: -0.4, wingRest: 0.04 },
-  );
+  return assemble(plan, {
+    body, head, tail,
+    wing: { hex: PLUMAGE.kingfisherBack, len: H * 0.36, chord: R * 1.1, thick: R * 0.1, trim: team.primary },
+    leg: { hex: PLUMAGE.kingfisherBelly, len: legLen, thick: H * 0.025, foot: R * 0.4 },
+    gun: { length: 0.38, thick: 0.055, main: 0.72, support: 0.3 },
+    pivot: { wingL: [R * 0.85, sy, -H * 0.05], wingR: [-R * 0.85, sy, -H * 0.05], legL: [R * 0.4, legLen, -H * 0.03], legR: [-R * 0.4, legLen, -H * 0.03], tail: [0, cy - ry * 0.35, -H * 0.2] },
+    // Plunge, Glint, Spear Bill, Riverstrike.
+    casts: ['leap', 'raise', 'leap', 'aim'],
+    sway: 0, castTail: -0.4,
+  });
 };
 
 /** Lyrebird: slim brown body under a huge lyre of curved plumes with silver filaments arching above the head. */
@@ -177,30 +136,16 @@ const lyrebird: Build = (plan, team) => {
     // Silver filaments: strings from the base fanning to the plume.
     for (const t of [0.35, 0.55, 0.75, 0.9]) tail.rod(PLUMAGE.lyreSilver, [s * 0.03, 0, -R * 0.9], point(s, t), 0.016);
   }
-  return assemble(
-    plan,
-    {
-      body,
-      head,
-      wingL: wing(1, PLUMAGE.lyreBrown, H * 0.4, R * 1.1, R * 0.1, team.primary),
-      wingR: wing(-1, PLUMAGE.lyreBrown, H * 0.4, R * 1.1, R * 0.1, team.primary),
-      legL: leg(PLUMAGE.leg, legLen, H * 0.018, R * 0.35),
-      legR: leg(PLUMAGE.leg, legLen, H * 0.018, R * 0.35),
-      tail,
-      gun: gun({ length: 0.55, thick: 0.06, lute: 0.13 }),
-    },
-    {
-      body: [0, 0, 0],
-      head: [0, hc, 0],
-      wingL: [R * 0.8, sy, 0],
-      wingR: [-R * 0.8, sy, 0],
-      legL: [R * 0.35, legLen, 0],
-      legR: [-R * 0.35, legLen, 0],
-      tail: [0, cy - ry * 0.2, -R * 1.2],
-      gun: [0, 0, 0],
-    },
-    { sway: 0, castTail: -0.25, wingRest: 0.05 },
-  );
+  return assemble(plan, {
+    body, head, tail,
+    wing: { hex: PLUMAGE.lyreBrown, len: H * 0.4, chord: R * 1.1, thick: R * 0.1, trim: team.primary },
+    leg: { hex: PLUMAGE.leg, len: legLen, thick: H * 0.018, foot: R * 0.35 },
+    gun: { length: 0.55, thick: 0.06, lute: 0.13 },
+    pivot: { wingL: [R * 0.8, sy, 0], wingR: [-R * 0.8, sy, 0], legL: [R * 0.35, legLen, 0], legR: [-R * 0.35, legLen, 0], tail: [0, cy - ry * 0.2, -R * 1.2] },
+    // Mended Song, Echo Double, Discord, Grand Chorus.
+    casts: ['raise', 'sweep', 'throw', 'raise'],
+    sway: 0, castTail: -0.25,
+  });
 };
 
 /** The placeholder for the other twenty: a plain bird, scaled to the plan, tinted by the hero's place in the roster. */
@@ -222,30 +167,15 @@ export function genericBuild(plan: BodyPlan, team: TeamColours, index: number, c
   const head = headShell(new Parts(), main, hr).cone(GENERIC.bill, hr * 0.5, hr * 1.7, [0, -hr * 0.1, hr * 0.85]);
   eyes(head, hr);
   const tail = new Parts().box(dark, [R * 0.6, H * 0.03, H * 0.22], [0, 0, -H * 0.1]).box(team.primary, [R * 0.62, H * 0.032, H * 0.04], [0, 0, -H * 0.2]);
-  return assemble(
-    plan,
-    {
-      body,
-      head,
-      wingL: wing(1, dark, H * 0.42, R * 1.2, R * 0.12, team.primary),
-      wingR: wing(-1, dark, H * 0.42, R * 1.2, R * 0.12, team.primary),
-      legL: leg(GENERIC.leg, legLen, H * 0.02, R * 0.4),
-      legR: leg(GENERIC.leg, legLen, H * 0.02, R * 0.4),
-      tail,
-      gun: gun({ length: 0.55, thick: 0.06 }),
-    },
-    {
-      body: [0, 0, 0],
-      head: [0, hc, 0],
-      wingL: [R * 0.9, sy, 0],
-      wingR: [-R * 0.9, sy, 0],
-      legL: [R * 0.4, legLen, 0],
-      legR: [-R * 0.4, legLen, 0],
-      tail: [0, cy, -R * 1.2],
-      gun: [0, 0, 0],
-    },
-    { sway: 0, castTail: -0.4, wingRest: 0.05 },
-  );
+  return assemble(plan, {
+    body, head, tail,
+    wing: { hex: dark, len: H * 0.42, chord: R * 1.2, thick: R * 0.12, trim: team.primary },
+    leg: { hex: GENERIC.leg, len: legLen, thick: H * 0.02, foot: R * 0.4 },
+    gun: { length: 0.55, thick: 0.06 },
+    pivot: { wingL: [R * 0.9, sy, 0], wingR: [-R * 0.9, sy, 0], legL: [R * 0.4, legLen, 0], legR: [-R * 0.4, legLen, 0], tail: [0, cy, -R * 1.2] },
+    casts: ['throw', 'sweep', 'aim', 'raise'],
+    sway: 0, castTail: -0.4,
+  });
 }
 
 /** Hand-built heroes by id. */
