@@ -150,7 +150,14 @@ export const MELEE = {
   parry: { wingFlare: 0.5, wingSwing: -1.35, pitch: -0.12, head: 0.35, hold: 0.9 },
   /** Release back to neutral, 1/s. */
   release: 10,
-  headThrust: 0.45,
+  headThrust: 0.135,
+  /** Lunge peak as a fraction of the lunge phase, and the windup pull-back fade. */
+  peak: 0.3,
+  backFade: 0.15,
+  minWeight: 0.01,
+  sweepBack: 0.5,
+  pullBack: 0.3,
+  headPull: 0.5,
   /** Pouch and halo and one-leg idle. */
   haloRate: 2.4,
   idleLegAngle: 1.3,
@@ -182,6 +189,56 @@ export const FLEDGLING = {
   foot: 0xd9722a,
   wing: 0xd9b866,
   sling: 0x7a5236,
+} as const;
+
+/** Structure models (GDD §7.2 to §7.7, §14). Heights in metres; towers stay under the 12 m Updraft rider. */
+export const STRUCTURE = {
+  /** Hawk, Heron, Warden and Shrine models never rise above this (the Updraft line is 12 m up). */
+  towerMaxHeight: 10,
+  hawkColumn: 8,
+  wardenHeight: 7,
+  shrineHeight: 7,
+  heronFrame: 7.6,
+  /** Patron statue: head top height, chest (heart-feather) height. */
+  patronHeight: 11.5,
+  patronHeartUp: 6,
+  patronHeartForward: 2.1,
+  stone: 0xb9a98a,
+  stoneDark: 0x8d806a,
+  timber: 0x7a5236,
+  timberDark: 0x5a3a24,
+  ravenBlack: 0x1c1c26,
+  ravenSheen: 0x3a3a52,
+  owlGrey: 0x7a6e86,
+  owlCream: 0xe8dcc4,
+  hawkBrown: 0x6a4a34,
+  hawkCream: 0xe6d5b0,
+  heronGrey: 0x8da0b3,
+  heronBill: 0xd9a63a,
+  glowOff: 0x2a2a30,
+  ragedGlow: 0xff5a2a,
+  heartColour: 0xffe27a,
+  domeColour: 0xf3ead4,
+  domeOpacity: 0.3,
+  /** Dome grows and vanishes over this long when the ward breaks (s). */
+  crackTime: 0.6,
+  crackGrow: 0.3,
+  domeCapacity: 96,
+  phase2Scale: 1.05,
+  shakeAmp: 0.18,
+  shakeRate: 55,
+  stompRate: 3.2,
+  stompLift: 1.1,
+  stepRate: 1.1,
+  stepLift: 0.25,
+  pulseRate: 3,
+  breathe: 0.012,
+  domeSegments: 18,
+  domeSquash: 1.05,
+  shakeRatio: 0.83,
+  flashMin: 0.75,
+  flashRatio: 0.5,
+  heartSpin: 1.3,
 } as const;
 
 /** Debug hitbox overlay (QA). */

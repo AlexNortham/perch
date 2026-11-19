@@ -138,8 +138,8 @@ export class BirdRig extends Group {
       if (u < strike.windup) back = u / strike.windup;
       else {
         const v = (u - strike.windup) / (1 - strike.windup);
-        back = Math.max(0, 1 - v / 0.15);
-        lunge = v < 0.3 ? v / 0.3 : 1 - (v - 0.3) / 0.7;
+        back = Math.max(0, 1 - v / MELEE.backFade);
+        lunge = v < MELEE.peak ? v / MELEE.peak : 1 - (v - MELEE.peak) / (1 - MELEE.peak);
       }
     }
     const striking = Math.max(lunge, back);
@@ -165,14 +165,14 @@ export class BirdRig extends Group {
       flare = RIG.wingAir;
       flap = e.vel.y > 0 ? 1 : RIG.flapFall;
     }
-    if (this.charge > 0.01) flare += (MELEE.charge.wing - flare) * this.charge;
+    if (this.charge > MELEE.minWeight) flare += (MELEE.charge.wing - flare) * this.charge;
     if (strike) flare += (strike.wing - flare) * striking;
-    if (this.parry > 0.01) flare += (MELEE.parry.wingFlare - flare) * this.parry;
+    if (this.parry > MELEE.minWeight) flare += (MELEE.parry.wingFlare - flare) * this.parry;
     this.wingFlare += (flare - this.wingFlare) * k;
     const flutter = Math.sin(t * RIG.flapRate) * RIG.flapAmp * flap;
     wingL.rotation.z = this.wingFlare + flutter;
     wingR.rotation.z = -(this.wingFlare + flutter);
-    wingL.rotation.x = wingR.rotation.x = this.parry * MELEE.parry.wingSwing + lunge * 0.5;
+    wingL.rotation.x = wingR.rotation.x = this.parry * MELEE.parry.wingSwing + lunge * MELEE.sweepBack;
 
     // Whole-body pitch about the hip, bob, roll and crouch.
     const pitchTarget = sliding
@@ -202,7 +202,7 @@ export class BirdRig extends Group {
     const rig = this.rig;
     const lean = this.charge * MELEE.charge.pitch + this.parry * MELEE.parry.pitch + (strike ? lunge * strike.pitch - back * strike.back : 0);
     rig.rotation.x = this.pitch + lean + (this.flinch / RIG.flinchTime) * RIG.flinchPitch;
-    rig.position.z = strike ? (lunge - back * strike.back * 0.3) * strike.reach * H : 0;
+    rig.position.z = strike ? (lunge - back * strike.back * MELEE.pullBack) * strike.reach * H : 0;
     rig.position.x = Math.sin(t * MELEE.charge.shakeRate) * MELEE.charge.shake * this.charge;
     rig.rotation.z = Math.sin(this.phase) * this.build.sway * this.run + this.dead * RIG.deathRoll;
     rig.position.y = this.pivotY + bob - (sliding ? RIG.slideDrop * this.pivotY : 0) - this.dead * (this.pivotY - RIG.deadClearance * H) - this.sink - this.charge * MELEE.charge.drop * H;
@@ -218,7 +218,7 @@ export class BirdRig extends Group {
     this.stun += ((has(f, ViewFlag.Stunned) ? 1 : 0) - this.stun) * k;
     this.reload += ((has(f, ViewFlag.Reloading) ? 1 : 0) - this.reload) * k;
     head.rotation.x = -clamp(e.pitch, -RIG.pitchLimit, RIG.pitchLimit) * RIG.headLook + RIG.castHeadUp * this.cast + RIG.reloadHead * this.reload + this.charge * MELEE.charge.head + this.parry * MELEE.parry.head;
-    head.position.z = this.build.pivot.head.z + (lunge - back * 0.5) * MELEE.headThrust * H * 0.3;
+    head.position.z = this.build.pivot.head.z + (lunge - back * MELEE.headPull) * MELEE.headThrust * H;
     if (this.halo) this.halo.rotation.y = t * MELEE.haloRate;
     head.rotation.y = Math.sin(t * RIG.stunRate) * RIG.stunSwing * this.stun;
     head.rotation.z = Math.sin(t * RIG.headTiltRate + e.id) * RIG.headTilt * idle + Math.cos(t * RIG.stunRate) * RIG.stunRoll * this.stun;
