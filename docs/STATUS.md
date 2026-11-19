@@ -1720,7 +1720,7 @@ video element seeked. No file was downloaded.
 - An automated browser only gets about 60 s of stream per page load, so each moment was opened as a timestamped link.
   One-second bursts are limited to about 25 s, and whole-match overviews come from the seek-bar previews (about 6 s
   apart).
-- The frames I looked at: five boards, 23 single frames and six bursts, all in `out/reference/` (git-ignored).
+- The frames I looked at: five boards, 22 single frames and five bursts, all in `out/reference/` (git-ignored).
 - PERCH side: `out/perch-capture.ts` (lane walk, dash, Updraft ride and boost and lane clash at 1 frame/s, shop,
   Practice Hub, siege replay), `npm run shots` map overview and top, and `out/perch-scan.ts`.
 **Findings for the EP:**
@@ -1728,6 +1728,8 @@ video element seeked. No file was downloaded.
   fight can be compared yet (G22).
 - **Updraft:** riding and boosting fills up to 40 % of the screen with opaque white slabs (G16).
 - **Feed:** structure kills read "The world", and Brood Ward lines flood the feed (G08, G30).
-**Verified:** `npm ci --prefer-offline --no-audit --no-fund` (145 packages). The `npm run check` result is in the
-reply. No `src/` change.
+**Verified:** `npm ci --prefer-offline --no-audit --no-fund` (145 packages). Git Bash `VITEST_MAX_WORKERS=1 npm run
+check`: `PASS typecheck 8s · lint 6s · test 51s · perf 10s · sim 13s · e2e 132s · check 221s`. An earlier run failed
+only the world perf test (0.998 ms per tick against 0.5). It ran while the capture browsers were busy and passed alone
+and in the run above. No `src/` change.
 **Interface requests:** none. The gap owners are listed per gap, for the EP to route.
