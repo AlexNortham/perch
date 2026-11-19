@@ -1268,3 +1268,20 @@ the match and the ordinary end screen shows Defeat. Disabled buttons keep their 
 border.
 **Why:** GDD asks for a confirm; a second click on the same button confirms without a modal or a native dialog,
 which would fight pointer lock and fullscreen.
+
+### D-EP-038 · 19/11/2026 — Hold to upgrade on the HUD ability bar
+**Decision:** supersedes the tap-to-open Ability Upgrades panel from D-EP-028 and D-ARCH-019.
+- **Holding** the upgrade binding (Left Alt by default) enters upgrade mode. Aiming pauses and a cursor appears
+  over the HUD.
+- While it is held, clicking an ability icon on the existing HUD bar, or pressing that ability's key (1–4), unlocks
+  or upgrades it when affordable.
+- Hovering an icon shows its description, the next tier's effect, the AP cost and unspent AP, or why it is locked or
+  maxed.
+- Releasing the key resumes aiming immediately.
+- Pointer lock stays engaged, and the game draws its own cursor while the key is held. Re-requesting pointer lock on
+  key release is unreliable in browsers (it needs a fresh user gesture), and this keeps resuming instant.
+- The accessible names QA relies on carry over to the HUD icons (`Upgrade <ability>` with the unavailable reason).
+- The Practice Hub keeps its 32 AP and uses the same mechanism.
+- Ships with Stage 4 (UI/HUD and Camera & Input in wave 5) and is a Stage 4 gate item.
+**Why:** the user's instruction: the upgrade menu should be a hold that frees the mouse to click the existing ability
+icons, or press the ability button, to unlock and upgrade.

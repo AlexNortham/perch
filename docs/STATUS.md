@@ -177,6 +177,8 @@ Gate M3:
 - [ ] Detailed map: enterable buildings with interiors and things to do in them, a jungle with Thicket camps, and
   breakable Nests (boxes) throughout (D-EP-033); still 60 FPS on the budget scenes
 - [ ] 11 bots finish 20 seeded headless matches with zero crashes
+- [ ] Upgrades by holding the upgrade key: aiming pauses, a cursor appears over the HUD, clicking an ability icon or
+  pressing 1–4 unlocks or upgrades it, hover shows the next tier, release resumes aiming at once (D-EP-038)
 - [ ] Build Lab: at least 1,000 headless matches, then more until the scores converge (D-EP-037); every hero has a recommended build (early, mid and late core
   plus situational picks) in the shop and the wiki; bots buy varied but synergistic builds, measured over 20 matches
   (no two of a hero's builds near-identical; synergy above a random baseline) (D-EP-036)
