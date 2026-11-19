@@ -12,6 +12,8 @@ import { ALLY_TEAL, ENEMY_RED, NEUTRAL_COLOUR, TEAM_COLOURS } from '../app/palet
 import {
   AREA, MELEE, HEAD, HIT_FLASH, HIT_FLASH_CAPACITY, MARKER, MARKER_BITS, MAX_TETHERS, PROJECTILE, POD, SLIDE_SPARK_EVERY, SUMMON, TETHER,
   WIND_EVERY,
+  AREA_DRAW, HALF_TURN_DEG, HIT_FLASH_DRAW, MARKER_DRAW, MELEE_DRAW, POD_DRAW, PROJECTILE_DRAW, SLIDE_SPARK, SUMMON_DRAW,
+  TETHER_DRAW,
 } from './constants';
 import { chestHeight } from './mapping';
 import { drawnByVfx } from '../app/drawn';
@@ -19,7 +21,7 @@ import { faceZ, identity, rgb } from './fx';
 import type { Draw, Transients } from './fx';
 
 const TAU = Math.PI * 2;
-const DEG = Math.PI / 180;
+const DEG = Math.PI / HALF_TURN_DEG;
 const UP = { x: 0, y: 1, z: 0 };
 const WHITE = 0xffffff;
 
@@ -142,7 +144,7 @@ export class Bound {
         this.markers(e, src.statusBits.get(e.id) ?? 0);
         if (e.meleePose) this.melee(e);
         if (e.kind === 'hero') {
-          if (slide && (e.flags & ViewFlag.Sliding) !== 0) this.fx.burst('slideSpark', { x: this.x - e.vel.x * 0.05, y: this.y + 0.1, z: this.z - e.vel.z * 0.05 }, UP, WHITE);
+          if (slide && (e.flags & ViewFlag.Sliding) !== 0) this.fx.burst('slideSpark', { x: this.x - e.vel.x * SLIDE_SPARK.trail, y: this.y + SLIDE_SPARK.lift, z: this.z - e.vel.z * SLIDE_SPARK.trail }, UP, WHITE);
           if (wind && (e.flags & ViewFlag.OnUpdraft) !== 0) this.fx.burst('wind', { x: this.x, y: this.y, z: this.z }, UP, WHITE);
         }
       }
@@ -156,14 +158,14 @@ export class Bound {
     const enemy = e.team !== local;
     const r = Math.max(PROJECTILE.minRadius, e.radius) * PROJECTILE.scale;
     this.sphere(this.x, this.y, this.z, r, enemy ? PROJECTILE.coreEnemy : PROJECTILE.coreAlly, 1);
-    if (e.radius >= PROJECTILE.glowFrom) this.sphere(this.x, this.y, this.z, r * PROJECTILE.glowScale, enemy ? ENEMY_RED : teamColour(e), 0.45);
+    if (e.radius >= PROJECTILE.glowFrom) this.sphere(this.x, this.y, this.z, r * PROJECTILE.glowScale, enemy ? ENEMY_RED : teamColour(e), PROJECTILE_DRAW.glowAlpha);
     const speed = Math.hypot(e.vel.x, e.vel.y, e.vel.z);
     if (speed < 1) return;
     const len = Math.min(speed * PROJECTILE.trailPerSpeed, PROJECTILE.trailMax);
     const dx = -e.vel.x / speed;
     const dy = -e.vel.y / speed;
     const dz = -e.vel.z / speed;
-    this.put('box', faceZ(this.q, dx, dy, dz), this.x + (dx * len) / 2, this.y + (dy * len) / 2, this.z + (dz * len) / 2, r * 0.9, r * 0.9, len, enemy ? ENEMY_RED : teamColour(e), 0.7);
+    this.put('box', faceZ(this.q, dx, dy, dz), this.x + (dx * len) / 2, this.y + (dy * len) / 2, this.z + (dz * len) / 2, r * PROJECTILE_DRAW.trailThickness, r * PROJECTILE_DRAW.trailThickness, len, enemy ? ENEMY_RED : teamColour(e), PROJECTILE_DRAW.trailAlpha);
   }
 
   /** A seed pod rises, hangs ripe (pulsing), then withers; gold for the side that can secure it, grey-blue to deny. */
@@ -183,12 +185,12 @@ export class Bound {
     else if (age < ripeEnd) scale = 1 + POD.pulseDepth * Math.sin((age - POD.riseS) * POD.pulseHz * TAU);
     else {
       const w = Math.min(1, (age - ripeEnd) / POD.witherS);
-      scale = 1 - 0.6 * w;
-      k = 1 - 0.6 * w;
+      scale = 1 - POD_DRAW.witherShrink * w;
+      k = 1 - POD_DRAW.witherShrink * w;
     }
     const r = POD.radius * scale;
     this.sphere(this.x, this.y, this.z, r, hex, k);
-    this.sphere(this.x, this.y, this.z, r * POD.halo, hex, 0.22 * k);
+    this.sphere(this.x, this.y, this.z, r * POD.halo, hex, POD_DRAW.haloAlpha * k);
   }
 
   private prunePods(entities: readonly EntityView[]): void {
@@ -236,14 +238,14 @@ export class Bound {
         const len = d?.kind === 'cone' ? d.length : r;
         const half = d?.kind === 'cone' ? Math.acos(d.cosHalf) : AREA.coneHalfAngleDeg * DEG;
         const base = len * Math.tan(half);
-        this.put('cone', faceZ(this.q, sy, 0, cy), x, this.y + 0.3, z, base, base, len, fill, AREA.fill * 1.5 * pulse);
+        this.put('cone', faceZ(this.q, sy, 0, cy), x, this.y + AREA_DRAW.coneLift, z, base, base, len, fill, AREA.fill * AREA_DRAW.coneFillBoost * pulse);
         break;
       }
       case 'ring': {
         const outer = d?.kind === 'ring' ? d.outer : r;
-        const inner = d?.kind === 'ring' ? d.inner : r * 0.9;
+        const inner = d?.kind === 'ring' ? d.inner : r * AREA_DRAW.innerScale;
         this.ring(x, ground, z, outer, rim, rimK);
-        this.ring(x, ground, z, inner, fill, AREA.fill * 3 * pulse);
+        this.ring(x, ground, z, inner, fill, AREA.fill * AREA_DRAW.ringFillBoost * pulse);
         break;
       }
       default: {
@@ -252,7 +254,7 @@ export class Bound {
         const l = d?.kind === 'box' ? d.halfZ * 2 : r * AREA.boxLengthPerRadius;
         const h = d?.kind === 'box' ? d.half * 2 : AREA.boxHeight;
         this.put('box', faceZ(this.q, sy, 0, cy), x, this.y + h / 2, z, w, h, l, fill, AREA.fill * pulse);
-        this.ring(x, ground, z, Math.max(w, l) / 2, rim, rimK * 0.5);
+        this.ring(x, ground, z, Math.max(w, l) / 2, rim, rimK * AREA_DRAW.rimFade);
       }
     }
   }
@@ -263,11 +265,11 @@ export class Bound {
     switch (e.type) {
       case 'trap':
         this.put('cylinder', identity(), this.x, this.y + SUMMON.trap.height / 2, this.z, e.radius * SUMMON.trap.radiusScale, SUMMON.trap.height, e.radius * SUMMON.trap.radiusScale, col, SUMMON.trap.colourDim);
-        this.sphere(this.x, this.y + SUMMON.trap.height, this.z, e.radius * 0.5, WHITE, 0.6);
+        this.sphere(this.x, this.y + SUMMON.trap.height, this.z, e.radius * SUMMON_DRAW.trapCore, WHITE, SUMMON_DRAW.trapAlpha);
         break;
       case 'turret':
         this.put('cylinder', identity(), this.x, this.y + SUMMON.turret.height / 2, this.z, e.radius * SUMMON.turret.radiusScale, SUMMON.turret.height, e.radius * SUMMON.turret.radiusScale, col, SUMMON.fill);
-        this.sphere(this.x, this.y + SUMMON.turret.height, this.z, e.radius, col, 0.7);
+        this.sphere(this.x, this.y + SUMMON.turret.height, this.z, e.radius, col, SUMMON_DRAW.turretAlpha);
         break;
       default:
         this.put('box', faceZ(this.q, Math.sin(e.yaw), 0, Math.cos(e.yaw)), this.x, this.y + SUMMON.wall.height / 2, this.z, SUMMON.wall.width, SUMMON.wall.height, SUMMON.wall.depth, col, SUMMON.fill);
@@ -281,19 +283,19 @@ export class Bound {
     const y = this.y + MELEE.height;
     switch (e.meleePose) {
       case 'charging': {
-        const p = 1 + 0.3 * Math.sin(this.clock * MELEE.chargeHz * TAU);
-        this.sphere(this.x + fx * MELEE.reach * 0.5, y, this.z + fz * MELEE.reach * 0.5, MELEE.chargeRadius * p, MELEE.charge, 1);
+        const p = 1 + MELEE_DRAW.chargeSwell * Math.sin(this.clock * MELEE.chargeHz * TAU);
+        this.sphere(this.x + fx * MELEE.reach * MELEE_DRAW.chargeAt, y, this.z + fz * MELEE.reach * MELEE_DRAW.chargeAt, MELEE.chargeRadius * p, MELEE.charge, 1);
         break;
       }
       case 'light':
       case 'heavy': {
         const heavy = e.meleePose === 'heavy';
         const len = heavy ? MELEE.heavyLunge : MELEE.lightLunge;
-        this.put('box', faceZ(this.q, fx, 0, fz), this.x + (fx * len) / 2, y, this.z + (fz * len) / 2, heavy ? 0.5 : 0.25, 0.12, len, heavy ? MELEE.heavy : MELEE.light, 0.7);
+        this.put('box', faceZ(this.q, fx, 0, fz), this.x + (fx * len) / 2, y, this.z + (fz * len) / 2, heavy ? MELEE_DRAW.heavyWidth : MELEE_DRAW.lightWidth, MELEE_DRAW.thickness, len, heavy ? MELEE.heavy : MELEE.light, MELEE_DRAW.alpha);
         break;
       }
       default:
-        this.ring(this.x + fx * MELEE.reach * 0.6, y, this.z + fz * MELEE.reach * 0.6, MELEE.guardRadius, MELEE.parry, 1);
+        this.ring(this.x + fx * MELEE.reach * MELEE_DRAW.guardAt, y, this.z + fz * MELEE.reach * MELEE_DRAW.guardAt, MELEE.guardRadius, MELEE.parry, 1);
     }
   }
 
@@ -304,21 +306,21 @@ export class Bound {
     const head = this.y + HEAD[e.kind === 'hero' ? 'hero' : 'unit'];
     const orbit = this.clock * MARKER.orbitHz * TAU;
     if ((b & MARKER_BITS.stun) !== 0) {
-      for (let i = 0; i < 3; i++) {
-        const a = orbit + (i * TAU) / 3;
+      for (let i = 0; i < MARKER_DRAW.stunDots; i++) {
+        const a = orbit + (i * TAU) / MARKER_DRAW.stunDots;
         this.sphere(this.x + Math.cos(a) * MARKER.orbitRadius, head, this.z + Math.sin(a) * MARKER.orbitRadius, MARKER.dot, MARKER.stun, 1);
       }
     }
-    if ((b & MARKER_BITS.disarm) !== 0) this.sphere(this.x + Math.cos(-orbit) * MARKER.orbitRadius, head - 0.2, this.z + Math.sin(-orbit) * MARKER.orbitRadius, MARKER.dot * 1.3, MARKER.disarm, 1);
+    if ((b & MARKER_BITS.disarm) !== 0) this.sphere(this.x + Math.cos(-orbit) * MARKER.orbitRadius, head - MARKER_DRAW.disarmDrop, this.z + Math.sin(-orbit) * MARKER.orbitRadius, MARKER.dot * MARKER_DRAW.disarmScale, MARKER.disarm, 1);
     if ((b & MARKER_BITS.silence) !== 0) {
-      const p = 1 + 0.25 * Math.sin(orbit * 2);
-      this.sphere(this.x, head + 0.35, this.z, MARKER.dot * 1.4 * p, MARKER.silence, 1);
-      this.ring(this.x, head + 0.35, this.z, MARKER.orbitRadius * 0.7 * p, MARKER.silence, 0.8);
+      const p = 1 + MARKER_DRAW.silenceSwell * Math.sin(orbit * 2);
+      this.sphere(this.x, head + MARKER_DRAW.silenceLift, this.z, MARKER.dot * MARKER_DRAW.silenceDot * p, MARKER.silence, 1);
+      this.ring(this.x, head + MARKER_DRAW.silenceLift, this.z, MARKER.orbitRadius * MARKER_DRAW.silenceRing * p, MARKER.silence, MARKER_DRAW.silenceRingAlpha);
     }
-    const foot = Math.max(e.radius * MARKER.ringScale, 0.6);
+    const foot = Math.max(e.radius * MARKER.ringScale, MARKER_DRAW.footMin);
     if ((b & MARKER_BITS.root) !== 0) this.ring(this.x, this.y + MARKER.ringLift, this.z, foot, MARKER.root, 1);
-    if ((b & MARKER_BITS.slow) !== 0) this.ring(this.x, this.y + MARKER.ringLift * 2, this.z, foot * 1.2, MARKER.slow, 0.9);
-    if ((b & MARKER_BITS.grounded) !== 0) this.ring(this.x, this.y + MARKER.ringLift * 3, this.z, foot * 0.8, MARKER.grounded, 0.9);
+    if ((b & MARKER_BITS.slow) !== 0) this.ring(this.x, this.y + MARKER.ringLift * 2, this.z, foot * MARKER_DRAW.slowScale, MARKER.slow, MARKER_DRAW.ringAlpha);
+    if ((b & MARKER_BITS.grounded) !== 0) this.ring(this.x, this.y + MARKER.ringLift * MARKER_DRAW.groundedSteps, this.z, foot * MARKER_DRAW.groundedScale, MARKER.grounded, MARKER_DRAW.ringAlpha);
   }
 
   private tetherLinks(frame: Frame, src: Source): void {
@@ -342,9 +344,9 @@ export class Bound {
       const dy = ty - fy;
       const dz = tz - fz;
       const len = Math.hypot(dx, dy, dz);
-      if (len < 1e-3) continue;
+      if (len < TETHER_DRAW.minLength) continue;
       const w = TETHER.width * (1 + TETHER.pulseDepth * Math.sin(this.clock * TETHER.pulseHz * TAU));
-      this.put('box', faceZ(this.q, dx / len, dy / len, dz / len), (fx + tx) / 2, (fy + ty) / 2, (fz + tz) / 2, w, w, len, a.team === b.team ? TETHER.ally : TETHER.enemy, 0.9);
+      this.put('box', faceZ(this.q, dx / len, dy / len, dz / len), (fx + tx) / 2, (fy + ty) / 2, (fz + tz) / 2, w, w, len, a.team === b.team ? TETHER.ally : TETHER.enemy, TETHER_DRAW.alpha);
     }
   }
 
@@ -358,7 +360,7 @@ export class Bound {
         continue;
       }
       this.at(frame, e);
-      this.sphere(this.x, this.y + Math.max(HIT_FLASH.lift, e.radius * 1.2), this.z, Math.max(HIT_FLASH.minRadius, e.radius * HIT_FLASH.scale), HIT_FLASH.colour, 0.55 * (1 - f.age / HIT_FLASH.life));
+      this.sphere(this.x, this.y + Math.max(HIT_FLASH.lift, e.radius * HIT_FLASH_DRAW.radiusScale), this.z, Math.max(HIT_FLASH.minRadius, e.radius * HIT_FLASH.scale), HIT_FLASH.colour, HIT_FLASH_DRAW.alpha * (1 - f.age / HIT_FLASH.life));
     }
   }
 }
