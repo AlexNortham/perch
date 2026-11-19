@@ -179,6 +179,8 @@ Gate M3:
 - [ ] 11 bots finish 20 seeded headless matches with zero crashes
 - [ ] Upgrades by holding the upgrade key: aiming pauses, a cursor appears over the HUD, clicking an ability icon or
   pressing 1–4 unlocks or upgrades it, hover shows the next tier, release resumes aiming at once (D-EP-038)
+- [ ] No Interact key: Updrafts are mounted by holding Jump near the cable, the Golden Egg is picked up by melee,
+  delivery is automatic, and nothing else needs an interact binding (D-EP-039)
 - [ ] Build Lab: at least 1,000 headless matches, then more until the scores converge (D-EP-037); every hero has a recommended build (early, mid and late core
   plus situational picks) in the shop and the wiki; bots buy varied but synergistic builds, measured over 20 matches
   (no two of a hero's builds near-identical; synergy above a random baseline) (D-EP-036)

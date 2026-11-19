@@ -1286,3 +1286,13 @@ which would fight pointer lock and fullscreen.
 - Ships with Stage 4 (UI/HUD and Camera & Input in wave 5) and is a Stage 4 gate item.
 **Why:** the user's instructions: the upgrade menu should be a hold that frees the mouse to click the existing ability
 icons, or press the ability button, to unlock and upgrade; releasing it locks the mouse again; it is not a separate menu.
+
+### D-EP-039 · 19/11/2026 — No Interact key
+**Decision:** the Interact binding (E) is removed. Updrafts are mounted by holding Jump near the cable (anywhere along
+it, within a reach the Director sets), the Golden Egg is picked up by melee, Egg delivery is automatic in the delivery
+zone, the Phoenix Ember stays a heavy-melee claim, and climbs and interior interactables use movement, jump, melee or
+shooting. The Director writes the exact rules (including how to leave an Updraft) into the GDD in W4.5, the Architect
+retires the command bit and migrates saved bindings, and Input, Physics, Objectives, UI and the wiki implement it in
+wave 5. It is a Stage 4 gate item; the Stage 3 release keeps E until then.
+**Why:** the user's instruction: there should be no interact key; the Egg is picked up by melee, and getting on a
+zipline is triggered by holding Jump near it.
