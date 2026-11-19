@@ -1341,3 +1341,22 @@ it.
   fidelity would need external or generated assets, which the brief rules out; that needs the user's say-so.
 **Why:** the user confirmed that models and abilities must look production-ready and professional, which no stage
 gated before.
+
+### D-EP-043 · 19/11/2026 — Ability-level balancing with reworks, at whatever simulation scale it takes
+**Decision:** Stage 5 balancing assesses every ability, not just heroes and items.
+- **Telemetry:** per-ability use rate, hit rate, damage, healing and crowd control contributed, kill and assist
+  participation, and the win-rate effect of early upgrades. The Architect adds the telemetry fields if they are
+  missing.
+- **Ablation:** paired runs with one ability disabled or replaced by a neutral stand-in, in full matches and in short
+  focused scenarios (lane fight, team fight, siege) for speed.
+- **Outliers in both directions:** dominant abilities (large win-rate swings, always maxed first) and near-useless
+  ones (rarely used, tiny effect, no difference when removed).
+- **Fixes:** number changes for small outliers. Mechanical reworks for abilities that are useless or oppressive by
+  design: designed by the Game Director to the same intent, implemented by the hero engineers, then re-validated.
+- **Bot competence:** hard-difficulty bots do the assessment. A "useless" result is checked against whether bots use
+  the ability competently before it is reworked.
+- **Scale:** no fixed count. Matches and scenarios run until the estimates are statistically solid and every rework is
+  re-validated; 10× or 100× the baseline if needed. Method, numbers and every change go in `docs/BALANCE.md` and the
+  wiki patch notes.
+**Why:** the user's instruction: assess abilities carefully in the simulated games, rework those that are too good or
+fairly useless, and use as many simulations as needed.

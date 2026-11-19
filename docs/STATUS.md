@@ -195,7 +195,9 @@ Gate M3:
 
 - **W6.5** (before W7): Game Director and Technical Artist write the **style guide**, a one-page target look for
   models and effects that every art and VFX task in W7 is judged against (D-EP-042)
-- **W7**: Balance & Data (100+ headless matches per iteration) · Technical Artist ×2 (**production-quality model pass**
+- **W7**: Balance & Data (headless matches and focused skirmish scenarios at whatever scale the statistics need,
+  10× or 100× the baseline if necessary; per-ability assessment, ablation tests and reworks with the Game Director and
+  hero engineers, D-EP-043) · Technical Artist ×2 (**production-quality model pass**
   for all 24 birds, towers, Patrons, fledglings and props; per-ability cast poses; animation polish) · Rendering &
   VFX ×2 (**production-quality VFX pass** for all 96 abilities, guns and impacts; juice, post-fx, instancing and LOD,
   FPS) · Audio (polish, adaptive music) · UI/HUD (main menu, hero select,
@@ -204,6 +206,8 @@ Gate M3:
 
 Gate M4:
 - [ ] Matches last 25–40 min; every hero wins 40–60%; every item gets bought; no runaway snowball
+- [ ] Every one of the 96 abilities assessed by telemetry and ablation; none dominant or near-useless; each rework
+  re-validated in simulation and documented in BALANCE.md and the wiki patch notes (D-EP-043)
 - [ ] 60 FPS budget met with 12 heroes, ~150 fledglings and all structures
 - [ ] Menus, settings and end screen done
 - [ ] Juice: hitstop, shake, hit markers, kill confirms
