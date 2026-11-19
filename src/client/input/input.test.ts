@@ -87,11 +87,18 @@ describe('axes, buttons and mouse', () => {
     expect(input.sample()).toMatchObject({ forward: 0, right: 0 });
   });
 
+  it('accepts explicit legacy or custom crouch and item bindings', () => {
+    const { input, key } = rig({ ...DEFAULT_SETTINGS, bindings: { ...DEFAULT_BINDINGS, crouch: 'ControlLeft', item3: 'KeyC' } });
+    key('keydown', 'ControlLeft');
+    key('keydown', 'KeyC');
+    expect(input.sample().held & (Button.Crouch | Button.Item3)).toBe(Button.Crouch | Button.Item3);
+  });
+
   it('maps every GDD §3.1 button', () => {
     const { input, key, mouse } = rig();
     const expected: [string, number][] = [
       ['Space', Button.Jump],
-      ['ControlLeft', Button.Crouch],
+      ['KeyC', Button.Crouch],
       ['ShiftLeft', Button.Dash],
       ['KeyR', Button.Reload],
       ['KeyQ', Button.Melee],
@@ -102,7 +109,7 @@ describe('axes, buttons and mouse', () => {
       ['Digit4', Button.Ability4],
       ['KeyZ', Button.Item1],
       ['KeyX', Button.Item2],
-      ['KeyC', Button.Item3],
+      ['KeyN', Button.Item3],
       ['KeyV', Button.Item4],
       ['KeyG', Button.ShoulderSwap],
       ['KeyE', Button.Interact],
@@ -154,11 +161,11 @@ describe('axes, buttons and mouse', () => {
 
   it('crouch toggle setting', () => {
     const { input, key } = rig({ ...DEFAULT_SETTINGS, crouchToggle: true });
-    key('keydown', 'ControlLeft');
-    key('keyup', 'ControlLeft');
+    key('keydown', 'KeyC');
+    key('keyup', 'KeyC');
     expect(input.sample().held & Button.Crouch).toBe(Button.Crouch);
-    key('keydown', 'ControlLeft');
-    key('keyup', 'ControlLeft');
+    key('keydown', 'KeyC');
+    key('keyup', 'KeyC');
     expect(input.sample().held & Button.Crouch).toBe(0);
   });
 
