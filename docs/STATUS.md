@@ -1981,3 +1981,60 @@ moves it to held Space). The bots idle in Play, so nobody dies in the 6v6 yet.
 **Interface requests:** Architect: `SimOptions.practiceStart` (position and yaw), so Swap bird needs no `sim.ctx`
 (D-UI-007). Rendering (5b): call `setPortraitProvider` from `ui/portraits.ts`. Docs: `tools/wiki/mechanics.ts` still says
 "press the interact key" and `imageplan.ts` still lists a Tab scoreboard shot.
+### W5a · Objectives · 19/11/2026
+**Done:** branch `worktree-agent-a3ffde07e21cb8d42` from `integrate/w5` 8891822. Everything reads `MapData`; no
+positions are hard-coded (the Ember spots are the GDD's offsets from the Hollow). New in `src/sim/world/`:
+`thickets.ts` (24-camp-ready: five families, dormant and woken at 30 m, `damageFrom` 35 m while asleep, top-damager
+aggro with sight, bites, dash-bite, toad lash and spit puddles, rat heal reduction, badger Slam with a 0.6 s
+telegraph, leash and walk home, indoor camps held in their room, respawn), `nests.ts` (Twig/Woven/Keepsake Nests with
+`variant`, `breakable`, `solid`; 3:00, 5:00 below ground, 10:00 in the Hollow; run-through at 8.5 m/s; crumb and
+keepsake drops; respawn after the break or the last drop's collection; Bell Feeders with swing-back, seeded chime and
+`lit`, full-chime keepsakes; the Granary pairing), `pickups.ts` (crumbs, keepsakes, Berries), `keepsakes.ts` (weighted
+draw with halving, buckets, caps, one `world:keepsakes` source), `runes.ts`, `egg.ts` (spawn and marks, melee pickup,
+carrier status +1.5 m/s and +1 pip with slows cleansed, trailing-flock bonus, five drop causes, unattended roll along
+the nav graph, cooling, automatic delivery with the ×1.25, keepsakes to courier and escorts), `roc.ts` (sleep, wake,
+Hollow-only aggro, Rake, Gale Flap, enrage and Sky Shriek, reset, per-minute HP, three Embers, claims, Rekindle charges,
+expiry and spending, 7/6/5 respawns), `hides.ts`; vision gains Lookouts, ivy curtains and the hidden rule; fledglings
+gain the siege flight (+40% HP, +30% vs structures while Rekindle holds). Numbers in `data/world.ts`, including the
+Seed values economy pays. Springs, the Cellar Run speed and carrier block are Physics' and the Magpie Den Items'
+(follow-ups). D-OBJ-009…014.
+**Verified:** `bash scripts/check.sh` on 1ceb7fc: typecheck, lint, test (820), perf and sim PASS; e2e failed once on
+`preview-regressions` (`page.goto` timeout) and once before on `match.spec` (damage-number sweep), each passing alone,
+then `npm run e2e` 57 passed, with 11 to 28 node, 85 browser and 25 Claude processes running. **World budget (EP
+request):** `world.perf.test.ts` "~150 fledglings" (neutrals off, the 0.5 ms test) measures 0.161 to 0.214 ms/tick on
+this branch and 0.250 to 0.279 on a trial merge with `integrate/w5` db86998 (Systems' interiors), same machine and load:
+no world regression, and nothing near 0.849; that test has no heroes, so Stage 4 vision does no raycasts in it. New `neutrals.test.ts` (10, real map) and `interactables.test.ts` (8, fixture maps for
+Feeders, Granary, Berries, Hides, Lookouts, ivy, indoor camps, Nest classes) drive claims with `melee` events as combat
+reports them. `npm run sim -- --seed 1 --minutes 35 --bots 12` twice: `56e1571ac513c9e4` both times. **Budget (GDD
+§6.12, 0.1 ms):** a whole 35-minute 12-bot match costs +0.028 and +0.032 ms/tick with neutrals on (two pairs of runs
+in one process). The synthetic worst case in `world.perf.test.ts` (all 16 camps and the Roc fighting a dummy hero each
+at once, re-aggroed every 2 s; both matches stepped in alternating 1 s chunks): +0.14 ms median, quartiles +0.08…+0.19,
+loose bound 0.3. World's own share of that, instrumented, is about 0.04 ms (neutrals update 0.015, steer 0.005, extra
+vision 0.017); the rest is combat, statuses, hero knockback physics and the spatial hash serving 49 fighting
+creatures, which a real match never has at once. **PERCH_PENDING=1** on this branch alone: thickets 10/25, nests 4/13, runes 4/23,
+golden-egg 4/18, roc-embers 11/18, interactables 5/31. With temporary local patches (combat's melee hit test taking
+`PickupInfo.melee` pickups, `heavyMelee` pressing Melee) the Egg and rune suites pass everything world owns except the
+disputed assertions below. No remaining failure is a world bug I know of; they wait on these:
+- **Level Designer:** 24 camps with families and indoor buildings, 100 Nests, 8 Feeders (Granary `camp`), 22 Berries,
+  14 Lookouts, 8 Hides, 32 curtains, the Cellar Run and Dens.
+- **Combat:** the melee hit test on `melee` pickups (Egg 'any', runes and Embers 'heavy'); a heavy lunge must not carry
+  the hero past a pickup 1 m ahead (observed: 3.5 m lunge, hero ends 7 m on and off the rune bridge, swing whiffs);
+  `damageFrom` (dormant camps, the Roc); `breakable`; Rekindle revives; the Egg carrier's own Melee should not swing.
+- **Physics:** `solid: false` (Twig and Keepsake Nests and Feeders still get colliders: a sprinting hero stops at a
+  Twig Nest); `blocks: 'sight'` prims out of `LAYERS_SOLID` raycasts; an Updraft-speed stat for the Swift feather.
+**Disputed assertions (QA, not edited):** (1) `tests/helpers/world.ts` `heavyMelee` holds Melee without the press edge,
+so combat never swings (every heavy claim); add `sb.press(hero, Button.Melee)` before the hold, also in the Feeder test's
+inline heavy. (2) `world()` puts every hero after the first on Dusk, so golden-egg's "escort", roc-embers' `b` and the
+Thicket payout "ally" are enemies (the ×1.25 then applies correctly, escorts get nothing, payouts don't split): pass
+`{ hero, team: 'dawn' }`. (3) Absolute stats assume a zero base: carrier `moveSpeed − 0 ≈ 1.5` and `free.moveSpeed = 0`
+(Shrike's base is 7), trailing `sprintSpeed ≈ 2` (base 2), the Nest "walk" (+4 m/s on 7 m/s is 11 m/s), Fierce
+`magazine ≈ +0.3` (+30% of 24 rounds is +7.2). (4) `qa-hp` raises max HP only; current HP stays at base and the badger
+test's hero dies before the second Slam. (5) The enrage test deals 76% of max Talon, which the Roc's 15% Talon resist
+makes 64.6%. (6) The spoil test times from `carried()`'s return, 0.35 s after the pickup (542 vs 550 ± 5). (7) The heavy
+full-chime presses on the first lit tick; a heavy hit lands 0.6 s later, after either lit window (D-OBJ-013).
+**Interface requests:** Combat and Physics as above. Render/VFX: the Egg's descent and the Embers' fall animate from
+`claimableAt` (D-OBJ-010); `spit` events carry the puddle point, `slam` the ring centre. Economy: its neutral Seed
+constants duplicate `data/world.ts` (`CREATURES[].seeds`, `FEEDERS.seeds`, `NESTS[].sprig`, `ROC.reward`,
+`EMBERS.claim`); one source would stop them drifting. Bot AI: creatures and the Roc are team 'neutral'.
+**Next:** flip the suites on as the map and combat land; rerun the budget on the full map (100 Nests and 24 camps add
+spatial-hash entries every tick).

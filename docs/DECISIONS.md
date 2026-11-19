@@ -1805,3 +1805,54 @@ the totals reads `Egg mm:ss-mm:ss` from the soonest scheduled Egg or Roc: the ti
 (`OBJECTIVE_WINDOW_S`). The lead is the leader's margin as a percent of the other flock. Play starts with the player and 11
 bots (`FULL_MATCH_BOTS`), because the bar has six birds a side.
 **Why:** net worth is what a flock compares; the 30 s window is the time an Egg or Roc stays up before it matters.
+### D-OBJ-009 · 19/11/2026 — Who sees neutrals, and hidden heroes
+**Decision:** Nests, Feeders, pickups and sleeping creatures are always visible (`SeenBy.all`), like the map. Awake
+creatures and the Roc follow the ordinary sight rule, evaluated every 0.25 s instead of every 0.1 s. A hero hidden in
+a Hide is seen by an enemy flock only while exposed (2 s after dealing damage or applying a status to an enemy), while
+revealed (a reveal beats the Hide), inside a true-sight radius, or with an enemy hero standing in the same Hide.
+Lookouts give 60 m sight within 3 m; ivy curtains are tested analytically against hero sight lines and ignored within
+3 m of the viewer.
+**Why:** static objects carry no secret and cost a raycast per flock per check; camps are known positions. Creature
+sight lines were most of the extra raycasts in the busy benchmark, and 0.25 s is the ARCHITECTURE §11 limit. Reveals
+are the counter-play the GDD gives to hiding everywhere else.
+
+### D-OBJ-010 · 19/11/2026 — The Egg and the Embers wait on their landing spot
+**Decision:** the Egg sits on its perch from its spawn and each Ember on its spot from the Roc's death; `claimableAt`
+marks the landing, and the client animates the descent (EGG.lowerFromM, EMBERS.fallFromM). E uses whole match minutes
+at the landing (1,100 for the 10:10 landing), as in the GDD's "1,100 at 10:00".
+**Why:** the descent can't be interacted with, so moving the pickup buys nothing in the sim; QA's tests and the HUD
+read the landing position from the start. Whole minutes reproduce the GDD's worked values.
+
+### D-OBJ-011 · 19/11/2026 — The Roc's body and attacks
+**Decision:** the Roc stands on the Hollow floor's centre (3 m radius, 9 m tall) and is unstoppable. Rake wind-up is
+0.5 s, its 8 m cone measured from the body's edge; Gale Flap 0.6 s and Sky Shriek 0.4 s wind-ups, both from its centre.
+It grows +300 max HP per whole minute alive, healing the same amount. Its `damageFrom` sphere is the Hollow's radius
+plus 4 m, cut off at y −2. It sleeps (invulnerable) in the Hollow from 0:00 and wakes at 20:00.
+**Why:** the GDD gives no wind-ups or body size. A boss that can be stunned or knocked about breaks the Hollow fight.
+Whole minutes keep the 15 HP/s regeneration measurable between minute marks (QA's regen test).
+
+### D-OBJ-012 · 19/11/2026 — Camp aggro, leash and rooms
+**Decision:** a creature attacks the hero who dealt its camp the most damage in the last 3 s and that it can see (one
+raycast per creature per 0.5 s); with no recent damage it keeps its target. The camp walks home when a creature passes
+the leash plus 3 m, or after 6 s without damage while a creature is past the 18 m leash or none sees a living target.
+Indoor creatures are clamped to their room's volume (or the building footprint). Specials come half an interval after
+aggro; a dash-bite lunges at 24 m/s; toad puddles tick every 0.5 s for 10 Song and a 30% slow.
+**Why:** read literally, "6 s without taking damage" sends a camp home while a hero stands in it tanking, which no
+player expects and QA's attack tests rule out. Units have no walls (D-CTRL-002), so the room clamp is what stops
+indoor camps at their doors.
+
+### D-OBJ-013 · 19/11/2026 — A Bell Feeder's chime is judged when the hit lands
+**Decision:** the full chime checks the lamp when combat reports the breaking `melee` hit. A heavy hit lands 0.6 s after
+its press, longer than either lit window, so a heavy chime means pressing ahead of the beat. A Granary Feeder and its
+Rat camp return together once both are down: the Rats 4:45 and the Feeder 5:00 after the later of the two; before 8:00
+the Feeder still to come counts as standing.
+**Why:** GDD §7.14 says "lands while the lamp is lit". The Granary rule is the GDD's two respawn rows read together.
+
+### D-OBJ-014 · 19/11/2026 — Pickup reach, sphere sizes and the stat mapping
+**Decision:** walk-in pickups (crumbs, keepsakes, Berries) are collected by flat distance (1.5 m, Berries 1.2 m) with
+the pickup between 1 m below and 2 m above the feet. A GDD "1.0 m sphere" (Egg, runes, Embers) is 1.0 m across (0.5 m
+radius). Percentages of a stat with a base (magazine size) are 'pct'; regeneration bonuses divide staminaRecharge
+(seconds per pip) by 1 + bonus; resist and CDR keepsakes and runes stack ('stack'). The Egg carrier's slow immunity
+cleanses any slowing status each tick. Swift's +Updraft speed waits for a physics stat.
+**Why:** flat reach matches how a hero reads "within 1.5 m"; the band stops collecting through a floor. The stat
+service has no immunity op, and cleansing keeps every other negative status (stuns drop the Egg).
