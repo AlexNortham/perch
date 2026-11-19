@@ -60,6 +60,9 @@ const tough = (sb: Sandbox, id: EntityId): void => {
   sb.apply({ kind: 'heal', amount: 1_000_000 }, id, sb.cause(null));
 };
 const box = (centre: Vec3, size: Vec3) => ({ centre, size, yaw: 0 });
+/** A melee hit's damage as combat deals it: only melee hurts a Feeder, a light hit for its fixed amount (GDD §7.14). */
+const peck = (sb: Sandbox, source: EntityId, target: EntityId): void =>
+  sb.apply({ kind: 'damage', amount: 1, type: 'talon' }, target, sb.cause(source, { via: 'melee' }));
 
 describe('Bell Feeders and the Granary (GDD §7.14)', () => {
   const map: Fixture = {
@@ -85,8 +88,10 @@ describe('Bell Feeders and the Granary (GDD §7.14)', () => {
     expect(back[0]).toMatchObject({ damageType: 'song' });
     expect(back[0]!.amount).toBeCloseTo(FEEDERS.swingBack * (1 - sb.hero(hero).stats.final.songResist), 5);
 
-    hit(sb, hero, f.id, f.health.hp - FEEDERS.chimeHp);
-    step(2);
+    while (f.health.hp > FEEDERS.chimeHp) {
+      peck(sb, hero, f.id);
+      step();
+    }
     expect(f.health.hp).toBe(FEEDERS.chimeHp);
     sb.clearEvents();
     melee(sb, hero, f.id);
@@ -100,9 +105,13 @@ describe('Bell Feeders and the Granary (GDD §7.14)', () => {
     const share = lit / (6 * TICK_RATE);
     expect(FEEDERS.beats.some((b) => Math.abs(share - b.litS / b.everyS) < 0.02), `lit ${share.toFixed(3)}`).toBe(true);
 
+    while (f.health.hp > FEEDERS.light) {
+      peck(sb, hero, f.id);
+      step();
+    }
     for (let i = 0; i < 2 * TICK_RATE && !f.structure.lit; i++) step();
     melee(sb, hero, f.id, true);
-    hit(sb, hero, f.id, 10_000);
+    peck(sb, hero, f.id);
     step();
     expect(f.health.dead).toBe(true);
     expect(sb.hero(hero).keepsakes?.count, 'a heavy hit on the beat').toBe(FEEDERS.keepsakes.heavy);
@@ -116,11 +125,13 @@ describe('Bell Feeders and the Granary (GDD §7.14)', () => {
     ctx.objectives.campAt![0] = sb.sim.tick + 1;
     step(2);
     const f = sb.ctx.store.list('structure').find((s) => s.structure.variant === 'feeder')!;
-    hit(sb, hero, f.id, f.health.hp - FEEDERS.chimeHp);
-    step(2);
+    while (f.health.hp > FEEDERS.light) {
+      peck(sb, hero, f.id);
+      step();
+    }
     for (let i = 0; i < 2 * TICK_RATE && f.structure.lit; i++) step();
     melee(sb, hero, f.id);
-    hit(sb, hero, f.id, 10_000);
+    peck(sb, hero, f.id);
     step();
     expect(f.health.dead).toBe(true);
     expect(sb.hero(hero).keepsakes).toBeUndefined();
