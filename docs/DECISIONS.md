@@ -1185,3 +1185,12 @@ names, effects and wording stay original (D-EP-002). The new items fill gaps acr
 four tiers, bringing the actives to about 14. Wave 5 splits the item work across two Economy & Items engineers by
 category. The Stage 4 gate reads "All 24 heroes and 64 items".
 **Why:** the user's instruction: 16 items isn't enough; 48 in total if not 64.
+
+### D-EP-035 · 19/11/2026 — Animation quality bar: guns are held, nothing floats
+**Decision:** every playable bird holds its weapon through explicit grip sockets on the rig, in every animation state.
+Feet are planted when grounded, and no part is ever detached from the rig. Automated attachment tests
+(`tests/anim/**`) enforce it. Every stage gate now includes a pose-sheet review (every playable bird in every
+animation state) by QA and the EP. The Stage 3 fix is done by the Technical Artist on Opus, a tier up from the Sonnet
+work that missed it (D-EP-019 escalation).
+**Why:** the user saw guns floating beside the birds instead of being held, and asked that nothing like it happens
+again.
