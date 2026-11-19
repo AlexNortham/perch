@@ -68,6 +68,7 @@ export const createEconomySystem: SystemFactory = (ctx) => {
     const side: PlayerTeam = e.victimTeam === 'dawn' ? 'dusk' : 'dawn';
     const all = store.list('hero');
     if (e.victimKind === 'structure') {
+      if (!store.getKind(e.victim, 'structure')?.health.dead) return;
       const type = e.victimType;
       if (type !== 'hawk' && type !== 'heron' && type !== 'warden' && type !== 'shrine') return;
       for (const h of all) if (h.team === side) pay(h.id, ECONOMY.objective[type], 'objective');
@@ -79,7 +80,7 @@ export const createEconomySystem: SystemFactory = (ctx) => {
     }
     if (e.victimKind !== 'hero') return;
     const victim = store.getKind(e.victim, 'hero');
-    if (!victim) return;
+    if (!victim?.health.dead) return;
     const rules = ECONOMY.bounty;
     const shutdown = Math.min(rules.streakCap, rules.perStreakKill * Math.max(0, (streaks.get(victim.id) ?? 0) - rules.freeKills));
     streaks.delete(victim.id);
