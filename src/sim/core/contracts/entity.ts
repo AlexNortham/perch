@@ -48,9 +48,13 @@ export interface EntityBase {
   readonly id: EntityId;
   readonly kind: EntityKind;
   readonly team: Team;
-  /** Feet position for characters and units, centre for everything else. Writer: the owner of the kind's movement. */
+  /**
+   * Feet position for characters and units, centre for everything else. Writer: the owner of the kind's movement
+   * (INTERFACES §3), with two exceptions: sim/combat places a respawning hero (D-COMBAT-002), and sim/physics moves a
+   * unit while a displace, dash or attach effect acts on it (D-ARCH-014).
+   */
   pos: Vec3;
-  /** Velocity (m/s). Same writer as `pos`. */
+  /** Velocity (m/s). Same writers as `pos`. */
   vel: Vec3;
   /** Facing (radians, see base.ts for the convention). Same writer as `pos`; for heroes it is the look yaw. */
   yaw: number;
@@ -110,6 +114,10 @@ export interface Motor {
   knockedUp: boolean;
   /** An ability movement mode (MovementModeEffect), or null. */
   mode: MovementModeKind | null;
+  /** While `mode` is set, the mode's `allowGun`: false blocks the gun (sim/combat). Absent means true. */
+  modeAllowsGun?: boolean;
+  /** While `mode` is set, the mode's `allowAbilities`: false blocks casting (sim/abilities). Absent means true. */
+  modeAllowsAbilities?: boolean;
   /** Attached to another entity's socket (Pelican's Gulp), or null. */
   attachedTo: EntityId | null;
   /** Current stamina (dash charges, fractional while regenerating). Max is the `stamina` stat. */
@@ -211,8 +219,17 @@ export interface UnitInfo {
   readonly type: UnitType;
   /** Lane for fledglings, else null. */
   readonly lane: LaneId | null;
-  /** Hitbox: a capsule of the entity's radius from its feet to this height (no head: units can't be beak-shot). */
+  /**
+   * Hitbox: a capsule of the entity's radius from its feet to this height. Units have no head and can't be beak-shot,
+   * except decoys, which use their owner's BodyPlan, head included (GDD §5.4, D-COMBAT-003).
+   */
   readonly height: number;
+  /**
+   * Walls only (SummonEffect.size): a box of width (x), height (y) and depth (z, along `yaw`) standing on `pos`,
+   * turned by `yaw`; sim/combat uses it as the hitbox instead of the capsule, so enemy shots stop on it. It blocks
+   * shots, not movement: no physics collider (Gale Shield).
+   */
+  readonly size?: Vec3;
   /** Summons only: the hero that made it, and what kind of summon it is. */
   readonly owner: EntityId | null;
   readonly summon: SummonKind | null;

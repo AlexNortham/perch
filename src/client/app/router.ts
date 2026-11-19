@@ -2,11 +2,11 @@ import { HERO_IDS } from '../../sim/core/contracts';
 import type { HeroId, SimConfig } from '../../sim/core/contracts';
 import { humanRoster } from '../../sim/index';
 import { CAMERA_PRESETS } from './contracts';
-import type { CameraPreset, Quality } from './contracts';
+import type { CameraPreset, MatchSetup, Quality } from './contracts';
 
 /**
  * The `?scene=` router for repeatable screenshots and quick starts:
- *   scene   menu (default) | blockout | sandbox | lane | match
+ *   scene   menu (default) | blockout | sandbox | lane (the practice match Play starts) | match (1 + 11 bots)
  *   seed    integer match seed (default 1)
  *   hero    hero id for the human (default shrike)
  *   cam     camera preset (CAMERA_PRESETS); default 'overview' for menu and blockout, 'player' otherwise
@@ -49,6 +49,15 @@ export function parseScene(search: string): SceneRequest {
   };
 }
 
+/**
+ * The match Play starts (D-ARCH-013): the human with the chosen hero on 'main' with fledgling waves on all three
+ * lanes, plus `setup.bots` bot heroes (default 0, the practice match).
+ */
+export function matchConfig(setup: MatchSetup): SimConfig {
+  const { seed, hero, team, difficulty, bots = 0 } = setup;
+  return { seed, map: 'main', roster: humanRoster(seed, hero, { team, difficulty, bots }) };
+}
+
 /** The sim each scene runs. The menu shows the real map, empty, as its backdrop (D-EP-017). */
 export function sceneConfig(req: SceneRequest): SimConfig {
   const { seed, hero } = req;
@@ -59,7 +68,7 @@ export function sceneConfig(req: SceneRequest): SimConfig {
     case 'sandbox':
       return { seed, map: 'arena', roster: humanRoster(seed, hero, { bots: 0 }), options: { unlockAbilities: true } };
     case 'lane':
-      return { seed, map: 'main', roster: humanRoster(seed, hero, { bots: 1 }), options: { neutrals: false } };
+      return matchConfig({ seed, hero, team: 'dawn', difficulty: 'normal' });
     case 'match':
       return { seed, map: 'main', roster: humanRoster(seed, hero) };
   }

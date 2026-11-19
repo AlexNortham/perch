@@ -39,12 +39,17 @@ function splitmix(state: { s: number }): number {
   return (z ^ (z >>> SHIFT_16)) >>> 0;
 }
 
-/** One stream. Most callers want `createRngStreams(seed).stream(name)` instead. */
+/**
+ * One stream. Most callers want `createRngStreams(seed).stream(name)` instead. Every bit of a safe-integer seed
+ * counts: the low 32 bits seed the mixer and the high bits go into one state word, so seeds below 2^32 keep the
+ * sequences they always had.
+ */
 export function createRng(seed: number, name: string): Rng {
-  const mix = { s: (seed ^ hashString(name)) | 0 };
+  const high = Math.floor(seed / UINT32);
+  const mix = { s: ((seed >>> 0) ^ hashString(name)) | 0 };
   let a = splitmix(mix);
   let b = splitmix(mix);
-  let c = splitmix(mix);
+  let c = (splitmix(mix) ^ high) | 0;
   let d = splitmix(mix);
 
   const nextU32 = (): number => {

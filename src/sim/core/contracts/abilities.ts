@@ -31,6 +31,8 @@ export interface AbilityUpgrade {
   readonly range?: number;
   /** Appended to the cast's effects. */
   readonly effects?: readonly Effect[];
+  /** Appended to the cast's selfEffects. */
+  readonly selfEffects?: readonly Effect[];
 }
 
 export interface AbilityDef {
@@ -59,6 +61,11 @@ export interface AbilityDef {
   readonly values: Readonly<Record<string, number>>;
   /** Applied when the cast lands, to the target chosen by `targeting`. */
   readonly effects: readonly Effect[];
+  /**
+   * Applied to the caster when the cast lands, after `effects`, whatever the targeting (target.entity = caster,
+   * point = its feet, dir = the cast direction): the self-buff of a unit cast (Riverstrike's invisibility).
+   */
+  readonly selfEffects?: readonly Effect[];
   /** The three upgrade tiers, bought in order with AP. */
   readonly upgrades: readonly [AbilityUpgrade, AbilityUpgrade, AbilityUpgrade];
   /** The hero module's onCast runs after `effects` when the cast lands. */

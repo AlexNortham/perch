@@ -1,6 +1,13 @@
 /**
  * PlayerCommand: the one input shape for the human and for bots. The client's input module builds the human's
  * command each tick; sim/ai builds each bot's. Systems read `HeroEntity.command`; nobody reads raw input.
+ *
+ * Bots assign their command to `HeroEntity.command` in the ai phase; a new object or one the bot reuses every tick
+ * both work, but never mutate the object `h.command` holds (it is core's latch). Core copies the command into the
+ * latch and sanitises it (D-ARCH-011): non-finite axes become 0 and axes clamp to ±1; non-finite look angles keep
+ * the previous ones, yaw wraps to ±π and pitch clamps; an upgrade slot outside 0–3 and a ping at a non-finite point
+ * are dropped. A hero with no fresh command repeats its last one without the one-shot fields (pressed, upgrade,
+ * buy, sell, ping, concede).
  */
 import type { EntityId, ItemId, Vec3 } from './base';
 

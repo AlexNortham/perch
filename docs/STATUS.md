@@ -524,3 +524,27 @@ numbers are not linted (known, D-BUILD-009 / Build item). blockout.ts:340 has ba
 - *Build:* detectObjects on in no-magic-numbers for src/sim outside data/.
 **Process note:** one of my shell commands (an unquoted `echo ... >sim`) created a stray 12-byte `sim` file in the repo
 root; the EP deleted it. Nothing under src/, tests/ or e2e/ was changed by this review.
+### W2.5 · Technical Architect · 18/11/2026
+**Done:** the contract round. 28 decisions on the wave 2 interface requests (QA, Rendering, Combat, Ability Systems,
+Character Controller; three were asked by two roles): 22 accepted, 6 accepted modified, none rejected, all in
+INTERFACES.md §11 and D-ARCH-011…016. Landed as optional fields, one new event and TSDoc, so wave 2 code compiles
+unchanged: `selfEffects`; WeaponDef `projectileRadius`, `spinUp`, `perRoundStartS`; `beakShotMult`;
+`WeaponModEffect.shots`; `DisplaceEffect.onWall`; SummonEffect `onEnd`, `count`, `spreadDeg`; `UnitInfo.size`;
+`Motor.modeAllowsGun/Abilities`; `projectile.impact` `via`; `movement` `yaw` and the displaced, wallSlam, teleport
+actions; the `tether` event; `EFFECT_TICK_SECONDS`; `HeroModule.implemented`. Core fixes from QA's wave 1 review:
+commands sanitised and latched by copy (a bot may reuse its command object; no per-hero allocation), seeds use all
+53 bits, the spatial hash reuses its arrays, the store rebuilds only the changed kind's list, beak shots counted among
+gun hits on heroes only. Practice match: Play → hero select → `matchConfig(setup)` ('main', waves on all three lanes,
+the human on Dawn, `MatchSetup.bots` default 0); `?scene=lane&hero=<id>` starts the same match; the app adopts a yaw a
+teleport forces on the human. ARCHITECTURE §4.6 now states D-CTRL-001. Follow-ups by owner in
+docs/briefs/W3-contract-followups.md.
+**Verified:** `npm run check` → PASS typecheck, lint, test (319 passed, 22 skipped), sim, e2e; 25 s. `npm run sim --
+--seed 1 --minutes 3 --bots 12` twice → hash 4acbedb035dce146 both times (as before the round: normal commands latch
+unchanged), 10,558 and 10,696 ticks/s. New tests: a reused command object keeps its presses, NaN/out-of-range
+commands are sanitised, seeds 2^32 apart differ, per-kind store snapshots, beak-shot counting, the practice match
+config. `npm run shots -- --scene lane --hero kingfisher` → looked at: the placeholder hero at the Dawn base on 'main'.
+**Blocked:** nothing.
+**Interface requests:** none. Still open for the W3.5 round: widen `targetHpBelow`, `missingHpPct` and `executeBelow`
+to `Magnitude` once Combat reads them through `ctx.effects.magnitude` (D-ARCH-015).
+**Next:** wave 3 owners work through W3-contract-followups.md. Not done: unit tests for core/view.ts, vision.ts and
+math.ts (QA's review noted their absence; not in this brief).

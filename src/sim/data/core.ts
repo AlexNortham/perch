@@ -18,6 +18,12 @@ export const SPATIAL_CELL_SIZE = 8;
 /** Seed curves in telemetry are sampled this often. */
 export const TELEMETRY_SAMPLE_SECONDS = 10;
 
+/**
+ * The shared effect tick (GDD §5.12): DoTs, lasting areas and tethers apply every this many seconds unless their
+ * data says otherwise. sim/combat and sim/abilities both read it.
+ */
+export const EFFECT_TICK_SECONDS = 0.5;
+
 /** Guard against event loops: more events than this in one tick throws. */
 export const MAX_EVENTS_PER_TICK = 50_000;
 

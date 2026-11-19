@@ -87,8 +87,8 @@ only for the phases it uses (`System.phases`).
 |---|---|---|---|
 | 0 | core: start | core | Clear the event log, `tick += 1` |
 | 1 | `ai` | sim/ai | Bots write `HeroEntity.command` from what their flock saw last tick |
-| – | core: latch | core | `step()` commands override bots; stale commands lose their one-shot fields; look yaw/pitch (pitch clamped) and shoulder swap applied; pings (rate-limited) and concession handled |
-| 2 | `movement` | physics, world | Hero controllers from commands (walk, sprint, jump, dash, slide, mantle, Updrafts, Chimneys, Vines), displacements, the Rapier step; world steers fledglings and neutrals |
+| – | core: latch | core | `step()` commands override bots; the command is copied into the hero's latch and sanitised, or the last one repeats without its one-shot fields (D-ARCH-011); look yaw/pitch and shoulder swap applied; pings (rate-limited) and concession handled |
+| 2 | `movement` | physics, world | Hero controllers from commands (walk, sprint, jump, dash, slide, mantle, Updrafts, Chimneys, Vines), displacements of heroes and units; world steers fledglings and neutrals that aren't rooted or stunned |
 | – | core: spatial | core | Spatial hash rebuilt from every live entity |
 | 3 | `abilities` | abilities, items | AP upgrades, casts, channels, areas, summons, tethers, delays, hero hooks; item actives |
 | 4 | `combat` | combat | Guns (aim model, fire, reload), melee, parry, projectiles; hits become damage requests |
@@ -128,9 +128,11 @@ machine. The rules:
 5. **Floating point.** Plain IEEE arithmetic is identical everywhere. `Math.sin`/`cos`/`exp`/`pow` are identical in
    V8 (Node, Chrome, Edge); Firefox may differ in the last bit, which only matters if a match is replayed across
    engines (we don't). Accumulate in a fixed order; don't mix float32 and float64 for the same quantity.
-6. **Rapier.** One `world.step()` per tick in the movement phase, fixed `timestep = 1/60`. Create and remove bodies
-   and colliders in response to deterministic events (`entity.spawned` / `entity.despawned`, ascending id) and read
-   results back into components in id order. `@dimforge/rapier3d-compat` is deterministic on one machine, which is
+6. **Rapier.** No per-tick `world.step()`: nothing is dynamic, so nothing integrates (D-CTRL-001). Map prims and
+   structures sit in a static world stepped only when a collider is added or removed; hero query capsules sit in a
+   small second world stepped only when a query asks for heroes after they moved. Create and remove colliders in
+   response to deterministic events (`entity.spawned` / `entity.despawned`, ascending id) and read results back into
+   components in id order. `@dimforge/rapier3d-compat` is deterministic on one machine, which is
    what the gate needs (D-ARCH-007).
 7. **What the hash covers:** the tick, every RNG stream's state, every live entity record with all its components
    (generic walk, object keys sorted, numbers by exact bits), team state, objective timers, core's ping history,
@@ -153,7 +155,8 @@ machine. The rules:
 - The app loop runs at most `MAX_STEPS_PER_FRAME` (5) sim steps per frame and drops a longer backlog rather than
   spiralling. Pausing stops stepping (single-player, GDD §12.10).
 - `window.__perch = { ready: true, scene }` is set once the requested scene has rendered 3 frames; the screenshot
-  harness and e2e wait on it. `?scene=menu|blockout|sandbox|lane|match` plus `seed`, `hero`, `cam` (player, overview,
+  harness and e2e wait on it. `?scene=menu|blockout|sandbox|lane|match` (`lane` is the practice match that Play
+  starts, D-ARCH-013) plus `seed`, `hero`, `cam` (player, overview,
   top), `quality` and `t` (seconds fast-forwarded before the first frame): see `src/client/app/router.ts`.
 
 ## 6. Frame, units and aim
@@ -216,7 +219,8 @@ The headless CLI prints ticks per second; QA tracks it in the soak test.
   already wires every entry module; nobody edits src/sim/index.ts.
 - **A hero**: fill `src/sim/data/heroes/<id>.ts` (HeroDef: body plan, base stats, growth, gun, four abilities as
   effect data) and, only for what data can't say, `hooks` in `src/sim/heroes/<id>/index.ts` (onCast, onEffect,
-  onTick; HookEffect calls onEffect). The registry already lists all 24 ids. Each hero ships an ability smoke test.
+  onTick; HookEffect calls onEffect). The registry already lists all 24 ids. Each hero ships an ability smoke test,
+  then sets `implemented: true` on its module so hero select offers it.
 - **An item**: add an `ItemDef` to `src/sim/data/items.ts` (passive modifiers, triggers, active effects). No code
   unless a new effect kind is needed.
 - **A status**: a `StatusDef` in data (shared ones in `src/sim/data/combat.ts`), applied with `applyStatus`.

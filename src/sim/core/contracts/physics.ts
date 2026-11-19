@@ -64,6 +64,6 @@ export interface PhysicsService {
 /** What src/sim/physics's `createPhysics` resolves to. */
 export interface Physics {
   readonly service: PhysicsService;
-  /** Runs in the 'movement' phase: hero movement from commands, impulses, updrafts, climbs, then the Rapier step. */
+  /** Runs in the 'movement' phase: hero movement from commands, displacements (of units too), updrafts, climbs. No per-tick Rapier step (D-CTRL-001). */
   readonly system: System;
 }

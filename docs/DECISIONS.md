@@ -583,3 +583,54 @@ Character Controller (the accepted wave 2 contract follow-ups, the framework gap
 defect). QA's test-first suites for wave 4 (structures, levels, AP, shop) move into the wave 3 gate review.
 **Why:** Stage 2's launchable gate needs UI; Hero A's kits need framework features that the original owners aren't
 scheduled to build; eight agents is the wave limit, so QA's in-wave slot moves to the gate.
+### D-ARCH-011 · 18/11/2026 — Commands are copied into a per-hero latch and sanitised
+**Decision:** each hero's spawn-time command object is core's latch. After the ai phase core copies the fresh command
+into it (a `step()` command first, else whatever a bot assigned to `h.command`, judged fresh when it isn't the latch
+itself) and sanitises it: non-finite axes become 0 and axes clamp to ±1; non-finite yaw or pitch keep the previous
+value, yaw wraps to ±π, pitch clamps; an upgrade slot outside 0–3 and a ping at a non-finite point are dropped.
+Without a fresh command the latch keeps its values and clears the one-shot fields. `h.command` always points at the
+latch; nobody else mutates it.
+**Why:** the W1 staleness test compared `h.command` with the object from before the ai phase, so a bot reusing its
+own command object lost every press (QA's review); NaN look angles reached the aim maths; the latch, the ping filter
+and the command map allocated per hero per tick. Normal input is copied unchanged, so the seed-1 hash stayed
+4acbedb035dce146.
+
+### D-ARCH-012 · 18/11/2026 — Seeds use all 53 bits
+**Decision:** an RNG stream seeds its mixer from the low 32 bits of the match seed (xor the stream name's hash) and
+xors the high bits, `floor(seed / 2^32)`, into one of sfc32's four state words.
+**Why:** `createSim` accepts any safe integer but the W1 mixer folded it to 32 bits, so seeds 2^32 apart played the
+same match. Seeds below 2^32 keep the sequences they always had.
+
+### D-ARCH-013 · 18/11/2026 — The practice match, and `implemented` on hero modules
+**Decision:** Play → hero select → `AppActions.startMatch(setup)` → `app/router.ts matchConfig(setup)`: 'main',
+fledgling waves on all three lanes, the human on `setup.team` (Dawn for practice) with the chosen hero, plus
+`MatchSetup.bots` bot heroes (default 0). `?scene=lane&hero=<id>` starts the same match. Hero select lists all 24
+heroes and offers only those whose `HeroModule.implemented` is true; each hero's engineer sets it when the kit is
+complete. The router and `startMatch` accept any hero, so screenshots of placeholder heroes still work.
+**Why:** Stage 2 (D-EP-017) must drop the player into a lane as a bird before Bot AI exists (wave 5); bot heroes that
+stand still would only clutter the practice. A flag on the module keeps the registry the Architect's while the hero
+engineers decide when their kits are done.
+
+### D-ARCH-014 · 18/11/2026 — Physics moves displaced units
+**Decision:** displace, dash and attach effects move units as well as heroes. While one acts on a unit, sim/physics
+writes the unit's `pos` and `vel` (an exception to "the spawner writes a unit's transform", like combat's respawn
+write) and sets `rooted` on it under the stat source `'physics:displaced'`, cleared when the displacement ends. sim/world
+(fledglings, neutrals) and sim/abilities (summons) don't move a unit that is rooted or stunned.
+**Why:** GDD knockbacks, pulls and carries (Wing Slam, Tempest Dive, Rogue Wave) hit fledglings too, and physics
+already has the displacement shapes and the unit ground cache (D-CTRL-002). Steering owners must honour root and stun
+on units anyway, so the same condition hands the unit over without a new field.
+
+### D-ARCH-015 · 18/11/2026 — Number fields become Magnitudes in two steps
+**Decision:** `DamageBonus.targetHpBelow`, `DamageEffect.missingHpPct` and `DamageEffect.executeBelow` stay
+`number` in this round. In wave 3 sim/combat reads them through `ctx.effects.magnitude(value, cause)` (which accepts a
+number); the W3.5 round widens them to `Magnitude`. Until then a tier that raises one (Kingfisher's Spear Bill T2 and
+Riverstrike T2) uses a hook.
+**Why:** widening now would break Combat's arithmetic on them, and contracts can't change mid-wave; doing it in two
+steps needs no duplicate fields and no code change at the widening.
+
+### D-ARCH-016 · 18/11/2026 — Movement-mode restrictions are Motor fields, not conditions
+**Decision:** physics publishes a movement mode's `allowGun` and `allowAbilities` as `Motor.modeAllowsGun` and
+`Motor.modeAllowsAbilities` (optional; absent means allowed); combat blocks the gun and abilities block casting from
+them.
+**Why:** mapping them to `disarmed` and `silenced` would show as those states on the HUD and in the view flags, and
+silence ends channels, so a mode started by a channelled ability (Burrow) would end its own channel.

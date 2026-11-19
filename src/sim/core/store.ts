@@ -7,20 +7,28 @@ export interface CoreStore extends EntityStore {
   flush(): void;
 }
 
+/**
+ * Entities by id plus one array per kind in spawn (= id) order. `all()` and `list(kind)` hand out snapshots built
+ * lazily; a spawn or despawn drops only its own kind's snapshot (and `all`), so spawning a projectile mid-tick never
+ * rebuilds the unit list.
+ */
 export function createStore(emit: (event: SimEvent) => void): CoreStore {
   const entities = new Map<EntityId, Entity>();
   const pending: EntityId[] = [];
   let nextId = 1;
   let live: Entity[] | null = null;
-  const byKind = new Map<EntityKind, Entity[]>();
+  /** Every entity of a kind still in the store (despawned ones until the flush), ascending id. */
+  const members = new Map<EntityKind, Entity[]>();
+  const snapshots = new Map<EntityKind, Entity[]>();
+  const touched = new Set<EntityKind>();
 
-  const invalidate = (): void => {
+  const changed = (kind: EntityKind): void => {
     live = null;
-    byKind.clear();
+    snapshots.delete(kind);
   };
 
   const all = (): readonly Entity[] => {
-    if (!live) live = [...entities.values()].filter((e) => !e.removed);
+    live ??= [...entities.values()].filter((e) => !e.removed);
     return live;
   };
 
@@ -28,7 +36,13 @@ export function createStore(emit: (event: SimEvent) => void): CoreStore {
     spawn(init) {
       const entity = { ...init, id: nextId++, removed: false, seenBy: SeenBy.all } as Entity;
       entities.set(entity.id, entity);
-      invalidate();
+      let list = members.get(entity.kind);
+      if (!list) {
+        list = [];
+        members.set(entity.kind, list);
+      }
+      list.push(entity);
+      changed(entity.kind);
       emit({ type: 'entity.spawned', id: entity.id, kind: entity.kind, team: entity.team });
       return entity as EntityOf<typeof init.kind>;
     },
@@ -42,14 +56,14 @@ export function createStore(emit: (event: SimEvent) => void): CoreStore {
       if (!e || e.removed) return;
       e.removed = true;
       pending.push(id);
-      invalidate();
+      changed(e.kind);
     },
     all,
     list(kind) {
-      let list = byKind.get(kind);
+      let list = snapshots.get(kind);
       if (!list) {
-        list = all().filter((e) => e.kind === kind);
-        byKind.set(kind, list);
+        list = (members.get(kind) ?? []).filter((e) => !e.removed);
+        snapshots.set(kind, list);
       }
       return list as EntityOf<typeof kind>[];
     },
@@ -60,10 +74,18 @@ export function createStore(emit: (event: SimEvent) => void): CoreStore {
         const e = entities.get(id);
         if (!e) continue;
         entities.delete(id);
+        touched.add(e.kind);
         emit({ type: 'entity.despawned', id, kind: e.kind });
       }
       pending.length = 0;
-      invalidate();
+      // Snapshots already exclude removed entities, so only the member arrays need compacting.
+      for (const kind of touched) {
+        const list = members.get(kind) ?? [];
+        let n = 0;
+        for (const e of list) if (!e.removed) list[n++] = e;
+        list.length = n;
+      }
+      touched.clear();
     },
   };
 }

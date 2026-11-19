@@ -53,4 +53,24 @@ describe('telemetry', () => {
     expect(t.heroes[0]?.netWorthCurve.length).toBe(2);
     expect(sim.view.heroes[0]?.kills).toBe(1);
   });
+
+  it('counts beak shots only among gun hits on heroes', async () => {
+    const sim = await createSim({
+      seed: 5,
+      map: 'arena',
+      roster: [
+        { team: 'dawn', hero: 'shrike', controller: 'normal' },
+        { team: 'dusk', hero: 'owl', controller: 'normal' },
+      ],
+    });
+    const [shrike, owl] = sim.view.heroes.map((h) => h.id) as [number, number];
+    const hit = { type: 'damage.applied', source: shrike, sourceTeam: 'dawn', target: owl, targetKind: 'hero',
+      amount: 10, absorbed: 0, damageType: 'talon', via: 'weapon', ability: null, item: null, beakShot: true,
+      weakPoint: false, proc: false, lethal: false, pos: { x: 0, y: 0, z: 0 } } as const;
+    sim.ctx.bus.emit(hit);
+    sim.ctx.bus.emit({ ...hit, beakShot: false });
+    sim.ctx.bus.emit({ ...hit, target: 99, targetKind: 'unit' });
+    sim.ctx.bus.emit({ ...hit, via: 'ability', damageType: 'song' });
+    expect(sim.telemetry().heroes[0]).toMatchObject({ gunHits: 2, beakShots: 1 });
+  });
 });

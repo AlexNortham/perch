@@ -34,10 +34,17 @@ export interface TargetFilter {
   readonly heroesOnly?: boolean;
 }
 
-/** A conditional multiplier on a damage effect. All given conditions must hold. */
+/**
+ * A conditional bonus on a damage effect. All given conditions must hold. GDD §5.2 step 4 is additive within the
+ * step: a bonus that holds adds (mult − 1) to the attacker's outgoing bonus (gunDamage or songDamage and other
+ * bonuses), which is then applied once, so 100 Song with +25% songDamage and a ×1.5 bonus deals 175 (D-QA-004).
+ */
 export interface DamageBonus {
   readonly mult: number;
-  /** Target's hp fraction is below this (executes). */
+  /**
+   * Target's hp fraction is below this (executes). A number until the W3.5 contract round makes it a Magnitude so
+   * tiers can raise it; sim/combat resolves it with `ctx.effects.magnitude(…, cause)` from W3 (D-ARCH-015).
+   */
   readonly targetHpBelow?: number;
   readonly targetKinds?: readonly EntityKind[];
   /** Source-to-target distance is at most this (m). */
@@ -53,12 +60,20 @@ export interface DamageEffect {
   readonly kind: 'damage';
   readonly amount: Magnitude;
   readonly type: DamageType;
-  /** Can crit on the head hitbox like a gun bullet (Owl's Moonlit Mark). Default false. */
+  /**
+   * Can crit on the head hitbox like a gun bullet (Owl's Moonlit Mark): a beak shot when `target.point` lies in the
+   * target's head sphere (D-COMBAT-003). Default false.
+   */
   readonly beakShot?: boolean;
+  /** The multiplier for such a beak shot. Default: combat data's `abilityBeakShotMult` (×1.5). */
+  readonly beakShotMult?: number;
   readonly bonus?: readonly DamageBonus[];
-  /** Adds this fraction of the target's missing hp. */
+  /** Adds this fraction of the target's missing hp. Becomes a Magnitude in the W3.5 round (D-ARCH-015). */
   readonly missingHpPct?: number;
-  /** Kills the target if its hp after the hit is below this fraction of max (execute). */
+  /**
+   * Kills the target if its hp after the hit is below this fraction of max (execute). Becomes a Magnitude in the
+   * W3.5 round (D-ARCH-015).
+   */
   readonly executeBelow?: number;
 }
 
@@ -115,8 +130,10 @@ export interface ShieldEffect {
 /** Change how the target's gun works, for a while or at once. Owner: sim/combat. */
 export interface WeaponModEffect {
   readonly kind: 'weaponMod';
-  /** 0 for one-off changes (instant reload). */
+  /** 0 for one-off changes (instant reload). With `shots`, the longest the mod can last. */
   readonly durationS: Magnitude;
+  /** The mod ends after this many shots fired (Heavy Rounds: "your next 6 shots within 8 s"). Default: no limit. */
+  readonly shots?: Magnitude;
   /** Shots use no ammo. */
   readonly ammoFree?: boolean;
   /** Refill the magazine now. */
@@ -155,16 +172,28 @@ export interface ProjectileEffect {
   readonly onExpire?: readonly Effect[];
 }
 
-/** Knockback, pull, knock-up or a push along a direction (GDD §5.9 displacements). Owner: sim/physics. */
+/**
+ * Knockback, pull, knock-up or a push along a direction (GDD §5.9 displacements) of `target.entity`, hero or unit
+ * (physics moves units too while displacing them, D-ARCH-014). Owner: sim/physics.
+ */
 export interface DisplaceEffect {
   readonly kind: 'displace';
   /** push: away from the cause's origin; pull: toward it; up: knock-up (airborne); along: the target direction. */
   readonly mode: 'push' | 'pull' | 'up' | 'along';
   /** Metres travelled (height for 'up'). */
   readonly distance: Magnitude;
+  /**
+   * Wall slam (GDD §3.9): applied to the displaced entity, with this effect's cause, when it hits a wall with at
+   * least movement data's slam speed (4 m/s) toward it (Impaling Bolt's pin, Stomp Kick, Rogue Wave).
+   */
+  readonly onWall?: readonly Effect[];
 }
 
-/** Move the target (normally the caster) along a path. Owner: sim/physics. */
+/**
+ * Move along a path. Who moves (D-CTRL-004): dir 'target' moves the cause's source toward `target.entity` (else
+ * `target.point`); 'aim' and 'move' move `target.entity`, or the source when it is null. For the self, direction and
+ * point casts that use dashes, `target.entity` is the caster (D-ABIL-001). Owner: sim/physics.
+ */
 export interface DashEffect {
   readonly kind: 'dash';
   readonly distance: Magnitude;
@@ -183,12 +212,19 @@ export interface DashEffect {
   readonly onArrive?: readonly Effect[];
 }
 
-/** Move the target instantly. Owner: sim/physics. */
+/**
+ * Move instantly. 'point' and 'behindTarget' move the cause's source; 'base' moves `target.entity`, or the source
+ * when it is null (D-CTRL-004). Owner: sim/physics.
+ */
 export interface TeleportEffect {
   readonly kind: 'teleport';
   /** point: the target point; behindTarget: `behind` m behind the target entity; base: the team spawn. */
   readonly to: 'point' | 'behindTarget' | 'base';
   readonly behind?: number;
+  /**
+   * 'target' turns the mover to face the target; physics reports the new yaw on the `movement` event ('teleport')
+   * and the hero's controller (client input, sim/ai) adopts it, since core re-latches yaw from the command.
+   */
   readonly face: 'keep' | 'target';
 }
 
@@ -204,7 +240,7 @@ export interface MovementModeEffect {
   readonly speed: number;
   /** Vertical speed (m/s): fall speed for glide, climb/dive limit for flight; 0 otherwise. */
   readonly verticalSpeed: number;
-  /** What the hero may do meanwhile. */
+  /** What the hero may do meanwhile. Physics publishes both on Motor (modeAllowsGun, modeAllowsAbilities). */
   readonly allowGun: boolean;
   readonly allowAbilities: boolean;
   /** Applied to an enemy the hero runs into (toboggan, burrow eruption). */
@@ -239,7 +275,7 @@ export interface AreaEffect {
   readonly kind: 'area';
   readonly shape: AreaShape;
   readonly durationS: Magnitude;
-  /** Default: combat data's tick interval (0.5 s). */
+  /** Default EFFECT_TICK_SECONDS (0.5 s, src/sim/data/core.ts). */
   readonly intervalS?: number;
   readonly attach: 'point' | 'source' | 'target';
   /** A moving area (Rogue Wave): travels along the target direction at `speed` m/s, optionally carrying the units it hits. */
@@ -268,21 +304,31 @@ export interface SummonEffect {
   readonly behaviour: string;
   /** Traps: fire when an entity matching `affects` comes within `radius`. */
   readonly trigger?: { readonly radius: number; readonly affects: TargetFilter };
-  /** Walls: size (width, height, depth). */
+  /** Walls: size (width, height, depth); copied to UnitInfo.size. */
   readonly size?: Vec3;
   /** Applied by the summon: on trigger (traps) or to its attack target (turrets, decoys). */
   readonly effects: readonly Effect[];
+  /**
+   * Applied when the summon dies, expires or is replaced (maxCount), with target = its last position (entity null)
+   * and the summon's cause: death or expiry bursts (Echo Double T3, Burrow Colony T3, Gale Shield T3).
+   */
+  readonly onEnd?: readonly Effect[];
+  /** Summons per application (default 1); a value name lets a tier add one (Echo Double T2). */
+  readonly count?: Magnitude;
+  /** With count > 1, their directions fan evenly across this total angle around the target direction (default 0). */
+  readonly spreadDeg?: number;
 }
 
 /**
  * A link from the source to the target (ally or enemy) for a while; it breaks beyond `breakDistance`. Every
- * `intervalS` the tick effects apply to each end (Grace Link, Nectar Sip). Owner: sim/abilities.
+ * `intervalS` the tick effects apply to each end (Grace Link, Nectar Sip). Its start and end are `tether` events.
+ * Owner: sim/abilities.
  */
 export interface TetherEffect {
   readonly kind: 'tether';
   readonly durationS: Magnitude;
   readonly breakDistance: number;
-  /** Default: combat data's tick interval (0.5 s). */
+  /** Default EFFECT_TICK_SECONDS (0.5 s, src/sim/data/core.ts). */
   readonly intervalS?: number;
   readonly onSourceTick?: readonly Effect[];
   readonly onTargetTick?: readonly Effect[];

@@ -84,6 +84,12 @@ export interface ProjectileImpactEvent {
   /** Entity hit, or null for the world. */
   readonly target: EntityId | null;
   readonly beakShot: boolean;
+  /**
+   * How it was fired (the cause's via): 'weapon' for gun bullets, hitscan included; 'ability' or 'item' for those
+   * projectiles. sim/economy counts only 'weapon' impacts on pods (GDD §8.2: abilities don't). Combat sets it from
+   * W3; until then absent means 'weapon'.
+   */
+  readonly via?: EffectVia;
 }
 
 /**
@@ -136,6 +142,10 @@ export interface DamageAppliedEvent {
   readonly proc: boolean;
   /** This hit killed the target (an `entity.died` follows). */
   readonly lethal: boolean;
+  /**
+   * Where it landed: the hit point for gun and melee hits; otherwise the damage effect's `target.point` (for areas,
+   * DoTs and most abilities, the target's feet).
+   */
   readonly pos: Vec3;
 }
 
@@ -181,7 +191,11 @@ export interface EntityDiedEvent {
   readonly killer: EntityId | null;
   /** The hero credited with the kill: the killer if a hero, else the owner of the killing summon or projectile. */
   readonly creditHero: EntityId | null;
-  /** Other heroes on the credited side who damaged a hero victim within the assist window (ascending ids). */
+  /**
+   * Hero victims only: the credited side's other heroes who, within the 12 s assist window, damaged the victim, or
+   * healed, shielded or buffed one who did or the killer (GDD §8.3, D-COMBAT-007). Ascending ids. Empty for other
+   * victims (economy shares those among heroes within 40 m).
+   */
   readonly assisters: readonly EntityId[];
   readonly via: EffectVia;
   readonly pos: Vec3;
@@ -205,13 +219,40 @@ export type MovementAction =
   | 'updraftOff'
   | 'updraftBoost'
   | 'climbOn'
-  | 'climbOff';
+  | 'climbOff'
+  /** A displacement (push, pull, knock-up, along) started; sim/abilities ends the hero's channel (GDD §3.9). */
+  | 'displaced'
+  /** A displaced hero hit a wall hard enough to slam (DisplaceEffect.onWall fired). */
+  | 'wallSlam'
+  /** A teleport moved the hero. */
+  | 'teleport';
 
-/** Emitter: sim/physics. Consumers: client (FOV kick on dash, footstep and whoosh audio, dust VFX). */
+/**
+ * Emitter: sim/physics. Consumers: client (FOV kick on dash, footstep and whoosh audio, dust VFX), sim/abilities
+ * ('displaced').
+ */
 export interface MovementEvent {
   readonly type: 'movement';
   readonly hero: EntityId;
   readonly action: MovementAction;
+  /**
+   * Set when the move turned the hero (a teleport with face 'target'). Core re-latches yaw from the command every
+   * tick, so the hero's controller adopts it: the client's input (src/client/app does this) and sim/ai for bots.
+   */
+  readonly yaw?: number;
+}
+
+/**
+ * A tether (TetherEffect) linked two entities or broke. Emitter: sim/abilities. Consumers: client (draws the link
+ * from 'start' to 'end').
+ */
+export interface TetherEvent {
+  readonly type: 'tether';
+  readonly source: EntityId;
+  readonly target: EntityId;
+  readonly ability: AbilityId | null;
+  /** 'end' covers expiry, breaking beyond breakDistance and either end dying. */
+  readonly stage: 'start' | 'end';
 }
 
 /** Emitter: sim/abilities. `stage` start = wind-up began, land = effects applied, end = channel finished or cancelled. */
@@ -372,6 +413,7 @@ export type SimEvent =
   | EntityDiedEvent
   | HeroRespawnedEvent
   | MovementEvent
+  | TetherEvent
   | AbilityEvent
   | AbilityUpgradedEvent
   | ItemBoughtEvent
