@@ -21,3 +21,17 @@ Read W5-common.md first.
 - Use the determinism module (`src/sim/core/dmath.ts`, D-ARCH-021). No raw `Math` transcendental functions.
 - Keep each system within its tick budget; measure it with `npm run perf`.
 - `npm run check` must pass all six steps.
+
+## Added by the EP from wave 5a reports
+These are framework gaps that finished hero and item branches are waiting on. Their stand-ins are marked
+`TODO(framework)` on those branches, and the EP merges them before you start or alongside you.
+- **Woodpecker's Drumroll** (Combat): an instant full spin-up and no spin-down while active (D-HEROB-008).
+- **Wall and tree targeting** (Ability Systems and Physics): Branch Swing and Tree Cling must land on the wall or tree
+  surface under the crosshair, not on the floor below it. Tree Cling ends on Jump or a stun.
+- **Rampage steering** (Physics): the charge follows the caster's aim while it runs.
+- **Bristle's thorns** and **Gape's heal** (Combat): implement the contract features they need, so the hooks can come
+  off.
+- **The second Song hit** from Crescendo and Echo Chamber (Combat): the target's resists currently apply twice. Add
+  the combat-side handling so a repeated hit is resisted once.
+List in your report which of these landed and the data shape for each, so the hero and item owners can drop their
+stand-ins.
