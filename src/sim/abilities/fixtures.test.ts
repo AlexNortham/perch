@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateKit } from './kit';
 import { createHarness } from './testkit';
-import { SLOW, FIXTURES, O, press } from './fixtures';
+import { SLOW, FIXTURES, O, press } from './fixtures.testkit';
 
 function setup() {
   const t = createHarness({ heroes: FIXTURES, unlockAbilities: true });

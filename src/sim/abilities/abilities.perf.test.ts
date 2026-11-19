@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { HeroId, HeroModule } from '../core/contracts';
 import { medianRun, PERF_RUNS } from '../../../tests/helpers/perf';
 import { createHarness } from './testkit';
-import { kingfisher, lyrebird, press, shrike } from './fixtures';
+import { kingfisher, lyrebird, press, shrike } from './fixtures.testkit';
 
 describe('performance', () => {
   const now = () => performance.now();

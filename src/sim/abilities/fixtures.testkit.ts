@@ -1,4 +1,4 @@
-/** Three real GDD kits as data only (see fixtures.test.ts), shared by its tests and the abilities perf test. */
+/** Three real GDD kits as data only (see fixtures.test.ts; a testkit, linted like a test), shared by its tests and the abilities perf test. */
 import { Button } from '../core/contracts';
 import type { AbilityDef, Effect, HeroId, HeroModule, Magnitude, StatusDef, TargetFilter } from '../core/contracts';
 import { HEROES } from '../heroes/registry';
