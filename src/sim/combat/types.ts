@@ -9,6 +9,8 @@ export interface ModRec {
   readonly expiresAt: number;
   /** Bullet hits counted for everyNth. */
   hits: number;
+  /** Shots left before the mod ends (WeaponModEffect.shots); Infinity without a limit. */
+  shots: number;
 }
 
 export const Melee = { Idle: 0, Charging: 1, Light: 2, Heavy: 3 } as const;
@@ -25,6 +27,8 @@ export interface HeroState {
   readonly meleeCause: Mutable<EffectCause>;
   /** Tick of the next allowed shot. */
   nextFire: number;
+  /** Tick the current burst of continuous fire started (WeaponDef.spinUp). */
+  spinStart: number;
   /** Reloading: tick the magazine completes, or the next round loads (per-round guns). */
   reloadAt: number;
   mods: ModRec[];

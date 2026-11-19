@@ -73,6 +73,8 @@ export interface Guns {
   hash(h: Hasher): void;
 }
 
+const isAmmoFree = (m: ModRec): boolean => m.mod.ammoFree === true;
+
 const filter = (): CastFilter => ({
   team: null,
   allies: false,
@@ -313,7 +315,7 @@ export function createGuns(
     const w = s.def.weapon;
     const st = h.stats.final;
     const now = ctx.clock.tick;
-    if (!s.mods.some((m) => m.mod.ammoFree === true)) h.weapon.ammo--;
+    if (!s.mods.some(isAmmoFree)) h.weapon.ammo--;
     if (h.weapon.reloading) cancelReload(s);
     damage.inCombat(h);
     statuses.endOnAttack(h);
@@ -384,6 +386,12 @@ export function createGuns(
         pellet,
         shotFilter,
       );
+    }
+    // Shot-limited mods (Heavy Rounds) count this shot; one used up ends now, before the next shot this tick.
+    if (s.mods.length > 0) {
+      let k = 0;
+      for (const m of s.mods) if (--m.shots > 0) s.mods[k++] = m;
+      s.mods.length = k;
     }
   };
 
@@ -516,29 +524,34 @@ export function createGuns(
         return;
       }
       if (w.reloading) progressReload(s);
-      const ammoFree = s.mods.some((m) => m.mod.ammoFree === true);
       if ((h.command.pressed & Button.Reload) !== 0 && !w.reloading && w.ammo < magazine(h)) startReload(s);
       const can =
         (h.command.held & Button.Fire) !== 0 &&
         !c.has('disarmed') &&
         !c.has('eggCarrier') &&
+        h.motor.modeAllowsGun !== false &&
         now >= s.lockout &&
         s.melee === Melee.Idle &&
         s.parryClose < 0;
-      if (can && (w.ammo > 0 || ammoFree)) {
+      if (can && (w.ammo > 0 || s.mods.some(isAmmoFree))) {
         const st = h.stats.final;
-        const rate = s.def.weapon.fireRate * (1 + st.fireRate) * (1 - Math.min(1, st.fireRateSlow));
+        const wd = s.def.weapon;
+        // Spin-up (Woodpecker): fromRate → fireRate over `seconds` of continuous fire, from scratch each burst.
+        if (!wasFiring) s.spinStart = now;
+        const spun = wd.spinUp && wd.spinUp.seconds > 0 ? Math.min(1, (now - s.spinStart) / (wd.spinUp.seconds * TICK_RATE)) : 1;
+        const base = wd.spinUp ? wd.spinUp.fromRate + (wd.fireRate - wd.spinUp.fromRate) * spun : wd.fireRate;
+        const rate = base * (1 + st.fireRate) * (1 - Math.min(1, st.fireRateSlow));
         if (rate > 0) {
           // A new burst starts now (no catch-up); within continuous fire the fractional cadence is kept exactly.
           if (!wasFiring && s.nextFire < now) s.nextFire = now;
           w.firing = true;
-          while (s.nextFire <= now && (w.ammo > 0 || ammoFree)) {
+          while (s.nextFire <= now && (w.ammo > 0 || s.mods.some(isAmmoFree))) {
             fire(s);
             s.nextFire += TICK_RATE / rate;
           }
         }
       }
-      if (w.ammo <= 0 && !w.reloading && !ammoFree) startReload(s);
+      if (w.ammo <= 0 && !w.reloading && !s.mods.some(isAmmoFree)) startReload(s);
     },
     projectiles() {
       const n = live.length;
@@ -562,7 +575,8 @@ export function createGuns(
         if (h.weapon.reloading) finishReload(s);
       }
       const dur = ctx.effects.magnitude(fx.durationS, cause);
-      if (dur > 0) s.mods.push({ mod: fx, expiresAt: ctx.clock.tick + ticks(dur), hits: 0 });
+      const shots = fx.shots === undefined ? Infinity : Math.max(0, Math.round(ctx.effects.magnitude(fx.shots, cause)));
+      if (dur > 0 && shots > 0) s.mods.push({ mod: fx, expiresAt: ctx.clock.tick + ticks(dur), hits: 0, shots });
       damage.supported(cause, h);
     },
     projectile(fx, target, cause) {

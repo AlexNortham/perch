@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { Button } from '../core/contracts';
 import type { DamageEffect, EffectCause, Entity, HeroEntity, Team, UnitEntity, Vec3 } from '../core/contracts';
-import { ALBATROSS, KINGFISHER, createKit } from './testkit';
+import { ALBATROSS, KINGFISHER, PELICAN, createKit } from './testkit';
 import type { Kit } from './testkit';
 
 const cause = (source: Entity, values: Record<string, number> = {}): EffectCause => ({
@@ -182,5 +182,52 @@ describe('damage effect fields (Combat 4, 6)', () => {
     };
     expect(hit()).toBeCloseTo(150);
     expect(hit(2)).toBeCloseTo(200);
+  });
+});
+
+describe('gun follow-ups (Combat 5, 7, 8)', () => {
+  it('spinUp: fromRate → fireRate over `seconds` of continuous fire, from scratch after a pause (Woodpecker 6 → 14)', () => {
+    const drum = { def: { ...PELICAN.def, weapon: { ...PELICAN.def.weapon, spreadDeg: 0, fireRate: 14, spinUp: { fromRate: 6, seconds: 1.5 } } } };
+    const k = createKit({ heroes: { pelican: drum } });
+    const me = k.hero('pelican', 'dawn', { x: 0, y: 0, z: 0 });
+    const shots = () => k.of('weapon.fired').length;
+    k.input(me, Button.Fire);
+    k.step(90);
+    // ∫ rate over 1.5 s = (6 + 14) / 2 × 1.5 = 15 shots (± 1 for the cadence phase).
+    expect(Math.abs(shots() - 15)).toBeLessThanOrEqual(1);
+    me.weapon.ammo = 50;
+    const before = shots();
+    k.step(60);
+    expect(Math.abs(shots() - before - 14)).toBeLessThanOrEqual(1);
+    me.weapon.ammo = 50;
+    k.input(me, 0);
+    k.step(1);
+    k.clear();
+    k.input(me, Button.Fire);
+    k.step(30);
+    // Spun down again: 0.5 s from 6/s climbs to about 8.7/s, so about 3.7 shots, not 7.
+    expect(shots()).toBeLessThanOrEqual(5);
+  });
+
+  it('WeaponModEffect.shots ends the mod after that many shots, before its duration', () => {
+    const k = createKit();
+    const me = k.hero('kingfisher', 'dawn', { x: 0, y: 0, z: 0 });
+    k.ctx.effects.apply({ kind: 'weaponMod', durationS: 8, shots: 3, ammoFree: true }, { entity: me.id, point: { ...me.pos }, dir: { x: 0, y: 0, z: 1 } }, cause(me));
+    k.input(me, Button.Fire);
+    k.step(62); // 4 shots/s: shots at ticks 1, 16, 31, 46, 61
+    expect(k.of('weapon.fired')).toHaveLength(5);
+    expect(me.weapon.ammo).toBe(12 - 2);
+  });
+
+  it('Motor.modeAllowsGun false stops the gun; true allows it again', () => {
+    const k = createKit();
+    const me = k.hero('kingfisher', 'dawn', { x: 0, y: 0, z: 0 });
+    me.motor.modeAllowsGun = false;
+    k.input(me, Button.Fire);
+    k.step(30);
+    expect(k.of('weapon.fired')).toHaveLength(0);
+    me.motor.modeAllowsGun = true;
+    k.step(1);
+    expect(k.of('weapon.fired')).toHaveLength(1);
   });
 });
