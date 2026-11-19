@@ -105,7 +105,8 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
         durationS: 0.35,
         dir: 'aim',
         passThrough: true,
-        arcHeight: 0, // flat: an aim dash otherwise keeps the aim's pitch (D-SYS-003)
+        arcHeight: 0, // flat today (D-SYS-003); maxPitchUpDeg is the contract's cap (0 = flat) once Physics honours it
+        maxPitchUpDeg: 0,
         // 1.125 m up is 0.6 s in the air at 25 m/s² gravity.
         onHit: [song('damage', 0.7), { kind: 'displace', mode: 'up', distance: 1.125 }],
       },

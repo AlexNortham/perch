@@ -159,6 +159,30 @@ describe('Lyrebird', () => {
       expect(decoys(sb)[0]?.health.hp).toBeCloseTo(300, 1);
     });
 
+    it('T2 runtime: one cast makes two decoys running 15° either side of your aim', async () => {
+      const { sb, me } = await setup([], [0, 2, 0, 0]);
+      sb.cast(me, 1);
+      sb.step(TICK_RATE);
+      const made = decoys(sb);
+      expect(made).toHaveLength(2);
+      const angles = made.map((d) => (Math.atan2(d.pos.x, d.pos.z) * 180) / Math.PI).sort((a, b) => a - b);
+      expect(angles[0]).toBeCloseTo(-15, 0);
+      expect(angles[1]).toBeCloseTo(15, 0);
+    });
+
+    it('T3 runtime: a decoy bursts at its last position when it expires: 80 Song and disarm 1.5 s in 4 m', async () => {
+      // T3 includes T2: two decoys run 15 degrees either side for 6 s at 7 m/s; the foe waits where one ends.
+      const { sb, me, foe } = await setup([{ hero: 'pelican', at: { x: 10.9, y: 0, z: 40.6 }, team: 'dusk' }], [0, 3, 0, 0]);
+      sb.cast(me, 1);
+      sb.step(TICK_RATE * 6 + 10);
+      expect(decoys(sb)).toHaveLength(0);
+      const burst = hitsOn(sb, me, foe, 'lyrebird.echoDouble').filter((h) => h.damageType === 'song');
+      expect(burst.length).toBeGreaterThan(0);
+      expect(burst[0]?.amount).toBeCloseTo(80, 0);
+      const disarms = sb.eventsOf('status.applied').filter((e) => e.target === foe && e.status === 'disarm');
+      expect(disarms.length).toBeGreaterThan(0);
+    });
+
     it('T2: two decoys fanned 30° apart; T3: they burst for 80 and disarm 1.5 s in 4 m (data, run by the framework)', () => {
       const def = lyrebirdDef.abilities[1] as AbilityDef;
       const at = (tier: number) => resolveAbility(def, tier);
