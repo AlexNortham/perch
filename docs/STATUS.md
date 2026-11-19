@@ -483,3 +483,45 @@ first Dawn and Dusk spawns, a trap for any spawn-to-spawn test; Combat — a bul
 sphere lies anywhere on its segment, even behind a body hit (matches GDD §5.4 "hits both"; Director to confirm);
 EP — the "Print hash()" open request is done.
 **Next:** QA gate review of `integrate/w2`.
+### W2 · QA gate · 18/11/2026
+**Verdict: APPROVE** (follow-ups for wave 3 below). No blocking defect.
+**Evidence (integrate/w2):** `npm run check` → PASS typecheck 14 s, lint 12 s, test 17 s, sim 6 s, e2e 22 s, check 71 s.
+`npm run sim -- --seed 1 --minutes 3 --bots 12` → 10,800 ticks in 3.6 s, **3,023 ticks/s = 0.33 ms/tick** against the
+1 ms budget, hash 4acbedb035dce146 (same as the integration run). The bots are still stubs (Bot AI is W5), so this
+is physics + combat + abilities + core only; the headroom is 0.67 ms for Economy, Objectives, AI and 24 kits.
+Draw calls as Rendering reported (fixture 12–17, menu 6); not re-measured. Damage suite always on (23/23 in the
+check). Pods and fledglings suites still `runIf(PENDING)` (tests/rules/pods.test.ts:106, fledglings.test.ts:131, :211,
+:309). Looked at all five `out/shots/review/*.png` and `npm run shots -- --scene menu`: the menu shows the whole lit
+map with title and Play readable; blockout is the lit overview; sandbox, lane and match are the placeholder hero box
+at street level (match/lane camera sits inside the Home Roost: placeholder camera, W3 Camera & Input).
+**Review:** (1) Ownership: the file list matches the ownership map; core, contracts, GDD untouched; DECISIONS and
+STATUS are append-only; integration commits are the D-EP-018 exception. (2) Interfaces: no system imports another's
+internals; combat and abilities import `heroes/registry` and `world/map` only in their testkit.ts (combat/testkit.ts:38-39,
+abilities/testkit.ts:34-35); the client imports sim only through `index`, `core`, `data/core`, `heroes/registry` and
+`world/map`. (3) Purity: no DOM, Node API, console, Math.random or clock in src/sim non-test code (grep, plus lint);
+the only RNG use is `rng.stream('combat')` (combat/guns.ts:106, geometry.ts:78-80); Map and Set iteration is by
+insertion order, sorts have numeric comparators. (4) Magic numbers: gameplay numbers are in src/sim/data; module
+constants are named, a few weakly (`HALF`, `ARC`, `BITS`: physics/controller.ts:30-31, rapier.ts:29,37); object-literal
+numbers are not linted (known, D-BUILD-009 / Build item). blockout.ts:340 has bare polygonOffset -2.
+**Known issues classified:**
+- Heroes never rest (~1e-4 m y per tick): **Medium, Character Controller.** Deterministic, so not a hash problem, but
+  any "standing still" rule, stealth/idle test or dirty-flag on `pos` will misfire. Fix with a rest band in
+  physics/controller.ts around the snap-down (rapier.ts:140-144, skin 0.02) before Camera & Input and Economy rely on it.
+- Beak shot when the head lies behind a body hit: **Low, Combat + Director.** guns.ts:196-206 and hitboxes.ts:95-135
+  follow GDD §5.4 literally ("hits both counts"); the brief asks for first-hitbox-wins. Director decides; if changed,
+  edit §5.4 first, then hitboxes.ts (test in damage suite).
+- Arena ramp between first spawns: **Low, Level Designer.** world/map/index.ts:33; only trips spawn-to-spawn tests
+  on 'arena'; move the ramp or the spawns.
+**Follow-ups by owner:**
+- *Architect:* the W1 findings stand (spatial.ts:33-37 per-rebuild arrays, index.ts:213-214 unsanitised NaN commands,
+  rng.ts:44 32-bit seed fold); the interface requests logged by Combat, Abilities and Character Controller need the
+  contract round (displace on units, onWallSlam, Motor allowGun/allowAbilities, wall size on UnitInfo).
+- *Combat / Abilities:* merge `AREA_TICK_S` (data/abilities.ts) with Combat's 0.5 s tick; Combat's pipeline constants
+  `MAX_OWNER_HOPS`, `RETURN_LIFE_MULT` (damage.ts:36, guns.ts:36) belong in data/combat.ts.
+- *Rendering:* only blockout and entities have tests; none for quality presets or the draw-call budget. Add a
+  renderer smoke test that asserts `renderer.info` stays under a named budget.
+- *QA (me):* flip pods and fledglings suites when W3 lands; keep the 20-minute fledgling test out of `check`; add a
+  perf budget test around `npm run sim` ms/tick once bots act.
+- *Build:* detectObjects on in no-magic-numbers for src/sim outside data/.
+**Process note:** one of my shell commands (an unquoted `echo ... >sim`) created a stray 12-byte `sim` file in the repo
+root; the EP deleted it. Nothing under src/, tests/ or e2e/ was changed by this review.
