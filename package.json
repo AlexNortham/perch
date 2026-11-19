@@ -18,6 +18,7 @@
     "perf": "vitest run --config vitest.perf.config.ts --disable-console-intercept",
     "sim": "tsx tools/sim.ts",
     "shots": "tsx tools/shots.ts",
+    "wiki": "tsx tools/wiki/build.ts",
     "e2e": "playwright test",
     "check": "bash scripts/check.sh"
   },
