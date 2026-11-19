@@ -4,7 +4,8 @@ import type { EntityId, HeroId, PlayerTeam, UnitEntity, Vec3 } from '../../core/
 import { createSandbox } from '../../../../tests/helpers/sandbox';
 import type { Sandbox } from '../../../../tests/helpers/sandbox';
 import { TICK_RATE } from '../../data/core';
-import { validateKit } from '../../abilities/kit';
+import { resolveAbility, validateKit } from '../../abilities/kit';
+import { albatrossDef, GALE_BURST } from '../../data/heroes/albatross';
 import { albatross } from './index';
 
 const ORIGIN: Vec3 = { x: 0, y: 0, z: 0 };
@@ -89,6 +90,14 @@ describe('Albatross', () => {
       expect(sb.hero(me).weapon.ammo).toBe(6);
       expect((done - started) / TICK_RATE).toBeCloseTo(0.3 + 6 * 0.45, 1);
     });
+  });
+
+  it('says in data what the framework will run: 0.3 s shell start, a 6 × 3 m wall, an 8 m burst at T3', () => {
+    expect(albatrossDef.weapon.perRoundStartS).toBe(0.3);
+    const wall = albatrossDef.abilities[0].effects[0];
+    expect(wall).toMatchObject({ kind: 'summon', size: { x: 6, y: 3 }, onEnd: GALE_BURST });
+    expect(GALE_BURST[0]).toMatchObject({ kind: 'area', shape: { kind: 'cone', length: 'burst' } });
+    expect(resolveAbility(albatrossDef.abilities[0], 3).values.burst).toBe(8);
   });
 
   describe('Gale Shield', () => {

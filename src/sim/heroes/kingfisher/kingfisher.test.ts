@@ -5,6 +5,7 @@ import { createSandbox } from '../../../../tests/helpers/sandbox';
 import type { Sandbox } from '../../../../tests/helpers/sandbox';
 import { TICK_RATE } from '../../data/core';
 import { validateKit } from '../../abilities/kit';
+import { kingfisherDef } from '../../data/heroes/kingfisher';
 import { kingfisher } from './index';
 
 const ORIGIN: Vec3 = { x: 0, y: 0, z: 0 };
@@ -40,6 +41,11 @@ describe('Kingfisher', () => {
   it('has a valid, implemented kit', () => {
     expect(validateKit(kingfisher)).toEqual([]);
     expect(kingfisher.implemented).toBe(true);
+  });
+
+  it("says in data what the framework will run: Riverstrike T3's vanish as selfEffects", () => {
+    const t3 = kingfisherDef.abilities[3].upgrades[2];
+    expect(t3.selfEffects?.[0]).toMatchObject({ kind: 'applyStatus', status: { id: 'invisible' }, durationS: 1.5 });
   });
 
   describe('Dart Pistol (hitscan, 22 Talon, 12 rounds, 4 shots/s, 1.6 s reload)', () => {
