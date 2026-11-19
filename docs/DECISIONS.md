@@ -1910,3 +1910,11 @@ No decorative cuboids go into `prims`.
 
 Riverbank's span over the Hollow is exempt: by GDD §6.4, its long open sightline with the pit below is that stretch's verticality. Stilted roost stands, the first-leg façades and walkway, extra balconies and lane-edge cover deliver the rules. Wires never cross a lane and keep 3 m from Updraft cables (style guide §1.1).
 **Why:** feel gaps G19 and G20 turned into numbers QA can check.
+
+### D-AUDIO-003 · 19/11/2026 — Stage 4 sound: state read from the view, interiors from MapData.rooms
+**Decision:** Stage 4 cues live in `data/stage4.ts`. Events drive one-shots (Egg, Roc, Thicket, Nest, Feeder, runes, Keepsakes, Berries, the Updraft latch). Things with no event are edge-triggered in `update` from the local hero's position and the map (`loadMap(view.map)`): Hides, Cellar Run, Magpie Den, Bough Springs (pad), ivy curtains (`Opening.curtain`), Lookouts (2.5 m), Feeder blinks (`ViewFlag.Lit` rising edge). The Egg carrier loop is a 0.9 s pulse (loops stay one-shots, D-AUDIO-002). Bell Feeders carry 70 m and the Bell Tower's 120 m through a per-voice `range`.
+**Why:** keeps the 48-voice cap and priority stealing as the only allocator, and needs no contract change.
+
+### D-AUDIO-004 · 19/11/2026 — Occlusion and room tone
+**Decision:** a positional voice whose room differs from the local hero's, or an enemy hero outside `seenBy`, gets -6 dB and a 2 kHz low-pass. Indoors a 320 Hz low-passed noise bed fades in and the wind bed drops to 30%. `Settings.mute` zeroes master; `onScreen` sets menu and hero-select music (a 100 ms timer ticks it with no match frames); `previewHero` plays the hero call flat. Where Den and Cellar Run overlap, the Den wins (map order), so entering the Den centre plays the Den cue, not the tunnel cue.
+**Why:** INTERFACES §13 row 3 and the W5 audio follow-ups.

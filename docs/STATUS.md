@@ -2065,3 +2065,11 @@ spatial-hash entries every tick).
 - QA: the `match.spec.ts` damage-number step fails on `integrate/w5` whatever the map.
 - Docs & Wiki: the map page's counts changed.
 **Next:** W6 detail polish (collision for any bay or perch the artist dresses deep), bot routing checks through interiors once Bot AI lands, and prim trimming if W6 additions need quarter budget (584 of 600 now).
+
+### W5b · Audio Engineer · 19/11/2026
+**Done:** Stage 4 sound on this branch (from `integrate/w5`), all in `src/client/audio/**` plus `e2e/audio.spec.ts`.
+- **New cues (41):** Egg (carry pulse, drop, spoil; spawn, pickup and delivery jingles reused), Roc (wake, rake, flap, shriek, enrage, death), Embers (drop; claim reused), Rekindle, Thickets (wake, five attacks, death, camp cleared), Nests (twig, woven, keepsake break), Feeders (break, chime, full chime, lamp blink), Keepsakes, Berries, Hides in/out, Bough Springs, Lookouts, ivy curtains, Cellar Run, Magpie Den, Updraft latch and dismount, indoor room tone.
+- **Engine:** per-voice range (Feeder 70 m, Bell Tower 120 m), occlusion (-6 dB, 2 kHz) across rooms and for unseen enemy heroes, `Settings.mute`, `onScreen` and `previewHero`, menu music ticks itself, the Roc fight and the Egg carry hold the objective music (D-AUDIO-003, -004).
+- **Tests:** `e2e/audio.spec.ts` renders each new cue offline: finite, above the wind bed, and a distinct signature (41 cues), plus indoor tone, occlusion, mute, a 150-shot flood against the 48-voice cap, and music states.
+**Verified:** see the run line below.
+**Interface requests:** none blocking. Rendering/VFX: nothing. UI: call `audio.onScreen` and `previewHero` (already wired in app.ts). Level: Lookouts have no radius, audio uses 2.5 m. Systems: Bough Spring launches and Lookout use emit no event, so audio infers them from position; a `movement` action for springs would be cleaner.
