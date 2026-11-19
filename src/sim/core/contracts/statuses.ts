@@ -26,7 +26,11 @@ export interface StatusDef {
   readonly id: StatusId;
   /** Player-facing name (UI). */
   readonly name: string;
-  /** Negative statuses are shortened by statusResist, removed by cleanse 'negative' and blocked by 'unstoppable'. */
+  /**
+   * Negative statuses are shortened by statusResist and removed by cleanse 'negative'. 'unstoppable' blocks (and
+   * removes on gain) only the crowd control among them: statuses carrying stunned, silenced, disarmed, rooted,
+   * grounded or a slow (GDD §5.9, D-COMBAT-004); 'intangible' blocks every negative status.
+   */
   readonly negative: boolean;
   readonly stacking: StatusStacking;
   /** For 'stack'; 1 otherwise. */

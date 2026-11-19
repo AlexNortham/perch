@@ -54,6 +54,15 @@ export interface WeaponDef {
   readonly beakShotMult?: number;
   /** Overrides CAMERA.aimRange (Owl). */
   readonly aimRange?: number;
+  /** Projectile guns: bullet radius (m). Default: combat data's (0.06 m). Lyrebird's Echo Lute 0.25 m. */
+  readonly projectileRadius?: number;
+  /**
+   * Guns that spin up (Woodpecker): the fire rate starts at `fromRate` shots/s and rises linearly to `fireRate`
+   * over `seconds` of continuous fire; it starts over when firing stops.
+   */
+  readonly spinUp?: { readonly fromRate: number; readonly seconds: number };
+  /** 'perRound' reloads: delay before the first round goes in (Albatross 0.3 s). Default: combat data's. */
+  readonly perRoundStartS?: number;
 }
 
 /** Archetypes from BRIEF §3; each is covered three times across the 24 heroes. */
@@ -110,6 +119,12 @@ export interface HeroHooks {
 
 export interface HeroModule {
   readonly def: HeroDef;
+  /**
+   * The kit is complete: real data for body, stats, gun and all four abilities with their tiers, hooks where needed,
+   * and the ability smoke tests passing. Hero select lets the player pick only implemented heroes; the others show
+   * as coming soon. The hero's engineer sets it. Default false.
+   */
+  readonly implemented?: boolean;
   /**
    * Called once by sim/abilities at sim creation when this hero is in the match. Subscribe to events here if needed.
    */
