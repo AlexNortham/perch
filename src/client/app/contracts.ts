@@ -218,6 +218,8 @@ export interface AppActions {
   toMenu(): void;
   /** pause → match */
   resume(): void;
+  /** Practice Hub only (D-EP-040): open the picker without leaving the hub; picking a bird respawns the player as it. */
+  swapBird(): void;
   /** The human concedes (allowed from 15:00; the sim ends the match). */
   concede(): void;
   /** Persist new settings and apply them everywhere. */
@@ -236,6 +238,8 @@ export interface ScreenContext {
   readonly telemetry: MatchTelemetry | null;
   readonly catalogue: readonly ItemDef[];
   readonly mode: 'siege' | 'practice';
+  /** Hero select opened from the Practice Hub's Swap bird: Back returns to the hub and picking swaps the bird. */
+  readonly swap?: boolean;
 }
 
 /** src/client/ui: `createUi(root, actions)`. DOM/CSS overlay above the canvas. */

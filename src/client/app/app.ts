@@ -94,6 +94,8 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   const playable = (): boolean => session.hero !== null && !session.drive;
   /** Set by the pause menu's Concede; sent with the next command. */
   let concedeNext = false;
+  /** Hero select was opened by the Practice Hub's Swap bird (D-EP-040). */
+  let swapping = false;
 
   const actions: AppActions = {
     play: (next = 'siege') => { mode = next; audio.resume(); show('heroSelect'); },
@@ -106,8 +108,16 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     },
     project: (point) => pose && projectPoint(point, pose, root.clientWidth, root.clientHeight),
     crosshairPing: () => resolvePing(),
+    swapBird: () => {
+      if (mode !== 'practice' || (screen !== 'match' && screen !== 'pause')) return;
+      show('heroSelect', true);
+    },
     startMatch: (setup) => {
       audio.resume();
+      if (swapping) {
+        void swapHero(setup.hero);
+        return;
+      }
       void switchSession(mode === 'practice' ? practiceConfig(setup.seed, setup.hero) : matchConfig(setup), 'player', 'match', req.t);
     },
     toMenu: () => {
@@ -133,7 +143,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   const onUiAction = (action: UiAction, down: boolean): void => {
     if (action !== 'pause') {
       if (screen !== 'match') return;
-      if (action === 'shop' || action === 'upgrades' || action === 'pingWheel') {
+      if (action === 'shop' || action === 'pingWheel') {
         if (down && !openPanel) {
           openPanel = action;
           actions.capturePointer(true);
@@ -170,33 +180,13 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     actions.capturePointer(false);
     if (panel && panel !== 'pause') ui.onUiAction(panel, false);
   }
-  // Suppressing gameplay leaves the cursor available for cards. Keep the panel's own bound keys active.
-  let inspecting = false, inspectionChord = false;
+  // Suppressing gameplay leaves the cursor available for cards. Keep the shop's own bound key active.
   function panelKey(code: string, down: boolean, event: Event): void {
     if (openPanel === 'shop' && down && code === settings.bindings.shop) {
       event.preventDefault();
       event.stopImmediatePropagation();
       closePanel();
       return;
-    }
-    if (openPanel !== 'upgrades') return;
-    if (code === settings.bindings.upgradeModifier) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      if (down) { inspecting = true; inspectionChord = false; }
-      else if (inspecting) {
-        inspecting = false;
-        if (!inspectionChord) closePanel();
-      }
-    } else if (down && inspecting) {
-      const keys = [settings.bindings.ability1, settings.bindings.ability2, settings.bindings.ability3, settings.bindings.ability4];
-      const slot = keys.indexOf(code);
-      if (slot >= 0) {
-        inspectionChord = true;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        actions.submit({ upgrade: slot });
-      }
     }
   }
   document.addEventListener('keydown', (e) => { if (!e.repeat) panelKey(e.code, true, e); }, true);
@@ -205,9 +195,9 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   document.addEventListener('mouseup', (e) => panelKey('Mouse' + e.button, false, e), true);
   session = await startSession(firstConfig, req.cam, req.t, req.scene === 'replay');
 
-  function show(next: Screen): void {
+  function show(next: Screen, swap = false): void {
+    swapping = swap;
     openPanel = null;
-    inspecting = false;
     pointerReleased = false;
     screen = next;
     input.setEnabled(next === 'match' && playable());
@@ -215,7 +205,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     if (next === 'match') audio.resume();
     else if (next !== 'pause') input.exitFullscreen();
     const telemetry = next === 'end' ? session.sim.telemetry() : null;
-    ui.show(next, { view: session.curr, settings, seed: session.seed, telemetry, catalogue: session.sim.itemCatalogue, mode });
+    ui.show(next, { view: session.curr, settings, seed: session.seed, telemetry, catalogue: session.sim.itemCatalogue, mode, swap });
   }
 
   async function switchSession(config: SimConfig, cam: CameraPreset, next: Screen, fastForwardS = 0): Promise<void> {
@@ -225,6 +215,26 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     session = fresh;
     activateSession();
     show(next);
+  }
+
+  /** D-EP-040: a fresh practice session for the new bird (32 AP, dummies reset), put where the player stood. */
+  async function swapHero(hero: HeroId): Promise<void> {
+    const old = session.hero === null ? undefined : entityById(session.curr, session.hero);
+    const look = { ...input.look };
+    const id = ++sessionRequest;
+    const fresh = await startSession(practiceConfig(session.seed, hero), 'player', 0);
+    if (id !== sessionRequest) return;
+    if (old && fresh.hero !== null) {
+      // ponytail: SimOptions has no practice start position yet, so the respawn event puts the new bird on the old spot (physics re-seats on it); ask the Architect for an option.
+      fresh.sim.ctx.bus.emit({ type: 'hero.respawned', hero: fresh.hero, pos: { ...old.pos } });
+      fresh.sim.step([]);
+      fresh.sim.drainEvents();
+      fresh.prev = fresh.curr = fresh.sim.view;
+    }
+    session = fresh;
+    activateSession();
+    input.setLook(look);
+    show('match');
   }
 
   function activateSession(): void {

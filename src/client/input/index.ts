@@ -96,7 +96,9 @@ export function createInput(
   let crouchPresses = 0;
   let pingDownAt = 0;
   let pingTimer: ReturnType<typeof setTimeout> | undefined;
-  let upgradeChord = false;
+  /** The upgrade key is held (D-EP-038): the pointer is free for the HUD; look and mouse buttons wait. */
+  let upgradeHold = false;
+  let relockOnRelease = false;
   let aimZoom = DEFAULT_AIM_ZOOM;
   const capturedMouse = new Set<number>();
   const capturedAux = new Set<number>();
@@ -125,10 +127,9 @@ export function createInput(
       if (action === 'pause') continue;
       if (down.has(action)) continue;
       down.add(action);
-      if (action === 'upgradeModifier') upgradeChord = false;
+      if (action === 'upgradeModifier') beginUpgrade();
       const slot = UPGRADE_SLOT.get(action);
       if (slot !== undefined && down.has('upgradeModifier')) {
-        upgradeChord = true;
         upgrade = slot;
         spent.add(action);
         continue;
@@ -159,16 +160,34 @@ export function createInput(
         if (at - pingDownAt < PING_TAP_MS) ping = resolvePing?.() ?? null;
         else onUiAction('pingWheel', true);
       }
-      if (action === 'upgradeModifier' && !upgradeChord) onUiAction('upgrades', true);
+      if (action === 'upgradeModifier') endUpgrade();
       const ui = UI_OF.get(action);
       if (ui) onUiAction(ui, false);
     }
   }
 
+  /** D-EP-038: free the real cursor while the key is held. Keys keep working; look and mouse buttons wait. */
+  function beginUpgrade(): void {
+    if (upgradeHold) return;
+    upgradeHold = true;
+    relockOnRelease = locked();
+    if (relockOnRelease) doc.exitPointerLock();
+    onUiAction('upgrades', true);
+  }
+
+  /** Lock again in the key's own event, so no extra click is needed (Edge and Firefox allow it, see D-UI-001). */
+  function endUpgrade(relock = true): void {
+    if (!upgradeHold) return;
+    upgradeHold = false;
+    onUiAction('upgrades', false);
+    if (relock && relockOnRelease && enabled) lock();
+    relockOnRelease = false;
+  }
+
   function releaseAll(): void {
     clearTimeout(pingTimer);
     pingTimer = undefined;
-    upgradeChord = false;
+    endUpgrade(false);
     for (const action of down) {
       const ui = UI_OF.get(action);
       if (ui) onUiAction(ui, false);
@@ -229,7 +248,7 @@ export function createInput(
   };
   const onLockChange = (ev: Event): void => {
     if (locked()) return;
-    if (!enabled) return;
+    if (!enabled || upgradeHold) return;
     lockLostAt = ev.timeStamp;
     onUiAction('pause', true);
   };

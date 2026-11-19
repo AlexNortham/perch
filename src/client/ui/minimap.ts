@@ -12,6 +12,29 @@ import { el } from './dom';
 import { createGhosts, mapPoint, mapVisible, mapWorld } from './model';
 import type { PingMark } from './world';
 
+/** The zone under the minimap: the lane the local bird is on, else the map's own name. */
+export function zoneName(view: SimView): string {
+  const me = view.entities.find((e) => e.id === view.localHero);
+  const map = mapOf(view.map);
+  if (!me) return map.name;
+  let best: { id: string; d: number } | null = null;
+  for (const lane of map.lanes) {
+    for (let i = 1; i < lane.path.length; i++) {
+      const a = lane.path[i - 1];
+      const b = lane.path[i];
+      if (!a || !b) continue;
+      const abx = b.x - a.x;
+      const abz = b.z - a.z;
+      const t = Math.max(0, Math.min(1, ((me.pos.x - a.x) * abx + (me.pos.z - a.z) * abz) / Math.max(NEAR_ZERO, abx * abx + abz * abz)));
+      const d = Math.hypot(me.pos.x - (a.x + abx * t), me.pos.z - (a.z + abz * t)) - lane.halfWidth;
+      if (!best || d < best.d) best = { id: lane.id, d };
+    }
+  }
+  return best && best.d <= ZONE_LANE_MARGIN_M ? `${best.id.slice(0, 1).toUpperCase()}${best.id.slice(1)}` : map.name;
+}
+const ZONE_LANE_MARGIN_M = 12;
+const NEAR_ZERO = 1e-6;
+
 export interface MapView {
   readonly canvas: HTMLCanvasElement;
   draw(view: SimView, pings: readonly PingMark[]): void;

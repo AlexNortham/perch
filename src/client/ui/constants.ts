@@ -94,7 +94,9 @@ export const SELL_REFUND_FRACTION = 0.5;
 export const FULL_REFUND_FRACTION = 1;
 /** Minimap: last-seen enemy ghosts fade over this many seconds (GDD §12.5). */
 export const GHOST_FADE_S = 6;
-export const MINIMAP_SIZE = { width: 220, height: 254 } as const;
+/** The round minimap: a 360 px circle holding the 260:300 map at its widest inscribed size (G06). */
+export const MINIMAP_SIZE = { width: 236, height: 272 } as const;
+export const MINIMAP_DIAMETER = 360;
 /** Big map height as a share of the screen (GDD §12.5). */
 export const BIG_MAP_SCREEN_SHARE = 0.7;
 /** Kill feed: lines kept and seconds each is shown (GDD §12.8). */
