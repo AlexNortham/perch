@@ -5,8 +5,8 @@
  * Bots assign their command to `HeroEntity.command` in the ai phase; a new object or one the bot reuses every tick
  * both work, but never mutate the object `h.command` holds (it is core's latch). Core copies the command into the
  * latch and sanitises it (D-ARCH-011): non-finite axes become 0 and axes clamp to ±1; non-finite look angles keep
- * the previous ones, yaw wraps to ±π and pitch clamps; an upgrade slot outside 0–3 and a ping at a non-finite point
- * are dropped. A hero with no fresh command repeats its last one without the one-shot fields (pressed, upgrade,
+ * the previous ones, yaw wraps to ±π and pitch clamps; button bits outside `Button` are cleared; an upgrade slot
+ * outside 0–3 and a ping at a non-finite point are dropped. A hero with no fresh command repeats its last one without the one-shot fields (pressed, upgrade,
  * buy, sell, ping, concede).
  */
 import type { EntityId, ItemId, Vec3 } from './base';
@@ -36,14 +36,16 @@ export const Button = {
   ShoulderSwap: 0x8000,
   /** Aim (RMB): tighter spread and the hero's zoom, per GDD §5.6. */
   Aim: 0x10000,
-  /**
-   * @deprecated D-EP-039, D-ARCH-022: there is no Interact key in Stage 4. Updrafts mount on held Jump, the Egg is
-   * taken by melee and delivered automatically. Kept only so Stage 3 code compiles until wave 5 stops reading it;
-   * the W5.5 contract round deletes it. Bit 0x20000 is never reused, so old command logs stay readable.
-   */
-  Interact: 0x20000,
 } as const;
 export type ButtonName = keyof typeof Button;
+
+/**
+ * Bits that once meant something and are never reused, so old command logs stay readable. Core clears every bit
+ * outside `Button` when it latches a command, so no system can see these (D-ARCH-025).
+ * - Interact (0x20000): Stage 3's Interact key. Stage 4 has none (D-EP-039): Updrafts mount on held Jump, the Egg
+ *   is taken by melee and delivered automatically.
+ */
+export const RETIRED_BUTTONS = { Interact: 0x20000 } as const;
 
 /** Ability buttons in slot order, for code that loops over slots. */
 export const ABILITY_BUTTONS = [Button.Ability1, Button.Ability2, Button.Ability3, Button.Ability4] as const;

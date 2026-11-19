@@ -57,6 +57,8 @@ import { loadMap } from './world/map';
 const MAX_HEROES = TEAM_SIZE * 2;
 const TURN = Math.PI * 2;
 const ABILITY_SLOTS = 4;
+/** Every live button bit; latching clears the rest, retired ones included (RETIRED_BUTTONS, D-ARCH-025). */
+const BUTTON_BITS = Object.values(Button).reduce((bits, b) => bits | b, 0);
 
 type LatchedCommand = { -readonly [K in keyof PlayerCommand]: PlayerCommand[K] };
 
@@ -66,7 +68,7 @@ const isFiniteVec = (v: { x: number; y: number; z: number }): boolean =>
 
 /**
  * Copy `src` into the hero's latch with every field made safe (D-ARCH-011): axes finite and within ±1; look angles
- * finite (else the previous ones are kept), yaw wrapped to ±π, pitch clamped; button bits integral; an upgrade slot
+ * finite (else the previous ones are kept), yaw wrapped to ±π, pitch clamped; unknown button bits cleared; an upgrade slot
  * outside 0–3 and a ping at a non-finite point dropped.
  */
 function latchCommand(into: LatchedCommand, src: PlayerCommand): void {
@@ -76,8 +78,8 @@ function latchCommand(into: LatchedCommand, src: PlayerCommand): void {
   into.forward = clamp(finite(src.forward, 0), -1, 1);
   into.yaw = Math.abs(yaw) > Math.PI ? yaw - TURN * Math.round(yaw / TURN) : yaw;
   into.pitch = clampPitch(finite(src.pitch, into.pitch));
-  into.held = src.held | 0;
-  into.pressed = src.pressed | 0;
+  into.held = src.held & BUTTON_BITS;
+  into.pressed = src.pressed & BUTTON_BITS;
   into.upgrade = typeof up === 'number' && Number.isInteger(up) && up >= 0 && up < ABILITY_SLOTS ? up : null;
   into.buy = src.buy;
   into.sell = src.sell;

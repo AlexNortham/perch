@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Button, HERO_IDS, IDLE_COMMAND, ViewFlag } from './core/contracts';
+import { Button, HERO_IDS, IDLE_COMMAND, RETIRED_BUTTONS, ViewFlag } from './core/contracts';
 import type { HeroCommand, Sim } from './core/contracts';
 import { allBotRoster, createSim, humanRoster } from './index';
 
@@ -102,6 +102,10 @@ describe('createSim', () => {
     sim.drainEvents();
     sim.step([{ hero: id, command: { ...IDLE_COMMAND, ping } }]);
     expect(sim.drainEvents().filter((e) => e.type === 'ping')).toEqual([]);
+    // D-ARCH-025: retired and unknown bits never reach a system; live ones pass.
+    const junk = RETIRED_BUTTONS.Interact | 0x4000_0000;
+    sim.step([{ hero: id, command: { ...IDLE_COMMAND, held: junk | Button.Jump, pressed: junk | Button.Fire } }]);
+    expect([h.command.held, h.command.pressed]).toEqual([Button.Jump, Button.Fire]);
   });
 
   it('gives the client a snapshot view and the last step\'s events', async () => {
