@@ -9,6 +9,11 @@
  * A dash 'target' whose target entity is the mover itself (a point cast: D-ABIL-001 sets entity = caster) goes to
  * `target.point`. An 'aim' dash follows the aim pitch, at most DASH.aimMaxPitchUp upward, unless its data sets
  * `arcHeight` (0 = a flat dash), which keeps it horizontal (D-SYS-003).
+ *
+ * Two AbilityDef.values names change a dash (no contract field yet): an 'aim' dash whose cause values hold
+ * STEER_VALUE ('steerDeg') > 0 follows the caster's aim within that many degrees of its start (Rampage, D-SYS-011);
+ * a 'target' dash to a point whose cause values hold SURFACE_VALUE ('surface') ≥ 1 flies straight to it, rising
+ * and falling, and stops just short of the surface (Tree Cling, Branch Swing, D-SYS-012).
  */
 import type { CoreContext, DisplaceEffect, EffectCause, EffectTarget, EntityId, HeroEntity, PhysicsService, UnitEntity, Vec3 } from '../core/contracts';
 import { lookDir } from '../core/aim';

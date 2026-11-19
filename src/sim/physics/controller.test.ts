@@ -4,7 +4,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { createSandbox } from '../../../tests/helpers/sandbox';
-import { Button, IDLE_COMMAND } from '../core/contracts';
+import { Button, IDLE_COMMAND, LAYERS_SOLID, Layer } from '../core/contracts';
 import type {
   BlockoutPrim,
   Climb,
@@ -22,6 +22,9 @@ import type {
 import { createSim } from '../index';
 import { ARENA } from '../world/map';
 import { STUN } from '../data/combat';
+import { SURFACE_VALUE } from '../data/abilities';
+import { PHYSICS_LAYERS, STEER_VALUE } from '../data/movement';
+import { MOVE_MASK } from './rapier';
 
 const fixture = vi.hoisted(() => ({ map: null as MapData | null }));
 vi.mock('../world/map', async (importOriginal) => {
@@ -1217,5 +1220,248 @@ describe('robustness', () => {
     const [a, c] = [await script(), await script()];
     expect(a).toEqual(c);
     expect(a.actions).toContain('mantle');
+  });
+});
+
+describe('wave 5: interiors, Bough Springs and the Cellar Run (GDD §§6.8, 6.11, 7.15)', () => {
+  /** One two-storey kit building (x −30…−16, z −30…−16): a door north, a shot window west, an ivy arch east. */
+  const filler = (centre: Vec3, size: Vec3, blocks: 'movement' | 'sight'): BlockoutPrim => ({ ...box(centre, size), blocks });
+  const house: MapData = withArena({
+    prims: [
+      box({ x: -23, y: 4, z: -29.75 }, { x: 14, y: 8, z: 0.5 }),
+      box({ x: -27.1, y: 4, z: -16.25 }, { x: 5.8, y: 8, z: 0.5 }),
+      box({ x: -18.9, y: 4, z: -16.25 }, { x: 5.8, y: 8, z: 0.5 }),
+      box({ x: -23, y: 5.5, z: -16.25 }, { x: 2.4, y: 5, z: 0.5 }),
+      box({ x: -29.75, y: 4, z: -27.4 }, { x: 0.5, y: 8, z: 5.2 }),
+      box({ x: -29.75, y: 4, z: -19.6 }, { x: 0.5, y: 8, z: 7.2 }),
+      box({ x: -29.75, y: 0.6, z: -24 }, { x: 0.5, y: 1.2, z: 1.6 }),
+      box({ x: -29.75, y: 5.1, z: -24 }, { x: 0.5, y: 5.8, z: 1.6 }),
+      filler({ x: -29.75, y: 1.7, z: -24 }, { x: 0.5, y: 1, z: 1.6 }, 'movement'),
+      box({ x: -16.25, y: 4, z: -27.1 }, { x: 0.5, y: 8, z: 5.8 }),
+      box({ x: -16.25, y: 4, z: -18.9 }, { x: 0.5, y: 8, z: 5.8 }),
+      box({ x: -16.25, y: 5.5, z: -23 }, { x: 0.5, y: 5, z: 2.4 }),
+      filler({ x: -16.25, y: 1.5, z: -23 }, { x: 0.1, y: 3, z: 2.4 }, 'sight'),
+      // Upper floor (top at 4 m) around the stairwell; stairs 2 m wide rising 4 m over 8 m (26.6°) along +x; roof at 8 m.
+      box({ x: -23, y: 3.8, z: -21.75 }, { x: 14, y: 0.4, z: 11.5 }),
+      box({ x: -18.75, y: 3.8, z: -28.75 }, { x: 5.5, y: 0.4, z: 2.5 }),
+      { shape: 'ramp', centre: { x: -25.5, y: 2, z: -28.5 }, size: { x: 2, y: 4, z: 8 }, yaw: Math.PI / 2, material: 'wood', solid: true },
+      box({ x: -23, y: 7.8, z: -23 }, { x: 14, y: 0.4, z: 14 }),
+    ],
+    climbs: [{ kind: 'ladder', bottom: { x: -19, y: 0, z: -16 }, top: { x: -19, y: 8, z: -16 }, out: { x: 0, y: 0, z: 1 } }],
+    rooms: [
+      { building: 0, storey: 0, volume: { centre: { x: -23, y: 1.8, z: -23 }, size: { x: 13, y: 3.6, z: 13 }, yaw: 0 } },
+      { building: -1, storey: -1, volume: { centre: { x: 10, y: 1.5, z: -30 }, size: { x: 30, y: 3, z: 6 }, yaw: 0 }, tag: 'tunnel' },
+    ],
+    openings: [
+      { kind: 'door', rooms: [0, -1], centre: { x: -23, y: 1.5, z: -16.25 }, width: 2.4, height: 3, yaw: 0, passable: true, blocksEggCarrier: true },
+    ],
+    springs: [{ pad: { x: 8, y: 0, z: -6 }, radius: 1.2, land: { x: 8, y: 2, z: 0 }, apexY: 5 }],
+  });
+  const NORTH = Math.PI;
+  const EAST = Math.PI / 2;
+  const WEST = -Math.PI / 2;
+
+  it('walks in through a door, up the stairs onto the upper floor; queries see both floors', async () => {
+    const b = await bench(house, { x: -23, y: 0, z: -12 });
+    b.step({ forward: 1, yaw: NORTH }, 60);
+    expect(b.h.pos.z, 'through the 2.4 m door').toBeLessThan(-17);
+    b.place({ x: -29, y: 0, z: -28.5 });
+    b.step({ forward: 1, yaw: EAST }, 120);
+    expect(b.h.pos.y, 'on the upper floor').toBeCloseTo(4, 1);
+    expect(b.h.pos.x).toBeGreaterThan(-21.5);
+    expect(b.h.motor.grounded).toBe(true);
+    const ps = b.sim.ctx.physics;
+    expect(ps.groundHeight(-20, -20, 6)).toBeCloseTo(4, 6);
+    expect(ps.groundHeight(-20, -20, 3)).toBeCloseTo(0, 6);
+    expect(ps.raycast({ x: -20, y: 6, z: -20 }, { x: 0, y: -1, z: 0 }, 10, LAYERS_SOLID)?.distance).toBeCloseTo(2, 6);
+  });
+
+  it('a shot window passes bullets and sight but no hero; an ivy curtain stops only sight queries and is walked through', async () => {
+    const b = await bench(house, { x: -28.5, y: 0, z: -24 });
+    const ps = b.sim.ctx.physics;
+    const west = { x: -1, y: 0, z: 0 };
+    expect(ps.raycast({ x: -28, y: 1.7, z: -24 }, west, 5, LAYERS_SOLID), 'bullets and sight pass the window').toBeNull();
+    expect(ps.raycast({ x: -28, y: 1.7, z: -24 }, west, 5, MOVE_MASK)?.distance).toBeCloseTo(1.5, 6);
+    b.step({ forward: 1, yaw: WEST, held: Button.Jump }, 60);
+    expect(b.h.pos.x, 'no hero through the window').toBeGreaterThan(-29.5);
+    expect(b.h.pos.y).toBeLessThan(1);
+    const east = { x: 1, y: 0, z: 0 };
+    expect(ps.raycast({ x: -17.5, y: 1.5, z: -23 }, east, 3, LAYERS_SOLID), 'shots pass the ivy').toBeNull();
+    expect(ps.raycast({ x: -17.5, y: 1.5, z: -23 }, east, 3, LAYERS_SOLID | PHYSICS_LAYERS.sight)?.distance).toBeCloseTo(1.2, 6);
+    b.place({ x: -18, y: 0, z: -23 });
+    b.step({ forward: 1, yaw: EAST }, 60);
+    expect(b.h.pos.x, 'walked out through the curtain').toBeGreaterThan(-15);
+  });
+
+  it('a ladder climbs like a Vine: move into it holding forward, over the top onto the roof', async () => {
+    const b = await bench(house, { x: -19, y: 0, z: -15.4 });
+    b.step({ forward: 1, yaw: NORTH }, 150);
+    expect(b.actions).toEqual(['climbOn', 'climbOff']);
+    expect(b.h.pos.y).toBeCloseTo(8, 2);
+    expect(b.h.pos.z).toBeLessThan(-16);
+    expect(b.h.motor.grounded).toBe(true);
+  });
+
+  it('a blocksEggCarrier opening stops the Egg carrier only (the Cellar Run stair heads)', async () => {
+    const b = await bench(house, { x: -23, y: 0, z: -12 });
+    b.sim.ctx.stats.set(b.h.id, 'test', { conditions: ['eggCarrier'] });
+    b.step({ forward: 1, yaw: NORTH }, 90);
+    expect(b.h.pos.z, 'the carrier stays outside').toBeGreaterThan(-16);
+    b.sim.ctx.stats.set(b.h.id, 'test', null);
+    b.step({ forward: 1, yaw: NORTH }, 60);
+    expect(b.h.pos.z).toBeLessThan(-17);
+  });
+
+  it('the Cellar Run: run speed ×1.3 inside a tunnel room; the sprint bonus is not scaled', async () => {
+    const b = await bench(house, { x: -2, y: 0, z: -30 });
+    b.step({ forward: 1, yaw: EAST }, 30);
+    expect(b.h.vel.x).toBeCloseTo(7 * 1.3, 6);
+    b.place({ x: -2, y: 0, z: -20 });
+    b.step({ forward: 1, yaw: EAST }, 30);
+    expect(b.h.vel.x).toBeCloseTo(7, 6);
+    b.place({ x: -2, y: 0, z: -30 });
+    b.h.health.inCombatUntil = 0;
+    b.step({ forward: 1, yaw: EAST }, 40);
+    expect(b.h.vel.x, 'run 9.1 + sprint 2').toBeCloseTo(7 * 1.3 + 2, 6);
+  });
+
+  it('a Bough Spring launches along its arc to the landing point, once per 1.0 s; not while grounded or carrying the Egg', async () => {
+    const b = await bench(house, { x: 8, y: 0, z: -9 });
+    for (let i = 0; i < 60 && b.h.vel.y <= 0; i++) b.step({ forward: 1, yaw: 0 });
+    expect(b.actions).toEqual(['jump']);
+    let top = 0;
+    for (let i = 0; i < 120 && !(b.h.motor.grounded && b.h.pos.y > 1); i++) {
+      b.step();
+      top = Math.max(top, b.h.pos.y);
+    }
+    expect(top, 'the authored apex').toBeCloseTo(5, 1);
+    expect(Math.hypot(b.h.pos.x - 8, b.h.pos.z), 'on the landing point').toBeLessThan(0.3);
+    expect(b.h.pos.y).toBeCloseTo(2, 2);
+    // Put back on the pad 0.2 s into a launch: the next launch waits for the 1.0 s.
+    const pad = { x: 8, y: 0, z: -6 };
+    const launches: number[] = [];
+    b.sim.ctx.bus.on('movement', (e) => {
+      if (e.hero === b.h.id && e.action === 'jump') launches.push(b.sim.tick);
+    });
+    b.apply({ kind: 'teleport', to: 'point', face: 'keep' }, { point: pad });
+    b.step({}, 12);
+    b.apply({ kind: 'teleport', to: 'point', face: 'keep' }, { point: pad });
+    b.step({}, 60);
+    expect(launches).toHaveLength(2);
+    expect((launches[1] ?? 0) - (launches[0] ?? 0)).toBe(60);
+    for (const condition of ['grounded', 'eggCarrier'] as const) {
+      const c = await bench(house);
+      c.sim.ctx.stats.set(c.h.id, 'test', { conditions: [condition] });
+      c.place(pad);
+      c.step({}, 30);
+      expect(c.h.pos.y, condition).toBeCloseTo(0, 6);
+    }
+  });
+
+  it('enemy hero damage in the first 0.6 s clips a launch: no more rise, and a 30% slow for 1.5 s', async () => {
+    const b = await bench(house, { x: 8, y: 0, z: -6 }, { x: 20, y: 0, z: 20 });
+    b.step({}, 18);
+    expect(b.h.vel.y).toBeGreaterThan(0);
+    const other = b.other;
+    if (!other) throw new Error('no enemy');
+    b.sim.ctx.bus.emit({
+      type: 'damage.applied', source: other.id, sourceTeam: 'dusk', target: b.h.id, targetKind: 'hero', amount: 10,
+      absorbed: 0, damageType: 'talon', via: 'weapon', ability: null, item: null, beakShot: false, weakPoint: false,
+      proc: false, lethal: false, pos: { ...b.h.pos },
+    });
+    expect(b.h.vel.y).toBe(0);
+    expect(b.h.stats.final.slow).toBeCloseTo(0.3, 6);
+    const y = b.h.pos.y;
+    b.step();
+    expect(b.h.pos.y).toBeLessThan(y);
+    b.step({}, 92);
+    expect(b.h.stats.final.slow).toBe(0);
+  });
+
+  it('a structure with solid: false has no collider (Twig and Keepsake Nests); a solid one blocks', async () => {
+    const b = await bench(house, { x: 0, y: 0, z: -25 });
+    const nest = (x: number, solid: boolean) => b.sim.ctx.store.spawn({
+      kind: 'structure', team: 'neutral', pos: { x, y: 0, z: -20 }, vel: { x: 0, y: 0, z: 0 }, yaw: 0, radius: 0.6,
+      structure: { type: 'nest', lane: null, phase: 1, target: null, body: { radius: 0.6, height: 1 }, weakPoint: null, variant: 'twig', solid },
+      health: { hp: 50, talonShield: 0, songShield: 0, barrier: 0, dead: false, respawnAt: null, inCombatUntil: 0 },
+      stats: b.sim.ctx.stats.create({ maxHealth: 50 }),
+      statuses: [],
+    });
+    nest(0, false);
+    nest(4, true);
+    b.step();
+    const ps = b.sim.ctx.physics;
+    const down = { x: 0, y: -1, z: 0 };
+    expect(ps.raycast({ x: 0, y: 3, z: -20 }, down, 5, Layer.Structure)).toBeNull();
+    expect(ps.raycast({ x: 4, y: 3, z: -20 }, down, 5, Layer.Structure)?.distance).toBeCloseTo(2, 6);
+    b.step({ forward: 1, yaw: 0 }, 60);
+    expect(b.h.pos.z, 'walked through the twig nest').toBeGreaterThan(-19);
+    b.place({ x: 4, y: 0, z: -25 });
+    b.step({ forward: 1, yaw: 0 }, 60);
+    expect(b.h.pos.z, 'stopped by the woven one').toBeLessThan(-20);
+  });
+});
+
+describe('wave 5: movement modes, steering and surface dashes', () => {
+  const mode = (kind: 'hover' | 'flight' | 'cling', endOn?: ('land' | 'jump')[]): Effect => ({
+    kind: 'movementMode', mode: kind, durationS: 5, speed: 6, verticalSpeed: 4, allowGun: true, allowAbilities: true,
+    ...(endOn ? { endOn } : {}),
+  });
+
+  it('endOn: Jump ends a hover, landing ends a flight; a stun ends a cling; without endOn a hover ignores Jump', async () => {
+    const b = await bench(null, { x: -20, y: 0, z: -30 });
+    b.apply(mode('hover'));
+    b.step({ pressed: Button.Jump });
+    expect(b.h.motor.mode, 'no endOn: Jump climbs').toBe('hover');
+    b.apply(mode('hover', ['jump']));
+    b.step({ pressed: Button.Jump });
+    expect(b.h.motor.mode).toBeNull();
+    b.place({ x: -20, y: 3, z: -30 });
+    b.apply(mode('flight', ['land']));
+    b.step({ held: Button.Crouch }, 60);
+    expect(b.h.motor.mode, 'landed').toBeNull();
+    expect(b.h.motor.grounded).toBe(true);
+    b.place({ x: -20, y: 3, z: -30 });
+    b.apply(mode('cling'));
+    b.step({}, 10);
+    expect(b.h.motor.mode).toBe('cling');
+    expect(b.h.pos.y).toBeCloseTo(3, 6);
+    b.sim.ctx.stats.set(b.h.id, 'test', { conditions: ['stunned'] });
+    b.step();
+    expect(b.h.motor.mode).toBeNull();
+  });
+
+  it('an aim dash whose cause values carry steerDeg follows the aim, at most that far from its start (Rampage)', async () => {
+    const charge: Effect = { kind: 'dash', distance: 20, durationS: 1, dir: 'aim', arcHeight: 0 };
+    const run = async (values: Record<string, number> | null): Promise<number> => {
+      const b = await bench(null, { x: 0, y: 0, z: -35 });
+      b.apply(charge, { dir: { x: 0, y: 0, z: 1 } }, { ...b.cause(), values });
+      b.step({ yaw: 0 }, 10);
+      b.step({ yaw: Math.PI / 2 }, 10);
+      return Math.atan2(b.h.vel.x, b.h.vel.z);
+    };
+    expect(await run(null)).toBeCloseTo(0, 6);
+    expect(await run({ [STEER_VALUE]: 30 })).toBeCloseTo(Math.PI / 6, 6);
+  });
+
+  it('a target dash from a surface cast flies straight to the wall point and clings there (Tree Cling)', async () => {
+    const wall = withArena({ prims: [box({ x: 0, y: 4, z: -25 }, { x: 6, y: 8, z: 1 })] });
+    const run = async (values: Record<string, number> | null) => {
+      const b = await bench(wall, { x: 0, y: 0, z: -33 });
+      const point = { x: 0, y: 5, z: -25.5 };
+      b.apply(
+        { kind: 'dash', distance: 12, durationS: 0.25, dir: 'target', arcHeight: 0, onArrive: [mode('cling')] },
+        { entity: b.h.id, point },
+        { ...b.cause(), values },
+      );
+      b.step({}, 20);
+      return b.h;
+    };
+    const h = await run({ [SURFACE_VALUE]: 1 });
+    expect(h.motor.mode).toBe('cling');
+    expect(h.pos.y).toBeCloseTo(5, 1);
+    expect(-25.5 - h.pos.z).toBeCloseTo(h.radius, 1);
+    const flat = await run(null);
+    expect(flat.pos.y, 'an ordinary target dash stays on the floor').toBeLessThan(0.5);
   });
 });
