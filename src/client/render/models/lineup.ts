@@ -10,7 +10,7 @@ import type { EntityView, HeroId } from '../../../sim/core/contracts';
 import type { BirdRig } from '../rigs/bird-rig';
 import type { FledglingProxy } from '../rigs/fledgling-rig';
 import type { DebugOptions } from './debug';
-import { STATES } from './debug';
+import { MELEE_CYCLE, STATES } from './debug';
 import type { FledglingType } from './fledgling';
 
 const LINEUP_SPACING = 2.4;
@@ -79,6 +79,8 @@ export function createDebugScene(
         e.mode = state.mode ?? null;
         e.vel.z = state.speed;
         e.vel.y = state.vy ?? 0;
+        const repeats = state.melee === 'light' || state.melee === 'heavy';
+        e.meleePose = state.melee && (!repeats || t % MELEE_CYCLE < MELEE_CYCLE / 2) ? state.melee : undefined;
         rig.animate(e, frame.dt, t, false);
         syncHitboxes(rig);
       });

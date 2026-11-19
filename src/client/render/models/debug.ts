@@ -27,12 +27,17 @@ export interface DebugOptions {
   structures: readonly string[];
 }
 
+/** Seconds per repeat of a debug light or heavy swing. */
+export const MELEE_CYCLE = 1.6;
+
 export interface StatePose {
   readonly flags: number;
   /** Horizontal speed (m/s). */
   readonly speed: number;
   readonly vy?: number;
   readonly mode?: 'glide';
+  /** Melee pose; light and heavy repeat every MELEE_CYCLE seconds so a still shot catches a swing. */
+  readonly melee?: 'charging' | 'light' | 'heavy' | 'parry';
 }
 
 const G = ViewFlag.Grounded;
@@ -54,6 +59,10 @@ export const STATES: Readonly<Record<string, StatePose>> = {
   mantle: { flags: ViewFlag.Mantling, speed: 0 },
   climb: { flags: ViewFlag.Climbing, speed: 0, vy: 3 },
   glide: { flags: 0, speed: 9, mode: 'glide' },
+  charge: { flags: G | ViewFlag.Meleeing, speed: 0, melee: 'charging' },
+  light: { flags: G | ViewFlag.Meleeing, speed: 0, melee: 'light' },
+  heavy: { flags: G | ViewFlag.Meleeing, speed: 0, melee: 'heavy' },
+  parry: { flags: G, speed: 0, melee: 'parry' },
 };
 
 export function readDebugOptions(search: string): DebugOptions {

@@ -202,7 +202,7 @@ export const STRUCTURE = {
   /** Patron statue: head top height, chest (heart-feather) height. */
   patronHeight: 11.5,
   patronHeartUp: 6,
-  patronHeartForward: 2.1,
+  patronHeartForward: 2.7,
   stone: 0xb9a98a,
   stoneDark: 0x8d806a,
   timber: 0x7a5236,
