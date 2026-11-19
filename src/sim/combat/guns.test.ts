@@ -97,6 +97,14 @@ describe('hitboxes and beak shots', () => {
     expect(hits[0]?.amount).toBeCloseTo((22 * (1.65 + 0.2) + 10) * 1.5);
   });
 
+  it('Close Talons boosts a real gun hit only within 15 m', () => {
+    const closeTalons = (k: Kit, me: HeroEntity) => k.mod(me, 'items:closeTalons', [['closeGunDamage', 'add', 0.3]]);
+    // 10 m and 17 m are both inside the 18 m falloff start, so only the 15 m Close Talons range differs.
+    expect(shoot('hero', 10, 1.0, closeTalons).hits[0]?.amount).toBeCloseTo(22 * 1.3);
+    expect(shoot('hero', 17, 1.0, closeTalons).hits[0]?.amount).toBeCloseTo(22);
+    expect(shoot('hero', 10, 1.0).hits[0]?.amount).toBeCloseTo(22);
+  });
+
   it('crouching lowers the head hitbox', () => {
     const k = createKit();
     const me = k.hero('kingfisher', 'dawn', { x: 0, y: 0, z: 0 });
@@ -159,17 +167,18 @@ describe('pellets and spread', () => {
     expect(miss).toBeDefined();
   });
 
-  it('adds the flat beak damage once when multiple pellets hit the head', () => {
+  it('Whetstone adds its flat damage once across a mixed shotgun volley', () => {
     const run = (flat: number) => {
       const k = createKit({ seed: 1 });
       const me = k.hero('albatross', 'dawn', { x: 0, y: 0, z: 0 });
       k.hero('albatross', 'dusk', { x: 0, y: 0, z: 2.5 }, Math.PI);
-      k.mod(me, 'items:beak', [['beakShotFlat', 'add', flat]]);
-      k.aimAt(me, { x: 0, y: 2.05, z: 2.5 });
+      k.mod(me, 'items:whetstone', [['beakShotFlat', 'add', flat]]);
+      k.aimAt(me, { x: 0, y: 1.9, z: 2.5 }); // the bottom of the head: some pellets strike the body
       k.input(me, Button.Fire);
       k.step();
       const hits = k.of('damage.applied');
-      expect(hits.filter((e) => e.beakShot).length).toBeGreaterThan(1);
+      expect(hits.filter((e) => e.beakShot).length, 'head pellets').toBeGreaterThan(1);
+      expect(hits.filter((e) => !e.beakShot).length, 'body pellets').toBeGreaterThan(0);
       return hits.reduce((total, e) => total + e.amount, 0);
     };
     expect(run(35) - run(0)).toBeCloseTo(35);
