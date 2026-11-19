@@ -32,11 +32,8 @@ export const GALE_BURST: readonly Effect[] = [
   },
 ];
 
-/**
- * Tempest Dive's leap: 0.9 s arc, 8 m apex, landing on the cast point, then the slam. The hook applies it with the
- * point as the target (a point cast's target entity is the caster, which makes a 'target' dash a no-op).
- */
-export const TEMPEST_LEAP: Effect = {
+/** Tempest Dive's leap: 0.9 s arc, 8 m apex, landing on the cast point, then the slam. */
+const TEMPEST_LEAP: Effect = {
   kind: 'dash',
   distance: 30,
   durationS: 0.9,
@@ -72,7 +69,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
         health: { of: 'hp', song: 3 },
         durationS: 4,
         maxCount: 1,
-        behaviour: 'galeShield', // the hero's hook keeps it 2 m ahead, facing your aim
+        behaviour: 'galeShield', // the hero's hook keeps it 2 m ahead, facing your aim; onEnd reads its pos and yaw
         size: { x: 6, y: 3, z: 0.5 },
         effects: [],
         onEnd: GALE_BURST,
@@ -108,6 +105,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
         durationS: 0.35,
         dir: 'aim',
         passThrough: true,
+        arcHeight: 0, // flat: an aim dash otherwise keeps the aim's pitch (D-SYS-003)
         // 1.125 m up is 0.6 s in the air at 25 m/s² gravity.
         onHit: [song('damage', 0.7), { kind: 'displace', mode: 'up', distance: 1.125 }],
       },
@@ -160,7 +158,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     cooldownS: 120,
     charges: 1,
     values: { radius: 8, stun: 1.25 },
-    effects: [apply(UNSTOPPABLE, 0.9), { kind: 'hook', name: 'tempestLeap' }],
+    effects: [apply(UNSTOPPABLE, 0.9), TEMPEST_LEAP],
     upgrades: [
       { description: '+2 m radius', values: { radius: 2 } },
       { description: 'Stun +0.5 s', values: { stun: 0.5 } },

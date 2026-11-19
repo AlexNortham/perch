@@ -125,7 +125,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     charges: 1,
     // Two stabs, one on at a time: the 40% one, and from T2 the 50% one (the other drops to radius 0).
     values: { damage: 110, bleed: 4, radius40: 1, radius50: 0 },
-    effects: [{ kind: 'dash', distance: 5, durationS: 0.15, dir: 'aim', onArrive: [stab('radius40', 0.4), stab('radius50', 0.5)] }],
+    effects: [{ kind: 'dash', distance: 5, durationS: 0.15, dir: 'aim', arcHeight: 0, onArrive: [stab('radius40', 0.4), stab('radius50', 0.5)] }],
     upgrades: [
       { description: 'Bleed +2 s', values: { bleed: 2 } },
       { description: 'Execute threshold 50%', values: { radius40: -1, radius50: 1 } },
@@ -159,9 +159,6 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ],
   },
 ];
-
-/** Riverstrike T3's vanish (the hook's fallback until the framework applies `selfEffects`). */
-export const RIVERSTRIKE_VANISH = STRIKE_VANISH;
 
 export const kingfisherDef: HeroDef = {
   id: 'kingfisher',

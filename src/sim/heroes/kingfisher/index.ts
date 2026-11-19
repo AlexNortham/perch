@@ -3,15 +3,13 @@
  * item system's `trigger` effect.
  * - Glint: when it ends (an attack, a cast or the clock) Ambush starts; at T3 the first hit on a hero silences it.
  * - Spear Bill T3: a hero killed by it resets Spear Bill and Plunge.
- * - Riverstrike: the target dying within 3 s refunds half the cooldown; T3's vanish until `selfEffects` lands.
+ * - Riverstrike: the target dying within 3 s refunds half the cooldown; (T3's vanish is `selfEffects` data).
  * TODO(framework): Glint's Ambush and the two kill refunds are `trigger` data once Economy & Items' system lands.
  */
 import type { EffectCause, EntityId, HeroEntity, HeroModule, SimContext } from '../../core/contracts';
-import { AMBUSH, AMBUSH_SILENCE, AMBUSH_SILENCE_WINDOW_S, GLINT_ID, RIVERSTRIKE_VANISH, kingfisherDef } from '../../data/heroes/kingfisher';
+import { AMBUSH, AMBUSH_SILENCE, AMBUSH_SILENCE_WINDOW_S, GLINT_ID, kingfisherDef } from '../../data/heroes/kingfisher';
 import { TICK_RATE } from '../../data/core';
 
-/** TODO(framework): set true once the Systems follow-up's `selfEffects` is merged, then drop the vanish below. */
-const SELF_EFFECTS_IN_FRAMEWORK = false;
 const SLOT = { plunge: 0, glint: 1, spearBill: 2, riverstrike: 3 } as const;
 const REFUND_WINDOW_S = 3;
 const REFUND_FRACTION = 0.5;
@@ -86,7 +84,6 @@ export const kingfisher: HeroModule = {
       onCast(cast) {
         if (cast.slot !== SLOT.riverstrike) return;
         if (cast.target.entity !== null) strikes.set(cast.hero.id, { victim: cast.target.entity, until: ctx.clock.tick + REFUND_WINDOW_S * TICK_RATE });
-        if (!SELF_EFFECTS_IN_FRAMEWORK && cast.tier >= TIER_3) ctx.effects.apply(RIVERSTRIKE_VANISH, onHero(cast.hero), cast.cause);
       },
     };
   },

@@ -27,7 +27,7 @@ const zone = (radius: Magnitude, durationS: Magnitude, affects: TargetFilter, ef
 });
 const base = { castS: 0, channelS: 0, hook: false } as const;
 
-/** The pin: what a wall slam adds to Impaling Bolt (also the hook's fallback until the framework applies `onWall`). */
+/** The pin: what a wall slam adds to Impaling Bolt. */
 export const BOLT_PIN: readonly Effect[] = [song(40, 0.4), apply(STUN, 'pinStun')];
 
 const boltProjectile = (range: 'singleRange' | 'pierceRange'): Effect => ({
@@ -41,8 +41,6 @@ const boltProjectile = (range: 'singleRange' | 'pierceRange'): Effect => ({
   onHit: [
     song('damage', 0.8),
     { kind: 'displace', mode: 'along', distance: 6, onWall: BOLT_PIN },
-    // TODO(framework): drop this hook once physics applies DisplaceEffect.onWall.
-    { kind: 'hook', name: 'boltPin' },
   ],
 });
 

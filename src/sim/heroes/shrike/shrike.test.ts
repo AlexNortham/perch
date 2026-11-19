@@ -137,7 +137,7 @@ describe('Shrike', () => {
   });
 
   describe('Impaling Bolt', () => {
-    it('hits the first hero for 70 and knocks it back (6 m of displacement, a little more on the ground)', async () => {
+    it('hits the first hero for 70 and knocks it back 6 m', async () => {
       const { sb, me, foe } = await setup([0, 0, 0, 0], { x: 0, y: 0, z: 0 });
       sb.cast(me, 2, foe);
       const z0 = sb.entity(foe).pos.z;
@@ -145,9 +145,8 @@ describe('Shrike', () => {
       const hits = hitsOn(sb, me, foe, 'shrike.impalingBolt');
       expect(hits).toHaveLength(1);
       expect(hits[0]?.amount).toBeCloseTo(70, 1);
-      // physics lands a 6 m displace 8.4 m away (the landing slide, D-CTRL-005): a finding for the Character Controller
-      expect(sb.entity(foe).pos.z - z0).toBeGreaterThanOrEqual(6);
-      expect(sb.entity(foe).pos.z - z0).toBeLessThan(9);
+      // Physics stops a displacement where it lands (D-SYS-001): 6 m, within Rapier's sub-centimetre noise.
+      expect(sb.entity(foe).pos.z - z0).toBeCloseTo(6, 1);
       expect(statusOn(sb, foe, 'stun')).toHaveLength(0); // open ground: no pin
       expect(sb.hero(me).abilities.slots[2]?.readyAt).toBeGreaterThan(sb.sim.tick);
     });
