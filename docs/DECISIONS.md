@@ -1491,3 +1491,15 @@ Stage 4 still ships score-based bot shopping from a starter table built from the
 synergise from the start. The Stage 4 gate now checks varied, synergistic bot builds rather than Build Lab convergence.
 **Why:** the user's instruction: the simulated games can come separately; start them in Stage 4, merge them when
 ready, and don't let them hold a stage up for days.
+
+### D-EP-045 · 19/11/2026 — Balance covers the core numbers: health, damage and growth
+**Decision:** Stage 5 balancing (D-EP-043) explicitly includes the core numbers, not only abilities and items:
+- **Birds:** base health, regen, shields, speed, stamina and per-level growth.
+- **Guns:** damage, fire rate, spread, falloff, magazine, reload and the beak-shot multiplier, judged against
+  time-to-kill windows per archetype matchup that the Game Director sets.
+- **Structures and neutrals:** structure, Patron, fledgling, Thicket and Roc health and damage, judged by siege time,
+  lane push speed and objective timings.
+- **Stacking:** item and ability numbers, with a check that no stat stacks to absurd values late in a match.
+It runs on the simulation track (D-EP-044) and merges when validated. `docs/BALANCE.md` records every change and the
+evidence behind it.
+**Why:** the user's instruction: balance things like health and damage as well.

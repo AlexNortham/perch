@@ -206,6 +206,10 @@ Gate M3:
 
 Gate M4:
 - [ ] Matches last 25–40 min; every hero wins 40–60%; every item gets bought; no runaway snowball
+- [ ] Core numbers balanced (D-EP-045): every bird's health, regen, speed, stamina and level growth; every gun's
+  damage, fire rate, spread, falloff, magazine and reload, judged against the Director's time-to-kill windows per
+  archetype matchup; structure, Patron, fledgling, Thicket and Roc health and damage, judged by siege, push and
+  objective timings; no stat stacks to absurd values late in a match
 - [ ] Every one of the 96 abilities assessed by telemetry and ablation; none dominant or near-useless; each rework
   re-validated in simulation and documented in BALANCE.md and the wiki patch notes (D-EP-043)
 - [ ] 60 FPS budget met with 12 heroes, ~150 fledglings and all structures
