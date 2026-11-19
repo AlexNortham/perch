@@ -69,11 +69,13 @@ export function createInput(
   let upgrade: number | null = null;
   let ping: Ping | null = null;
   let crouchOn = false;
+  let crouchPresses = 0;
   let pingDownAt = 0;
   let pingTimer: ReturnType<typeof setTimeout> | undefined;
   let upgradeChord = false;
   let aimZoom = DEFAULT_AIM_ZOOM;
   const capturedMouse = new Set<number>();
+  const capturedAux = new Set<number>();
   let resolvePing: (() => Ping | null) | null = null;
   let lockLostAt = -Infinity;
 
@@ -102,8 +104,10 @@ export function createInput(
         spent.add(action);
         continue;
       }
-      pressed |= BUTTON_OF.get(action) ?? 0;
-      if (action === 'crouch' && cfg.crouchToggle) crouchOn = !crouchOn;
+      if (action === 'crouch') {
+        crouchPresses = Math.min(2, crouchPresses + 1);
+        if (cfg.crouchToggle) crouchOn = !crouchOn;
+      } else pressed |= BUTTON_OF.get(action) ?? 0;
       if (action === 'ping') {
         pingDownAt = at;
         pingTimer = setTimeout(() => {
@@ -146,6 +150,7 @@ export function createInput(
     upgrade = null;
     ping = null;
     crouchOn = false;
+    crouchPresses = 0;
   }
 
   const bound = (code: string): boolean => codeMap.has(code);
@@ -169,6 +174,7 @@ export function createInput(
   };
   const onMouseDown = (ev: Event): void => {
     const e = ev as MouseEvent;
+    capturedAux.delete(e.button);
     if (!enabled || !locked()) return;
     e.preventDefault();
     capturedMouse.add(e.button);
@@ -176,7 +182,10 @@ export function createInput(
   };
   const onMouseUp = (ev: Event): void => {
     const e = ev as MouseEvent;
-    if (capturedMouse.delete(e.button) || (enabled && locked())) e.preventDefault();
+    if (capturedMouse.delete(e.button)) {
+      capturedAux.add(e.button);
+      e.preventDefault();
+    } else if (enabled && locked()) e.preventDefault();
     if (enabled) release(`Mouse${e.button}`, e.timeStamp);
   };
   const onMouseMove = (ev: Event): void => {
@@ -196,13 +205,16 @@ export function createInput(
     onUiAction('pause', true);
   };
   const onContextMenu = (ev: Event): void => {
-    if (enabled || capturedMouse.size !== 0) ev.preventDefault();
+    const e = ev as MouseEvent;
+    if (enabled || capturedMouse.has(e.button) || capturedAux.has(e.button)) e.preventDefault();
   };
   const onAuxClick = (ev: Event): void => {
-    if (enabled && locked()) ev.preventDefault();
+    const e = ev as MouseEvent;
+    if (capturedAux.delete(e.button) || (enabled && locked())) e.preventDefault();
   };
   const onBlur = (): void => {
     capturedMouse.clear();
+    capturedAux.clear();
     releaseAll();
   };
 
@@ -238,6 +250,10 @@ export function createInput(
       for (const [action, bit] of BUTTONS) {
         const on = action === 'crouch' && cfg.crouchToggle ? crouchOn : down.has(action) && !spent.has(action);
         if (on) held |= bit;
+      }
+      if (crouchPresses > 0) {
+        pressed |= Button.Crouch;
+        crouchPresses--;
       }
       const command: PlayerCommand = {
         right: (down.has('right') ? 1 : 0) - (down.has('left') ? 1 : 0),

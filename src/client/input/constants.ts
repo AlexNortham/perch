@@ -1,6 +1,7 @@
 /** Input presentation constants (D-EP-009). */
 
-export const RADIANS_PER_DEGREE = Math.PI / 180;
+const DEGREES_PER_HALF_TURN = 180;
+export const RADIANS_PER_DEGREE = Math.PI / DEGREES_PER_HALF_TURN;
 /** GDD §4.7: sensitivity 1.0 = this many degrees per mouse count. */
 export const DEGREES_PER_COUNT = 0.06;
 /** A ping press shorter than this (ms) is a tap. Holding opens the wheel. */

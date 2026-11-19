@@ -6,7 +6,7 @@
  * walls, where they stop (and slam, GDD §3.9).
  */
 import { LAYERS_SOLID } from '../core/contracts';
-import type { CoreContext, Effect, EffectCause, EntityId, Hasher, PhysicsService, UnitEntity, Vec3 } from '../core/contracts';
+import type { CharacterMove, CoreContext, Effect, EffectCause, EntityId, Hasher, PhysicsService, UnitEntity, Vec3 } from '../core/contracts';
 import { lookDir } from '../core/aim';
 import { copy } from '../core/math';
 import { TICK_SECONDS } from '../data/core';
@@ -51,6 +51,7 @@ export function createUnitMover(ctx: CoreContext, service: PhysicsService): Unit
   const { store, stats, clock, map } = ctx;
   const motions = new Map<EntityId, Motion>();
   const ZERO: Vec3 = { x: 0, y: 0, z: 0 };
+  const result: CharacterMove = { pos: { x: 0, y: 0, z: 0 }, grounded: false, wall: null };
 
   const start = (u: UnitEntity, m: Motion): void => {
     motions.set(u.id, m);
@@ -127,7 +128,7 @@ export function createUnitMover(ctx: CoreContext, service: PhysicsService): Unit
     }
     const blocked = wall(u, m, d);
     const rising = d.y > 0;
-    const r = service.moveCharacter(u.id, d);
+    const r = service.moveCharacter(u.id, d, result);
     // A dash keeps to the ground within the snap; a flight lands only when it reaches the ground (r.pos.y), and only
     // the part of the tick before touching down moves it on, so it lands `distance` away.
     const landed = r.grounded && !rising && (dashing || u.pos.y + d.y <= r.pos.y);

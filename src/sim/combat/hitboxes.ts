@@ -145,8 +145,8 @@ export function createHitboxes(ctx: SimContext): Hitboxes {
         const wp = e.structure.weakPoint;
         if (wp) {
           const tw = raySphere(o, d, wp.centre.x, wp.centre.y, wp.centre.z, wp.radius + radius);
-          weak = tw >= 0 && tw <= maxT;
-          if (weak) t = nearer(t, tw);
+          weak = tw >= 0 && tw <= maxT && (t < 0 || tw <= t);
+          if (weak) t = tw;
         }
         break;
       }

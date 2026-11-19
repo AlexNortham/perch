@@ -3,6 +3,7 @@
  * Tolerances are stated per assertion; "tick" is 1/60 s.
  */
 import { describe, expect, it, vi } from 'vitest';
+import { createSandbox } from '../../../tests/helpers/sandbox';
 import { Button, IDLE_COMMAND } from '../core/contracts';
 import type {
   BlockoutPrim,
@@ -127,7 +128,7 @@ describe('ground movement (GDD §3.2)', () => {
     b.step(FWD, 3);
     expect(b.h.vel.z).toBeCloseTo(7, 6);
     b.step({ ...FWD, held: Button.Crouch }, 1);
-    b.step({ ...FWD, held: Button.Crouch }, 30);
+    b.step({ ...FWD, held: Button.Crouch }, 65);
     expect(b.h.motor.crouching).toBe(true);
     expect(b.h.vel.z).toBeCloseTo(3.5, 6);
     b.sim.ctx.stats.set(b.h.id, 'test:slow', { stats: [{ stat: 'slow', op: 'max', value: 0.5 }] });
@@ -136,6 +137,19 @@ describe('ground movement (GDD §3.2)', () => {
     b.sim.ctx.stats.set(b.h.id, 'test:slow', { stats: [{ stat: 'slow', op: 'max', value: 0.9 }] });
     b.step(FWD, 30);
     expect(b.h.vel.z).toBeCloseTo(1.5, 6);
+  });
+
+  it('aim drops sprint and releasing aim restarts the five-second running delay', async () => {
+    const b = await bench(null, { x: -20, y: 0, z: -30 });
+    b.h.health.inCombatUntil = 0;
+    b.step(FWD, 40);
+    b.step({ ...FWD, held: Button.Aim }, 8);
+    expect(flatSpeed(b.h)).toBeCloseTo(7);
+    b.step({}, 295);
+    b.step(FWD, 5);
+    expect(flatSpeed(b.h)).toBeLessThan(7);
+    b.step(FWD, 30);
+    expect(flatSpeed(b.h)).toBeCloseTo(9);
   });
 
   it('steps up 0.4 m kerbs without jumping but not 0.55 m ones (below mantle height); walks up the 18° ramp', async () => {
@@ -181,11 +195,71 @@ describe('jump and air (GDD §3.3)', () => {
     expect(b.actions).toEqual(['jump', 'land']);
   });
 
+  it('spends one air-jump pip and a half-pip on two fresh crouch presses, preserving forward speed', async () => {
+    const b = await bench(null, { x: -20, y: 0, z: -32 });
+    b.step(FWD, 16);
+    b.step({ ...FWD, pressed: Button.Jump }, 12);
+    b.step({ ...FWD, pressed: Button.Jump });
+    expect(flatSpeed(b.h)).toBeCloseTo(7);
+    expect(b.h.motor.stamina).toBeCloseTo(2);
+    b.step({ ...FWD, pressed: Button.Jump });
+    expect(b.actions.filter((a) => a === 'airJump')).toHaveLength(1);
+    b.step({ ...FWD, held: Button.Crouch, pressed: Button.Crouch });
+    b.step({ ...FWD, held: Button.Crouch });
+    expect(b.actions).not.toContain('downDash');
+    b.step(FWD);
+    b.step({ ...FWD, held: Button.Crouch, pressed: Button.Crouch });
+    expect(b.actions).toContain('downDash');
+    expect(b.h.vel.y).toBeLessThan(-18);
+    expect(flatSpeed(b.h)).toBeCloseTo(7);
+    expect(b.h.motor.stamina).toBeCloseTo(1.5 + 5 / 300);
+    b.step({ ...FWD, held: Button.Crouch }, 18);
+    expect(b.actions).toContain('land');
+    expect(b.h.motor.sliding).toBe(true);
+    b.step({ ...FWD, pressed: Button.Jump });
+    b.step({ ...FWD, pressed: Button.Jump });
+    expect(b.actions.filter((a) => a === 'airJump')).toHaveLength(2);
+  });
+
+  it('pushes off either wall, charges half a pip for the repeat, and shortens its launch under fatigue', async () => {
+    const wall = (z: number) => box({ x: -20, y: 3, z }, { x: 10, y: 6, z: 1 });
+    const b = await bench(withArena({ prims: [wall(-31.8), wall(-28.2)] }), { x: -20, y: 0, z: -30 });
+    b.step({ ...FWD, pressed: Button.Jump }, 25);
+    b.step({ ...FWD, pressed: Button.Jump });
+    expect(b.actions.at(-1)).toBe('wallJump');
+    expect(b.h.vel.z).toBeCloseTo(-6);
+    expect(b.h.vel.y).toBeCloseTo(7 - 25 / 60);
+    expect(b.h.motor.stamina).toBe(3);
+
+    b.step({ forward: -1 }, 21);
+    b.step({ forward: -1, pressed: Button.Jump });
+    expect(b.actions.filter((a) => a === 'wallJump')).toHaveLength(2);
+    expect(b.h.vel.z).toBeCloseTo(6);
+    expect(b.h.vel.y).toBeGreaterThan(3.5 - 25 / 60);
+    expect(b.h.vel.y).toBeLessThan(7 - 25 / 60);
+    expect(b.h.motor.stamina).toBeCloseTo(2.5);
+  });
+
+  it('lets an airborne heavy commitment chain to a free but fatigued wall jump', async () => {
+    const b = await bench(withArena({ prims: [box({ x: -20, y: 3, z: -27 }, { x: 10, y: 6, z: 1 })] }), { x: -20, y: 0, z: -30 });
+    b.step({ pressed: Button.Jump });
+    b.step({ pressed: Button.Melee, held: Button.Melee }, 22);
+    expect(b.h.motor.dashing).toBe(true);
+    for (let i = 0; i < 18 && b.h.motor.dashing; i++) b.step({ held: Button.Melee });
+    expect(b.h.motor.dashing).toBe(false);
+    b.step({ pressed: Button.Jump });
+    expect(b.actions.at(-1)).toBe('wallJump');
+    expect(b.h.vel.z).toBeCloseTo(-6);
+    expect(b.h.vel.y).toBeLessThan(5);
+    expect(b.h.motor.stamina).toBe(3);
+  });
+
   it('buffers a jump pressed 0.1 s before landing and keeps run speed with air control', async () => {
     const b = await bench(null, { x: -20, y: 0, z: -30 });
     b.step({ pressed: Button.Jump });
     b.step({}, 36);
     expect(b.h.motor.grounded).toBe(false);
+    b.h.motor.stamina = 0; // With no air jump available, the fresh press buffers until landing.
     b.step({ pressed: Button.Jump });
     b.step({}, 10);
     expect(b.actions.filter((a) => a === 'jump')).toHaveLength(2);
@@ -265,11 +339,13 @@ describe('stamina, dash and dash-jump (GDD §3.4)', () => {
     expect(b.h.motor.dashing).toBe(true);
   });
 
-  it('dash-jump launches at 13 m/s and 7 m/s: ~1.0 m apex, 7.3 m ± 0.15 leap on flat ground, no extra pip', async () => {
+  it('dash-jump costs a second pip and launches 7.3 m with a ~1.0 m apex on flat ground', async () => {
     const b = await bench(null, { x: -20, y: 0, z: -35 });
     b.step({ yaw: 0, pressed: Button.Dash });
-    b.step({}, 3);
+    b.step({}, 6);
+    expect(b.h.motor.dashJumpReady).toBe(true);
     b.step({ pressed: Button.Jump });
+    expect(b.h.motor.dashJumpReady).toBe(false);
     expect(b.h.vel.z).toBeCloseTo(13, 6);
     expect(b.h.vel.y).toBeCloseTo(7 - 25 / 60, 6);
     const z0 = b.h.pos.z - 13 / 60;
@@ -281,8 +357,39 @@ describe('stamina, dash and dash-jump (GDD §3.4)', () => {
     expect(apex).toBeCloseTo(0.98, 1);
     expect(b.h.pos.z - z0).toBeGreaterThan(7.28 - 0.15);
     expect(b.h.pos.z - z0).toBeLessThan(7.28 + 0.15);
-    expect(b.h.motor.stamina).toBeLessThan(2.2);
+    expect(b.h.motor.stamina).toBeLessThan(1.2);
     expect(b.actions).toEqual(['dash', 'dashJump', 'land']);
+  });
+
+  it('shows an affordable dash-jump only between ticks six and eighteen', async () => {
+    const b = await bench(null, { x: -20, y: 0, z: -35 });
+    b.step({ pressed: Button.Dash });
+    for (let elapsed = 0; elapsed <= 19; elapsed++) {
+      expect(b.h.motor.dashJumpReady, 'elapsed ' + elapsed).toBe(elapsed >= 6 && elapsed <= 18);
+      b.step();
+    }
+    b.place({ x: -20, y: 0, z: -35 });
+    b.h.motor.stamina = 1.2;
+    b.step({ pressed: Button.Dash });
+    b.step({}, 6);
+    expect(b.h.motor.dashJumpReady).toBe(false);
+    b.step({ pressed: Button.Jump });
+    expect(b.actions.at(-1)).toBe('jump');
+    expect(b.h.vel.z).toBeCloseTo(8);
+    expect(b.h.motor.stamina).toBeCloseTo(0.2 + 8 / 300);
+  });
+
+  it('permits ordinary casting during a dash and closes its conversion cue on cast start', async () => {
+    const sb = await createSandbox({ heroes: [{ hero: 'shrike', at: { x: 0, y: 0, z: -30 } }] });
+    const me = sb.heroes[0]!;
+    sb.press(me, Button.Dash);
+    sb.step(7);
+    expect(sb.hero(me).motor.dashJumpReady).toBe(true);
+    sb.cast(me, 1, { x: 0, y: 0, z: -10 });
+    sb.step();
+    expect(sb.eventsOf('ability')).toContainEqual(expect.objectContaining({ caster: me, stage: 'start' }));
+    expect(sb.hero(me).motor.dashing).toBe(true);
+    expect(sb.hero(me).motor.dashJumpReady).toBe(false);
   });
 
   it('a dash-jump off the edge in coyote time clears an 8 m gap', async () => {
@@ -363,7 +470,7 @@ describe('mantle (GDD §3.6)', () => {
     const b = await bench(wall(2.2), { x: -20, y: 0, z: -32 });
     let ticks = 0;
     while (!b.h.motor.mantling && ticks < 120) {
-      b.step(FWD);
+      b.step({ ...FWD, held: Button.Jump });
       ticks++;
     }
     expect(b.actions).toEqual(['mantle']);
@@ -380,6 +487,19 @@ describe('mantle (GDD §3.6)', () => {
     expect(b.h.pos.y).toBeCloseTo(2.2, 1);
   });
 
+  it('walks into a ledge without auto-mantling and carries a sliding approach onto the top', async () => {
+    const b = await bench(wall(2.2), { x: -20, y: 0, z: -32 });
+    b.step(FWD, 60);
+    expect(b.actions).not.toContain('mantle');
+    b.place({ x: -20, y: 0, z: -32 });
+    b.step(FWD, 23);
+    const glide = { ...FWD, held: Button.Crouch | Button.Jump };
+    for (let i = 0; i < 75 && !b.actions.includes('mantleGlide'); i++) b.step(glide);
+    expect(b.actions).toContain('mantleGlide');
+    expect(b.h.pos.y).toBeCloseTo(2.2);
+    expect(flatSpeed(b.h)).toBeGreaterThan(5);
+  });
+
   it('also mantles 2.2 m from a jump, never a 2.6 m ledge (even jumping), and not while rooted', async () => {
     const b = await bench(wall(2.2), { x: -20, y: 0, z: -27.2 });
     b.step({ ...FWD, pressed: Button.Jump });
@@ -388,13 +508,13 @@ describe('mantle (GDD §3.6)', () => {
     const c = await bench(wall(2.6), { x: -20, y: 0, z: -32 });
     for (let i = 0; i < 10; i++) {
       c.step({ ...FWD, pressed: Button.Jump });
-      c.step(FWD, 40);
+      c.step(FWD, 100);
     }
     expect(c.actions).not.toContain('mantle');
     expect(c.h.pos.y).toBeLessThan(0.1);
     const d = await bench(wall(2.2), { x: -20, y: 0, z: -27.2 });
     d.sim.ctx.stats.set(d.h.id, 'test', { conditions: ['rooted'] });
-    d.step(FWD, 30);
+    d.step({ ...FWD, held: Button.Jump }, 30);
     expect(d.actions).not.toContain('mantle');
   });
 });
@@ -775,6 +895,21 @@ describe('wave 3 follow-ups (Character Controller 1–5, EP findings)', () => {
     expect(flatDash.h.pos.z + 30).toBeCloseTo(12, 1);
   });
 
+  it('honours a flat 0° effect and a positive cap while retaining downward angles', async () => {
+    const b = await bench(null, { x: -20, y: 5, z: -30 });
+    const up = { x: 0, y: Math.sqrt(0.5), z: Math.sqrt(0.5) };
+    const dash = { kind: 'dash', distance: 6, durationS: 0.2, dir: 'aim' } as const;
+    b.apply({ ...dash, maxPitchUpDeg: 0 }, { dir: up });
+    b.step({}, 12);
+    expect(b.h.pos.y).toBeCloseTo(5, 1);
+    b.apply({ ...dash, maxPitchUpDeg: 10 }, { dir: up });
+    b.step({}, 12);
+    expect(b.h.pos.y).toBeCloseTo(5 + 6 * Math.sin(Math.PI / 18), 1);
+    b.apply({ ...dash, maxPitchUpDeg: 10 }, { dir: { ...up, y: -up.y } });
+    b.step({}, 12);
+    expect(b.h.pos.y).toBeCloseTo(5 + 6 * Math.sin(Math.PI / 18) - 6 * Math.sqrt(0.5), 1);
+  });
+
   it('units: displace flies them `distance` (± 0.2) rooted under physics:displaced, then unroots; walls stop and slam them', async () => {
     const b = await bench(wallMap, { x: 10, y: 0, z: 10 });
     const u = unitAt(b, { x: -10, y: 0, z: -30 });
@@ -889,7 +1024,7 @@ describe('robustness', () => {
       const b = await bench(withArena({ prims: [box({ x: -20, y: 1.1, z: -20 }, { x: 6, y: 2.2, z: 4 })] }), { x: -20, y: 0, z: -35 });
       for (let t = 0; t < 600; t++) {
         const pressed = t % 97 === 0 ? Button.Dash : t % 41 === 0 ? Button.Jump : t % 150 === 5 ? Button.Crouch : 0;
-        b.step({ forward: 1, right: Math.sin(t / 50), yaw: Math.sin(t / 80) * 0.5, pressed, held: t % 150 < 40 ? Button.Crouch : 0 });
+        b.step({ forward: 1, right: Math.sin(t / 50), yaw: Math.sin(t / 80) * 0.5, pressed, held: Button.Jump | (t % 150 < 40 ? Button.Crouch : 0) });
       }
       return { pos: { ...b.h.pos }, hash: b.sim.hash(), actions: b.actions.join() };
     };

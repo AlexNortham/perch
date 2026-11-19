@@ -4,7 +4,7 @@
  * sphere cast of radiusM along the look direction from the camera pivot, reachM long; the nearest hitbox is struck.
  */
 import { COMBAT, STUN } from '../data/combat';
-import { Button, LAYERS_SOLID } from '../core/contracts';
+import { Button, Layer } from '../core/contracts';
 import type { DashEffect, DisplaceEffect, EntityId, SimContext } from '../core/contracts';
 import { lookDir, pivotHeight } from '../core/aim';
 import { copy, ticks } from '../core/math';
@@ -80,8 +80,8 @@ export function createMelee(
     f.team = h.team;
     f.ignore = h.id;
     f.ember = heavy;
-    const cover = ctx.physics.raycast(origin, dir, M.reachM, LAYERS_SOLID);
-    const first = hb.cast(origin, dir, cover?.entity === null ? cover.distance : M.reachM, M.radiusM, f)[0];
+    const cover = ctx.physics.raycast(origin, dir, M.reachM, Layer.World);
+    const first = hb.cast(origin, dir, cover?.distance ?? M.reachM, M.radiusM, f)[0];
     const target = first ? ctx.store.get(first.id) : undefined;
     s.meleeCause.origin = copy(h.pos);
     if (!first || !target) {

@@ -117,9 +117,13 @@ describe('PhysicsService on the arena', () => {
     const id = spawnUnit(ctx, { x: -8, y: 0, z: -6 });
     const unit = ctx.store.get(id);
     if (!unit) throw new Error('unit missing');
+    const out = { pos: { x: 0, y: 0, z: 0 }, grounded: false, wall: null };
+    const originalPos = out.pos;
     for (let i = 0; i < 60; i++) {
-      const m = ctx.physics.moveCharacter(id, { x: 0, y: -0.1, z: 0.1 });
-      unit.pos = m.pos;
+      const m = ctx.physics.moveCharacter(id, { x: 0, y: -0.1, z: 0.1 }, out);
+      expect(m).toBe(out);
+      expect(m.pos).toBe(originalPos);
+      Object.assign(unit.pos, m.pos);
       expect(m.grounded).toBe(true);
     }
     // Ramp: 6 m long, rises 2 m from local −z (z −3) to +z (z 3); the unit is at z 0 → height 1.

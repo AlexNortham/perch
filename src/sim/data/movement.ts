@@ -4,7 +4,8 @@
  * (moveSpeed, sprintSpeed, stamina, staminaRecharge) in each hero's data; everything shared lives here.
  */
 
-const DEG = Math.PI / 180;
+export const DEGREES_PER_HALF_TURN = 180;
+const DEG = Math.PI / DEGREES_PER_HALF_TURN;
 
 /** GDD §3.2. */
 export const GROUND = {

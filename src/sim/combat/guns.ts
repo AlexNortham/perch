@@ -35,6 +35,16 @@ const EPS = 1e-6;
 /** A returning projectile lives this many one-way flight times (out, back, and slack for a moving caster). */
 const RETURN_LIFE_MULT = 3;
 
+interface Shot extends GunShot {
+  readonly damage: number;
+  readonly falloffStart: number;
+  readonly falloffEnd: number;
+  readonly mods: readonly ModRec[];
+  readonly cause: EffectCause;
+}
+
+const NO_MODS: readonly ModRec[] = [];
+
 interface Proj {
   id: EntityId;
   /** Gun bullets: the shooter. Ability projectiles: null. */
@@ -48,13 +58,8 @@ interface Proj {
   radius: number;
   returning: boolean;
   expiresAt: number;
-  /** Gun bullets: damage at fire time, falloff range, targets left to pierce. */
-  damage: number;
-  falloffStart: number;
-  falloffEnd: number;
   pierce: number;
-  shot: GunShot | null;
-  mods: readonly ModRec[];
+  shot: Shot | null;
   /** Targets hit, the pass (out = 0, back = 1) of their last hit, and how often. */
   readonly hitIds: EntityId[];
   readonly hitPass: number[];
@@ -189,12 +194,9 @@ export function createGuns(
     return out;
   };
 
-  const extraHit = (s: HeroState, target: Entity, amount: number): void => {
-    damage.request(target.id, s.gunCause, 'talon', amount, target.pos);
-  };
-
   /** One bullet hit on an entity: impact, damage request, weapon mods. `dist` is muzzle-to-hit. */
-  const bulletHit = (s: HeroState, hit: Hit, o: Vec3, d: Vec3, dist: number, dmg: number, fs: number, fe: number, shot: GunShot, mods: readonly ModRec[], cause: EffectCause): void => {
+  const bulletHit = (s: HeroState, hit: Hit, o: Vec3, d: Vec3, dist: number, shot: Shot): void => {
+    const { cause, mods } = shot;
     const e = ctx.store.get(hit.id);
     if (!e) return;
     const point = along(o, d, hit.t, at);
@@ -207,8 +209,8 @@ export function createGuns(
       if (m.mod.ignoreFalloff) noFalloff = true;
       bonus += m.mod.gunDamage ?? 0;
     }
-    const f = noFalloff ? 1 : falloff(dist, fs, fe, COMBAT.falloffFloor);
-    const r = damage.request(e.id, cause, 'talon', dmg, point);
+    const f = noFalloff ? 1 : falloff(dist, shot.falloffStart, shot.falloffEnd, COMBAT.falloffFloor);
+    const r = damage.request(e.id, cause, 'talon', shot.damage, point);
     r.gunBonus = bonus;
     r.shot = shot;
     r.falloff = f;
@@ -226,7 +228,7 @@ export function createGuns(
       if (mod.splash) {
         for (const id of enemiesNear(s, point, mod.splash.radius, chain)) {
           const other = ctx.store.get(id);
-          if (other && id !== e.id) extraHit(s, other, dmg * f * mod.splash.fraction);
+          if (other && id !== e.id) damage.request(id, cause, 'talon', shot.damage * f * mod.splash.fraction, other.pos);
         }
       }
       if (mod.bounces) {
@@ -247,7 +249,7 @@ export function createGuns(
           }
           if (!best) break;
           visited.push(best.id);
-          extraHit(s, best, dmg * f * COMBAT.bounce.fraction);
+          damage.request(best.id, cause, 'talon', shot.damage * f * COMBAT.bounce.fraction, best.pos);
           last = best;
         }
       }
@@ -261,14 +263,9 @@ export function createGuns(
     d: Vec3,
     hits: readonly Hit[],
     travelled: number,
-    dmg: number,
-    fs: number,
-    fe: number,
     p: Proj | null,
     pierce: { left: number },
-    shot: GunShot,
-    mods: readonly ModRec[],
-    cause: EffectCause,
+    shot: Shot,
   ): number => {
     for (const hit of hits) {
       if (p) {
@@ -276,7 +273,7 @@ export function createGuns(
         p.hitIds.push(hit.id);
       }
       const isPod = ctx.store.get(hit.id)?.kind === 'pickup';
-      bulletHit(s, hit, o, d, travelled + hit.t, dmg, fs, fe, shot, mods, cause);
+      bulletHit(s, hit, o, d, travelled + hit.t, shot);
       if (isPod) continue;
       if (pierce.left <= 0) return hit.t;
       pierce.left--;
@@ -345,27 +342,31 @@ export function createGuns(
     } else Object.assign(dir, lookDir(h.yaw, h.pitch));
     ctx.bus.emit({ type: 'weapon.fired', shooter: h.id, muzzle: copy(muzzle), dir: copy(dir), hitscan: w.hitscan });
     const cause = { ...s.gunCause, origin: muzzle, songPower: st.songPower };
-    const shot: GunShot = { beakFlat: st.beakShotFlat, closeDamage: st.closeGunDamage };
-    const mods = s.mods.slice();
-    const ends: Vec3[] = [];
+    const shot: Shot = {
+      damage: st.weaponDamage,
+      falloffStart: w.falloff.start * (1 + st.falloffRange),
+      falloffEnd: w.falloff.end * (1 + st.falloffRange),
+      beakFlat: st.beakShotFlat,
+      closeDamage: st.closeGunDamage,
+      mods: s.mods.length ? s.mods.slice() : NO_MODS,
+      cause,
+    };
+    const ends: Vec3[] | null = w.hitscan ? [] : null;
     const half =
       w.spreadDeg *
       DEG *
       (h.motor.grounded ? 1 : COMBAT.spreadAirborneMult) *
       ((h.command.held & Button.Aim) !== 0 ? COMBAT.spreadAimMult : 1);
-    const dmg = st.weaponDamage;
-    const fs = w.falloff.start * (1 + st.falloffRange);
-    const fe = w.falloff.end * (1 + st.falloffRange);
     const pierce = pierceOf(s);
     const radius = w.projectileRadius ?? COMBAT.gunProjectileRadius;
     shotFilter.team = h.team;
     shotFilter.ignore = h.id;
     for (let i = 0; i < w.pellets; i++) {
       spreadDir(dir, half, rng, pellet);
-      if (w.hitscan) {
+      if (ends) {
         const wh = ctx.physics.raycast(muzzle, pellet, w.range, Layer.World);
         const hits = hb.cast(muzzle, pellet, wh ? wh.distance : w.range, 0, shotFilter);
-        const stop = bulletSegment(s, muzzle, pellet, hits, 0, dmg, fs, fe, null, { left: pierce }, shot, mods, cause);
+        const stop = bulletSegment(s, muzzle, pellet, hits, 0, null, { left: pierce }, shot);
         ends.push(copy(along(muzzle, pellet, stop >= 0 ? stop : (wh?.distance ?? w.range), at)));
         if (stop < 0 && wh) impact(cause, wh.point, copy(wh.normal), null, false);
         continue;
@@ -392,18 +393,14 @@ export function createGuns(
           radius,
           returning: false,
           expiresAt: e.projectile.expiresAt,
-          damage: dmg,
-          falloffStart: fs,
-          falloffEnd: fe,
           pierce,
           shot,
-          mods,
         },
         pellet,
         shotFilter,
       );
     }
-    if (w.hitscan) ctx.bus.emit({ type: 'weapon.traces', shooter: h.id, muzzle: copy(muzzle), ends });
+    if (ends) ctx.bus.emit({ type: 'weapon.traces', shooter: h.id, muzzle: copy(muzzle), ends });
     // Shot-limited mods (Heavy Rounds) count this shot; one used up ends now, before the next shot this tick.
     if (s.mods.length > 0) {
       let k = 0;
@@ -490,7 +487,7 @@ export function createGuns(
     let stop = -1;
     if (p.gun && p.shot) {
       const pierce = { left: p.pierce };
-      stop = bulletSegment(p.gun, o, p.dir, hits, p.travelled, p.damage, p.falloffStart, p.falloffEnd, p, pierce, p.shot, p.mods, p.cause);
+      stop = bulletSegment(p.gun, o, p.dir, hits, p.travelled, p, pierce, p.shot);
       p.pierce = pierce.left;
     } else if (fx) {
       for (const hit of hits) {
@@ -534,10 +531,15 @@ export function createGuns(
         for (const m of s.mods) if (now < m.expiresAt) s.mods[k++] = m;
         s.mods.length = k;
       }
+      w.ammo = Math.min(w.ammo, magazine(h));
       const wasFiring = w.firing;
       w.firing = false;
       if (c.has('stunned')) {
         cancelReload(s);
+        return;
+      }
+      if (h.motor.mantling) {
+        if (w.reloading) s.reloadAt++;
         return;
       }
       if (w.reloading) progressReload(s);
@@ -644,12 +646,8 @@ export function createGuns(
           radius: fx.radius,
           returning: false,
           expiresAt: e.projectile.expiresAt,
-          damage: 0,
-          falloffStart: 0,
-          falloffEnd: 0,
           pierce: 0,
           shot: null,
-          mods: [],
         },
         { x: ux, y: uy, z: uz },
         f,
@@ -665,6 +663,12 @@ export function createGuns(
         h.num(p.pierce);
         h.num(p.returning ? 1 : 0);
         h.value(p.hitIds);
+        if (p.shot) {
+          h.num(p.shot.damage);
+          h.num(p.shot.beakFlat);
+          h.num(p.shot.mods.length);
+          for (const m of p.shot.mods) h.num(m.hits);
+        }
       }
     },
   };

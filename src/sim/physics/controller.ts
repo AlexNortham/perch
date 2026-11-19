@@ -802,11 +802,12 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     }
     const jumpPressed = (pressed & Button.Jump) !== 0;
     const wantsMantle = ((pressed | held) & Button.Jump) !== 0 && canLeave && !egg && !s.displaced;
-    if (canLeave && !egg && !s.displaced && tryUpdraft(h, s)) return;
+    if (canLeave && !egg && !s.displaced && (pressed & (Button.Interact | Button.Jump)) !== 0 && tryUpdraft(h, s)) return;
     if (wantsMantle && input > 0) {
       const origin = { x: h.pos.x, y: h.pos.y + GROUND.stepUp, z: h.pos.z };
       const face = service.raycast(origin, W, MANTLE.reach + h.radius, LAYERS_SOLID);
-      if (face && tryMantle(h, s, face.normal, input, v.x, v.z, face.distance)) return;
+      const gap = face ? -face.distance * (face.normal.x * W.x + face.normal.z * W.z) : 0;
+      if (face && tryMantle(h, s, face.normal, input, v.x, v.z, gap)) return;
     }
     if (jumpPressed) s.jumpBufferUntil = tick + T.buffer;
     if (
@@ -814,6 +815,10 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
       (m.grounded || !s.airDashUsed)
     ) {
       startDash(h, s, input);
+    }
+    if (m.dashing && !canLeave) {
+      m.dashing = false;
+      s.dashStarted = NEVER;
     }
     if (m.dashing && tick >= s.dashUntil) {
       // Dash over: exit at run speed + 1 in the dash direction.
@@ -825,6 +830,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
 
     m.dashJumpReady = canLeave && dashJumpReady(h, s);
     let jump: MovementAction | null = null;
+    let downDash = false;
     if (canLeave && tick <= s.jumpBufferUntil) {
       if (m.dashJumpReady) {
         v.x = s.dashX * DASH.jumpHorizontal;
@@ -833,6 +839,10 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
         m.stamina -= DASH.jumpCost;
         jump = 'dashJump';
       } else if (groundedOrCoyote(h, s)) {
+        if (m.dashing) {
+          v.x = s.dashX * (run + DASH.exitBonus);
+          v.z = s.dashZ * (run + DASH.exitBonus);
+        }
         v.y = JUMP_SPEED;
         jump = 'jump';
       } else if (tick <= s.wallAt + T.wallGrace && (s.wallJumps === 0 || m.stamina >= AIR.wall.repeatCost)) {
@@ -870,6 +880,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
         m.dashing = false;
         s.dashStarted = NEVER;
         s.dashUntil = NEVER;
+        downDash = true;
         emit(h.id, 'downDash');
       }
       s.lastCrouchPress = tick;
@@ -884,7 +895,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
       slideTick(h, s, crouchSpeed);
     } else if (m.grounded) {
       groundAccel(v, input, m.crouching ? crouchSpeed : run);
-    } else if (jump === null) {
+    } else if (jump === null && !downDash) {
       airControl(v, input, run, m.knockedUp ? 0 : s.displaced ? DISPLACE.airControl : 1);
     }
     if (!canMove && m.grounded) v.x = v.z = 0;

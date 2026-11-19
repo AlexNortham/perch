@@ -86,6 +86,14 @@ export const createCombatSystem: SystemFactory = (ctx: SimContext) => {
     statuses.endOnAttack(s.hero);
   });
   ctx.bus.on('hero.level', (ev) => damage.levelUp(ev.hero, ev.level));
+  const clampResources = (ev: { readonly hero: EntityId }): void => {
+    const h = heroes.get(ev.hero)?.hero;
+    if (!h) return;
+    h.health.hp = Math.min(h.health.hp, h.stats.final.maxHealth);
+    h.weapon.ammo = Math.min(h.weapon.ammo, Math.round(h.stats.final.magazine));
+  };
+  ctx.bus.on('item.bought', clampResources);
+  ctx.bus.on('item.sold', clampResources);
 
   ctx.effects.handle('damage', 'combat', (fx, t, c) => damage.effect(fx, t, c, 1));
   ctx.effects.handle('heal', 'combat', (fx, t, c) => damage.healEffect(fx, t, c, 1));

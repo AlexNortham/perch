@@ -589,6 +589,7 @@ export function createDamage(
         if (s.levelHeal > 0) flushLevelHeal(s);
         s.levelHeal = 0;
         const h = s.hero.health;
+        h.hp = Math.min(h.hp, s.hero.stats.final.maxHealth);
         if (h.dead && h.respawnAt !== null && now >= h.respawnAt) respawn(s);
         const training = s.hero.hero.training;
         if (!h.dead && training && s.trainingResetAt !== null && now >= s.trainingResetAt) {
@@ -608,6 +609,9 @@ export function createDamage(
       supporters.delete(id);
     },
     hash(h) {
+      for (const e of ctx.store.list('structure')) {
+        if (e.structure.phase === 1 && depletedPatrons.has(e)) h.num(e.id);
+      }
       for (const s of shields) {
         h.num(s.e.id);
         h.num(s.amount);

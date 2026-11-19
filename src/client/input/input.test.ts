@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Button } from '../../sim/core/contracts';
 import type { Ping } from '../../sim/core/contracts';
 import type { Settings, UiAction } from '../app/contracts';
@@ -32,8 +32,8 @@ function rig(settings: Settings = DEFAULT_SETTINGS) {
   const key = (type: 'keydown' | 'keyup', code: string, repeat = false): void => {
     doc.dispatchEvent(Object.assign(new Event(type, { cancelable: true }), { code, repeat }));
   };
-  const mouse = (type: 'mousedown' | 'mouseup', button: number): void => {
-    doc.dispatchEvent(Object.assign(new Event(type, { cancelable: true }), { button }));
+  const mouse = (type: 'mousedown' | 'mouseup' | 'auxclick', button: number): boolean => {
+    return doc.dispatchEvent(Object.assign(new Event(type, { cancelable: true }), { button }));
   };
   const move = (movementX: number, movementY: number): void => {
     doc.dispatchEvent(Object.assign(new Event('mousemove'), { movementX, movementY }));
@@ -64,6 +64,17 @@ describe('press latch', () => {
     expect(b.pressed).toBe(0);
     key('keyup', 'ShiftLeft');
     expect(input.sample().held).toBe(0);
+  });
+
+  it('keeps both fresh crouch presses when a rapid double tap lands between samples', () => {
+    const { input, key } = rig();
+    for (let i = 0; i < 2; i++) {
+      key('keydown', 'KeyC');
+      key('keyup', 'KeyC');
+    }
+    expect(input.sample().pressed).toBe(Button.Crouch);
+    expect(input.sample().pressed).toBe(Button.Crouch);
+    expect(input.sample().pressed).toBe(0);
   });
 
   it('press-release-press-release between steps is still one press', () => {
@@ -167,6 +178,63 @@ describe('axes, buttons and mouse', () => {
     key('keydown', 'KeyC');
     key('keyup', 'KeyC');
     expect(input.sample().held & Button.Crouch).toBe(0);
+  });
+
+  it('reports a solo modifier on release, while a chord submits one upgrade and leaves the panel closed', () => {
+    const { input, key, ui } = rig();
+    key('keydown', 'AltLeft');
+    expect(ui).toEqual([]);
+    key('keyup', 'AltLeft');
+    expect(ui).toEqual([['upgrades', true]]);
+    key('keydown', 'AltLeft');
+    key('keydown', 'Digit3');
+    key('keyup', 'AltLeft');
+    key('keyup', 'Digit3');
+    expect(ui).toHaveLength(1);
+    expect(input.sample()).toMatchObject({ upgrade: 2, held: 0, pressed: 0 });
+    expect(input.sample().upgrade).toBeNull();
+  });
+
+  it('scales mouse look with the active hero zoom only while aiming', () => {
+    const { input, move, mouse } = rig();
+    input.setAimZoom?.(0.5);
+    mouse('mousedown', 2);
+    move(100, 0);
+    expect(input.look.yaw).toBeCloseTo(-3 * Math.PI / 180);
+    mouse('mouseup', 2);
+    move(100, 0);
+    expect(input.look.yaw).toBeCloseTo(-9 * Math.PI / 180);
+  });
+
+  it('captures gameplay side buttons on press, release and auxclick', () => {
+    const bindings = rebind(rebind(DEFAULT_BINDINGS, 'melee', 'Mouse3'), 'parry', 'Mouse4');
+    const { input, mouse } = rig({ ...DEFAULT_SETTINGS, bindings });
+    expect(mouse('mousedown', 3)).toBe(false);
+    expect(input.sample()).toMatchObject({ held: Button.Melee, pressed: Button.Melee });
+    expect(mouse('mouseup', 3)).toBe(false);
+    expect(mouse('auxclick', 3)).toBe(false);
+    expect(input.sample().held).toBe(0);
+    expect(mouse('mousedown', 4)).toBe(false);
+    expect(input.sample().pressed).toBe(Button.Parry);
+    input.setEnabled(false);
+    expect(mouse('mouseup', 4)).toBe(false);
+    expect(mouse('auxclick', 4)).toBe(false);
+    expect(input.sample().held).toBe(0);
+  });
+
+  it('opens the ping wheel once when held and resolves no tap on release', () => {
+    vi.useFakeTimers();
+    try {
+      const { input, mouse, ui } = rig();
+      input.setPingResolver(() => ({ kind: 'goHere', pos: { x: 1, y: 2, z: 3 }, target: null }));
+      mouse('mousedown', 1);
+      vi.advanceTimersByTime(500);
+      mouse('mouseup', 1);
+      expect(ui).toEqual([['pingWheel', true]]);
+      expect(input.sample().ping).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('a middle-mouse tap resolves a ping', () => {
