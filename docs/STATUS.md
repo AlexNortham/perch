@@ -1532,3 +1532,53 @@ should be quick. Nothing under `src/`, `tests/`, `e2e/`, `tools/` or `wiki/` was
 
 **Blocked:** nothing for me. **Interface requests:** the read-only `__perch` state above.
 **Next:** owners fix blockers 1 and 2; independent re-review; the EP writes PLAYABLE.md and merges.
+
+### W4 · Gate fixes · 19/11/2026
+**Branch:** `worktree-agent-a2435476d2641ed6f` from `integrate/w4c` (64f5c84); one commit per item, acting for each
+owner, no contract changes. Node 22.23.4, Edge 156; the user's Edge windows (about 60 `msedge.exe`) were open and no
+other PERCH agent ran. Five consecutive `npm run check` runs on 1f0f900, all 6/6 green:
+- Run 1 (19:03–19:06): `PASS typecheck 6s · lint 4s · test 13s · perf 10s · sim 2s · e2e 100s · check 136s`, e2e `55 passed (1.7m)`
+- Run 2 (19:06–19:08): `PASS typecheck 6s · lint 4s · test 11s · perf 9s · sim 2s · e2e 99s · check 131s`, e2e `55 passed (1.6m)`
+- Run 3 (19:08–19:10): `PASS typecheck 6s · lint 4s · test 11s · perf 8s · sim 3s · e2e 98s · check 130s`, e2e `55 passed (1.6m)`
+- Run 4 (19:10–19:12): `PASS typecheck 7s · lint 4s · test 11s · perf 8s · sim 2s · e2e 99s · check 132s`, e2e `55 passed (1.6m)`
+- Run 5 (19:12–19:15): `PASS typecheck 6s · lint 4s · test 12s · perf 8s · sim 2s · e2e 99s · check 132s`, e2e `55 passed (1.6m)`
+Unit tests 792 in 64 files (was 790: +2 Hawk cases); e2e 55 (was 52: +replay scene, +Victory, +Defeat).
+PNGs in `out/web/` (gitignored), all looked at: `result-victory.png`, `result-defeat.png`, `result-concede-locked.png`.
+1. **Flaky check (QA/Build, 620fb0f, D-QA-010).** Root cause: the offline audio renders share the machine with the
+   parallel browser suites and stall. `playwright.config.ts` now has an `app` project (everything else, parallel) and
+   a one-worker `serial` project for `audio.spec.ts` (and `result.spec.ts`, below) that depends on `app`, so it starts
+   when the parallel suites have finished. Timeout unchanged, no retry. Alone the audio tests take 0.2–0.7 s each.
+   `--no-deps` runs a serial file on its own.
+2. **Result screen in the browser (UI/HUD, app, QA).**
+   - *Victory replay (312ca59, D-ARCH-020).* The siege-proof agent moved unchanged to `src/sim/ai/siege-proof.testkit.ts`
+     (headless proof still tick 69,973, hash `d662ba91ea093bbd`). `?scene=replay&seed=1` starts the ordinary Play match
+     (`matchConfig`, Owl) and the agent writes the local hero's command each tick through the app's normal step loop,
+     up to 45 ms of stepping per frame; events go to VFX, UI and audio; the end screen comes from the usual
+     `isOver` check. Input is disabled and the camera follows the agent's look. `e2e/result.spec.ts` asserts Victory,
+     "Dawn Flock wins", "Match length 19:26 seed 1", the Owl row (26,639 structure damage, 93 last hits), the graph,
+     and in `__perch.state` winner Dawn, Dusk Patron down, Dawn Patron and other lanes standing. About 8–9 s.
+   - *Concede (17be621, D-UI-005).* Pause menu: Concede between Options and Quit, wired to `actions.concede`. Before
+     15:00 it is disabled and the line under it reads "Concede is available from 15:00 (now 14:56)."; from 15:00 one
+     click arms it ("Confirm concede"), a second concedes. The e2e plays from the menu with `?t=896`, checks the lock,
+     resumes until 15:00, concedes by real clicks and asserts Defeat, "Dusk Flock wins", "Match length 15:00 seed 1",
+     the Albatross row, the graph and `__perch.state` (winner Dusk).
+   - *`window.__perch.state` (312ca59).* Read-only copy per read: screen, tick, seconds, over, winner, `hash` (computed
+     when read) and every structure's id, team, type, lane, phase and health.
+3. **Hawk retarget (Objectives/QA, 42b9448).** `siege.test.ts`, both flocks: the Riverbank Hawk holds the nearest
+   enemy hero, then switches within 0.5 s to a farther hero whose real gun hits an allied hero within 22 m, and shoots
+   it. With the aggressor rank forced off in `structures.ts` both cases fail.
+4. **Upgrade panel (UI, 133a19f).** Root cause: `:hover` and `:focus-within` each showed their row's card. The focused
+   row's card now shows only while no row is hovered. `m2.spec.ts` asserts one visible card on every hover; on the old
+   stylesheet it fails with 2.
+5. **Wiki (1f0f900).** `npm run wiki` re-captured the 11 screenshots hashed on `src/client/ui` and `app`. The "Ability
+   Upgrades panel" image never showed the panel: the capture held Alt, but since W4 a tap opens it. `capture.ts` now
+   taps; the new image shows the panel with one card.
+
+**Finding for the Architect (not fixed, determinism):** the same seed-1 replay ends at the same tick (69,973) in Node
+and in Edge, but the hashes differ (Node `d662ba91ea093bbd`, Edge `ab8a354ac8f9a12a`) from tick 3 on; tick 0 matches
+(`1802f2ad99d26a97`). The bare sim run in the page with the same commands gives the Edge hash too, so the app adds
+nothing; the gap is between JavaScript engines (likely a `Math` function's last bit). Replays and saved hashes are
+per engine until that is pinned down.
+**Notes:** the end screen's net worth graph is narrower than its dark panel (UI, cosmetic). Concede also shows in the
+Practice Hub, where the sim allows it after 15:00.
+**Blocked:** nothing. **Interface requests:** none.
