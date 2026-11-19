@@ -26,6 +26,17 @@ export const ECONOMY = {
     /** Enemy heroes within this range share a kill no hero landed. */
     shareRange: 25,
   },
+  /** GDD §7.8: seeds per creature at the base, × (1 + perMinute × minutes), split with allies who hit it in the last windowS. */
+  thicket: { perCreature: { beetle: 45, weasel: 100, rat: 60, toad: 150, badger: 560, cub: 120 } as Readonly<Record<string, number>>, perMinute: 0.015, windowS: 5 },
+  /** GDD §7.9: seed sprigs from a broken Nest (twig: a chance of a small one; woven: always a bigger one). */
+  nest: { twig: { chance: 0.6, base: 24, perMinute: 1.8 }, woven: { chance: 1, base: 48, perMinute: 3.6 }, pickupRadius: 1.5, sprigLifeS: 60 },
+  /** GDD §7.14: F = base + perMinute × minutes, set at the first hit. */
+  feeder: { base: 300, perMinute: 3, lightShare: 1 / 16, heavyShare: 1 / 8, breakShare: 1 / 2, windowS: 5 },
+  /** GDD §7.11: the Egg hatches into this many golden pods; the courier splits a securer's pod; a denier gets denyFraction. */
+  egg: { pods: 6, courierSplit: 0.5, denyFraction: 0.25, ringM: 2.5 },
+  /** GDD §7.12: the Roc's kill reward (every hero of the killing flock) and each Ember claim (the claimer). */
+  roc: { base: 300, perMinute: 5 },
+  ember: { base: 200, perMinute: 5 },
   pod: {
     /** Fraction of V held by the pod; the securer gets all of it. */
     shareOfValue: 0.5,
