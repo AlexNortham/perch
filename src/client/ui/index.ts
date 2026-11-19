@@ -173,9 +173,6 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
             wheel.hidden = false;
           } else closeWheel(false);
           break;
-        case 'scoreboard':
-          scoreboard.setVisible(down);
-          break;
         case 'bigMap':
           if (down) bigBox.hidden = !bigBox.hidden;
           break;

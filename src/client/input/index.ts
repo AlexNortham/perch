@@ -50,7 +50,6 @@ const BUTTONS: readonly (readonly [BindAction, number])[] = [
   ['item4', Button.Item4],
   ['shoulderSwap', Button.ShoulderSwap],
   ['aim', Button.Aim],
-  ['interact', Button.Interact],
 ];
 const BUTTON_OF = new Map(BUTTONS);
 const ABILITY_4_SLOT = 3;
@@ -62,7 +61,6 @@ const UPGRADE_SLOT = new Map<BindAction, number>([
 ]);
 const UI_OF = new Map<BindAction, UiAction>([
   ['shop', 'shop'],
-  ['scoreboard', 'scoreboard'],
   ['bigMap', 'bigMap'],
   ['pause', 'pause'],
 ]);

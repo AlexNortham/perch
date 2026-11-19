@@ -73,12 +73,9 @@ export type BindAction =
   | 'item2'
   | 'item3'
   | 'item4'
-  /** Retired (D-EP-039, D-ARCH-022): listed in RETIRED_BIND_ACTIONS (app/bindings), deleted in the W5.5 round. */
-  | 'interact'
   | 'ping'
   | 'shoulderSwap'
   | 'shop'
-  | 'scoreboard'
   | 'bigMap'
   | 'pause';
 export type Bindings = Readonly<Record<BindAction, string>>;
@@ -105,14 +102,14 @@ export interface Settings {
 }
 
 /** Keys the UI handles rather than the sim. */
-export type UiAction = 'pause' | 'shop' | 'scoreboard' | 'bigMap' | 'pingWheel' | 'upgrades';
+export type UiAction = 'pause' | 'shop' | 'bigMap' | 'pingWheel' | 'upgrades';
 
 /** Each UI action produces one ordinary command on the next available tick. */
 export type HudIntent = { buy: ItemId } | { sell: ItemId } | { upgrade: number } | { ping: Ping };
 
 /**
  * src/client/input: `createInput(target, settings, onUiAction)`. Pointer lock on `target`; `onUiAction` reports the
- * pause, shop, scoreboard and big-map keys (down and up).
+ * pause, shop and big-map keys (down and up).
  */
 export interface InputController {
   /** Latest look angles, updated on every mouse move (the camera reads them each frame). */
@@ -247,7 +244,7 @@ export interface Ui {
   onEvents(events: readonly SimEvent[], view: SimView): void;
   /** Per frame (HUD, minimap, damage numbers). */
   update(frame: Frame): void;
-  /** Shop, scoreboard and big-map keys from input. */
+  /** Shop and big-map keys from input. */
   onUiAction(action: Exclude<UiAction, 'pause'>, down: boolean): void;
   dispose(): void;
 }

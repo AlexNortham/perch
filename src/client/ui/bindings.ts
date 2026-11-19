@@ -26,11 +26,9 @@ export const ACTION_LABELS: Readonly<Record<BindAction, string>> = {
   item2: 'Item 2',
   item3: 'Item 3',
   item4: 'Item 4',
-  interact: 'Interact',
   ping: 'Ping',
   shoulderSwap: 'Swap shoulder',
   shop: 'Shop',
-  scoreboard: 'Scoreboard',
   bigMap: 'Big map',
   pause: 'Pause',
 };

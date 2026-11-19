@@ -155,7 +155,6 @@ describe('axes, buttons and mouse', () => {
       ['KeyN', Button.Item3],
       ['KeyV', Button.Item4],
       ['KeyG', Button.ShoulderSwap],
-      ['KeyE', Button.Interact],
     ];
     for (const [code, bit] of expected) {
       key('keydown', code);
@@ -297,18 +296,15 @@ describe('enable, pause and UI actions', () => {
     expect(ui).toHaveLength(1);
   });
 
-  it('shop, scoreboard and big map report down and up; disabling releases everything', () => {
+  it('shop and big map report down and up; disabling releases everything', () => {
     const { input, key, ui } = rig();
-    key('keydown', 'Tab');
     key('keydown', 'KeyB');
     key('keyup', 'KeyB');
     key('keydown', 'KeyW');
     input.setEnabled(false);
     expect(ui).toEqual([
-      ['scoreboard', true],
       ['shop', true],
       ['shop', false],
-      ['scoreboard', false],
     ]);
     expect(input.sample()).toMatchObject({ forward: 0, held: 0, pressed: 0 });
   });
