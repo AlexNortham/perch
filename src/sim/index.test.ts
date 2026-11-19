@@ -126,7 +126,8 @@ describe('createSim', () => {
 
 describe('concession', () => {
   it('ends the match for the other flock only from 15:00', async () => {
-    const sim = await createSim({ seed: 9, map: 'arena', roster: humanRoster(9, 'owl', { bots: 1 }) });
+    // The human alone: concession needs no opponent, and a bot's 15 minutes of AI quadrupled the run (it hit 5 s under load).
+    const sim = await createSim({ seed: 9, map: 'arena', roster: humanRoster(9, 'owl', { bots: 0 }) });
     const hero = sim.view.localHero as number;
     sim.step([{ hero, command: { ...IDLE_COMMAND, concede: true } }]);
     expect(sim.isOver).toBe(false);
