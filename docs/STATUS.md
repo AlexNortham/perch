@@ -1818,3 +1818,26 @@ per-slot cooldown-reduction stat for Boundless Song if the helper's refund is no
 **Landed for B:** `TriggerDef.uses` (tested), unit and point targeting of actives (tested; Muting Whistle, Gloom Curse and Tangle Pod run), `ItemDef.aura` (tested with Nestmother's Mantle). `currentHpPct` and `maxHpPct` are combat effects (Systems engineer): Blight Spores and Rookery Dirge need them.
 **Waiting on other owners:** Systems (combat): `triggerPct` (Burr Coat), `currentHpPct` (Blight), `maxHpPct` (Rookery Dirge), `meleeDamageTaken` in step 5 (Heartwood Bark). World: Thicket, Nest and Feeder entities (the seed code is covered by sandbox dummies in `economy/neutral.test.ts`). **QA:** the `heavyMelee` helper holds Melee without a press, so no swing starts (Hooked Spur's QA test); the Nestmother test reads `healthRegen` while the sandbox multiplies it by 0. **Interface requests:** a per-hit gun bonus by distance (Kestrel's Eye +20% from 25 m is a rider now, so the hit itself is unchanged); ShieldEffect removal on sale.
 **Verified:** `bash scripts/check.sh`: typecheck, lint, test, perf and sim pass; e2e passes (one timeout on first run, 57 of 57 on rerun).
+### Stage 4 · Feel reference · 19/11/2026
+**Done:** `docs/reference/feel-reference.md` on `worktree-agent-af63dad2692a4e4ec` (from `integrate/w5` 075e1d8). It
+covers the reference's HUD, camera, combat readability, map, pacing, targets for PERCH, the Stage 4 flags and a gap
+list of 30 items (5 High, 16 Medium, 9 Low; 18 for Stage 4) set beside the current build (D-EP-046, D-DIR-014). All
+wording is mine; no frames, art or names are in the repo.
+**How:** installed Edge through Playwright, consent answered "Reject all", ads skipped or waited out, and the page's
+video element seeked. No file was downloaded.
+- An automated browser only gets about 60 s of stream per page load, so each moment was opened as a timestamped link.
+  One-second bursts are limited to about 25 s, and whole-match overviews come from the seek-bar previews (about 6 s
+  apart).
+- The frames I looked at: five boards, 22 single frames and five bursts, all in `out/reference/` (git-ignored).
+- PERCH side: `out/perch-capture.ts` (lane walk, dash, Updraft ride and boost and lane clash at 1 frame/s, shop,
+  Practice Hub, siege replay), `npm run shots` map overview and top, and `out/perch-scan.ts`.
+**Findings for the EP:**
+- **Bots:** in the `match` scene the bots never leave spawn (0 hero damage in 40 simulated minutes), so no PERCH hero
+  fight can be compared yet (G22).
+- **Updraft:** riding and boosting fills up to 40 % of the screen with opaque white slabs (G16).
+- **Feed:** structure kills read "The world", and Brood Ward lines flood the feed (G08, G30).
+**Verified:** `npm ci --prefer-offline --no-audit --no-fund` (145 packages). Git Bash `VITEST_MAX_WORKERS=1 npm run
+check`: `PASS typecheck 8s · lint 6s · test 51s · perf 10s · sim 13s · e2e 132s · check 221s`. An earlier run failed
+only the world perf test (0.998 ms per tick against 0.5). It ran while the capture browsers were busy and passed alone
+and in the run above. No `src/` change.
+**Interface requests:** none. The gap owners are listed per gap, for the EP to route.

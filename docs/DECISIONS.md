@@ -1614,3 +1614,20 @@ invisibility ends (the Ambush window, as Kingfisher's). Churring Call, Gape and 
 **Decision:** shields come from `ITEM_SHIELDS` on buy and respawn (the difference when upgrading); auras are `ItemDef.aura` areas the engine despawns on sale or death. **Why:** no removal API for shields. **Consequence:** a sold shield lasts until the holder's next death.
 ### D-ECON-A-003 · 19/11/2026 — The starter score table is the GDD 11.4 prior
 **Decision:** `STARTER_SCORES` gives each of 24 heroes base 1.0 minus 0.05 per list place, 0.2 off the list, +0.3 component synergy, +0.3 in the archetype core for the phase; situational picks stay in data/ai. **Why:** D-EP-036; the Build Lab replaces it in W6.
+### D-DIR-014 · 19/11/2026 — Feel reference: gap list, Stage 4 flags and TTK windows (for D-EP-046)
+**Decision:** `docs/reference/feel-reference.md` is the studio's feel reference, gathered from frames of the five
+user-supplied matches and set beside the current build. It holds 30 numbered gaps (5 High, 16 Medium, 9 Low). Each
+names an owner, a fix with numbers and a stage. The 18 marked S4 are proposed for wave 5; the rest go to Stage 5. The
+EP routes them. Pending that routing, the Director proposes these targets:
+- HUD layout to the reference's: the D-EP-041 strip, an HP gauge beside the bird, abilities at the bottom centre, a
+  360 px minimap at the bottom right, ammo under the crosshair, kill feed on the left, objective bars only in context.
+- Camera: `shoulderUp` 0.35 → 0.15 m now; `boomMin` 2.6 → 3.2 m in Stage 5.
+- Economy: a 600-Seed starting purse.
+- Balance (D-EP-043, D-EP-045): gun-only time-to-kill windows per archetype matchup and stage of the match, an HP
+  growth curve of ×2 / ×4 starting HP at 10 / 40 minutes, respawn min(75, 6 + 1.75 × minutes), and a match length of
+  28–45 minutes.
+- Style guide (D-EP-042): value, footprint and effect-opacity limits.
+GDD §4.1, §8.1, §8.9, §12.4–§12.8 and §15 change in the next Director GDD pass, once the EP accepts.
+**Why:** D-EP-046 asks for PERCH to feel as close as possible to the reference. The frames show the reference's HUD,
+camera, density and pacing differ from PERCH in these specific, measurable ways. Each fix keeps D-EP-002: layout,
+pacing and mechanics, with no names, art or map layout copied.
