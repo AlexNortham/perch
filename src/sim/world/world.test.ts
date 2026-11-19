@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SeenBy } from '../core/contracts';
 import type { EntityId, UnitEntity, Vec3 } from '../core/contracts';
 import { canSee } from '../core/vision';
+import { createSim } from '../index';
 import { TICK_RATE } from '../data/core';
 import { FLEDGLING_AI, STRUCTURE_RADIUS } from '../data/world';
 import { createSandbox } from '../../../tests/helpers/sandbox';
@@ -69,6 +70,20 @@ describe('marching (GDD §7.1)', () => {
     const at = { ...a.pos };
     sb.step(TICK_RATE);
     expect(flat(a.pos, at)).toBeLessThan(1e-6);
+  }, T);
+});
+
+describe('lanes trade (GDD §7.1, §15.3)', () => {
+  it('even waves fight each other down mid-lane instead of piling up', async () => {
+    const sim = await createSim({ seed: 1, map: 'main', roster: [], options: { waves: true, neutrals: false } });
+    let deaths = 0;
+    sim.ctx.bus.on('entity.died', (e) => {
+      if (e.victimKind === 'unit') deaths++;
+    });
+    for (let i = 0; i < 10 * 60 * TICK_RATE; i++) sim.step();
+    // Nineteen waves of 24 have spawned; at most three waves' worth may still be walking or fighting.
+    expect(deaths).toBeGreaterThan(300);
+    expect(sim.ctx.store.list('unit').filter(isFledgling).length).toBeLessThanOrEqual(3 * 24);
   }, T);
 });
 

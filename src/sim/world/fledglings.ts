@@ -404,8 +404,9 @@ export function createFledglings(ctx: SimContext): Fledglings {
   };
 
   /**
-   * Melee attackers stand on an arc round the target on their own gate's side, at a slot picked by id, so several
-   * Scrappers on one target don't stack. Writes `dest`.
+   * Melee attackers close in on a slot on an arc round the target, on their own gate's side, picked by id, so several
+   * Scrappers on one target stop at different points of its reach circle instead of stacking. They stop as soon as
+   * they are in reach: two Scrappers chasing slots round each other would otherwise circle. Writes `dest`.
    */
   const slot = (f: Fledgling, t: Damageable): void => {
     const tr = f.track;
@@ -444,13 +445,16 @@ export function createFledglings(ctx: SimContext): Fledglings {
         const st = e.stats.final;
         const step = Math.max(GROUND.minSlowedSpeed, st.moveSpeed * (1 - Math.min(1, st.slow))) * TICK_SECONDS;
         const t = f.target;
-        if (t && !t.removed && !t.health.dead && f.def.projectileSpeed > 0) {
-          if (reach(f, t) <= f.def.range) stand(e);
-          else moveBy(e, t.pos.x - e.pos.x, t.pos.z - e.pos.z, step);
-        } else if (t && !t.removed && !t.health.dead) {
-          slot(f, t);
-          if (Math.hypot(dest.x - e.pos.x, dest.z - e.pos.z) < SLOT_EPS) stand(e);
-          else moveBy(e, dest.x - e.pos.x, dest.z - e.pos.z, step);
+        if (t && !t.removed && !t.health.dead) {
+          if (reach(f, t) <= f.def.range) {
+            stand(e);
+          } else if (f.def.projectileSpeed > 0) {
+            moveBy(e, t.pos.x - e.pos.x, t.pos.z - e.pos.z, step);
+          } else {
+            slot(f, t);
+            if (Math.hypot(dest.x - e.pos.x, dest.z - e.pos.z) < SLOT_EPS) stand(e);
+            else moveBy(e, dest.x - e.pos.x, dest.z - e.pos.z, step);
+          }
         } else if (f.returning || f.at.off > f.track.lane.halfWidth) {
           pointAt(f.track, f.at.s + AI.returnLookahead, f.file, dest);
           moveBy(e, dest.x - e.pos.x, dest.z - e.pos.z, step);
