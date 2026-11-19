@@ -1007,3 +1007,16 @@ host, palette and drawn now live in `app/`; the old render/vfx modules re-export
 `dimensions` and `concealsAlliesOutside`; summons honour `extraCount` and `preferHeroes` (default true); moving
 areas stop carrying a target after `move.maxCarry` metres and pass `move.onWall` to the carry displacement.
 **Why:** W4-contract-followups, Abilities and Rendering sections.
+
+### D-AUDIO-001 · 19/11/2026 — Audio is proved by measured samples in a real browser
+**Decision:** `src/client/audio/audio.test.ts` bundles the module and renders it in Edge through an OfflineAudioContext
+(plus one live AudioContext for the gesture check), asserting on measured RMS and signatures. `createAudio` takes an
+optional `{ ctx, lookahead }` seam; the app still calls `createAudio(settings)`.
+**Why:** Node has no WebAudio, and a fake graph only proves events arrived. Measured samples distinguish sound that is
+generated and routed from mere event delivery.
+
+### D-AUDIO-002 · 19/11/2026 — Context is created on the first gesture; positional voices are one-shots
+**Decision:** no AudioContext exists until `resume()`; events before it are ignored. Positional sounds fix their panner
+position at emission, voices over 60 m are not created, and the slide/updraft loops are one-shots for now.
+**Why:** it satisfies browser autoplay rules without queueing stale sounds, keeps the 48-voice budget simple, and
+avoids per-frame panner updates until the loop sounds need them.

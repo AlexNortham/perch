@@ -1088,3 +1088,31 @@ followups.test.ts; shot out/shots/w4-lane.png (Albatross, lane, local hero opaqu
 **Limitations / requests:** the Albatross distant-sightline tracer comparison needs Combat's `weapon.traces` producer
 (w4/movement), so it is not seen end to end here; ability dash `maxPitchUpDeg` belongs to Physics. The local fade and
 ghosts are material swaps, not a shader. Fog Bank concealment is published but has no distinct visual yet.
+### W4 · Audio · 19/11/2026
+
+**Built (`src/client/audio/` only):** `synth.ts` holds original WebAudio voices (no samples): five gun recipes tuned
+for all 24 heroes, 24 hero calls, hit, beak-shot tick, weak point, kill chirp, hit taken, shield, melee, parry,
+reload, movement, pods, Seeds, Molt, heartbeat, status cues, structure attacks and alarm, Brood Ward, Patron
+phase 2, Egg, Roc, Ember, rune and ping cues. `music.ts` has four stems on a 96 BPM grid and nine states
+cross-fading on the next bar. `index.ts` is the engine: HRTF panners (reference 5 m, rolloff 1, dropped beyond
+60 m), 48-voice cap with priority/distance stealing, one map-wide alarm per 4 s, music duck in fights, live
+master/sfx/music volume, first-gesture `resume`, `reset` and `dispose`. `createAudio(settings, { ctx, lookahead })`
+takes an optional test seam.
+
+**Evidence:** `npx vitest run src/client/audio` gave 9/9 in `audio.test.ts`. It bundles the module with esbuild
+and runs it in Edge. Offline renders (OfflineAudioContext) are measured as samples: all 24 guns finite and at least
+20 distinct signatures, all 24 calls audible and distinct, eleven event types audible, alarm rate limit, master 0
+silent, sfx 0 mutes effects, music 0 mutes music, a live master change mid-sound silences the second half, `reset`
+silences old voices, near/far falloff, beyond 60 m dropped, left/right differ, laning and siege music differ. A live
+AudioContext test confirms none exists before a real click, then state is `running`, an AnalyserNode on the output
+reads a non-zero peak, and `dispose` closes it. Full `bash scripts/check.sh`: all six steps PASS (112 s). An earlier
+run had one unrelated sim concession test time out while the browser test loaded the machine.
+
+**Not done:** line-of-sight low-pass and -4 dB (no occlusion data); hero call on hero select (audio is not told
+about that screen); looping slide/updraft/chimney sounds (one-shots instead); menu birdsong; per-priority ducking
+beyond voice stealing and the music duck; Roc aggro/enrage roars. Lint shows magic-number warnings in the synth
+tables (warnings only).
+
+**Interface requests:** (1) occlusion data, e.g. a line-of-sight flag per entity or a ray query on the view, for the
+low-pass rule. (2) A hero-select hook on `AudioOut` (for example `onScreen(screen)` or `previewHero(id)`) for the
+hero-select call and menu music state. (3) A mute setting in `Settings.volume` (today master 0 acts as mute).
