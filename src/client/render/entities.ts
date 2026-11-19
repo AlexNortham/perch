@@ -14,6 +14,7 @@ import type { Object3D } from 'three';
 import type { EntityId } from '../../sim/core/contracts';
 import type { Frame, ModelKit } from '../app/contracts';
 import { interpolate } from '../app/loop';
+import { drawnByVfx } from '../vfx/drawn';
 
 export interface EntityLayer {
   /** Create, pose and retire models for this frame. Returns whether any structure entity exists. */
@@ -29,6 +30,7 @@ export function createEntityLayer(parent: Object3D, kit: ModelKit): EntityLayer 
       seen.clear();
       let structures = false;
       for (const e of frame.curr.entities) {
+        if (drawnByVfx(e)) continue;
         seen.add(e.id);
         if (e.kind === 'structure') structures = true;
         let slot = live.get(e.id);

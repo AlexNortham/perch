@@ -24,6 +24,8 @@ import type { CameraPose, Quality, Renderer } from '../app/contracts';
 import { buildBlockout } from './blockout';
 import type { Blockout } from './blockout';
 import { createEntityLayer } from './entities';
+import { registerHost } from './host';
+import type { RenderHost } from './host';
 import {
   FAR_MAX,
   FAR_MIN,
@@ -165,6 +167,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
 
   const camera = new PerspectiveCamera(1, size.width / size.height, NEAR, FAR_MIN);
   const entities = createEntityLayer(scene, createModelKit());
+  const host: RenderHost = { scene, beforeRender: null };
 
   let shadowHalf = 0;
   const target = new Vector3();
@@ -197,6 +200,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     },
     render(frame, cameraPose) {
       const pose = devPose ? { ...cameraPose, ...devPose } : cameraPose;
+      host.beforeRender?.(frame);
       const structures = entities.sync(frame);
       if (blockout) blockout.markers.visible = !structures;
 
@@ -239,6 +243,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       gl.dispose();
     },
   };
+  registerHost(renderer, host);
   if (import.meta.env.DEV) {
     window.__perchRender = { info: () => ({ calls: gl.info.render.calls, triangles: gl.info.render.triangles }), setQuality: renderer.setQuality };
   }
