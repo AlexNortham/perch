@@ -110,6 +110,8 @@ export class BirdRig extends Group {
   private readonly hipY: number;
   private readonly legReach: number;
   private readonly wingReach: number;
+  /** Shots per second while Firing (the hero's gun), so each shot kicks once. */
+  private readonly fireRate: number;
 
   // Smoothed pose state.
   private phase = 0;
@@ -145,10 +147,11 @@ export class BirdRig extends Group {
   private charge = 0;
   private parry = 0;
 
-  constructor(build: BirdBuild, plan: BodyPlan, material: Material) {
+  constructor(build: BirdBuild, plan: BodyPlan, material: Material, fireRate: number = RIG.recoilRate) {
     super();
     this.build = build;
     this.plan = plan;
+    this.fireRate = fireRate;
     this.pivotY = plan.height * PIVOT_HEIGHT;
     this.hipY = build.at.legL1.y;
     this.legReach = build.leg.upper + build.leg.lower;
@@ -285,10 +288,13 @@ export class BirdRig extends Group {
     this.crouch += ((has(f, ViewFlag.Crouching) ? CROUCH_SQUASH : 1) - this.crouch) * k;
     this.squash.scale.y = this.crouch;
     this.cast += ((casting ? 1 : 0) - this.cast) * k;
-    // Recoil: each shot kicks at once and settles before the next.
+    // Recoil, once per shot: the shot leaves the muzzle first (the flash and tracer start where the gun is), then the
+    // gun kicks back through the wings and settles before the next.
     if (has(f, ViewFlag.Firing)) {
-      this.shot += dt * RIG.recoilRate;
-      this.recoil = 1 - (this.shot % 1);
+      this.shot += dt * this.fireRate;
+      const since = (this.shot % 1) / this.fireRate;
+      const settle = Math.min(HOLD.kickSettle, 1 / this.fireRate - HOLD.kickRise);
+      this.recoil = since < HOLD.kickRise ? since / HOLD.kickRise : Math.max(0, 1 - (since - HOLD.kickRise) / settle);
     } else {
       this.shot = 0;
       this.recoil *= Math.exp(-RIG.recoilDecay * dt);

@@ -127,6 +127,9 @@ export const HOLD = {
   poleSupport: { x: 0.6, y: -1, z: 0.6 },
   /** Shot: the gun kicks back along the barrel (m) and the muzzle climbs; the chest gives a little. */
   recoilKick: 0.04,
+  /** The kick peaks this long after each shot (s) and settles over at most `kickSettle` s. */
+  kickRise: 0.03,
+  kickSettle: 0.18,
   recoilClimb: 0.12,
   recoilChest: -0.03,
   /**
