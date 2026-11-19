@@ -765,3 +765,32 @@ out-parameter variant would remove it (low priority, within budget).
 line becomes a fallback. The rule-2 `hurtAt` ledger in fledglings.ts is the Hawk rule's input too. Known limits: units
 ignore walls while chasing off the lane (D-CTRL-002); a holder's death leaves a gap in the queue. QA: the fledglings
 suite can go always-on (the 20-minute test runs in seconds).
+### W3 · Integration · 19/11/2026
+**Done** (branch `integrate/w3`, seven items, one commit each):
+1. *Hero A* (5bbeac2). Root cause: the hooks kept running beside the framework features that replaced them, so Gale Shield
+   burst twice, Impaling Bolt pinned twice and the vanish applied twice. Removed the `boltPin`, wall-end burst,
+   `tempestLeap` and Riverstrike-vanish fallbacks and the three `*_IN_FRAMEWORK` flags (Shrike now has no hooks); Tempest
+   Dive's dash is data; Gale Shield's hook still writes the wall's `pos` and `yaw` (what `onEnd` reads) and lifts the slow.
+   Wing Slam and Spear Bill are `arcHeight: 0` (aim dashes keep their pitch: Spear Bill lost a third of its reach when
+   aimed 7 degrees down). The Shrike knockback test expected the stale 8.4 m landing slide; it is 6 m now (D-SYS-001).
+2. *QA pods* (e9617a8). `shootPod` read the despawned pod's position; it takes the position captured before the first
+   shot. `PERCH_PENDING` gates removed from pods and fledglings; the 20-minute test costs about 2 s, so no `PERCH_SOAK`.
+3. *Pod size* (b24bce7). `ECONOMY.pod.radius` 1 m to 0.25 m (the drawn orb, VFX `POD.radius` 0.24); secure and deny pass.
+4. *Settings live* (d522c02). Audit: input already read every binding, sensitivity, invert Y and crouch toggle from the
+   settings it is handed and re-indexes on `setSettings`; the app already pushed saved settings to input, camera, audio and
+   renderer; `ACTION_LABELS` and `DEFAULT_BINDINGS` are both `Record<BindAction, ...>` and a test compares them. The
+   one gap was two swap implementations: the UI's `rebind` now calls input's. The e2e below proves rebound Jump and Pause.
+5. *App wiring* (7bd3ace). `input.setLook` on the local hero's `hero.respawned`; `input.setPingResolver` returns a 'goHere'
+   ping at `rayWorldPoint` along the hero's `aimRay` (range `CAMERA.aimRange`). Also `window.__perch.hero` (position,
+   shots fired), a read-only getter for e2e.
+6. *Practice match* (19dcaae). `matchConfig` sets `unlockAbilities` when `bots` is 0 (Play and `?scene=lane`).
+7. *e2e* (de2f062, 8e6ab76). `e2e/play.spec.ts` (lane, lock, W, dash, fire) and `e2e/options.spec.ts` (rebind, swap, Esc
+   cancels, reload persists, rebound Pause, rebound Jump jumps and Space no longer does).
+**Verified:** `npm run check` → PASS typecheck 6 s, lint 3 s, test 8 s, sim 3 s, e2e 12 s (check 32 s); 504 tests, pods
+and fledglings always-on. `npm run sim -- --seed 1 --minutes 35 --bots 12` → hash 52196bc3abdb2fe3, 13.4 s for 126,000
+ticks = 0.106 ms/tick. Screenshots read: `?scene=lane&hero=` shrike, albatross, kingfisher, lyrebird, and an overview at
+t=100 s (fledglings meeting mid-lane, too small to judge up close); files out/shots/integ-*.png.
+**Found, not fixed:** (a) `src/sim/world/perf.test.ts` (0.5 ms budget) is load-sensitive: 0.17 ms alone, 0.54 to 0.84 ms
+in the parallel suite, so `npm run check` failed its test step on several runs and passed on others (also without the
+rules suites); the budget or the parallelism needs a decision. (b) Audio is still a stub, so volumes reach nothing.
+(c) The Esc-to-pause keydown and the pointer-lock exit both report pause; the 100 ms dedupe holds in the e2e.
