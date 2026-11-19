@@ -634,3 +634,28 @@ steps needs no duplicate fields and no code change at the widening.
 them.
 **Why:** mapping them to `disarmed` and `silenced` would show as those states on the HUD and in the view flags, and
 silence ends channels, so a mode started by a channelled ability (Burrow) would end its own channel.
+
+### D-RENDER-006 · 19/11/2026 — VFX are five instanced meshes drawn in `render()`, not per-effect meshes
+**Decision:** src/client/vfx draws every effect with five additive InstancedMeshes (box, sphere, cylinder, cone, ring;
+fixed capacities in `vfx/constants.ts`, a full mesh drops instances), so a busy fight costs 5 extra draw calls. Short
+effects (tracers, sparks, puffs, rings) live in a fixed ring of 1024 records; effects that follow entities (projectiles,
+pods, areas, summon placeholders, status markers, tethers, hit flashes) are redrawn from the view each frame. Fading is
+darkening (additive blending), so no per-instance alpha exists. The VFX module reaches the renderer's scene through
+`render/host.ts` (a WeakMap keyed by the `Renderer` object, plus a `beforeRender` hook that `render()` calls) so the
+`Renderer` contract is unchanged; effects are placed inside `render()` with the frame's own interpolation, `Vfx.update`
+is a no-op.
+**Why:** one mesh per effect would cost a draw call each (30+ bullets alone); the contract has no scene access; drawing
+from `update()` (after `render()`) would lag bullets by a frame (~3 m at 200 m/s).
+
+### D-RENDER-007 · 19/11/2026 — The entity layer skips what VFX draws
+**Decision:** `vfx/drawn.ts` `drawnByVfx(e)` is true for projectiles, areas, seed pods and trap/turret/wall summons;
+render/entities.ts gives those no model-kit model. Decoys, Eggs, runes and Embers still go to the ModelKit.
+**Why:** the kit's placeholder box would otherwise stand under every bullet and area. If the Technical Artist models
+pods or summons later, remove that kind from `drawnByVfx` (one line) and the kit takes over.
+
+### D-RENDER-008 · 19/11/2026 — Hitscan tracers come from the shot's impacts; gun type from the hero registry
+**Decision:** `weapon.fired` draws a muzzle flash; if the shooter's `HEROES[id].def.weapon.hitscan` is true, one tracer
+per `projectile.impact` it owns in the same batch (pods skipped), else one full-length (60 m) tracer. Projectile guns
+get no tracer: their bullet entity is drawn from the view. Fledgling and structure attacks come from `damage.applied`
+with via 'unit' or 'structure' (a swipe up close, a tracer from slingers, turrets, structures or beyond 5 m).
+**Why:** the events carry no weapon kind or end point. Camera and UI already read the registry for hero data.
