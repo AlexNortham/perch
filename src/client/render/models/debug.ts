@@ -9,6 +9,8 @@
  *   modelState=a,b,c    poses for the lineup, cycled over its models: idle run sprint air dash slide crouch shoot
  *                       reload cast channel stun dead updraft mantle climb glide
  *   modelTeam=dawn|dusk lineup team, default dawn
+ *   modelStructure=a,b  a row of structure models 14 m in front of the human: hawk heron warden shrine patron, each with
+ *                       optional :states joined by + (target ward tr p2), e.g. patron:ward, patron:tr, patron:p2+target
  */
 import { HERO_IDS, ViewFlag } from '../../../sim/core/contracts';
 import type { HeroId, PlayerTeam } from '../../../sim/core/contracts';
@@ -21,7 +23,12 @@ export interface DebugOptions {
   yaw: number;
   states: readonly string[];
   team: PlayerTeam;
+  /** Structure display models, 'type' or 'type:state+state'. */
+  structures: readonly string[];
 }
+
+/** Seconds per repeat of a debug light or heavy swing. */
+export const MELEE_CYCLE = 1.6;
 
 export interface StatePose {
   readonly flags: number;
@@ -29,6 +36,8 @@ export interface StatePose {
   readonly speed: number;
   readonly vy?: number;
   readonly mode?: 'glide';
+  /** Melee pose; light and heavy repeat every MELEE_CYCLE seconds so a still shot catches a swing. */
+  readonly melee?: 'charging' | 'light' | 'heavy' | 'parry';
 }
 
 const G = ViewFlag.Grounded;
@@ -50,6 +59,10 @@ export const STATES: Readonly<Record<string, StatePose>> = {
   mantle: { flags: ViewFlag.Mantling, speed: 0 },
   climb: { flags: ViewFlag.Climbing, speed: 0, vy: 3 },
   glide: { flags: 0, speed: 9, mode: 'glide' },
+  charge: { flags: G | ViewFlag.Meleeing, speed: 0, melee: 'charging' },
+  light: { flags: G | ViewFlag.Meleeing, speed: 0, melee: 'light' },
+  heavy: { flags: G | ViewFlag.Meleeing, speed: 0, melee: 'heavy' },
+  parry: { flags: G, speed: 0, melee: 'parry' },
 };
 
 export function readDebugOptions(search: string): DebugOptions {
@@ -63,5 +76,6 @@ export function readDebugOptions(search: string): DebugOptions {
     yaw: ((Number(q.get('modelYaw')) || 0) * Math.PI) / 180,
     states: list('modelState').filter((s) => s in STATES),
     team: q.get('modelTeam') === 'dusk' ? 'dusk' : 'dawn',
+    structures: list('modelStructure'),
   };
 }

@@ -1046,3 +1046,7 @@ refreshes don't add up. Footwork is one `stack` status (3, 5 s) whose timer rest
 ends by applying a one-tick `movementMode`; Gulp attaches through `attach`. The only direct write is Pelican moving a
 swallowed fledgling to its feet before the lethal damage, so the economy pod spawns there.
 **Why:** keeps Physics the mover and gives credit and last hits through the real pipeline.
+### D-ART-002 - 19/11/2026 - Structures are one swapped-geometry mesh; shared instanced Brood Ward dome
+Each structure is a single mesh whose geometry is swapped between prebuilt variants (eye glow, Heron leg pose) instead of
+separate glow and leg meshes, and towers do not cast shadows. A structure stays at one draw call, so the lane scenes stay
+under QA's ceilings (24 and 41 against 32 and 48). The dome is one InstancedMesh for all wards.

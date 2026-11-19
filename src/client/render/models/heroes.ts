@@ -9,6 +9,7 @@ import type { TeamColours } from '../palette';
 import { assemble, dims, eyes, gun, headShell, leg, wing } from './bird';
 import type { BirdBuild } from './bird';
 import { GENERIC, PLUMAGE } from './constants';
+import { BIRD_BUILDS_B } from './heroes-b';
 import { Parts } from './parts';
 import { Color } from 'three';
 
@@ -248,4 +249,4 @@ export function genericBuild(plan: BodyPlan, team: TeamColours, index: number, c
 }
 
 /** Hand-built heroes by id. */
-export const HERO_BUILDS: Readonly<Record<string, Build>> = { shrike, albatross, kingfisher, lyrebird };
+export const HERO_BUILDS: Readonly<Record<string, Build>> = { shrike, albatross, kingfisher, lyrebird, ...BIRD_BUILDS_B };
