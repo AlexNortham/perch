@@ -3,7 +3,7 @@
  * Tiers only add (D-ABIL-006), so a tier that changes a base number adds to a named value, and one that switches
  * something on raises a value that is 0 (an empty area) until the tier. Tiers are bought in order (T1, T2, T3).
  */
-import type { AbilityDef, Effect, HeroDef, Magnitude, StatusDef, TargetFilter } from '../../core/contracts';
+import type { AbilityDef, Effect, HeroDef, Magnitude, MovementModeEffect, StatusDef, TargetFilter } from '../../core/contracts';
 import { REVEAL, SILENCE } from '../combat';
 
 const ENEMIES: TargetFilter = { teams: 'enemies' };
@@ -69,7 +69,7 @@ const GLIDE_END: readonly Effect[] = [{ kind: 'cleanse', remove: [GLIDE_ID, GLID
 const LEAP_M = 6;
 export const GLIDE_SPEED = 9;
 export const GLIDE_FALL = 2;
-const glide = (durationS: Magnitude): Effect => ({
+const glide = (durationS: Magnitude): MovementModeEffect => ({
   kind: 'movementMode',
   mode: 'glide',
   durationS,
