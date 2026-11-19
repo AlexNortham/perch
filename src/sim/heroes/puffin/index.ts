@@ -9,6 +9,7 @@ import { SLOW } from '../../data/combat';
 import { puffinDef, ROGUE_WAVE, TURRET_SLOW_HOOK, WAVE, WAVE_HOOK, WET_ID } from '../../data/heroes/puffin';
 
 const TURRET_SLOW_S = 1;
+const FALLBACK_HALF_WIDTH_M = 8; // used when the cast carries no tuned half-width
 
 export const puffin: HeroModule = {
   def: puffinDef,
@@ -25,7 +26,7 @@ export const puffin: HeroModule = {
       if (!hero) return;
       const len = Math.hypot(target.dir.x, target.dir.z) || 1;
       const dir = { x: target.dir.x / len, y: 0, z: target.dir.z / len };
-      const half = cause.values?.halfWidth ?? 8;
+      const half = cause.values?.halfWidth ?? FALLBACK_HALF_WIDTH_M;
       const start = { x: hero.pos.x + dir.x * half, y: hero.pos.y, z: hero.pos.z + dir.z * half };
       const at: EffectTarget = { entity: null, point: start, dir };
       ctx.effects.apply(ROGUE_WAVE, at, cause);

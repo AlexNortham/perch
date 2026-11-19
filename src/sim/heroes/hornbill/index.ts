@@ -13,6 +13,9 @@ import { HEAVY_SLOW, HEAVY_SLOW_HOOK, HOP_SLICK_HOOK, hornbillDef, MUD_RATE_ID, 
 const MUD_SEAL = 'hornbill.mudSeal';
 const MARKED_PREY = 'hornbill.markedPrey';
 const REFUND_FRACTION = 0.5;
+const MUD_SEAL_SECONDS = 5;
+const NO_SLOW_TIER = 3; // ability tier from which the sealed mud stops slowing
+const MARK_FALLBACK_SECONDS = 10;
 const SLICK_ID = 'hornbill.slick';
 
 interface Seal {
@@ -71,9 +74,9 @@ export const hornbill: HeroModule = {
       onCast(cast) {
         const now = ctx.clock.tick;
         if (cast.ability.id === MUD_SEAL) {
-          seals.set(cast.hero.id, { until: now + 5 * TICK_RATE, noSlow: cast.tier >= 3 });
+          seals.set(cast.hero.id, { until: now + MUD_SEAL_SECONDS * TICK_RATE, noSlow: cast.tier >= NO_SLOW_TIER });
         } else if (cast.ability.id === MARKED_PREY && cast.target.entity !== null) {
-          marks.set(cast.hero.id, { target: cast.target.entity, until: now + Math.round((cast.cause.values?.duration ?? 10) * TICK_RATE) });
+          marks.set(cast.hero.id, { target: cast.target.entity, until: now + Math.round((cast.cause.values?.duration ?? MARK_FALLBACK_SECONDS) * TICK_RATE) });
         }
       },
       onTick(hero) {

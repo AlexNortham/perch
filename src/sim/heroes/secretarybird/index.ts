@@ -28,6 +28,8 @@ import {
 
 const VIPER_SLOT = 3;
 const TIER_3 = 3;
+const FALLBACK_KICKS = 6; // used when the cast carries no tuned kick count
+const FALLBACK_DURATION_S = 2;
 
 interface Dance {
   readonly cast: AbilityCast;
@@ -120,8 +122,8 @@ export const secretarybird: HeroModule = {
           cast,
           target: cast.target.entity,
           start: ctx.clock.tick,
-          kicks: Math.max(1, Math.round(values.kicks ?? 6)),
-          lengthTicks: Math.round((values.duration ?? 2) * TICK_RATE),
+          kicks: Math.max(1, Math.round(values.kicks ?? FALLBACK_KICKS)),
+          lengthTicks: Math.round((values.duration ?? FALLBACK_DURATION_S) * TICK_RATE),
           done: 0,
         });
       },

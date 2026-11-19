@@ -12,6 +12,8 @@ import { MARCH, penguinDef, TOBOGGAN_ASIDE_M, TOBOGGAN_HIT_HOOK, TOBOGGAN_KNOCK_
 const MARCH_ABILITY = 'penguin.emperorsMarch';
 /** Touch reach beyond the two bodies (m). */
 const TOUCH_MARGIN = 0.3;
+const MARCH_FALLBACK_SECONDS = 3; // used when the cast carries no tuned duration
+const MARCH_FALLBACK_STUN_S = 0.75;
 const UP: Vec3 = { x: 0, y: 0, z: 1 };
 
 interface March {
@@ -66,12 +68,12 @@ export const penguin: HeroModule = {
       },
       onCast(cast) {
         if (cast.ability.id !== MARCH_ABILITY) return;
-        const seconds = cast.cause.values?.duration ?? 3;
+        const seconds = cast.cause.values?.duration ?? MARCH_FALLBACK_SECONDS;
         marches.set(cast.hero.id, {
           until: ctx.clock.tick + Math.round(seconds * TICK_RATE),
           cause: cast.cause,
           hit: new Set(),
-          stun: cast.cause.values?.stun ?? 0.75,
+          stun: cast.cause.values?.stun ?? MARCH_FALLBACK_STUN_S,
         });
       },
       onTick(hero) {
