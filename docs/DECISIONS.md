@@ -1647,3 +1647,40 @@ pacing and mechanics, with no names, art or map layout copied.
 - **Stage 5 keeps** the VFX production pass, animation polish, lighting mood and final art polish (D-EP-042).
 **Why:** the user's instruction: incredible attention to detail in model design, map and characters; use the videos
 as visual guides; no placeholder cuboids; everything should look incredible.
+
+### D-DIR-015 · 19/11/2026 — The art style guide is the visual source of truth, with new render budgets
+**Decision:** `docs/art/style-guide.md` sets the look every model, building, prop, material, light and effect is built
+to and judged against from wave 5b (D-EP-042, D-EP-047). Where it differs from the GDD on looks or render budgets it
+wins; GDD sizes, the §6.8 kit, collision prims, nav and sim budgets are unchanged. It replaces:
+- GDD §14.1's flat-shaded, no-texture look with bevelled forms and procedural textures generated at load (albedo plus
+  packed AO/roughness/metalness; normal maps on High), baked vertex AO and decals.
+- GDD §14.5's sun (elevation 28° → 24°, #FFD9A0) and fog (#A99BB0, 0.0060 at Medium) for a golden-hour look with
+  lavender haze; High drops from 8 to 4 point lights.
+- GDD §14.6's per-model budgets: hero birds 9,000 / 3,500 / 1,200 / 400 triangles by LOD (gun included), fledglings
+  700, Thicket creatures 1,200, structures 8,000–18,000, Patrons 30,000–45,000.
+- GDD §6.12's map triangle row (180k / 110k / 60k) with 800k / 450k / 200k (High / Medium / Low), map draw calls 60 → 70
+  at Medium, and a whole-frame limit of 240 under the existing 248 ceiling.
+The reference machine is a mid-range laptop iGPU (Iris Xe or 680M class) at 1080p Medium, with a 16.7 ms GPU budget
+split by category. Every art gate uses the guide's checklist and 0–4 rubric (pass: all hard items, no category below 3,
+weighted mean ≥ 3.2), with listed reference frames side by side. The Director folds the changes into GDD §6.12 and §14
+in the next GDD pass; QA raises the matching test ceilings when the art lands.
+**Why:** D-EP-047 asks for production-level detail with no placeholder shapes, using the user's videos as the guide.
+The old flat-shaded look and the 110k-triangle map budget can't carry detailed facades, interiors, foliage and
+feathered birds. The new numbers stay inside a measured frame budget for a mid-range iGPU, and atlases, instancing,
+merging and LOD keep draw calls under the existing ceiling.
+
+### D-DIR-016 · 19/11/2026 — "Somewhere birds would be" is the first art rule (for D-EP-048)
+**Decision:** the style guide's first principle is the user's: "Every aspect of the map should make you think: yes,
+this is somewhere birds would be." Old Mossmarket is built by and for birds, not a human town with birds in it. The
+guide gives rules with numbers for architecture (dovecotes and lofts, belfries, birdhouse dwellings on stilts and in
+trunks, woven additions on 25 % of jungle buildings, a nest crown on 1 roof in 3, a perch element per facade bay and
+storey, landing boards at every upper opening, poles and lines that never cross a lane or come within 3 m of an
+Updraft), street life (feeders every 10–15 m, bird baths and fountains, seed and feather decals, worm beds and hives,
+nesting material, faded flock-tint bunting, client-only ambient birds), the jungle (five layers in every 20 × 20 m
+cell, roots and hollows, nests in boughs, reed beds, bramble) and scale (two dash-jump landing spots per jungle
+building and one affordance language for landing, Vines, Chimneys, Updrafts and decoration). It stays tasteful (no
+lettering, cars or other human-only tells; droppings at most a faint speckle) and readable (pure flock colours and the
+outline red and teal stay off the environment). Checklist item A1 asks the question of every area at every art gate,
+and a "no" blocks.
+**Why:** the user's instruction via the EP: the map should feel like somewhere birds would be, in every area, while
+staying readable in combat.
