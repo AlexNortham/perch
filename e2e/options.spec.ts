@@ -85,3 +85,21 @@ test('a rebound Jump key jumps in the lane, and the old key no longer does', asy
   await page.keyboard.up('KeyJ');
   expect(await heroY(page) - ground, 'J jumps').toBeGreaterThan(JUMP_MIN_RISE_M);
 });
+
+test('Mouse 4 never navigates back, on the menu or while capturing a key', async ({ page }) => {
+  await open(page, '/?history=1');
+  await open(page, '/');
+  const cdp = await page.context().newCDPSession(page);
+  const press = async (): Promise<void> => {
+    const at = { x: 640, y: 360, button: 'back' as const, clickCount: 1 };
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...at, buttons: 8 });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...at, buttons: 0 });
+    await page.waitForTimeout(SETTLE_MS);
+  };
+  await press();
+  expect(page.url(), 'menu: Mouse 4 stayed on the page').not.toContain('history=1');
+  await page.getByRole('button', { name: 'Options' }).click();
+  await keyButton(page, 'melee').click();
+  await press();
+  expect(page.url(), 'capture: Mouse 4 stayed on the page').not.toContain('history=1');
+});
