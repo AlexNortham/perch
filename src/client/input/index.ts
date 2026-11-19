@@ -1,8 +1,9 @@
 import { Button, IDLE_COMMAND } from '../../sim/core/contracts';
 import type { PlayerCommand, Ping } from '../../sim/core/contracts';
 import { clampPitch } from '../../sim/core/aim';
+import { DEFAULT_AIM_ZOOM } from '../../sim/data/core';
 import type { BindAction, InputController, Look, Settings, UiAction } from '../app/contracts';
-import { AIM_ZOOM_SCALE, DEGREES_PER_COUNT, ESC_DEDUPE_MS, PING_TAP_MS, RADIANS_PER_DEGREE } from './constants';
+import { DEGREES_PER_COUNT, ESC_DEDUPE_MS, PING_TAP_MS, RADIANS_PER_DEGREE } from './constants';
 
 export { DEFAULT_BINDINGS, rebind } from '../app/bindings';
 
@@ -29,7 +30,7 @@ const BUTTONS: readonly (readonly [BindAction, number])[] = [
 ];
 const BUTTON_OF = new Map(BUTTONS);
 const ABILITY_4_SLOT = 3;
-const UPGRADE_SLOT =new Map<BindAction, number>([
+const UPGRADE_SLOT = new Map<BindAction, number>([
   ['ability1', 0],
   ['ability2', 1],
   ['ability3', 2],
@@ -69,6 +70,10 @@ export function createInput(
   let ping: Ping | null = null;
   let crouchOn = false;
   let pingDownAt = 0;
+  let pingTimer: ReturnType<typeof setTimeout> | undefined;
+  let upgradeChord = false;
+  let aimZoom = DEFAULT_AIM_ZOOM;
+  const capturedMouse = new Set<number>();
   let resolvePing: (() => Ping | null) | null = null;
   let lockLostAt = -Infinity;
 
@@ -89,15 +94,23 @@ export function createInput(
       if (action === 'pause') continue;
       if (down.has(action)) continue;
       down.add(action);
+      if (action === 'upgradeModifier') upgradeChord = false;
       const slot = UPGRADE_SLOT.get(action);
       if (slot !== undefined && down.has('upgradeModifier')) {
+        upgradeChord = true;
         upgrade = slot;
         spent.add(action);
         continue;
       }
       pressed |= BUTTON_OF.get(action) ?? 0;
       if (action === 'crouch' && cfg.crouchToggle) crouchOn = !crouchOn;
-      if (action === 'ping') pingDownAt = at;
+      if (action === 'ping') {
+        pingDownAt = at;
+        pingTimer = setTimeout(() => {
+          pingTimer = undefined;
+          onUiAction('pingWheel', true);
+        }, PING_TAP_MS);
+      }
       const ui = UI_OF.get(action);
       if (ui) onUiAction(ui, true);
     }
@@ -107,13 +120,22 @@ export function createInput(
     for (const action of codeMap.get(code) ?? []) {
       if (!down.delete(action)) continue;
       spent.delete(action);
-      if (action === 'ping' && at - pingDownAt < PING_TAP_MS && resolvePing) ping = resolvePing();
+      if (action === 'ping' && pingTimer !== undefined) {
+        clearTimeout(pingTimer);
+        pingTimer = undefined;
+        if (at - pingDownAt < PING_TAP_MS) ping = resolvePing?.() ?? null;
+        else onUiAction('pingWheel', true);
+      }
+      if (action === 'upgradeModifier' && !upgradeChord) onUiAction('upgrades', true);
       const ui = UI_OF.get(action);
       if (ui) onUiAction(ui, false);
     }
   }
 
   function releaseAll(): void {
+    clearTimeout(pingTimer);
+    pingTimer = undefined;
+    upgradeChord = false;
     for (const action of down) {
       const ui = UI_OF.get(action);
       if (ui) onUiAction(ui, false);
@@ -149,16 +171,18 @@ export function createInput(
     const e = ev as MouseEvent;
     if (!enabled || !locked()) return;
     e.preventDefault();
+    capturedMouse.add(e.button);
     press(`Mouse${e.button}`, e.timeStamp);
   };
   const onMouseUp = (ev: Event): void => {
     const e = ev as MouseEvent;
+    if (capturedMouse.delete(e.button) || (enabled && locked())) e.preventDefault();
     if (enabled) release(`Mouse${e.button}`, e.timeStamp);
   };
   const onMouseMove = (ev: Event): void => {
     if (!enabled || !locked()) return;
     const e = ev as MouseEvent;
-    const k = DEGREES_PER_COUNT * RADIANS_PER_DEGREE * cfg.sensitivity * (down.has('aim') ? cfg.aimSensitivity * AIM_ZOOM_SCALE : 1);
+    const k = DEGREES_PER_COUNT * RADIANS_PER_DEGREE * cfg.sensitivity * (down.has('aim') ? cfg.aimSensitivity * aimZoom : 1);
     look.yaw = wrap(look.yaw - e.movementX * k);
     look.pitch = clampPitch(look.pitch - e.movementY * k * (cfg.invertY ? -1 : 1));
   };
@@ -172,7 +196,14 @@ export function createInput(
     onUiAction('pause', true);
   };
   const onContextMenu = (ev: Event): void => {
-    if (enabled) ev.preventDefault();
+    if (enabled || capturedMouse.size !== 0) ev.preventDefault();
+  };
+  const onAuxClick = (ev: Event): void => {
+    if (enabled && locked()) ev.preventDefault();
+  };
+  const onBlur = (): void => {
+    capturedMouse.clear();
+    releaseAll();
   };
 
   function lock(): void {
@@ -191,8 +222,9 @@ export function createInput(
   doc.addEventListener('mousemove', onMouseMove);
   doc.addEventListener('pointerlockchange', onLockChange);
   doc.addEventListener('contextmenu', onContextMenu);
+  doc.addEventListener('auxclick', onAuxClick);
   target.addEventListener('mousedown', onClickToLock);
-  doc.defaultView?.addEventListener('blur', releaseAll);
+  doc.defaultView?.addEventListener('blur', onBlur);
 
   return {
     look,
@@ -236,6 +268,9 @@ export function createInput(
       cfg = s;
       index();
     },
+    setAimZoom(scale) {
+      aimZoom = scale;
+    },
     setPingResolver(resolve) {
       resolvePing = resolve;
     },
@@ -247,8 +282,10 @@ export function createInput(
       doc.removeEventListener('mousemove', onMouseMove);
       doc.removeEventListener('pointerlockchange', onLockChange);
       doc.removeEventListener('contextmenu', onContextMenu);
+      doc.removeEventListener('auxclick', onAuxClick);
       target.removeEventListener('mousedown', onClickToLock);
-      doc.defaultView?.removeEventListener('blur', releaseAll);
+      doc.defaultView?.removeEventListener('blur', onBlur);
+      clearTimeout(pingTimer);
     },
   };
 }

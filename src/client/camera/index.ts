@@ -2,7 +2,7 @@ import { aimRay, lookDir, pivotHeight, rightDir } from '../../sim/core/aim';
 import { ViewFlag } from '../../sim/core/contracts';
 import type { MapData, MapId, Vec3 } from '../../sim/core/contracts';
 import { lerpVec } from '../../sim/core/math';
-import { CAMERA } from '../../sim/data/core';
+import { CAMERA, DEFAULT_AIM_ZOOM } from '../../sim/data/core';
 import { HEROES } from '../../sim/heroes/registry';
 import { loadMap } from '../../sim/world/map';
 import type { CameraPose, CameraRig, Settings } from '../app/contracts';
@@ -45,6 +45,7 @@ export function createCamera(settings: Settings, mapOf: (id: MapId) => MapData =
   let sideInit = false;
   let crouch = 0;
   let kick = 0;
+  let zoom = 1;
   let pull = 0;
   let deadFor = 0;
   let wasDead = false;
@@ -133,7 +134,10 @@ export function createCamera(settings: Settings, mapOf: (id: MapId) => MapData =
           y: position.y + ray.dir.y * LOOK_AHEAD,
           z: position.z + ray.dir.z * LOOK_AHEAD,
         };
-        return finish({ position, target, fovDeg: fovDeg + kick }, cut, dt);
+        const aimZoom = heroView.aimZoom ?? DEFAULT_AIM_ZOOM;
+        const aiming = (flags & ViewFlag.Aiming) !== 0;
+        zoom = approach(zoom, aiming ? aimZoom : 1, (1 - aimZoom) * dt / CROUCH_EASE_S);
+        return finish({ position, target, fovDeg: (fovDeg + kick) * zoom }, cut, dt);
       }
 
       const { min, max } = map.bounds;
