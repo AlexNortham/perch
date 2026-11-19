@@ -818,3 +818,12 @@ live rebinding.
 **Decision:** at the user's request the studio stops after Stage 2. QA's test-first suites for wave 4 (which D-EP-021
 had moved into the wave 3 gate) are written at the start of wave 4 instead, before the wave 4 implementers start.
 **Why:** the user asked to stop when wave 3 finished; writing wave 4's suites is wave 4 work.
+
+### D-EP-025 · 19/11/2026 — Private GitHub remote and a personal commit identity
+**Decision:** supersedes D-EP-014. The project is pushed to the private GitHub repo `AlexNortham/perch`; the EP pushes
+`main` after each stage gate, and agents never push. Commits use the repo-local identity
+`Alex Northam <alexanderjnortham@gmail.com>`. All 133 earlier commits were rewritten from the machine's global work
+address to that identity and `main` was force-pushed (file contents unchanged). Commit hashes quoted in STATUS.md and
+DECISIONS.md before this entry refer to the history before the rewrite; the same commits now have new hashes.
+**Why:** the user's instructions: keep the project on their personal GitHub as it goes, and keep it separate from
+their work identity.

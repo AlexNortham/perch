@@ -40,8 +40,10 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
    player-facing text (see D-EP-002).
 9. **Report.** The last step of every task is a Log entry (template at the bottom). Record non-obvious decisions in
    DECISIONS.md.
-10. **Local only.** Never add a git remote, push, publish or upload anything. Branches and merges stay on this
-    machine (D-EP-014). Installing packages from the npm registry is fine.
+10. **GitHub, private.** The repo has one remote: the private GitHub repo `AlexNortham/perch`. Only the EP pushes, and
+    only `main` after a stage gate. Agents never add remotes, push, publish or upload. Commits use the repo-local
+    identity `Alex Northam <alexanderjnortham@gmail.com>`, never the machine's global work address (D-EP-025).
+    Installing packages from the npm registry is fine.
 11. **Launchable at every gate.** A milestone closes only when `npm start` opens the menu and that stage's new
     features are reachable from it (before the menus are finished, from a listed `?scene=` URL), and the EP has added
     the stage's section to [PLAYABLE.md](../PLAYABLE.md): how to launch, what you can do, what isn't in yet
