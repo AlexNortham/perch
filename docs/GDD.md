@@ -7,7 +7,8 @@ starting values. Every number here is a starting value unless it is called a rul
 Conventions: distances in metres (m), times in seconds (s), speeds in m/s, angles in degrees. Coordinates use
 x = east, y = up, z = north; the map centre is (0, 0, 0). "SP" is Song power. Percentages that add are written
 "+N%"; percentages that multiply are written "×N". **(assumed)** marks a rule where the live behaviour of the
-reference game was uncertain and the conventional MOBA answer was chosen.
+reference game was uncertain and the conventional MOBA answer was chosen. **(deviation)** marks a deliberate
+difference from the reference game's behaviour (D-DIR-010); numbers alone are always PERCH's own and aren't marked.
 
 Contents: [1 Vision](#1-vision-and-pillars) · [2 Glossary](#2-glossary) · [3 Controls](#3-controls-and-movement) ·
 [4 Camera](#4-camera-and-aim) · [5 Combat](#5-combat) · [6 Map](#6-map) · [7 Units](#7-units-and-structures) ·
@@ -69,16 +70,26 @@ the first minute and still has decisions to make at minute 35.
 | **Nest Warden** | Base gate towers, two per lane per flock. |
 | **Roost Shrine** | Two per flock inside the base. Both must fall before the Patron can be damaged. |
 | **Brood Ward** | Backdoor protection: structures take −65% damage while no enemy fledgling is within 30 m. |
-| **Thicket** | A jungle camp of neutral creatures (tier 1, 2 or 3) that pays seeds and respawns. |
-| **Nest** | A breakable woven nest (crate) in the jungle and on rooftops. Small seed payout, sometimes a crumb buff. |
+| **Thicket** | A jungle camp of neutral creatures (tier 1, 2 or 3) that pays seeds and respawns. Some sit indoors. |
+| **Nest** | A breakable nest (crate) in alleys, interiors and on rooftops: Twig, Woven (heavy melee only) or Keepsake. Drops a seed sprig, a crumb or a keepsake. |
+| **Seed sprig** | A seed pickup dropped by a Nest. Any hero collects it by moving over it. |
 | **Crumb buff** | A 60 s minor buff that sometimes drops from a Nest. |
-| **Feather rune** | A timed pickup on the two rune bridges that gives a 90 s buff (Swift, Fierce, Sage or Stout). |
-| **Golden Egg** | Objective from 10:00. Carry it to the Hatching Stone to pay your flock. The carrier can't shoot or cast and is revealed. |
-| **Egg Perch / Hatching Stone** | The two stone circles on the centre line. The Egg spawns on one perch; the other is the Hatching Stone. |
+| **Keepsake** | A small permanent stat boon from Keepsake Nests, Bell Feeders, the Egg and the Roc (§7.13). |
+| **Bell Feeder** | A hanging seed feeder that pays seeds for melee hits, swings back, and gives keepsakes when broken on the bell's beat. |
+| **Berry** | A dewberry cluster on a high spot that heals 15% of max HP over 4 s. |
+| **Hide** | A bird hide: a shed that hides the heroes inside it from enemies outside it. |
+| **Bough Spring** | A bent branch that launches a hero along a fixed arc, usually onto a roof or balcony. |
+| **Lookout** | A high marked spot that raises its occupant's sight radius to 60 m. |
+| **Ivy curtain** | Ivy hanging in a doorway that blocks sight but not movement or shots. |
+| **Cellar Run** | The tunnel under Riverbank that links the two jungle quarters of a half; holds the Magpie Den. |
+| **Magpie Den** | A neutral shop in the Cellar Run that both flocks can use. |
+| **Feather rune** | A buff on the two rune bridges, claimed with a heavy melee hit, every 5:00 from 5:00: 150 s of Swift, Fierce, Sage or Stout. |
+| **Golden Egg** | Objective from 10:00. Pick it up with melee and carry it to the Hatching Stone; it hatches into seed pods and keepsakes. The carrier can't shoot or cast and is revealed. |
+| **Egg Perch / Hatching Stone** | The two stone circles on the centre line. Each Egg lands on one perch; the other is its Hatching Stone. |
 | **The Hollow** | The sunken pit under the Old Mill Bridge in the map centre where the Roc lives. |
-| **The Roc** | Neutral giant bird boss in the Hollow, from 20:00. Drops the Phoenix Ember. |
-| **Phoenix Ember** | Dropped by the Roc. Claimed by landing a charged heavy melee on it. Gives the claiming flock a 180 s buff. |
-| **Ember buff** | The flock-wide buff from the Ember: faster respawns, stronger fledglings, +15% damage. |
+| **The Roc** | Neutral giant bird boss in the Hollow, from 20:00. Only heroes in the Hollow can hurt it. Drops three Phoenix Embers. |
+| **Phoenix Ember** | One of three flames the Roc drops. Either flock claims one with a heavy melee hit, for a full heal and a Rekindle charge. |
+| **Rekindle** | The 180 s flock buff from claimed Embers: each charge revives one fallen hero in place, and new fledglings are stronger. |
 | **The Magpie's Hoard** | The shop. Three columns (Talon, Plumage, Song) by four tiers. At the Home Roost and at lane Magpie stalls. |
 | **Magpie stall** | A lane shop: one per lane per flock, between the Hawk and the Heron. |
 | **Talon** | (1) Item category for gun power. (2) Damage type of guns and melee. |
@@ -107,7 +118,7 @@ the first minute and still has decisions to make at minute 35.
 | **Beak shot** | A gun hit on a hero's head hitbox. Deals critical damage (×1.65 by default). |
 | **Falloff** | Gun damage reduction with distance, between a start and end range. |
 | **Parry** | A short block window (F) that stuns an enemy whose melee lands in it. |
-| **Heavy melee** | Charged melee (hold Q): slower, stronger, lunges, can be parried. Claims the Phoenix Ember. |
+| **Heavy melee** | Charged melee (hold Q): slower, stronger, lunges, can be parried. Claims Phoenix Embers and runes, breaks Woven Nests. |
 | **Bounty** | Seeds paid for killing a hero, raised for shut-downs and for comeback kills. |
 | **Comeback bonus** | Bounty and Egg multiplier paid to the flock with the lower total net worth. |
 | **Ping** | A map marker placed with middle mouse (tap: contextual; hold: wheel). |
@@ -136,7 +147,7 @@ the first minute and still has decisions to make at minute 35.
 | Upgrade ability 1–4 | Alt + 1–4 | Spends AP on the next tier. |
 | Inspect / upgrade abilities | Left Alt (tap) | Frees the pointer for the ability panel. Esc or Close returns to aiming (§12.4). |
 | Item actives | Z, X, N, V | Bound to the first four active items in slot order (rebindable per slot). |
-| Interact | E | Pick up the Golden Egg, deliver, mount an Updraft at a station. |
+| Interact | E | Mount an Updraft at a station; drop the Golden Egg. (Melee picks the Egg up, §7.11.) |
 | Shoulder swap | G | §4.2. |
 | Shop (Magpie's Hoard) | B | Opens only in a shop zone; elsewhere shows the read-only shop. |
 | Scoreboard | Tab (hold) | §12. |
@@ -418,9 +429,9 @@ Each hero has one gun (§9 lists every value). Common rules:
 | Timing | Hit 0.25 s after release, finish 0.55 s after release | Windup starts on press; lunge starts on commitment, hit at 0.60 s from press, then 0.40 s recovery |
 | Reach | Sweep 2.8 m ahead, 1.2 m radius | Lunges up to 3.5 m in the aim direction, clipped by solid geometry, then sweeps 2.8 m |
 | Damage (Talon) | 50 + 3 per level | 115 + 6 per level |
-| Extra | Can be parried. | Knockback 3 m. Can be parried. Claims the Phoenix Ember. |
+| Extra | Can be parried. Picks up the Golden Egg. | Knockback 3 m. Can be parried. Claims Phoenix Embers and Feather runes, breaks Woven Nests, picks up the Golden Egg. |
 | Feedback | Quick sweep pose and air swish, with hit feedback on contact. | Draw-back pose and crosshair charge, distinct lunge and swing cue, hit or miss followed by a visible recovery. |
-| Notes | Cancels reload. Can't beak-shot. Gun damage % does not apply to melee. Both hit Nests, fledglings and structures (structures take 50% melee damage). |
+| Notes | Cancels reload. Can't beak-shot. Gun damage % does not apply to melee; melee damage % (§10) does. Both hit Nests, Bell Feeders, fledglings and structures (structures take 50% melee damage). |
 
 ### 5.8 Parry
 
@@ -473,7 +484,8 @@ durations are reduced by the target's **status resist** (stacks multiplicatively
 | **Undying** | Health can't fall below 1; damage that would go lower is ignored. | 1.5–5 s | Positive status. |
 | **Marked** | A tag from a named source (e.g. Marked Prey); no effect alone; other effects key off it. | 5–14 s | One per source. |
 | **Carried** | Attached to another unit's socket (Pelican's Gulp); also stunned and intangible. | ≤ 1.25 s | Released on carrier stun or death. |
-| **Egg carrier** | Can't fire, cast, use items, parry or ride Updrafts/Chimneys/Vines; −15% move speed; revealed. | while carrying | §7.11. |
+| **Egg carrier** | Can't fire, cast, use items, parry or mantle; can't use Updrafts, Chimneys, Vines, Bough Springs or the Cellar Run; +1.5 m/s move speed, +1 stamina pip, immune to slows; revealed. | while carrying | §7.11. |
+| **Hidden** | Inside a Hide: enemies outside it can't see or target the hero (§7.15). | while inside | Not invisibility; true sight reveals. |
 
 ### 5.10 Shields and barriers
 
@@ -988,66 +1000,172 @@ its flock loses.
 
 ### 7.8 Thickets (neutral camps)
 
-| Tier | Camp | Creatures | Attack | Seeds (whole camp) | First spawn | Respawn after clear |
-|---|---|---|---|---|---|---|
-| 1 | Beetle Thicket | 2 stag beetles, 350 HP each | 15 Talon per hit, 1/s, melee | 140 | 2:00 | 3:00 |
-| 2 | Weasel Thicket | 3 weasels, 650 HP each | 25 Talon per hit, 1/s, melee with 4 m dash-bites | 360 | 6:00 | 4:00 |
-| 3 | Badger Sett | 1 badger 3000 HP + 2 cubs 600 HP | Badger 60 Talon per hit 1/s; every 6 s a slam: 6 m, 120 Song, knockback 4 m | 900 | 10:00 | 5:00 |
+24 camps (12 per half, §6.10): 8 of tier 1, 12 of tier 2 (8 of them indoors), 4 of tier 3.
 
-- Seed values grow +2% per minute after the camp's first spawn time. Each creature pays its share to the hero
-  who lands its killing blow **(assumed)**; no pods drop from neutrals.
-- Creatures attack whoever damaged them most in the last 3 s. A creature pulled more than 20 m from its camp,
-  or not damaged for 6 s, walks home and heals to full.
-- 8 camps per half, 16 total (§6.3).
+| Tier | Family | Creatures | Attacks | Seeds per creature (base) | First spawn | Respawn after full clear |
+|---|---|---|---|---|---|---|
+| 1 | Beetles | 3 stag beetles, 200 HP | 12 Talon bite every 1.0 s, 2.0 m reach | 45 (camp 135) | 2:00 | 1:30 |
+| 2 | Weasels | 3 weasels, 480 HP | 22 Talon bite every 1.0 s; every 6 s a dash-bite: 6 m lunge, 40 Talon | 100 (camp 300) | 5:00 | 4:45 |
+| 2 | Rats (indoor) | 5 rats, 220 HP | 10 Talon bite every 0.7 s; each bite applies 20% heal reduction for 2 s | 60 (camp 300) | 5:00 | 4:45, once the camp's Bell Feeder is also broken |
+| 2 | Toads (indoor) | 2 toads, 720 HP | Tongue lash: 30 Song every 1.5 s, 16 m range. Every 8 s a slime spit at its target: a 3 m puddle for 4 s, 20 Song per second and 30% slow | 150 (camp 300) | 5:00 | 4:45 |
+| 3 | Badgers | 1 badger 2,000 HP + 2 cubs 420 HP | Badger: 50 Talon every 1.0 s; every 6 s a Slam (0.6 s telegraph ring): 6 m radius, 110 Song, 4 m knockback. Cubs: 20 Talon every 1.0 s | badger 560, cubs 120 (camp 800) | 8:00 | 5:30 |
+
+- **Resists:** tiers 1 and 2 have 30% Talon and 25% Song resist; tier 3 has 40% and 35%.
+- **Scaling**, fixed when the camp spawns: HP +2% and damage +0.5% per minute of match time. Seeds are paid at death:
+  base × (1 + 0.015 × minutes).
+- **Dormant:** a camp sleeps until a hero comes within 30 m. A sleeping camp does nothing and costs no sim work. While
+  it sleeps, damage from a hero more than 35 m away does nothing, so camps can't be sniped from a lane.
+- **Aggro:** the first damage to any creature wakes the whole camp. Each creature attacks the hero who dealt the camp
+  the most damage in the last 3 s and needs line of sight to do so. Slams and puddles hit every hero inside them.
+- **Leash:** 18 m from the camp anchor; indoor camps also stop at their room's doors. A creature may chase 3 m beyond
+  the leash while it still sees its target. Past that, or after 6 s without taking damage, it walks home and heals
+  to full, and the camp sleeps again 5 s later.
+- **Payout:** a creature's seeds are split evenly between the hero who lands the killing blow and every allied hero
+  who damaged it in the last 5 s, rounded down per hero. No pods drop from neutrals. This replaces the Stage 3
+  last-hitter rule.
+- **Respawn:** a camp respawns all at once, at the time above after its last creature dies. Leaving one creature
+  alive stops a camp from respawning.
+- Fledglings and creatures ignore each other.
 
 ### 7.9 Nests (breakables)
 
-- 80 HP; any damage breaks them (melee breaks one in two light hits).
-- Pay 30 seeds (+3% per minute of match time) to the breaker.
-- 25% chance (seeded) to drop a crumb buff for 60 s: **Quick crumb** +15% fire rate, **Light crumb** +1 m/s move
-  speed, or **Sweet crumb** +15 SP (equal chances). A new crumb replaces an older one.
-- Respawn 4:00 after breaking. 32 on the map (§6.5).
+100 Nests on the map (§6.10). Twig and Keepsake Nests never block movement; Woven Nests are solid (1.2 m wide, 1.0 m
+tall), so they work as low cover.
+
+| Variant | Look | Breaks on | Drops | Count |
+|---|---|---|---|---|
+| **Twig Nest** | A small loose nest of twigs | Any bullet, melee or ability hit, or a hero passing through it at ≥ 8.5 m/s (sprint, dash, slide, an Updraft drop) | 60%: a seed sprig worth 24 + 1.8 per minute of match time. A separate 15% roll: a crumb | 72 (4 in the Hollow) |
+| **Woven Nest** | A large tight nest bound with a leather strap | One heavy melee hit; nothing else harms it | Always: a seed sprig worth 48 + 3.6 per minute. A separate 25% roll: a crumb | 16 |
+| **Keepsake Nest** | A nest with a trinket glinting in it | As the Twig Nest | 50%: a keepsake (§7.13) | 12 |
+
+- **Drops are pickups.** A seed sprig, crumb or keepsake lies where the Nest broke. Any hero of either flock collects
+  it by moving within 1.5 m, so the hero who breaks a Nest from range must still fetch the drop. A pickup stays until
+  collected; a sprig's value is fixed when it drops.
+- **Spawn:** 3:00. Nests below ground (cellars, undercroft, the Cellar Run): 5:00. The four in the Hollow: 10:00.
+- **Respawn:** 3:00 after the Nest breaks (below ground: 5:00), or that long after its drop is collected, whichever
+  is later.
+- **Crumbs** (60 s, lost on death; a new crumb replaces an older one; equal chances): **Quick crumb** +15% fire rate,
+  **Light crumb** +1 m/s move speed, **Sweet crumb** +15 SP. Crumbs are a PERCH addition **(deviation)**.
+- All drop and crumb rolls use the seeded RNG.
 
 ### 7.10 Feather runes
 
-| Rune | Buff (90 s, lost on death) |
+| Rule | Value |
 |---|---|
-| **Swift feather** | +2 m/s move speed, stamina regenerates twice as fast |
-| **Fierce feather** | +25% gun damage, +15% fire rate |
-| **Sage feather** | +25 SP, +15% cooldown reduction |
-| **Stout feather** | +300 max HP, +15 HP/s regeneration |
+| Spots | One on each rune bridge, at (−95, 6, 0) and (95, 6, 0) |
+| Spawn | 5:00, then every 5:00, on both bridges at once. An unclaimed rune is replaced by the next spawn |
+| Claim | A heavy melee hit on the rune (1.0 m sphere). Walking through it does nothing |
+| Types | Each spawn offers two different types. The 10:00 spawn offers the two types the 5:00 spawn didn't. Later spawns draw a seeded pair that differs from the pair before it |
+| Duration | 150 s **(deviation)**; lost on death. A new rune replaces the one a hero holds |
+| Strength | Set when claimed: linear from the 5:00 value to the 40:00 value with match time, held at the 40:00 value after |
 
-- Spawn on both rune bridges at 6:00, then 4:00 after that bridge's rune is picked up.
-- Type chosen by seeded RNG; the two bridges never offer the same type at the same time.
-- Picked up by walking through (1.5 m). A hero can hold one rune; a new one replaces the old.
+| Rune | At 5:00 | At 40:00 |
+|---|---|---|
+| **Swift feather** | +1.5 m/s sprint, +1 stamina pip, +25% stamina regeneration, +30% Updraft speed | +3.0 m/s, +2 pips, +60%, +60% |
+| **Fierce feather** | +12% fire rate, +30% magazine size | +30%, +60% |
+| **Sage feather** | +15 SP, +10% CDR | +60 SP, +20% CDR |
+| **Stout feather** | +200 max HP, +5 HP/s regeneration | +700 max HP, +35 HP/s |
 
 ### 7.11 The Golden Egg
 
 | Rule | Value |
 |---|---|
-| First spawn | 10:00, on an Egg Perch chosen by seeded RNG; the other perch is the Hatching Stone |
-| Next spawn | 5:00 after a delivery, on the perch it was delivered to (perch and stone swap) |
-| Pick up | Interact (E) within 2 m for 0.5 s; hero damage interrupts |
-| Carrier | Egg carrier status (§5.9): −15% move speed; can walk, jump, dash and slide; can't fire, cast, use items, parry, mantle or ride Updrafts, Chimneys or Vines; revealed to enemies; a golden light beam above the carrier is visible map-wide |
-| Drop | On the carrier's death or stun, or by pressing E. Anyone can pick it up 1.0 s after a drop. Untouched for 30 s, it returns to its spawn perch |
-| Deliver | Stand in the Hatching Stone circle (3 m) and channel 2.0 s; any hero damage interrupts |
-| Payout | Every hero of the delivering flock: 500 + 50 per full minute after 10:00 (max 1500). The carrier gets +250. Comeback: ×1.25 if the delivering flock's total net worth is lower |
+| First spawn | 10:00, on an Egg Perch chosen by seeded RNG. The other perch is that Egg's Hatching Stone |
+| Next spawns | At every 5:00 mark (15:00, 20:00 …) on the perch that didn't hold the last Egg. An Egg nobody has touched is replaced. While an Egg is carried or lies dropped, the next spawn waits for the first mark after that Egg is delivered or spoils |
+| Arrival | Lowered from the canopy over 10 s with the spawn jingle; it can't be picked up until it lands |
+| Pick up | Any light or heavy melee hit on the Egg (1.0 m sphere) |
+| Carrier | Egg carrier status (§5.9): can't fire, cast, use items, parry or mantle, and can't use Updrafts, Chimneys, Vines, Bough Springs or the Cellar Run. +1.5 m/s move speed, +1 stamina pip, immune to slows. Revealed, with a golden beam visible map-wide |
+| Trailing carrier | If the carrier's flock has the lower total net worth: +2% Talon and Song resist and +0.2 m/s sprint per 1% of net-worth deficit, up to +30% and +3 m/s at a 15% deficit |
+| Drop | On the carrier's death, a stun, a displacement, an enemy hero's melee hit, or pressing E. Nobody can pick it up for 1.0 s after a drop |
+| Unattended | 180 s after landing or after a drop with nobody picking it up, the Egg starts rolling along the nav path toward its Hatching Stone at 2 m/s. It can still be picked up |
+| Spoil | 45 s after its first pickup the Egg starts to cool: its value falls linearly to 0 over the next 45 s, and at 0 it cracks and is gone |
+| Deliver | The carrier stands in the Hatching Stone circle (3 m) and channels 2.0 s; damage from an enemy hero interrupts **(deviation: the reference delivers on arrival)** |
+| Value | E = 400 + 70 × match minutes when the Egg lands (1,100 at 10:00, 1,800 at 20:00, 2,500 at 30:00), × the spoil fraction at delivery; × 1.25 if the delivering flock has the lower total net worth |
+| Hatching | The Egg hatches into 6 golden seed pods worth E / 6 each, which follow the pod timing of §8.2 (rise 0.6 s, ripe 1.4 s). A delivering-flock hero who shoots one secures it: the courier keeps all of it if they secure it, otherwise securer and courier split it 50/50. An enemy hero who shoots one denies it and gets 25% of its value. A pod nobody hits goes to the courier |
+| Keepsakes | The courier gets 3 keepsakes (§7.13). Every other hero of the delivering flock within 30 m of the Stone gets 1 **(deviation: the reference gives the courier 4 and escorts none)** |
 
-### 7.12 The Roc and the Phoenix Ember
+### 7.12 The Roc and the Phoenix Embers
 
 | Rule | Value |
 |---|---|
-| Spawn | 20:00 **(assumed)**; respawns 7:00 after it dies |
-| Model | A 9 m tall giant raptor with flame-tipped wings, asleep in the Hollow until damaged |
-| HP and resists | 30000 + 1000 per minute after 20:00 (fixed at spawn); 20% Talon and 20% Song resist |
-| Aggro | The hero that dealt it the most damage in the last 5 s; sticky for 3 s. It targets heroes inside the Hollow or on the bridge (within 25 m) |
-| Talon Rake | Every 2.5 s: 8 m cone (90°) at its target: 140 Talon |
+| Wake | 20:00, with a HUD countdown from 19:00 **(deviation: the reference boss is present from the start; PERCH keeps the 20:00 beat for the three-act match, §1)** |
+| Model | A 9 m tall giant raptor with flame-tipped wings, asleep in the Hollow |
+| HP | 24,000 when it wakes; +300 max HP per minute it lives (current HP rises with it). Regenerates 15 HP/s. 15% Talon resist, 0% Song resist |
+| Who can hurt it | Only heroes standing inside the Hollow (floor and ramps, y ≤ −2). Damage from the bridge or the rim does nothing, so the bridge is where the other flock contests |
+| Aggro | The nearest hero inside the Hollow, re-chosen every 1.0 s. With nobody inside, it doesn't attack |
+| Talon Rake | Every 2.5 s: an 8 m cone (90°) at its target, 140 Talon |
 | Gale Flap | Every 10 s: 15 m radius, 80 Song, 10 m knockback outward |
-| Enrage | Below 30% HP: +30% attack speed; every 8 s a Sky Shriek silences heroes within 20 m for 1.5 s |
-| Reset | With no hero in the Hollow or on the bridge for 8 s, it heals to full and sleeps |
-| Bounty | 250 seeds per hero of the flock that lands the killing blow |
-| Ember drop | Floats 1.5 m above the spot where the Roc died; claimable after 1.0 s; the first **heavy melee** that connects with it (1.0 m sphere) claims it for that hero's flock. Unclaimed after 60 s, it goes to the flock that killed the Roc |
-| Ember buff | 180 s for the claiming flock; survives death. Heroes: respawn time −50%, +15% Talon and Song damage, +8 HP/s regeneration. Fledglings spawned during it: +50% HP, +40% damage, and +30% more vs structures |
+| Enrage | At 25% HP, a map-wide roar; +30% attack speed, and every 8 s a Sky Shriek silences heroes within 20 m for 1.5 s |
+| Reset | With no hero in the Hollow for 8 s it heals to full |
+| Kill reward | Every hero of the flock whose hero lands the killing blow: 300 + 5 × match minutes seeds and 2 keepsakes (§7.13) |
+| Embers | On death, 3 Phoenix Embers fall to the Hollow floor at (10, −10, 0), (−5, −10, 8.66) and (−5, −10, −8.66) over 6 s. Once landed, one heavy melee hit (1.0 m sphere) by a hero of **either** flock claims one. Unclaimed Embers burn out 60 s after landing |
+| Claim | The claimer heals to full HP and gets 200 + 5 × match minutes seeds. The claimer's flock gains 1 **Rekindle** charge (at most 3 per Roc kill) |
+| Rekindle | A flock buff for 180 s from its first claim (a warning shows with 30 s left). A hero who dies while it holds revives where they fell 3 s later at full HP. Each hero can revive once, and each revive spends a charge; the buff ends when the charges or the time run out. A kill on a hero who then revives pays no bounty and isn't counted, but on-kill item effects still trigger |
+| Siege flight | Fledglings that spawn for a flock while it holds Rekindle get +40% HP and +30% damage vs structures **(deviation: a PERCH addition that keeps sieges possible within 25–40 minutes, D-DIR-004)** |
+| Respawn | 7:00 after the first kill, 6:00 after the second, 5:00 after each later kill |
+
+### 7.13 Keepsakes (permanent stat boons)
+
+A keepsake is a small permanent boon that magpie hoards hide around the town. It survives death and lasts the match.
+
+| Source | Keepsakes |
+|---|---|
+| Keepsake Nest (§7.9) | 50% chance to drop 1, as a pickup |
+| Bell Feeder full chime (§7.14) | 1 for a light chime, 3 for a heavy chime |
+| Golden Egg delivery (§7.11) | 3 to the courier, 1 to each escort within 30 m |
+| The Roc (§7.12) | 2 to every hero of the killing flock |
+
+Each keepsake is one type, drawn by weight from the hero's seeded stream. The type the hero received last has its
+weight halved for the next draw. Its strength depends on the match time when it is gained:
+
+| Type | Weight | 0:00–9:59 | 10:00–29:59 | 30:00+ |
+|---|---|---|---|---|
+| Gun damage | 1 | +2.5% | +3.5% | +5% |
+| Fire rate | 1 | +1.5% | +2% | +3% |
+| Magazine size | 1 | +4% | +6% | +8% |
+| Max HP | 2 | +15 | +25 | +35 |
+| Song power | 1 | +2 | +3 | +4 |
+| Talon resist | 1 | +0.75% | +1% | +1.5% |
+| Song resist | 1 | +0.75% | +1% | +1.5% |
+| Cooldown reduction | 1 | +0.5% | +0.75% | +1% |
+| Move speed | 0.5 | +0.1 m/s | +0.15 m/s | +0.2 m/s |
+| Stamina regeneration | 0.5 | +2% | +3% | +4% |
+
+- Keepsakes of one type add together and count as **one source** in the §5.3 resist stack and the §10 CDR stack.
+- Caps from keepsakes alone: 15% per resist, 10% CDR, +2.0 m/s move speed.
+- The HUD shows a keepsake count beside the level, and hovering it lists the totals (§12.4).
+
+### 7.14 Bell Feeders
+
+A hanging brass seed feeder with a bell. Peck it with melee and seeds shake out, but it swings back at you, and
+breaking it on the bell's beat earns keepsakes.
+
+| Rule | Value |
+|---|---|
+| Where | 8 on the map: each Bell Tower belfry, and each Granary loft as one hybrid camp with that Granary's Rats (§6.10) |
+| Spawn | 8:00; respawns 5:00 after it breaks (Granary: 5:00 after both the Feeder and its Rat camp are cleared) |
+| HP | 480. Only melee damages it: a light hit deals 60, a heavy hit 120, whatever the hero's level or items |
+| Swing-back | Each melee hit swings the Feeder into the hitter for 70 Song damage (resists apply), except while it chimes |
+| Seeds | F = 300 + 3 × match minutes, set at the first hit. A light hit pays the hitter F / 16, a heavy hit F / 8. The breaking hit also pays F / 2, split evenly among the heroes who hit the Feeder in the last 5 s |
+| Chime | Once the Feeder is down to 180 HP its bell swings and its lamp blinks: lit 0.5 s in every 1.5 s (60%), or lit 0.3 s in every 1.0 s (40%), chosen by seeded RNG. No swing-back while it chimes |
+| Full chime | If the breaking hit lands while the lamp is lit, its hitter gets keepsakes: 1 for a light hit, 3 for a heavy hit. Off the beat, the Feeder pays seeds only |
+| Sound | Every hit rings the bell within 70 m; the Bell Tower's bell carries 120 m |
+
+### 7.15 Jungle and interior interactables
+
+| Interactable | Count | Rule |
+|---|---|---|
+| **Berries** (a dewberry cluster) | 22 (§6.10) | On high, hard-to-reach spots. Move within 1.2 m to eat: heal 15% of max HP over 4 s. First at 2:30; respawns 3:00 after it is eaten. Not shown on the minimap |
+| **Hide** (a bird hide) | 8 | A hero wholly inside a Hide is **hidden**: enemies outside the Hide can't see or target them, and they leave the enemy minimap. Inside, they regenerate 3 HP/s + 0.25% of max HP per second and stamina 100% faster. They show for 2 s after they deal damage or apply a status to an enemy, and stay visible while an enemy hero is in the same Hide. True sight reveals them. Allies see each other |
+| **Bough Spring** (a bent branch) | 8 | Stepping onto the 1.2 m pad launches a hero on its authored arc to its landing point (§6.10), at most once per hero per 1.0 s. Air control is 30% after the apex. If an enemy hero damages the rider in the first 0.6 s, the launch is clipped: vertical speed drops to 0 and the rider is slowed 30% for 1.5 s **(deviation: the reference stuns and deals % damage)**. Grounded and the Egg carrier can't use Springs |
+| **Lookout** | 14 | Standing within 3 m of a Lookout raises the hero's sight radius from 40 m to 60 m (§11.1). A PERCH addition **(deviation)** |
+| **Ivy curtain** | 32 | §6.8: blocks sight and `unit` targeting both ways except within 3 m; never blocks movement, shots or areas |
+| **The Cellar Run** | 2 | Inside the tunnel a hero gets +30% run speed (sprint, dashes and slides unchanged) **(deviation: the reference gives +50%)**. The Egg carrier can't enter: the stair heads block the carrier only |
+| **Magpie Den** | 2 | A neutral shop in each half's Cellar Run, usable by both flocks, with a 5 m zone. Shop rules §8.8 |
+
+Not adopted from the reference: teleporters (the Cellar Run gives the cross-lane route on a map this size), the
+king-of-the-hill rift event, the stamina-draining fog district, and the 1-seed vermin in tunnels. D-DIR-010 lists the
+full mapping.
 
 ---
 
@@ -1107,11 +1225,13 @@ A perfect solo laner (every last hit and every pod) earns 100% V; letting fledgl
 | Nest Warden | 250 each | Every hero of the destroying flock |
 | Roost Shrine | 500 each | Every hero of the destroying flock |
 | Patron | none (the match ends) | — |
-| Thicket camp | 140 / 360 / 900 per tier, +2% per minute after first spawn | Per creature, to its killer (§7.8) |
-| Nest | 30, +3% per minute | The breaker |
-| Golden Egg | 500 + 50 per minute after 10:00 (max 1500), carrier +250, ×1.25 comeback | Every hero of the delivering flock (§7.11) |
-| The Roc | 250 | Every hero of the flock that lands the killing blow |
-| Feather runes, crumbs, the Ember | No seeds (buffs only) | — |
+| Thicket camp | 135 / 300 / 800 per tier, × (1 + 0.015 × minutes) | Per creature, split between its killer and allied heroes who damaged it in the last 5 s (§7.8) |
+| Nest | Twig: 60% chance of 24 + 1.8 per minute; Woven: 48 + 3.6 per minute | Whoever collects the seed sprig (§7.9) |
+| Bell Feeder | F = 300 + 3 per minute: F / 16 per light hit, F / 8 per heavy hit, F / 2 for the break | The hitters (§7.14) |
+| Golden Egg | E = 400 + 70 per minute at landing, as 6 pods; ×1.25 comeback | The courier and the heroes who secure or deny its pods (§7.11) |
+| The Roc | 300 + 5 per minute | Every hero of the flock that lands the killing blow (§7.12) |
+| Phoenix Ember | 200 + 5 per minute | The hero who claims it (§7.12) |
+| Feather runes, crumbs, keepsakes, Rekindle | No seeds (buffs only) | — |
 
 ### 8.5 Levels, AP and the ultimate
 
@@ -1173,12 +1293,13 @@ chime.
 - 12 base slots; any item category in any slot. Each item can be owned once.
 - 4 flex slots, unlocked for the whole flock: slot 1 at its first enemy Hawk destroyed, slot 2 at its second,
   slot 3 at its first enemy Heron, slot 4 at its first enemy Shrine. Unlocks are permanent.
-- The first four **active** items, in slot order, are bound to Z, X, N, V.
+- A hero can own at most **4 active items**; the shop refuses a fifth (reference rule, adopted in Stage 4). The
+  actives, in slot order, are bound to Z, X, N, V.
 
 ### 8.8 Shop rules (the Magpie's Hoard)
 
-- Buy and sell only inside a shop zone: the Home Roost or one of your flock's three Magpie stalls. The shop can
-  be browsed anywhere (read-only).
+- Buy and sell only inside a shop zone: the Home Roost, one of your flock's three Magpie stalls, or either Magpie
+  Den (neutral, both flocks, §7.15). The shop can be browsed anywhere (read-only).
 - Buying an item whose component you own costs (item cost − component cost) and replaces the component in its
   slot. Without the component it costs the full price and needs a free slot.
 - Sell refund: 50% of the item's full cost; 100% if sold within 20 s of buying it during the same shop visit.
@@ -1187,8 +1308,8 @@ chime.
 ### 8.9 Respawn
 
 **Respawn time = min(55, 8 + 1.2 × minutes) seconds**, rounded to 0.1 s: 8 s at 0:00, 20 s at 10:00, 32 s at
-20:00, 44 s at 30:00, 55 s from 39:10. The Ember buff halves it. Heroes respawn at the Home Roost with full HP
-and full magazine; cooldowns keep running while dead.
+20:00, 44 s at 30:00, 55 s from 39:10. Heroes respawn at the Home Roost with full HP and full magazine;
+cooldowns keep running while dead. A Rekindle charge (§7.12) instead revives a hero where they fell after 3 s.
 
 ### 8.10 Income targets (for Balance)
 
@@ -1200,7 +1321,8 @@ and full magazine; cooldowns keep running while dead.
 | 40:00 | 48,000 | 28 |
 
 The flock net-worth gap should rarely exceed 25% for more than 5 minutes; comeback multipliers (§8.3, §7.11) are
-the levers.
+the levers. Stage 4 adds jungle income (24 camps, 100 Nests, 8 Feeders): the targets above stand, and Balance
+scales the §7.8–§7.14 seed values together if bot telemetry runs more than 10% over them.
 
 ---
 
@@ -2284,12 +2406,16 @@ Destroy the enemy Patron (both phases). There are no draws and no time limit. Th
 |---|---|
 | 0:00 | Heroes spawn at the Home Roost with 0 seeds and level 1; passive income starts at 0:30 |
 | 0:30 | First fledgling wave; then a wave every 30 s on every lane |
-| 2:00 | Tier-1 Thickets spawn (respawn 3:00 after clear) |
-| 6:00 | Tier-2 Thickets spawn (respawn 4:00); Feather runes appear on both rune bridges (then 4:00 after each pickup) |
+| 2:00 | Tier-1 Thickets spawn (respawn 1:30 after a full clear) |
+| 2:30 | Berries appear (respawn 3:00 after eaten) |
+| 3:00 | Nests appear above ground (respawn 3:00) |
+| 5:00 | Tier-2 Thickets spawn (respawn 4:45); below-ground Nests appear (respawn 5:00); first Feather runes on both bridges (then every 5:00) |
+| 8:00 | Tier-3 Thickets spawn (respawn 5:30); Bell Feeders appear (respawn 5:00) |
 | 9:00 | HUD countdown for the Golden Egg (60 s) |
-| 10:00 | **Golden Egg** spawns (then 5:00 after each delivery); tier-3 Thickets spawn (respawn 5:00); waves grow to 3 + 2 |
+| 10:00 | **Golden Egg** lands (then at the 5:00 marks, §7.11); Hollow Nests appear; keepsakes reach their middle strength; waves grow to 3 + 2 |
 | 19:00 | HUD countdown for the Roc |
-| 20:00 | **The Roc** wakes in the Hollow (respawn 7:00 after death); waves grow to 4 + 2 |
+| 20:00 | **The Roc** wakes in the Hollow (respawn 7:00, 6:00, then 5:00 after each death); waves grow to 4 + 2 |
+| 30:00 | Keepsakes reach full strength |
 | 35:00 | Late-game pressure **(design lever)**: Brood Ward weakens from ×0.35 to ×0.6 damage taken, and fledglings get +25% damage vs structures |
 
 Respawn time grows throughout (§8.9): 8 s at the start, 32 s at 20:00, 55 s from about 39:00.
@@ -2298,21 +2424,23 @@ Respawn time grows throughout (§8.9): 8 s at the start, 32 s at 20:00, 55 s fro
 
 **Laning (0:00–10:00).** Two heroes per lane (2-2-2). The game is last hits, pods and denies, poking with guns
 and short ability trades, and shop trips to the Magpie stalls. Hawks punish heroes who attack heroes under them.
-First Thickets at 2:00 and runes at 6:00 give the first reasons to leave the lane. Expected: 0–1 Hawks down,
-heroes level 8–10, first T2 items.
+Beetle yards at 2:00, Nests and Berries from 2:30–3:00, and runes at 5:00 give the first reasons to leave the
+lane; the Feeders and Badger Setts at 8:00 pull the first jungle fights. Expected: 0–1 Hawks down, heroes level
+8–10, first T2 items, a handful of keepsakes each.
 
 **Mid game (10:00–22:00).** The first Egg forces a 3v3 or 4v4 fight in the jungle at 10:00. Hawks fall (first
 flex slots), heroes rotate between lanes, take T2/T3 Thickets and runes, and push Herons (more flex slots).
 Expected: 2–4 Hawks and 1–2 Herons down per flock by 22:00, heroes level 15–19, first T3 items.
 
-**Late game (22:00–end).** Grouped 6v6 fights around the Roc and the Ember; the Ember's faster respawns and
-stronger fledglings make sieges possible. Flocks break Wardens (Brood Ward makes waves essential), then the
+**Late game (22:00–end).** Grouped 6v6 fights around the Roc and its Embers; Rekindle's revives and stronger
+fledglings make sieges possible. Flocks break Wardens (Brood Ward makes waves essential), then the
 Shrines, then the two-phase Patron. Expected: first Shrine around 28–32 min, match end 28–38 min.
 
 ### 15.4 Comeback and anti-snowball levers
 
 - Bounties scale with the victim's net worth and pay up to ×1.5 to the poorer flock (§8.3).
-- The Egg pays ×1.25 to the poorer flock (§7.11).
+- The Egg pays ×1.25 to the poorer flock, and a trailing flock's carrier gets resists and sprint (§7.11).
+- Phoenix Embers can be stolen by either flock (§7.12).
 - Brood Ward and the structure gates force the winning flock to push with waves, buying time.
 - Respawn times cap at 55 s; the 35:00 lever stops stalemates.
 
