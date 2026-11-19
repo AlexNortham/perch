@@ -12,7 +12,7 @@ QA's cross-system suites (D-EP-010). Unit tests live next to their code (`src/**
 | `rules/siege.test.ts` | Always on (since W4 integration). GDD §§5.11, 7 and 15: structure gates, real targeting and damage, Updraft clearance, Brood Ward, and both Patron phases. |
 | `rules/market.test.ts` | Always on (since W4 integration). GDD §8: real bounties, lifetime earnings, levels, AP, inventory, flex slots and shop transactions. |
 | `rules/practice.test.ts` | Always on (since W4 integration). Fresh Practice AP, normal match progression, and the ordinary weapon and support-cast target resets. |
-| `siege-proof.test.ts` | Always on. The real Play match (seed 1, one Owl, no bots), driven only by ordinary commands from a scripted aim-and-fire agent, takes Dusk's Riverbank structures, both Shrines and both Patron phases to a Dawn victory with its wave. Writes seed, hash and timeline to `out/siege-proof/seed-1.json`. About 7 s. |
+| `siege-proof.test.ts` | Always on. The real Play match (seed 1, one Owl, no bots), driven only by ordinary commands from a scripted aim-and-fire agent, takes Dusk's Riverbank structures, both Shrines and both Patron phases to a Dawn victory with its wave. Writes seed, hash and timeline to `out/siege-proof/seed-1.json`. About 7 s. The agent lives in `src/sim/ai/siege-proof.testkit.ts`; `e2e/result.spec.ts` replays it in the browser (`?scene=replay`) to the Victory screen. |
 | `helpers/sandbox.ts` | The ability sandbox (below). |
 | `helpers/lanes.ts` | Lane polyline maths: progress from a gate, distance from the path, points along it. |
 

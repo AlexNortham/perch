@@ -5,6 +5,7 @@ import { HEROES, heroSwatch } from '../../sim/heroes/registry';
 import type { AppActions, ScreenContext } from '../app/contracts';
 import { ARCHETYPE_LABEL, GRAPH, hex, PERCENT, TEAM_CSS, ULTIMATE_SLOT } from './constants';
 import { AP_COSTS } from '../../sim/data/abilities';
+import { CONCEDE_AFTER_SECONDS } from '../../sim/data/core';
 import { button, el } from './dom';
 import { clock } from './model';
 
@@ -73,14 +74,31 @@ export function heroSelectScreen(actions: AppActions, seed: number, mode: 'siege
   return screen('pu-select', title, sub, body, button('Back', actions.toMenu, 'pu-btn pu-quiet'));
 }
 
-export const pauseScreen = (actions: AppActions, openOptions: () => void): HTMLElement =>
-  screen(
+/** GDD §12.10: Concede is open from 15:00 and asks for a second click; before then it is disabled with the reason. */
+export function pauseScreen(actions: AppActions, openOptions: () => void, seconds: number): HTMLElement {
+  const open = seconds >= CONCEDE_AFTER_SECONDS;
+  const concede = button('Concede', () => {
+    if (concede.dataset['armed']) actions.concede();
+    else {
+      concede.dataset['armed'] = 'true';
+      concede.textContent = 'Confirm concede';
+    }
+  });
+  concede.disabled = !open;
+  const note = el('pu-sub', 'p', undefined, open ? 'Conceding ends the match as a defeat.' :
+    `Concede is available from ${clock(CONCEDE_AFTER_SECONDS)} (now ${clock(seconds)}).`);
+  note.id = 'pu-concede-note';
+  concede.setAttribute('aria-describedby', note.id);
+  return screen(
     'pu-pause',
     el('pu-h2', 'h2', undefined, 'Paused'),
     button('Resume', actions.resume),
     button('Options', openOptions),
+    concede,
+    note,
     button('Quit to menu', actions.toMenu, 'pu-btn pu-quiet'),
   );
+}
 
 const FLOCK: Readonly<Record<PlayerTeam, string>> = { dawn: 'Dawn Flock', dusk: 'Dusk Flock' };
 

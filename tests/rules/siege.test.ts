@@ -136,6 +136,29 @@ describe('W4 siege objectives', () => {
     expect(bolt?.impactAt).toBeGreaterThan(0);
   });
 
+  // M2 checklist: "Hawk punishes a hero who shoots an allied hero under it (target switch within 0.5 s)".
+  it.each(['dawn', 'dusk'] as const)('§7.2 %s Hawk leaves a nearer hero for one who shoots an allied hero within 22 m', async (team) => {
+    const sb = await createSandbox({
+      map: 'main', heroes: [{ hero: 'albatross', team: otherTeam(team) }, { hero: 'shrike', team: otherTeam(team) }, { hero: 'owl', team }],
+      options: { structures: true, unlockAbilities: false },
+    });
+    const [near, aggressor, ally] = sb.heroes as [EntityId, EntityId, EntityId];
+    const hawk = tower(sb, team, 'hawk', SIEGE_LANE);
+    sb.place(near, beside(hawk.pos, -5, 8));
+    sb.place(ally, beside(hawk.pos, 6, 12));
+    sb.place(aggressor, beside(hawk.pos, 3, 14));
+    expect(sb.stepUntil(() => hawk.structure.target === near, TICK_RATE / 2), 'rule 3: the nearest enemy hero').not.toBeNull();
+    sb.step(TICK_RATE / 2);
+    expect(hawk.structure.target, 'sticky while nobody hurts an ally').toBe(near);
+    sb.aimAt(aggressor, ally);
+    sb.fire(aggressor);
+    expect(sb.stepUntil(() => hitsFrom(sb, aggressor, ally).length > 0, TICK_RATE), 'the aggressor\'s gun hits the allied hero').not.toBeNull();
+    sb.fire(aggressor, false);
+    expect(hitsFrom(sb, aggressor, ally)[0]?.via).toBe('weapon');
+    expect(sb.stepUntil(() => hawk.structure.target === aggressor, TICK_RATE / 2), 'rule 1 interrupts the sticky target within 0.5 s').not.toBeNull();
+    expect(sb.stepUntil(() => hitsFrom(sb, hawk.id, aggressor).length > 0, 2 * TICK_RATE), 'and the Hawk shoots the aggressor').not.toBeNull();
+  });
+
   it('§7.3 Heron beams at quarter-second intervals and telegraphs a close-range Song stomp', async () => {
     const { sb, dawn } = await siege();
     const heron = tower(sb, 'dusk', 'heron', SIEGE_LANE);
