@@ -1247,3 +1247,54 @@ and `auxclick`. Edge's Mouse 4 capture still navigates back, the 1 failing pendi
 at the merge, because physics now hops. QA: after the settings change, the pending default-keys case expects
 "Left Ctrl" in Edge.
 **Next:** EP merge; Architect settings and `exitFullscreen` wiring; manual Ctrl check in Edge/Chrome.
+
+### W4 · Integration (sim) · 19/11/2026
+**Done** (worktree branch `worktree-agent-aa7955dafbe4fc4cb` from `integrate/w4c` 05ca953, one commit per item, D-EP-018):
+1. *Pending suites* (bddf769). Always on: `tests/rules/{siege,market,practice}.test.ts`, `tests/preview-aim.test.ts`
+   (whole-blast aim via `weapon.traces`), `src/sim/items/items.test.ts` (Close Talons, Whetstone), Puffin's two Rogue
+   Wave assertions and Hornbill's `gunDamage` assertions. Assertions unchanged. Nothing under `src/` or `tests/` is gated
+   now. Still gated, INTEG-WEB's paths: `e2e/m2.spec.ts` and `e2e/preview-regressions.spec.ts`.
+2. *Siege Updraft fixture* (43fff0a). Root cause: the live enemy Hawk and Heron killed the rider before the far Heron.
+   The rider now carries a test-only `invulnerable` for the ride. The 2 m clearance assertion is kept, and all 12 towers
+   clear it.
+3. *Rogue Wave* (aab2123, D-ABIL-011). Root cause in Abilities' `zones.ts`: the carry pushed `displace` 'along' 0.33 m
+   every tick. Physics adds each push to the velocity, so 36 pushes stacked to ~27 m. The target also left the wave
+   front and was re-entered, so the 160 Song landed twice. Now each entity gets one launch of `maxCarry`, or the travel
+   left if shorter. It rides inside the wave, lands 12.2 m on and is hit once.
+4. *Penguin* (7f3b416). Hero A's onTick hop hook (hover plus aim dash) is removed, along with its unused `hopHeight` and
+   `hopCarryS` data. Physics' toboggan Jump hop is the only one.
+5. *Hero B* (fc5afdf). Frenzy T3: Economy's branch has the Items `trigger` handler, so the shred is a timed
+   `weaponHit` trigger with `heroesOnly` (a fledgling hit no longer shreds; new test). Scatter: GDD §9.8 "removes slows
+   and roots on cast", so rooted no longer blocks a cast whose own effects cleanse the root (D-ABIL-012, derived from
+   data, no contract change; Starling test casts while rooted). Owl: GDD §9.5 "ends on landing or pressing Space" now
+   lives in Physics' glide mode (D-CTRL-009, new Physics test), so Owl's hook and `GLIDE_STOP` are gone.
+6. *Concession* (3a99821). The bot's AI was about 3/4 of the test's 54,000 ticks. The human alone takes 0.6 s
+   (2.4 s before), with no timeout change. Follow-up 28a2d6d: the sibling determinism test (three 12-bot sims, 0.8 s
+   alone) then hit 5.5 s in a busy parallel run. It needs its bots, so it gets a 20 s timeout with the reason in a
+   comment.
+7. *Siege proof* (8b265ac), `tests/siege-proof.test.ts`. It uses the client's Play config (main, structures and waves
+   on, neutrals off, no bots) with one Owl. The only input is ordinary PlayerCommands (move, look, Fire, Reload) from a
+   scripted aim-and-fire agent. The agent reads state and never writes it. It keeps 4 m behind its own Riverbank wave
+   and shoots threats, then each open structure from outside its reach, then the phase-two heart. **Seed 1: victory at
+   tick 69,973 (19:26), hash `d662ba91ea093bbd` on both of two runs.** The hero did not die and landed 24 heart hits.
+   Hawk 3:04, Heron 10:36, Wardens 13:50 and 14:54, Shrines 17:09 and 17:45, Patron depleted, then phase 2, then dead
+   at 19:26. The hero got the credit for the Hawk, Heron, one Warden and one Shrine; the wave got the rest. Asserts the
+   event order, all seven route falls and gun hits on every kind of route structure. Timeline in
+   `out/siege-proof/seed-1.json`; about 7 s alone.
+8. *Measurements*: see Verified.
+**Verified:** Git Bash `VITEST_MAX_WORKERS=1 npm run check` PASS 6/6 in 146 s: typecheck 10 s, lint 5 s (0 errors,
+485 inherited warnings; none in the non-test files this branch touched), test 73 s (62 files, 733 tests, none skipped),
+perf 20 s (7/7), sim 5 s (seed 1, 10,800 ticks, hash `24f313406956a6f6`), e2e 33 s (15 passed, 9 skipped). Two
+parallel `npm run check` runs failed the test step under load first: the determinism test at 5.5 s (fixed above), then
+`src/client/audio/audio.test.ts` "is positional" at its 60 s timeout. `npm run perf` alone, 9.8 s: world +0.208 ms/tick
+for 166 fledglings (budget 0.5), siege seed 1 mean 0.166 ms (p99 0.736, max 2.778), physics 0.164 ms (1), units 0.037,
+abilities 0.018 ms (0.065 with 96 areas; 0.3), combat 0.049 ms firing (0.3). 35-minute replay, `npm run sim -- --seed 1
+--minutes 35 --bots 12`, run twice: hash `a1572082c03a5624` both times (126,000 ticks, no winner), 58.0 s and 28.1 s.
+**Not a quiet machine:** INTEG-WEB's worktree and other agent sessions were running throughout. OS CPU over 5 s on
+16 logical cores read 40 % busy before perf, 63 % after, and 50 % and 84 % before the two replays. Wall times are
+upper bounds; the hashes are exact.
+**Found, not fixed (owners):** Audio: `audio.test.ts` "is positional" can pass its 60 s timeout in a parallel unit run
+on a busy machine. Build/QA: on this shared machine the parallel unit step is load-sensitive, and
+`VITEST_MAX_WORKERS=1` passed. INTEG-WEB: the two gated e2e specs above.
+**Interface requests:** none.
+**Next:** EP merges this branch with INTEG-WEB's; QA gate.
