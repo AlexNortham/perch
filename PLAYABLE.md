@@ -8,6 +8,70 @@ at <http://localhost:4173> and opens your browser on the main menu. Stop it with
 
 ---
 
+## Stage 2 (M1 — One bird in a lane) · reached 19/11/2026
+
+**How to get in:** run `npm start`, click **Play**, and pick one of the four birds whose cards say **Pick** (the other 20
+say "Coming soon"). You start a **practice match**: you alone on the Dawn flock in the gold base, on the full map, with
+fledgling waves on all three lanes and all four of your abilities unlocked. To skip the menus, open
+<http://localhost:4173/?scene=lane&hero=shrike> (or `albatross`, `kingfisher`, `lyrebird`).
+
+**The birds:**
+
+| Bird | Role | Gun | Abilities (1, 2, 3, ultimate 4) |
+|---|---|---|---|
+| Shrike | Area control | Barb Rifle | Thorn Larder, Briar Patch, Impaling Bolt, Butcher's Ring |
+| Albatross | Tank / initiator | Gale Blunderbuss | Gale Shield, Wing Slam, Salt Hide, Tempest Dive |
+| Kingfisher | Assassin | Dart Pistol | Plunge, Glint, Spear Bill, Riverstrike |
+| Lyrebird | Support | Echo Lute | Mended Song, Echo Double, Discord, Grand Chorus |
+
+**Controls** (all rebindable in **Options**):
+
+| Action | Key |
+|---|---|
+| Lock the mouse / shoot | click / left mouse |
+| Move / look | WASD / mouse |
+| Jump (also leaves an Updraft or Vine) | Space |
+| Dash (uses a stamina pip) | Left Shift |
+| Crouch; slide if you crouch while moving | Left Ctrl |
+| Abilities | 1 2 3 4 |
+| Reload / melee (hold for a heavy) / parry | R / Q / F |
+| Mount an Updraft at a station | E |
+| Swap shoulder | G |
+| Ping | middle mouse |
+| Pause (Options and Quit are in the pause menu) | Esc |
+
+**What you can do:**
+- **Move like the full game:** run, dash, dash-jump, slide, mantle onto ledges, climb Chimneys and Vines, and ride the
+  Updraft cables strung above each lane (mount at a station with E, jump to drop off).
+- **Shoot:** each bird's own gun, with spread, falloff, reloads and reload-cancel. Hits on the head are **beak shots**:
+  more damage and a gold hit marker.
+- **Use all four abilities** from the first second (levels arrive in Stage 3, so the practice match unlocks everything).
+- **Fight fledglings:** waves leave both bases every 30 seconds on all three lanes. Dawn and Dusk fledglings march, meet
+  and fight each other, and they fight you.
+- **Seed pods:** when a fledgling dies, a seed pod pops up. Shoot an enemy fledgling's pod while it's ripe to
+  **secure** its Seeds; shoot one of your own fledglings' pods to **deny** it to the other side. The HUD shows SECURED or
+  DENIED, and your Seeds go up.
+- **Options** (from the main menu or the pause menu): rebind any key (a key already in use swaps with it; Esc cancels;
+  reset one or all), mouse sensitivity, field of view, graphics quality, volumes. **Settings survive closing the
+  browser.**
+
+**Not in yet:**
+- **No enemy birds.** Bots arrive in Stage 4; until then the practice match is you against fledglings.
+- **No towers or bases to attack.** Fledglings stop at the enemy base and wait; the Hawks, Herons, Wardens, Shrines and
+  the Patron arrive in Stage 3.
+- **Seeds don't buy anything yet:** levels, ability upgrades (Alt+1–4 needs ability points from levels) and the shop
+  arrive in Stage 3.
+- **No sound** (volumes are saved for when it arrives in Stage 3), no minimap, scoreboard or kill feed.
+- **20 birds are still "coming soon"**; they arrive in batches of four through Stages 3 and 4.
+- Rough edges: fledglings can clip through walls when they chase off the lane; Lyrebird's Echo Double upgrades (two
+  decoys, the burst) are untested in play.
+
+**Next, Stage 3 (M2 — The loop):** levels and ability points, the Magpie's Hoard shop, Sentinel Hawks, Stilt Herons,
+Nest Wardens, Roost Shrines and the two-phase Patron, so a match can be won by hand; a full HUD with minimap, kill feed
+and scoreboard; sound; and eight more birds.
+
+---
+
 ## Stage 1 (M0 — Foundations) · reached 19/11/2026
 
 **What you see:** the main menu, floating over the real map, "Old Mossmarket": a city built inside an old forest, lit

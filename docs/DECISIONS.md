@@ -806,3 +806,15 @@ approach a slot on an arc round the target (on their own gate's side, picked by 
 bonus keeps the structure multiplier in the pipeline where the 35:00 lever (W4) can add to it. Slots stop Scrappers of
 one file stacking on a single spot; chasing the slot after reaching the target made pairs circle and lanes pile up
 (482 fledglings at 35:00), so a guard test now holds a 10-minute match to three waves alive.
+
+### D-EP-023 · 19/11/2026 — Options menu with key rebinding in Stage 2
+**Decision:** Stage 2's gate includes an Options screen (from the main menu and the pause menu) with rebinding for every
+action, sensitivity, FOV, graphics quality and volumes, saved through the settings store so they survive a restart.
+It moved forward from wave 7 and was built by the UI engineer in wave 3; `e2e/options.spec.ts` proves persistence and
+live rebinding.
+**Why:** the user's instruction during wave 3.
+
+### D-EP-024 · 19/11/2026 — Pause after wave 3; W4 test-first suites deferred
+**Decision:** at the user's request the studio stops after Stage 2. QA's test-first suites for wave 4 (which D-EP-021
+had moved into the wave 3 gate) are written at the start of wave 4 instead, before the wave 4 implementers start.
+**Why:** the user asked to stop when wave 3 finished; writing wave 4's suites is wave 4 work.

@@ -11,9 +11,11 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
 - **Roster:** 24 heroes (D-EP-015), shipped in six batches of four from W3 to W6
 - **Stage 1 (M0) closed 19/11/2026.** W1 and W2 on main; QA gate APPROVE (W2 · QA gate entry). See PLAYABLE.md.
 - **W2.5 contract round merged 19/11/2026** (28 requests: 22 accepted, 6 modified; INTERFACES.md §11).
-- **W3 running since 03:07** — Stage 2 "One bird in a lane": Camera & Input, Technical Artist, Hero Engineer A,
-  Rendering & VFX, Objectives, Economy & Items, Systems follow-up, UI/HUD (briefs in docs/briefs/W3-*.md)
-- **Last `npm run check`:** PASS on integrate/w2 (5/5 steps, 71 s); sim 0.33 ms per tick at 6v6 (stub bots)
+- **Stage 2 (M1) closed 19/11/2026.** W3 + integration round on main; QA gate APPROVE (W3 · QA gate entry).
+- **PAUSED by the user after wave 3.** When resumed: W3.5 contract round (the interface requests in the W3 Log entries
+  and the W3 QA gate follow-ups), QA's test-first suites for W4 (deferred from the W3 gate), then W4 = Stage 3.
+- **Last `npm run check`:** PASS on integrate/w3 (6/6 steps incl. perf, 76 s; 5 runs in a row); sim 0.234 ms per tick
+  mean over 35 minutes, deterministic (hash 52196bc3abdb2fe3)
 
 ## How the studio works
 
@@ -110,12 +112,13 @@ Gate M0:
   waves; marching and fighting) · Economy & Items (seed pods: drop, secure, deny) · QA
 
 Gate M1:
-- [ ] Player runs, dashes, slides, mantles and rides updrafts
-- [ ] Shoots with working beak shots
-- [ ] Uses 4 abilities
-- [ ] Fledglings march and fight
-- [ ] Pods can be secured and denied
-- [ ] Launchable: from the menu you can drop into a lane as a hero and do all of the above; PLAYABLE.md "Stage 2 (M1)"
+- [x] Player runs, dashes, slides, mantles and rides updrafts
+- [x] Shoots with working beak shots
+- [x] Uses 4 abilities
+- [x] Fledglings march and fight
+- [x] Pods can be secured and denied
+- [x] Options menu with key rebinding; settings persist after restart (D-EP-023)
+- [x] Launchable: from the menu you can drop into a lane as a hero and do all of the above; PLAYABLE.md "Stage 2 (M1)"
   written
 
 ### M2 — The loop
