@@ -11,7 +11,7 @@ export default defineConfig(
     // Gameplay numbers belong in src/sim/data/ (authored map data in src/sim/world/map/data/, D-BUILD-009); client
     // presentation numbers in named constants (D-EP-009).
     files: ['src/**/*.ts'],
-    ignores: ['src/sim/data/**', 'src/sim/world/map/data/**', '**/*.test.ts'],
+    ignores: ['src/sim/data/**', 'src/sim/world/map/data/**', 'src/client/**/data/**', '**/*.test.ts', '**/testkit.ts', '**/*.testkit.ts'],
     rules: {
       '@typescript-eslint/no-magic-numbers': ['warn', {
         ignore: [-1, 0, 1, 2],
