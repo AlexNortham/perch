@@ -634,3 +634,49 @@ steps needs no duplicate fields and no code change at the widening.
 them.
 **Why:** mapping them to `disarmed` and `silenced` would show as those states on the HUD and in the view flags, and
 silence ends channels, so a mode started by a channelled ability (Burrow) would end its own channel.
+
+### D-SYS-001 · 19/11/2026 — Grounded heroes take no gravity step, and rest exactly
+**Decision:** a hero standing on the ground (grounded, not rising) moves with no vertical delta: Rapier's snap-down
+keeps it on the ground and on slopes. While it also has no horizontal motion, a controller move smaller than
+`CONTROLLER.restBand` (1e-3 m, the sum of |x|, |y|, |z|) is dropped, so an idle hero's `pos` and `vel` stay bit-identical
+tick after tick.
+**Why:** the W2 gravity step (3.5 mm a tick) pushed the proxy into the controller's 2 cm skin, where Rapier nudged the
+feet ~1e-4 m every tick (the idle drift) and, from a fresh seat, stalled one tick of a dash now and then (a lost 0.46 m,
+found while fixing the drift). Without the step, neither happens; a free fall moves 3.5× the band, so it never holds a
+hero in the air.
+
+### D-SYS-002 · 19/11/2026 — Summon count, cap and end effects
+**Decision:** one `summon` application makes `count` summons fanned evenly across `spreadDeg` around the target
+direction; the per-source cap is max(`maxCount`, `count`), so a cast never replaces its own summons. `onEnd` runs when
+a summon dies (on `entity.died`, in the damage phase), expires or is replaced past the cap — not when a trap fires —
+with target = its last position (entity null), dir = its current facing (`yaw`, so a wall a hook turns bursts the way
+it faces) and its cause with `origin` moved to that position (pushes in a burst go away from the summon).
+**Why:** Echo Double T2 (two decoys, maxCount 1) and Gale Shield T3 (a burst forward from a wall that follows the aim)
+need exactly this; a trap's trigger effects already are its end.
+
+### D-SYS-003 · 19/11/2026 — Aim dashes follow the pitch; a target dash at the caster goes to the point
+**Decision:** a `dash` with dir 'aim' and no `arcHeight` follows the aim pitch, at most `DASH.aimMaxPitchUp` (30°)
+upward, any angle down, `distance` measured along that line. Setting `arcHeight` (0 = flat) keeps an 'aim' dash
+horizontal. A dir 'target' dash whose `target.entity` is the mover itself (point casts, D-ABIL-001) goes to
+`target.point`.
+**Why:** Plunge (GDD §9.3) dashes along the camera aim with a 30° clamp, Wing Slam (§9.2) is horizontal, and
+DashEffect has no clamp field; the TSDoc already reads `arcHeight` 0 as "a flat dash". Tempest Dive is a point cast,
+so its target entity is the caster and the dash went nowhere.
+
+### D-SYS-004 · 19/11/2026 — Displacements end where they land; wall slams; displaced units
+**Decision:** a push, pull or along displacement stops the hero (or unit) where its arc lands — no ground skid — so it
+travels its `distance` on flat ground (± 0.2 m measured). A wall slam is a displaced entity meeting a wall with at least
+`DISPLACE.wallSlamSpeed` (4 m/s) of horizontal speed toward it, once per displacement: `onWall` with the displacement's
+cause on the entity, target dir into the wall, plus a `movement` 'wallSlam' for heroes (also for displacements without
+`onWall`). Units move under displace, dash and attach in sim/physics (units.ts): rooted under 'physics:displaced' while
+they move, a ballistic flight over the cached ground with one horizontal ray a tick for walls, landing interpolated
+within the tick; knock-ups and dashes too; unstoppable units ignore all three.
+**Why:** GDD §3.9 gives flat-ground distances; the W2 controller kept the landing speed and decelerated, so a 6 m push
+slid to 8.4 m. Units have no controller (D-CTRL-002), so the ray is the cheapest honest wall test.
+
+### D-SYS-005 · 19/11/2026 — The aim ray stops on seed pods; walls are boxes for every cast
+**Decision:** combat's aim-point resolution includes pods, so a bullet converges on the pod under the crosshair (it
+still passes through pods, GDD §5.6). A unit with `unit.size` is hit as a box of that size standing on `pos`, turned by
+`yaw`, grown by the cast radius on every side (square corners); it stops enemy shots from either side.
+**Why:** without pods in the aim ray, a shot at a pod 6 m away aimed at the world behind it and passed ~0.75 m from the
+pod (Economy's D-ECON-001 workaround). A Minkowski box is one slab test; the rounded corners it skips are a few cm.

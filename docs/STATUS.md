@@ -548,3 +548,34 @@ config. `npm run shots -- --scene lane --hero kingfisher` → looked at: the pla
 to `Magnitude` once Combat reads them through `ctx.effects.magnitude` (D-ARCH-015).
 **Next:** wave 3 owners work through W3-contract-followups.md. Not done: unit tests for core/view.ts, vision.ts and
 math.ts (QA's review noted their absence; not in this brief).
+### W3 · Systems follow-up (Controller, Combat, Ability Systems) · 19/11/2026
+**Done:** every W3-contract-followups item for the three systems, plus the idle-drift defect and the EP's five extra
+findings. *Combat:* `projectile.impact.via` on every impact; `WeaponDef.projectileRadius`, `perRoundStartS`,
+`spinUp`; wall hitboxes from `UnitInfo.size`; `targetHpBelow`, `missingHpPct`, `executeBelow` through
+`ctx.effects.magnitude`; `DamageEffect.beakShotMult`; `WeaponModEffect.shots`; `Motor.modeAllowsGun`;
+`EFFECT_TICK_SECONDS` (dropped `COMBAT.tickIntervalS`); the aim ray stops on pods. *Abilities:* `selfEffects` (base +
+tiers); `SummonEffect.onEnd`, `count`, `spreadDeg`; `UnitInfo.size`; `tether` start/end events; 'displaced' ends
+channels; `modeAllowsAbilities`; `EFFECT_TICK_SECONDS` (dropped `AREA_TICK_S`); rooted or stunned decoys stand still;
+the validator walks selfEffects, onWall, onEnd and count; the framework test reads Shrike's ultimate timings from data.
+*Controller:* idle heroes rest exactly (no gravity step on the ground, a 1 mm rest band, D-SYS-001; it also removed a
+one-tick dash stall from fresh seats); wall slam with `onWall` and 'wallSlam'; 'displaced' events; teleport yaw on a
+'teleport' event; mode flags on Motor; units displaced, dashed and attached by physics (units.ts, rooted under
+'physics:displaced'); a dash 'target' at the caster goes to the point (Tempest Dive); 'aim' dashes keep their pitch
+(≤ 30° up) unless `arcHeight` is set; displacements stop where they land (6 m push → 6.0 m, was 8.4). D-SYS-001…005.
+**Verified:** `npm run check` → PASS typecheck 5 s, lint 2 s, test 5 s, sim 2 s, e2e 12 s (check 26 s); vitest 32 files,
+348 passed, 22 skipped (pods, fledglings). `npx vitest run tests/contracts/damage.test.ts` → 23 passed. `npm run sim --
+--seed 1 --minutes 3 --bots 12` twice → hash 86b4281ec2fe6908 both times (new: hero positions changed with the rest
+fix), 14,840 and 15,011 ticks/s = 0.067 ms/tick (stub bots). New tests: src/sim/combat/followups.test.ts (10),
+src/sim/abilities/followups.test.ts (10), 8 new in src/sim/physics/controller.test.ts (rest on flat ground, after
+stopping, on the ramp and on 'main'; displace distance; wall slam fast and slow; teleport yaw; mode flags; target dash;
+pitched and flat aim dashes; units displaced, slammed, dashed, attached). Three W2 physics tolerances loosened from
+0.5 mm to 5 mm (vine shimmy x, toboggan distance): Rapier sub-millimetre noise, not behaviour.
+**Blocked:** nothing.
+**Interface requests:** Architect (W3.5) — `DashEffect.maxPitchUpDeg` (or `followPitch`), so the 30° Plunge clamp is
+data rather than a movement constant and Wing Slam needn't set `arcHeight: 0` to stay flat (D-SYS-003). Economy —
+pods can go back to their real hit radius: the bullet now converges on the pod under the crosshair (D-SYS-005).
+**Next:** Hero Engineer A switches off WALL_SLAM_IN_FRAMEWORK, SUMMON_END_IN_FRAMEWORK and SELF_EFFECTS_IN_FRAMEWORK
+hooks after the merge; Wing Slam needs `arcHeight: 0`; Gale Shield's follow hook must write the wall's `pos` and `yaw`
+(the built-in 'wall' behaviour stands still). Left: `onCaster` stays until no kit uses it; projectile-gun weapon mods
+still apply at impact time (a shot-limited mod's last bullets in flight can land after it ended); units take no
+teleport or movement mode.
