@@ -1697,3 +1697,88 @@ outline red and teal stay off the environment). Checklist item A1 asks the quest
 and a "no" blocks.
 **Why:** the user's instruction via the EP: the map should feel like somewhere birds would be, in every area, while
 staying readable in combat.
+### D-SYS-006 · 19/11/2026 — The Updraft latch, read exactly (GDD §3.7, D-EP-039)
+**Decision:** `updraftInReach` is the nearer of two tests per segment: the column (feet within 2.5 m of the cable's
+ground line, the cable 0.5–14 m above them, at the point straight above the feet's nearest spot) and a 1.5 m sphere
+around the cable. Jump held for 12 consecutive ticks (0.2 s) latches; an airborne hero within 1.5 m attaches in 9 ticks,
+anyone else is pulled straight to that point at 30 m/s. A hold that spans the end of a lockout latches as soon as it
+ends. The press keeps starting a normal jump; mantles come first. Riding tracks whether Jump has been let go since the
+latch; only a press after that jumps off. `Button.Interact` is never read. On a map without Updrafts physics leaves
+`Motor.updraftInReach` alone.
+**Why:** the GDD gives both reach rules; "pulls you straight up" from up to 2.5 m to one side needs a direction, and
+the cable point is the only one that ends on the cable.
+
+### D-SYS-007 · 19/11/2026 — Bough Springs fly a ballistic arc from where the feet are (GDD §7.15)
+**Decision:** a grounded hero whose feet are inside a pad's radius and within 0.6 m of its height launches with the
+vertical speed that peaks at `apexY` under hero gravity and the horizontal speed that lands at `land`. No air control
+before the apex, 30% after. A clip (enemy hero damage in the first 0.6 s) sets vertical speed to min(current, 0), moves
+air control to the after-apex 30%, and applies the shared 30% `slow` for 1.5 s with the damaging hero as its source
+(via 'objective'). The 1.0 s limit counts from the launch.
+**Why:** the arc is data; integrating it with the controller's own gravity keeps walls, landings and air control
+working with no scripted path.
+
+### D-SYS-008 · 19/11/2026 — The Cellar Run and the Egg carrier's stair heads
+**Decision:** inside a `tag: 'tunnel'` room the `moveSpeed` stat is ×1.3 before the sprint bonus is added; dash
+distances and slide speeds don't change (a dash's exit speed follows run speed, as everywhere). An Opening with
+`blocksEggCarrier` becomes a 0.2 m slab across the gap on a layer only an Egg carrier's moves and fit checks collide with.
+**Why:** "+30% run speed (sprint, dashes and slides unchanged)"; a per-carrier collider layer needs no per-tick work.
+
+### D-SYS-009 · 19/11/2026 — A melee swing reports the first pickup in front and carries on
+**Decision:** the swing's cast reports the first pickup before any hitbox as a `melee` event (no damage), then deals
+with the first hero, unit or structure behind it as before (a second `melee` event). Pickups need `melee` set ('heavy'
+only answers a heavy swing), no carrier and a `claimableAt` that has passed; pods and the Stage 3 Ember stay in the
+test. Pods therefore no longer stop a swing either.
+**Why:** INTERFACES §14.4: "doesn't stop the swing at heroes behind it". Skipping carried and unclaimable pickups keeps
+the hit for the carrier itself (the Egg drops on an enemy melee hit, §7.11).
+
+### D-SYS-010 · 19/11/2026 — Physics layers for 'movement' and 'sight' prims and the Egg-carrier blockers
+**Decision:** `PHYSICS_LAYERS` (data/movement.ts): sight 0x10 (ivy), movement 0x20 (shot-window fillers), eggCarrier
+0x40. Movement, mantles, fits and the units' ground cache use `MOVE_MASK` (LAYERS_SOLID | movement); `groundHeight`
+too. A query with LAYERS_SOLID alone (bullets, vision today, areas) hits neither, so sight and shots pass a shot window
+and an ivy curtain. Vision and `unit` targeting add `PHYSICS_LAYERS.sight`. Structures with `solid: false` get no
+collider.
+**Why:** contract `Layer` is frozen this wave; the bits live in physics data until the Architect adds them (W5.5).
+
+### D-SYS-011 · 19/11/2026 — A dash can follow the aim: `values.steerDeg` (Rampage)
+**Decision:** an 'aim' dash whose cause values hold `steerDeg` > 0 re-aims every tick to the caster's yaw, clamped to
+±steerDeg of its starting direction. Rampage's data adds `steerDeg: 30` to its values.
+**Why:** `DashEffect` has no steering field and the contract is frozen; ability values already reach the dash through
+the cause, so no hook is needed.
+
+### D-SYS-012 · 19/11/2026 — The floor under the crosshair, and surface casts: `values.surface`
+**Decision:** a 'point' cast takes the aim point pulled 5 cm back toward the camera or, beyond range, the point on the
+crosshair ray at that horizontal distance, and drops it to the floor below. That point lies in air the caster can see,
+so the drop never passes through a ceiling (the old 2 m probe landed on the slab above). A cast whose values hold
+`surface` ≥ 1 takes the surface hit itself within range (3D, from the feet), and a 'target' dash from such a cast flies
+straight to it, stopping a body radius short (Tree Cling, Branch Swing).
+**Why:** GDD §6.11 and §§9.18–9.19 ("any surface", "wall or tree"); no `AbilityDef` field for it this wave.
+
+### D-SYS-013 · 19/11/2026 — Full spin is a status id; spin runs down over 0.5 s
+**Decision:** spin is a 0–1 level: it rises over `spinUp.seconds` while firing and falls over `COMBAT.spinDownS` (0.5 s)
+once fire stops. While the hero holds any status with id `COMBAT.fullSpinStatus` it is 1 (Drumroll: rename its
+fire-rate statMod's id). Not a StatusDef export, so the wiki's shared-status table is unchanged.
+**Why:** GDD §9.19 "spins down 0.5 s after release"; a status needs no new `WeaponModEffect` field.
+
+### D-SYS-014 · 19/11/2026 — Trigger hits: `triggerPct` refers to the hit being reported
+**Decision:** combat marks the hit whose `damage.applied` is on the bus. A `damage` with `triggerPct` applied meanwhile
+(item and ability triggers run there) uses it: on another entity it adds triggerPct × the hit after step 5 (before the
+target's resists) and goes through the whole pipeline (Bristle, Burr Coat); on the hit's own target it is a repeat,
+triggerPct × the damage dealt, which skips steps 1–7 (Crescendo). A status applied meanwhile binds the hit to its cause,
+so `triggerPct` in its `onExpire` repeats the hit later (Echo Chamber: a 1 s status instead of a `delay`). `%HP` parts
+(`currentHpPct`, `maxHpPct`) are step 1, read when the hit resolves.
+**Why:** a repeat that goes through the pipeline again is resisted twice (the wave 5a finding); a delay can't carry the
+hit, a status's cause can.
+
+### D-SYS-015 · 19/11/2026 — Breakables, damage regions, Rekindle, areas on a storey
+**Decision:** a breakable's `light`/`heavy` amount replaces steps 1–7. `damageFrom` drops a hit only when it has a
+credited hero outside the region. Rekindle: a hero dying while its flock's `rekindle` has a charge and an `until` ahead
+revives where it fell after 3 s at full HP, once per hero per `until`. A resolved duration ≤ 0 applies nothing for
+`statMod` as for `applyStatus`. An area member whose feet are more than 1.5 m above or below the centre needs a clear
+line (both ends lifted 0.5 m); an ivy curtain blocks `unit` targeting unless caster or target is within 3 m of it.
+**Why:** GDD §§6.8, 6.11, 7.9, 7.12, 7.14 and the W5 follow-ups.
+
+### D-SYS-016 · 19/11/2026 — Two gaps the frozen contract can't close
+**Decision:** Tree Cling's stun end stays the hero's (or an `onEnd` cleanse plus its hook): `endOn` has no 'stun', and a
+physics stun rule would bypass the Woodpecker hook that removes the gun bonus. Gape's "heal 30% of the damage dealt" has
+no exact shape: the lifesteal status stays until a `HealEffect.triggerPct` (a share of the hit being reported) lands.
+**Why:** both are one-field contract changes for W5.5; the stand-ins work meanwhile.

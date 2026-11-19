@@ -4,7 +4,8 @@
  * every effect applied, so tests check combat's and physics' kinds without those systems, and it owns its router,
  * so registering fakes never collides with their real handlers. Used by the co-located tests only.
  */
-import { IDLE_COMMAND } from '../core/contracts';
+import { IDLE_COMMAND, LAYERS_SOLID } from '../core/contracts';
+import { PHYSICS_LAYERS } from '../data/movement';
 import type {
   AbilityDef,
   Effect,
@@ -48,6 +49,14 @@ export interface FakeWall {
   readonly z0: number;
   readonly z1: number;
 }
+/** A thin floor slab at height `y` over x0…x1, z0…z1: rays hit it from above and below; ground probes land on it. */
+export interface FakeFloor {
+  readonly y: number;
+  readonly x0: number;
+  readonly x1: number;
+  readonly z0: number;
+  readonly z1: number;
+}
 
 export interface Harness {
   readonly ctx: SimContext;
@@ -57,6 +66,10 @@ export interface Harness {
   /** Every event emitted since the harness was made. */
   readonly events: SimEvent[];
   readonly walls: FakeWall[];
+  /** Floor slabs (and ceilings seen from below). */
+  readonly floors: FakeFloor[];
+  /** Ivy curtains: hit only by queries that ask for PHYSICS_LAYERS.sight. */
+  readonly curtains: FakeWall[];
   /** Spawn a hero (feet at `pos`, facing `yaw`). */
   hero(id: HeroId, team: PlayerTeam, pos: Vec3, yaw?: number): HeroEntity;
   /** Advance `n` ticks; `cmd` is the first tick's command for each listed hero (presses last one tick). */
@@ -116,21 +129,37 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
   const applied: Applied[] = [];
   const events: SimEvent[] = [];
   const walls: FakeWall[] = [];
+  const floors: FakeFloor[] = [];
+  const curtains: FakeWall[] = [];
   const inner = effects.apply;
   effects.apply = (effect: Effect, target: EffectTarget, cause: EffectCause) => {
     applied.push({ effect, target, cause, tick: clock.tick } as Applied);
     inner(effect, target, cause);
   };
+  const crossing = (list: readonly FakeWall[], origin: Vec3, dir: Vec3, best: number): number => {
+    for (const w of list) {
+      if (dir.x === 0) continue;
+      const t = (w.x - origin.x) / dir.x;
+      const z = origin.z + dir.z * t;
+      if (t > 0 && t < best && z >= w.z0 && z <= w.z1) best = t;
+    }
+    return best;
+  };
   const physics: PhysicsService = {
-    raycast(origin, dir, max) {
+    raycast(origin, dir, max, mask) {
       let best = Infinity;
       if (dir.y < 0) best = -origin.y / dir.y;
-      for (const w of walls) {
-        if (dir.x === 0) continue;
-        const t = (w.x - origin.x) / dir.x;
-        const z = origin.z + dir.z * t;
-        if (t > 0 && t < best && z >= w.z0 && z <= w.z1) best = t;
+      if ((mask & LAYERS_SOLID) !== 0) {
+        best = crossing(walls, origin, dir, best);
+        for (const f of floors) {
+          if (dir.y === 0) continue;
+          const t = (f.y - origin.y) / dir.y;
+          const x = origin.x + dir.x * t;
+          const z = origin.z + dir.z * t;
+          if (t > 0 && t < best && x >= f.x0 && x <= f.x1 && z >= f.z0 && z <= f.z1) best = t;
+        }
       }
+      if ((mask & PHYSICS_LAYERS.sight) !== 0) best = crossing(curtains, origin, dir, best);
       if (best > max) return null;
       const point = { x: origin.x + dir.x * best, y: origin.y + dir.y * best, z: origin.z + dir.z * best };
       return { distance: best, point, normal: { x: 0, y: 1, z: 0 }, entity: null };
@@ -144,7 +173,11 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
       const p = store.get(id)?.pos ?? { x: 0, y: 0, z: 0 };
       return { pos: { x: p.x + d.x, y: p.y + d.y, z: p.z + d.z }, grounded: true, wall: null };
     },
-    groundHeight: () => 0,
+    groundHeight: (x, z, fromY) => {
+      let y = fromY >= 0 ? 0 : null;
+      for (const f of floors) if (f.y <= fromY && f.y > (y ?? -Infinity) && x >= f.x0 && x <= f.x1 && z >= f.z0 && z <= f.z1) y = f.y;
+      return y;
+    },
   };
   const heroes = { ...HEROES, ...opts.heroes } as Record<HeroId, HeroModule>;
   const roster =
@@ -180,6 +213,8 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     applied,
     events,
     walls,
+    floors,
+    curtains,
     hero(id, team, pos, yaw = 0) {
       const def = heroes[id].def;
       const s = stats.create(def.stats);

@@ -5,7 +5,7 @@
  * controller: they move over the cached ground (moveCharacter's cheap path), with one horizontal ray per tick for
  * walls, where they stop (and slam, GDD §3.9).
  */
-import { LAYERS_SOLID } from '../core/contracts';
+import { MOVE_MASK } from './rapier';
 import type { CharacterMove, CoreContext, Effect, EffectCause, EntityId, Hasher, PhysicsService, UnitEntity, Vec3 } from '../core/contracts';
 import { lookDir } from '../core/aim';
 import { copy } from '../core/math';
@@ -75,7 +75,7 @@ export function createUnitMover(ctx: CoreContext, service: PhysicsService): Unit
     if (len === 0) return false;
     const dir = { x: d.x / len, y: 0, z: d.z / len };
     const from = { x: u.pos.x, y: u.pos.y + Math.min(u.unit.height * HALF, GROUND.stepUp + u.radius), z: u.pos.z };
-    const hit = service.raycast(from, dir, len + u.radius, LAYERS_SOLID);
+    const hit = service.raycast(from, dir, len + u.radius, MOVE_MASK);
     if (!hit || hit.normal.y >= WALKABLE_NY) return false;
     const k = Math.max(0, hit.distance - u.radius) / len;
     const toward = (len / dt) * -(dir.x * hit.normal.x + dir.z * hit.normal.z) / (dmath.hypot(hit.normal.x, hit.normal.z) || 1);

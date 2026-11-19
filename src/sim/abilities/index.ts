@@ -5,8 +5,11 @@
  * Cast targets (what `effects` land on), per AbilityDef.targeting:
  * - self:      entity = caster, point = caster's feet, dir = look direction.
  * - direction: entity = caster, point = aim point, dir = muzzle → aim point.
- * - point:     entity = caster, point = aim point clamped to range and dropped to the ground, dir = flat look.
- * - unit:      entity = the chosen hero or unit, point = its feet, dir = muzzle → its body centre.
+ * - point:     entity = caster, point = the floor under the crosshair within range (never through a ceiling), or with
+ *              values.surface ≥ 1 the surface under it (D-SYS-012), dir = flat look.
+ * - unit:      entity = the chosen hero or unit (visible to the caster's flock, not behind ivy beyond 3 m; an ally cast
+ *              with selfFallback takes the caster when no ally is in the cone), point = its feet, dir = muzzle → its
+ *              body centre.
  * So self-buffs work in self, direction and point casts, and anything meant for others goes through a projectile,
  * area, dash onHit, tether or summon. `selfEffects` land on the caster whatever the targeting (entity = caster, point
  * = its feet, dir = the cast's dir), after `effects` and before the onCast hook. The cause's
@@ -20,8 +23,19 @@
  * land → optional channel with channelEffects every channelIntervalS, ended by its duration ('end'), a second press
  * ('end'), or stun, silence, death or a displacement ('interrupted').
  */
-import { AP_COSTS, CHARGE_LOCKOUT_S, COOLDOWN_REDUCTION_CAP, GROUND_PROBE_UP, RAD_PER_DEG, UNIT_TARGET_CONE_DEG, UNLOCK_LEVELS } from '../data/abilities';
+import {
+  AP_COSTS,
+  CHARGE_LOCKOUT_S,
+  COOLDOWN_REDUCTION_CAP,
+  CURTAIN_SEE_THROUGH_M,
+  POINT_PULL_BACK,
+  RAD_PER_DEG,
+  SURFACE_VALUE,
+  UNIT_TARGET_CONE_DEG,
+  UNLOCK_LEVELS,
+} from '../data/abilities';
 import { CAMERA } from '../data/core';
+import { PHYSICS_LAYERS } from '../data/movement';
 import { ABILITY_BUTTONS, LAYERS_SOLID } from '../core/contracts';
 import type {
   Effect,
@@ -33,6 +47,7 @@ import type {
   HeroEntity,
   HeroHooks,
   HeroId,
+  RayHit,
   SystemFactory,
   TargetFilter,
   Tick,
@@ -217,11 +232,42 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
 
   const rangeOf = (hs: HeroState, r: ResolvedAbility): number => r.range * (1 + stats.get(hs.hero.id, 'abilityRange'));
 
-  /** First solid hit along the crosshair ray, or the ray's end (aim model step 3, world only). */
-  const aimPoint = (ray: AimRay): Vec3 => {
-    const start = addScaled(ray.origin, ray.dir, ray.start);
-    const len = CAMERA.aimRange - ray.start;
-    return physics.raycast(start, ray.dir, len, LAYERS_SOLID)?.point ?? addScaled(start, ray.dir, len);
+  /** First solid hit along the crosshair ray, or null (aim model step 3, world only). */
+  const aimHit = (ray: AimRay): RayHit | null =>
+    physics.raycast(addScaled(ray.origin, ray.dir, ray.start), ray.dir, CAMERA.aimRange - ray.start, LAYERS_SOLID);
+  /** The aim point: the first solid hit along the crosshair ray, or the ray's end. */
+  const aimPoint = (ray: AimRay, hit = aimHit(ray)): Vec3 =>
+    hit?.point ?? addScaled(ray.origin, ray.dir, CAMERA.aimRange);
+
+  /**
+   * 'point' targeting (GDD §6.11): the floor under the crosshair. The aim point, or the point along the crosshair ray
+   * whose horizontal distance from the caster is the range, is pulled back toward the camera off any surface and
+   * dropped to the floor below it: it is in the open air the caster sees, so the drop never goes through a ceiling.
+   */
+  const floorPoint = (h: HeroEntity, ray: AimRay, p: Vec3, max: number): Vec3 => {
+    // On a surface within range: just off it, toward the camera.
+    let q = addScaled(p, ray.dir, -POINT_PULL_BACK);
+    if (dmath.hypot(p.x - h.pos.x, p.z - h.pos.z) > max) {
+      // Out of range: the point on the ray at that horizontal distance (the far root of |start + dir·u − hero| = max).
+      const start = addScaled(ray.origin, ray.dir, ray.start);
+      const a = ray.dir.x * ray.dir.x + ray.dir.z * ray.dir.z;
+      const ox = start.x - h.pos.x;
+      const oz = start.z - h.pos.z;
+      const halfB = ox * ray.dir.x + oz * ray.dir.z;
+      const c = ox * ox + oz * oz - max * max;
+      const disc = halfB * halfB - a * c;
+      if (a > 0 && disc >= 0) q = addScaled(start, ray.dir, (-halfB + Math.sqrt(disc)) / a);
+    }
+    return { x: q.x, y: physics.groundHeight(q.x, q.z, q.y) ?? q.y, z: q.z };
+  };
+
+  /** Caster or target within CURTAIN_SEE_THROUGH_M of an ivy curtain sees through it; otherwise it blocks (GDD §6.8). */
+  const curtainClear = (from: Vec3, to: Vec3): boolean => {
+    const d = sub(to, from);
+    const len = dmath.hypot(d.x, d.y, d.z);
+    if (len <= 2 * CURTAIN_SEE_THROUGH_M) return true;
+    const hit = physics.raycast(from, { x: d.x / len, y: d.y / len, z: d.z / len }, len, PHYSICS_LAYERS.sight);
+    return hit === null || hit.distance <= CURTAIN_SEE_THROUGH_M || len - hit.distance <= CURTAIN_SEE_THROUGH_M;
   };
 
   const centre = (e: Entity): Vec3 => ({ x: e.pos.x, y: e.pos.y + centreHeight(ctx, e), z: e.pos.z });
@@ -241,11 +287,12 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
       const len = dmath.hypot(v.x, v.y, v.z);
       const cos = len > 0 ? dot(v, ray.dir) / len : -1;
       if (cos < bestCos || (best !== null && cos === bestCos)) continue;
-      if (!clearLine(ctx, origin, c)) continue;
+      if (!clearLine(ctx, origin, c) || !curtainClear(origin, c)) continue;
       best = e;
       bestCos = cos;
     }
-    return best ?? (f.self && f.teams !== 'enemies' ? h : null);
+    // An ally cast with no ally in the cone falls back to the caster when the data says so.
+    return best ?? ((f.self === true || r.def.selfFallback === true) && f.teams !== 'enemies' ? h : null);
   };
 
   const pickTarget = (hs: HeroState, r: ResolvedAbility, origin: Vec3): EffectTarget | null => {
@@ -259,17 +306,13 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
         return { entity: h.id, point: p, dir: normalize(sub(p, origin)) };
       }
       case 'point': {
-        const p = aimPoint(ray);
-        const dx = p.x - h.pos.x;
-        const dz = p.z - h.pos.z;
-        const d = dmath.hypot(dx, dz);
+        const hit = aimHit(ray);
+        const p = aimPoint(ray, hit);
         const max = rangeOf(hs, r);
-        const k = d > max ? max / d : 1;
-        const x = h.pos.x + dx * k;
-        const z = h.pos.z + dz * k;
-        const probe = (k < 1 ? h.pos.y : p.y) + GROUND_PROBE_UP;
-        const y = physics.groundHeight(x, z, probe) ?? (k < 1 ? h.pos.y : p.y);
-        return { entity: h.id, point: { x, y, z }, dir: normalize({ x: ray.dir.x, y: 0, z: ray.dir.z }) };
+        const dir = normalize({ x: ray.dir.x, y: 0, z: ray.dir.z });
+        // A surface cast (Tree Cling, Branch Swing) takes the wall, tree or floor under the crosshair within range.
+        const onSurface = hit !== null && (r.values[SURFACE_VALUE] ?? 0) >= 1 && dmath.hypot(p.x - h.pos.x, p.y - h.pos.y, p.z - h.pos.z) <= max;
+        return { entity: h.id, point: onSurface ? copy(p) : floorPoint(h, ray, p, max), dir };
       }
       case 'unit': {
         const e = pickUnit(hs, r, ray, origin);

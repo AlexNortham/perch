@@ -27,8 +27,8 @@ export interface HeroState {
   readonly meleeCause: Mutable<EffectCause>;
   /** Tick of the next allowed shot. */
   nextFire: number;
-  /** Tick the current burst of continuous fire started (WeaponDef.spinUp). */
-  spinStart: number;
+  /** WeaponDef.spinUp: how far the gun is spun up, 0..1 (rises while firing, falls over COMBAT.spinDownS after). */
+  spin: number;
   /** Reloading: tick the magazine completes, or the next round loads (per-round guns). */
   reloadAt: number;
   mods: ModRec[];

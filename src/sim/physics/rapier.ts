@@ -8,6 +8,9 @@
  *  - `bodies`: hero capsules (Layer.Hero), synced from the hero entities and stepped only when a query asks for
  *    Layer.Hero after heroes moved.
  * Units have no colliders: `moveCharacter` moves them over cached ground heights (cheap path, no walls).
+ * Prims with `blocks` and the Egg-carrier blockers sit on physics' own layers (PHYSICS_LAYERS, D-SYS-010): movement
+ * uses MOVE_MASK, so shot-window fillers stop heroes and units but not LAYERS_SOLID queries (bullets, sight, areas),
+ * and ivy curtains stop only queries that ask for the sight layer.
  * Nothing here is dynamic, so there is no per-tick integration step (D-CTRL-001).
  */
 import RAPIER from '@dimforge/rapier3d-compat';
@@ -23,7 +26,7 @@ import type {
   Vec3,
 } from '../core/contracts';
 import { CROUCH_SCALE } from '../data/core';
-import { CONTROLLER, GROUND } from '../data/movement';
+import { CONTROLLER, EGG_BLOCKER_DEPTH, GROUND, PHYSICS_LAYERS } from '../data/movement';
 import * as dmath from '../core/dmath';
 
 const BITS = 16;
@@ -32,7 +35,13 @@ const ALL_LAYERS = 0xffff;
 const groups = (memberships: number, filter: number): number => ((memberships << BITS) | filter) >>> 0;
 /** A query hits colliders whose layer is in `mask`. */
 const queryGroups = (mask: number): number => groups(ALL_LAYERS, mask);
-const STATIC_GROUPS = queryGroups(LAYERS_SOLID);
+/** Layers held by the statics world: the contract's World and Structure, and physics' own (D-SYS-010). */
+const STATIC_LAYERS = LAYERS_SOLID | PHYSICS_LAYERS.sight | PHYSICS_LAYERS.movement | PHYSICS_LAYERS.eggCarrier;
+/** What heroes and units collide with: everything solid but sight-only prims and the Egg-carrier blockers. */
+export const MOVE_MASK = LAYERS_SOLID | PHYSICS_LAYERS.movement;
+const MOVE_GROUPS = queryGroups(MOVE_MASK);
+/** An Egg carrier also collides with Opening.blocksEggCarrier gaps. */
+const EGG_GROUPS = queryGroups(MOVE_MASK | PHYSICS_LAYERS.eggCarrier);
 const IDENTITY = { x: 0, y: 0, z: 0, w: 1 };
 const HALF = 0.5;
 /** Tolerance on the walkable-normal test. */
@@ -73,10 +82,10 @@ export interface Space {
   addHero(id: EntityId, radius: number, height: number): void;
   addStructure(id: EntityId, pos: Vec3, radius: number, height: number): void;
   remove(id: EntityId): void;
-  /** Collide-and-slide for a hero from `feet` by `delta` (Rapier character controller). */
-  moveHero(id: EntityId, feet: Vec3, crouching: boolean, delta: Vec3): MoveResult;
+  /** Collide-and-slide for a hero from `feet` by `delta` (Rapier character controller); `egg`: an Egg carrier. */
+  moveHero(id: EntityId, feet: Vec3, crouching: boolean, delta: Vec3, egg?: boolean): MoveResult;
   /** True if the hero's capsule (standing or crouched) fits at `feet` without touching solid geometry. */
-  fits(id: EntityId, feet: Vec3, crouching: boolean): boolean;
+  fits(id: EntityId, feet: Vec3, crouching: boolean, egg?: boolean): boolean;
   /** Hero positions changed: re-sync the query bodies before the next Layer.Hero query. */
   heroesMoved(): void;
 }
@@ -134,7 +143,18 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
     if (!p.solid) continue;
     const desc = primDesc(p);
     if (!desc) throw new Error(`physics: prim ${JSON.stringify(p)} has no collider shape`);
-    statics.createCollider(desc.setCollisionGroups(groups(Layer.World, ALL_LAYERS)));
+    const layer = p.blocks === 'movement' ? PHYSICS_LAYERS.movement : p.blocks === 'sight' ? PHYSICS_LAYERS.sight : Layer.World;
+    statics.createCollider(desc.setCollisionGroups(groups(layer, ALL_LAYERS)));
+  }
+  // The Cellar Run's stair heads (GDD §7.15): a slab across the gap that only an Egg carrier's moves collide with.
+  for (const o of map.openings ?? []) {
+    if (!o.blocksEggCarrier) continue;
+    statics.createCollider(
+      RAPIER.ColliderDesc.cuboid(o.width * HALF, o.height * HALF, EGG_BLOCKER_DEPTH * HALF)
+        .setTranslation(o.centre.x, o.centre.y, o.centre.z)
+        .setRotation(yawRot(o.yaw))
+        .setCollisionGroups(groups(PHYSICS_LAYERS.eggCarrier, ALL_LAYERS)),
+    );
   }
 
   const kcc: KinematicCharacterController = statics.createCharacterController(CONTROLLER.skin);
@@ -196,7 +216,7 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
         return true;
       },
       undefined,
-      STATIC_GROUPS,
+      MOVE_GROUPS,
     );
     col = Float64Array.from(tops).sort().reverse();
     groundCache.set(key, col);
@@ -223,10 +243,10 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
     ray.dir.y = dir.y;
     ray.dir.z = dir.z;
     let best: RayHit | null = null;
-    if ((mask & LAYERS_SOLID) !== 0) {
+    if ((mask & STATIC_LAYERS) !== 0) {
       syncStatic();
       const hit = statics.castRayAndGetNormal(
-        ray, maxDistance, true, undefined, queryGroups(mask & LAYERS_SOLID), structureCollider(ignore),
+        ray, maxDistance, true, undefined, queryGroups(mask & STATIC_LAYERS), structureCollider(ignore),
       );
       if (hit) best = rayHit(origin, dir, hit.timeOfImpact, hit.normal, staticOwner.get(hit.collider.handle) ?? null);
     }
@@ -255,9 +275,9 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
         };
       }
     };
-    if ((mask & LAYERS_SOLID) !== 0) {
+    if ((mask & STATIC_LAYERS) !== 0) {
       syncStatic();
-      consider(statics, queryGroups(mask & LAYERS_SOLID), structureCollider(ignore), staticOwner);
+      consider(statics, queryGroups(mask & STATIC_LAYERS), structureCollider(ignore), staticOwner);
     }
     if ((mask & Layer.Hero) !== 0) {
       syncBodies();
@@ -290,7 +310,8 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
   };
 
   const groundHeight: PhysicsService['groundHeight'] = (x, z, fromY) => {
-    const hit = raycast({ x, y: fromY, z }, { x: 0, y: -1, z: 0 }, Math.max(0, fromY - map.killY), LAYERS_SOLID);
+    // Walkable surfaces are what heroes and units stand on: movement-only prims count, sight-only ones don't.
+    const hit = raycast({ x, y: fromY, z }, { x: 0, y: -1, z: 0 }, Math.max(0, fromY - map.killY), MOVE_MASK);
     return hit ? fromY - hit.distance : null;
   };
 
@@ -323,11 +344,11 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
     c.proxy.setTranslation({ x: feet.x, y: feet.y + height * HALF + CONTROLLER.skin, z: feet.z });
   };
 
-  const moveHero: Space['moveHero'] = (id, feet, crouching, delta) => {
+  const moveHero: Space['moveHero'] = (id, feet, crouching, delta, egg = false) => {
     syncStatic();
     const c = heroColliders(id);
     placeProxy(c, feet, crouching);
-    kcc.computeColliderMovement(c.proxy, delta, undefined, STATIC_GROUPS);
+    kcc.computeColliderMovement(c.proxy, delta, undefined, egg ? EGG_GROUPS : MOVE_GROUPS);
     kcc.computedMovement(result.moved);
     result.grounded = kcc.computedGrounded();
     result.hasWall = false;
@@ -349,7 +370,7 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
     const e = store.get(id);
     if (!e) throw new Error(`physics: moveCharacter on unknown entity ${id}`);
     if (e.kind === 'hero' && heroes.has(id)) {
-      const r = moveHero(id, e.pos, e.motor.crouching, delta);
+      const r = moveHero(id, e.pos, e.motor.crouching, delta, e.stats.conditions.has('eggCarrier'));
       out.pos.x = e.pos.x + r.moved.x;
       out.pos.y = e.pos.y + r.moved.y;
       out.pos.z = e.pos.z + r.moved.z;
@@ -358,7 +379,8 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
       else out.wall = null;
       return out;
     }
-    // Cheap path (units): follow the cached ground; steps up to stepUp, snaps down by snapDown; no walls.
+    // Cheap path (units): follow the cached ground; steps up to stepUp, snaps down by snapDown; no walls (world's
+    // steering keeps units on their lanes and in their camps; a displaced unit's walls are units.ts's ray).
     syncStatic();
     const x = e.pos.x + delta.x;
     const z = e.pos.z + delta.z;
@@ -426,13 +448,13 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
       }
     },
     moveHero,
-    fits(id, feet, crouching) {
+    fits(id, feet, crouching, egg = false) {
       syncStatic();
       const c = heroColliders(id);
       const height = crouching ? c.crouch : c.stand;
       const centre = { x: feet.x, y: feet.y + height * HALF + FIT_LIFT, z: feet.z };
       const shape = crouching ? c.crouchShape : c.standShape;
-      return statics.intersectionWithShape(centre, IDENTITY, shape, undefined, STATIC_GROUPS, c.proxy) === null;
+      return statics.intersectionWithShape(centre, IDENTITY, shape, undefined, egg ? EGG_GROUPS : MOVE_GROUPS, c.proxy) === null;
     },
     heroesMoved() {
       heroesDirty = true;

@@ -92,6 +92,7 @@ const filter = (): CastFilter => ({
   structures: true,
   pods: false,
   ember: false,
+  melee: null,
 });
 
 function projectileSource(cause: EffectCause): ProjectileInfo['source'] {
@@ -535,6 +536,12 @@ export function createGuns(
       w.ammo = Math.min(w.ammo, magazine(h));
       const wasFiring = w.firing;
       w.firing = false;
+      const spinUp = s.def.weapon.spinUp;
+      if (spinUp) {
+        // Drumroll's status holds full spin; otherwise the spin runs down over spinDownS once fire stops (GDD §9.19).
+        if (statuses.has(h, COMBAT.fullSpinStatus)) s.spin = 1;
+        else if (!wasFiring) s.spin = Math.max(0, s.spin - 1 / (COMBAT.spinDownS * TICK_RATE));
+      }
       if (c.has('stunned')) {
         cancelReload(s);
         return;
@@ -556,10 +563,9 @@ export function createGuns(
       if (can && (w.ammo > 0 || s.mods.some(isAmmoFree))) {
         const st = h.stats.final;
         const wd = s.def.weapon;
-        // Spin-up (Woodpecker): fromRate → fireRate over `seconds` of continuous fire, from scratch each burst.
-        if (!wasFiring) s.spinStart = now;
-        const spun = wd.spinUp && wd.spinUp.seconds > 0 ? Math.min(1, (now - s.spinStart) / (wd.spinUp.seconds * TICK_RATE)) : 1;
-        const base = wd.spinUp ? wd.spinUp.fromRate + (wd.fireRate - wd.spinUp.fromRate) * spun : wd.fireRate;
+        // Spin-up (Woodpecker): fromRate → fireRate over `seconds` of continuous fire.
+        const base = wd.spinUp ? wd.spinUp.fromRate + (wd.fireRate - wd.spinUp.fromRate) * s.spin : wd.fireRate;
+        if (wd.spinUp) s.spin = wd.spinUp.seconds > 0 ? Math.min(1, s.spin + 1 / (wd.spinUp.seconds * TICK_RATE)) : 1;
         const rate = base * (1 + st.fireRate) * (1 - Math.min(1, st.fireRateSlow));
         if (rate > 0) {
           // A new burst starts now (no catch-up); within continuous fire the fractional cadence is kept exactly.
@@ -634,6 +640,7 @@ export function createGuns(
         structures: kinds.includes('structure'),
         pods: false,
         ember: false,
+        melee: null,
       };
       spawn(
         {
