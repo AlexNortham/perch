@@ -112,7 +112,7 @@ the first minute and still has decisions to make at minute 35.
 | **Slide** | Crouching while running: a fast, low slide that carries momentum. |
 | **Mantle** | Pull-up onto a ledge within reach while holding Jump. |
 | **Updraft** | A rideable wind current strung above each lane, base to base (zipline). Boost and dismount at will. |
-| **Updraft station** | A marked mount point on an Updraft (gates, near Herons and Hawks, and centre). |
+| **Updraft station** | A signposted latch point and line end on an Updraft (gates, near Herons and Hawks, and centre). You can latch anywhere along the line by holding Jump. |
 | **Chimney** | A vertical warm-air shaft that lifts you to a rooftop. |
 | **Vine** | A climbable vine or rope on a wall or tree. |
 | **Beak shot** | A gun hit on a hero's head hitbox. Deals critical damage (×1.65 by default). |
@@ -147,7 +147,6 @@ the first minute and still has decisions to make at minute 35.
 | Upgrade ability 1–4 | Alt + 1–4 | Spends AP on the next tier. |
 | Inspect / upgrade abilities | Left Alt (tap) | Frees the pointer for the ability panel. Esc or Close returns to aiming (§12.4). |
 | Item actives | Z, X, N, V | Bound to the first four active items in slot order (rebindable per slot). |
-| Interact | E | Mount an Updraft at a station; drop the Golden Egg. (Melee picks the Egg up, §7.11.) |
 | Shoulder swap | G | §4.2. |
 | Shop (Magpie's Hoard) | B | Opens only in a shop zone; elsewhere shows the read-only shop. |
 | Scoreboard | Tab (hold) | §12. |
@@ -157,6 +156,24 @@ the first minute and still has decisions to make at minute 35.
 
 In a normal browser tab, W + C and W + Left Shift + C are safe default chords for forward crouch/slide and
 dash-slide. Left Ctrl with W can close the tab. See §12.9 for legacy saves, binding conflicts and mouse buttons.
+
+**There is no Interact key (D-EP-039, rule).** Every world object answers to movement, Jump, melee or shooting:
+
+| Object | How you use it |
+|---|---|
+| Updraft | Hold Jump within reach of the cable to latch on; a fresh Jump press jumps off, crouch drops off (§3.7) |
+| Chimney | Walk or jump into the shaft base (§3.8) |
+| Vine, ladder | Move into it holding forward (§3.8) |
+| Golden Egg | A light or heavy melee hit picks it up; Melee while carrying sets it down; entering the Hatching Stone delivers it (§7.11) |
+| Phoenix Ember, Feather rune | One heavy melee hit claims it (§7.10, §7.12) |
+| Nest | Shoot it, hit it, or (Twig and Keepsake) run through it fast; Woven Nests need a heavy melee hit (§7.9) |
+| Bell Feeder | Melee only (§7.14) |
+| Seed sprig, crumb, keepsake, Berry | Move over it (§7.9, §7.15) |
+| Hide, Lookout, Cellar Run, ivy curtain | Walk in or stand on it (§7.15) |
+| Bough Spring | Step onto the pad (§7.15) |
+| Shops | B inside a shop zone (§8.8) |
+
+Saved bindings for the old Interact action are dropped on load; E becomes free to bind.
 
 ### 3.2 Ground movement
 
@@ -183,7 +200,7 @@ dash-slide. Left Ctrl with W can close the tab. See §12.9 for legacy saves, bin
 | Air jump | Press Jump again while airborne: 1 pip, once per airtime. Set vertical velocity to +8.94 m/s and keep horizontal velocity. |
 | Wall jump | Press Jump while airborne in contact with a near-vertical solid wall or within 0.1 s of leaving it. Push away at 6 m/s and carry the along-wall component of horizontal velocity. First push is free; later pushes in the same airtime cost 0.5 pip each. A heavy lunge can bring the hero into wall-jump range before landing. |
 | Wall fatigue | At full strength, a wall jump sets vertical velocity to +7 m/s. Each wall jump and each airborne heavy-melee commitment starts 1.25 s of fatigue. While fatigued, the next wall jump launches between +3.5 and +7 m/s, recovering linearly over that interval. |
-| Jump priority | A ledge pull-up or traversal dismount takes precedence in its context. Otherwise resolve dash-jump, ground/coyote jump, wall jump, then air jump. A wall jump with insufficient stamina leaves the air jump available under its own cost. Buffer a fresh Jump press for landing only when no jump can start immediately. |
+| Jump priority | A ledge pull-up or traversal dismount takes precedence in its context. A Jump held for 0.2 s within reach of an Updraft latches it (§3.7) when no mantle is available; the press itself still starts the normal jump. Otherwise resolve dash-jump, ground/coyote jump, wall jump, then air jump. A wall jump with insufficient stamina leaves the air jump available under its own cost. Buffer a fresh Jump press for landing only when no jump can start immediately. |
 
 ### 3.4 Stamina, dash and dash-jump
 
@@ -230,13 +247,14 @@ Traversal reference: [Deadlock Wiki movement guide](https://deadlock.wiki/Moveme
 
 | Parameter | Value |
 |---|---|
-| Layout | One per lane, gate to gate, 12 m above the lane path at the rider's feet. Stations at both gates and the midpoint, and 6 m along the lane toward each owning gate from its Heron and Hawk (§6.3). |
-| Mount | E within 2 m of a station, or jump into the line while airborne within 1.5 m of it. Mounting takes 0.3 s. |
-| Direction | Toward the end the camera faces when mounting |
+| Layout | One per lane, gate to gate, 12 m above the lane path at the rider's feet. Stations at both gates and the midpoint, and 6 m along the lane toward each owning gate from its Heron and Hawk (§6.3), are signposted latch points and the line's ends; you can latch anywhere along it. |
+| Latch (mount) | Hold Jump for 0.2 s while your feet are within 2.5 m horizontally of the cable's line on the ground and the cable is 0.5–14 m above your feet. From the ground the press starts a normal jump, and the hold then pulls you straight up to the cable at 30 m/s (at most 0.47 s for 14 m). Airborne within 1.5 m of the cable, the hold attaches you in 0.15 s. A tap of Jump never latches. The pull-up allows nothing but looking; a stun or displacement during it drops you. |
+| Latch lockouts | No latch for 3 s after taking damage from an enemy hero (fits the reference), or for 1.0 s after leaving an Updraft |
+| Direction | Toward the end the camera faces at the moment you latch |
 | Ride speed | 11 m/s |
 | Boost | Dash while riding: 18 m/s for 3 s; 12 s cooldown per hero; costs no stamina; can't boost for 3 s after taking hero damage |
 | While riding | Gun, reload, melee and item actives allowed. Casting an ability dismounts (and then casts). Parry is disabled. |
-| Dismount | Space: jump off with +4 m/s up and 70% of ride velocity. Crouch: drop off with 70% of ride velocity. Reaching the end of the line drops you at the station. |
+| Dismount | A fresh Jump press (Jump released since latching, then pressed): jump off with +4 m/s up and 70% of ride velocity. Crouch: drop off with 70% of ride velocity. Holding Jump through the ride does nothing. Reaching the end of the line drops you at the station. |
 | Forced dismount | Stun, knockback, knock-up, pull, root or grounded |
 | Not allowed | Egg carrier |
 
@@ -245,7 +263,7 @@ Traversal reference: [Deadlock Wiki movement guide](https://deadlock.wiki/Moveme
 | | Chimney | Vine |
 |---|---|---|
 | What | Vertical warm-air shaft inside or beside a building, 1.5 m radius | Climbable vine or rope on a wall or tree |
-| Use | Walk or jump into the shaft base | Move into the vine holding W |
+| Use (no key) | Walk or jump into the shaft base | Move into the vine holding forward; ladders are Vines |
 | Motion | Lifted at 9 m/s; exit at the top with +6 m/s up, onto the roof or balcony | Climb at 4.5 m/s up (S climbs down at 4.5 m/s); A/D shimmy 2 m/s |
 | Allowed | Gun and reload while rising | Nothing but climbing; Space jumps off backwards at 5 m/s |
 | Heights | 8–14 m | 5–12 m |
@@ -268,8 +286,8 @@ Start at the Dawn Hedgerow gate. Follow the lane past the Heron, taking the side
 Enter the middle of the lane between the Heron and the Hawk, dash forward, then press Jump as the timing cue
 appears. Hold crouch before landing to carry speed into a slide. Turn toward the east 1.2 m hedge at
 x = −92…−88, z = −49…−47.5, then hold Jump into its face to mantle. Keep crouch held to carry a fast
-approach onto the top. Continue to the station 6 m gateward of the Hawk, face the bridge, press Interact to
-mount, press Dash to boost over the Hawk and press Jump to dismount. Observe the stamina spent on the
+approach onto the top. Continue to the station 6 m gateward of the Hawk, face the bridge, hold Jump under the
+cable to latch on, press Dash to boost over the Hawk, then release and press Jump to dismount. Observe the stamina spent on the
 dash-jump, the retained landing speed and the unobstructed pass above the tower.
 
 ---
@@ -1073,13 +1091,13 @@ tall), so they work as low cover.
 | First spawn | 10:00, on an Egg Perch chosen by seeded RNG. The other perch is that Egg's Hatching Stone |
 | Next spawns | At every 5:00 mark (15:00, 20:00 …) on the perch that didn't hold the last Egg. An Egg nobody has touched is replaced. While an Egg is carried or lies dropped, the next spawn waits for the first mark after that Egg is delivered or spoils |
 | Arrival | Lowered from the canopy over 10 s with the spawn jingle; it can't be picked up until it lands |
-| Pick up | Any light or heavy melee hit on the Egg (1.0 m sphere) |
+| Pick up | Any light or heavy melee hit on the Egg (1.0 m sphere). Light counts as well as heavy so a hero under fire can grab it in 0.25 s; the commitment of a heavy hit stays reserved for claims (Embers, runes), and the contest over the Egg is the carry itself |
 | Carrier | Egg carrier status (§5.9): can't fire, cast, use items, parry or mantle, and can't use Updrafts, Chimneys, Vines, Bough Springs or the Cellar Run. +1.5 m/s move speed, +1 stamina pip, immune to slows. Revealed, with a golden beam visible map-wide |
 | Trailing carrier | If the carrier's flock has the lower total net worth: +2% Talon and Song resist and +0.2 m/s sprint per 1% of net-worth deficit, up to +30% and +3 m/s at a 15% deficit |
-| Drop | On the carrier's death, a stun, a displacement, an enemy hero's melee hit, or pressing E. Nobody can pick it up for 1.0 s after a drop |
+| Drop | On the carrier's death, a stun, a displacement or an enemy hero's melee hit; or the carrier presses Melee, which sets the Egg down 1 m ahead. Nobody can pick it up for 1.0 s after a drop |
 | Unattended | 180 s after landing or after a drop with nobody picking it up, the Egg starts rolling along the nav path toward its Hatching Stone at 2 m/s. It can still be picked up |
 | Spoil | 45 s after its first pickup the Egg starts to cool: its value falls linearly to 0 over the next 45 s, and at 0 it cracks and is gone |
-| Deliver | The carrier stands in the Hatching Stone circle (3 m) and channels 2.0 s; damage from an enemy hero interrupts **(deviation: the reference delivers on arrival)** |
+| Deliver | Automatic: the moment the carrier enters the Hatching Stone circle (3 m), the Egg is delivered (D-EP-039; the reference also delivers on arrival). There is no channel |
 | Value | E = 400 + 70 × match minutes when the Egg lands (1,100 at 10:00, 1,800 at 20:00, 2,500 at 30:00), × the spoil fraction at delivery; × 1.25 if the delivering flock has the lower total net worth |
 | Hatching | The Egg hatches into 6 golden seed pods worth E / 6 each, which follow the pod timing of §8.2 (rise 0.6 s, ripe 1.4 s). A delivering-flock hero who shoots one secures it: the courier keeps all of it if they secure it, otherwise securer and courier split it 50/50. An enemy hero who shoots one denies it and gets 25% of its value. A pod nobody hits goes to the courier |
 | Keepsakes | The courier gets 3 keepsakes (§7.13). Every other hero of the delivering flock within 30 m of the Stone gets 1 **(deviation: the reference gives the courier 4 and escorts none)** |
@@ -1845,12 +1863,15 @@ properties: targeting, cooldown, charges, cast time, channel, range). Names are 
 
 ## 10. Items
 
-48 items: 16 per category, 4 per tier. Tier costs: T1 800, T2 1,600, T3 3,200, T4 6,400 seeds. 11 actives.
+64 items (D-EP-034): the 48 Stage 1 items plus 16 Stage 4 items (marked ★): 21 Talon, 21 Plumage, 22 Song;
+16 per tier. Tier costs: T1 800, T2 1,600, T3 3,200, T4 6,400 seeds. 15 actives; a hero can own at most 4 (§8.7).
+§10.4 explains the gaps the new items fill.
 
 **Stacking rules (rule):** gun damage %, Song damage %, fire rate %, move speed and flat stats add. Cooldown
 reduction (CDR) and status resist stack multiplicatively (`1 − Π(1 − xᵢ)`), CDR capped at 50%, status resist at
-60%. Lifesteal adds. Resists follow §5.3. "Gun damage" never applies to melee or abilities. Item Song damage
-scales with SP where it says so. Active cooldowns are not reduced by CDR unless stated.
+60%. Lifesteal adds. Resists follow §5.3. "Gun damage" never applies to melee or abilities; "melee damage" applies
+to light and heavy melee only. Item Song damage scales with SP where it says so. Active cooldowns are not reduced
+by CDR unless stated. An effect "per shot" on a shotgun counts once per trigger pull per target.
 
 ### 10.1 Talon (gun power)
 
@@ -1872,6 +1893,11 @@ scales with SP where it says so. Active cooldowns are not reduced by CDR unless 
 | `carrion-feast` | Carrion Feast | 4 | 6,400 | 28% Talon lifesteal, +200 HP; a hero kill or assist heals 15% of max HP | — | `bloodbeak` |
 | `thunderclap-quills` | Thunderclap Quills | 4 | 6,400 | +10% gun damage; every 6th shot that hits a target deals +150 Talon damage and slows 30% for 1.5 s | — | — |
 | `talon-tempest` | Talon Tempest | 4 | 6,400 | +20% fire rate, +20% reload speed | **Tempest:** for 5 s, +60% fire rate and shots use no ammo. CD 45 s | `flurry-feathers` |
+| `hooked-spur` ★ | Hooked Spur | 1 | 800 | +20% melee damage, +60 HP; a heavy melee hit on a hero slows it 25% for 1.5 s | — | — |
+| `sourberry-rounds` ★ | Sourberry Rounds | 2 | 1,600 | +8% gun damage, +4% fire rate; gun hits on heroes apply 35% heal reduction for 2.5 s | — | — |
+| `wasp-barbs` ★ | Wasp Barbs | 2 | 1,600 | +6% gun damage, +6 SP; each shot that hits a hero also deals 8 + 0.15×SP Song damage | — | — |
+| `stoop-dive` ★ | Stoop Dive | 3 | 3,200 | +30% melee damage, +10% gun damage, +100 HP; a heavy melee hit on a hero slows it 25% for 1.5 s | **Stoop:** dash over 0.35 s to the enemy hero nearest the crosshair within 18 m (6° cone) and strike on arrival: 140 Talon damage, 40% slow for 2 s, disarm 1 s. CD 30 s | `hooked-spur` |
+| `kestrel-eye` ★ | Kestrel's Eye | 4 | 6,400 | +25% gun damage, +60% falloff start and end, +15% projectile speed; gun hits from 25 m or farther deal +20% damage and reveal the target for 3 s | — | `long-fletching` |
 
 ### 10.2 Plumage (health, resists, regeneration, movement)
 
@@ -1881,7 +1907,7 @@ scales with SP where it says so. Active cooldowns are not reduced by CDR unless 
 | `thick-quills` | Thick Quills | 1 | 800 | +12% Talon resist, +50 HP | — | — |
 | `dew-drinker` | Dew Drinker | 1 | 800 | +2.5 HP/s; +10 HP/s more after 8 s without taking damage | — | — |
 | `featherlight` | Featherlight | 1 | 800 | +1.0 m/s sprint speed, +20% stamina regeneration | — | — |
-| `shade-ward` | Shade Ward | 2 | 1,600 | +15% Song resist, +100 HP | — | — |
+| `shade-ward` | Shade Ward | 2 | 1,600 | +15% Song resist, +100 HP | — | `grit-gizzard` (Stage 4) |
 | `healing-dew` | Healing Dew | 2 | 1,600 | +3 HP/s; +12 HP/s more after 8 s without taking damage | **Dew:** heal 320 over 5 s. CD 40 s | `dew-drinker` |
 | `talon-bulwark` | Talon Bulwark | 2 | 1,600 | Talon shield 250 that refills after 10 s without taking damage; +8% Talon resist | — | `thick-quills` |
 | `second-wind` | Second Wind | 2 | 1,600 | +1 stamina pip, +0.5 m/s move speed, +1.0 m/s sprint speed | — | `featherlight` |
@@ -1893,6 +1919,11 @@ scales with SP where it says so. Active cooldowns are not reduced by CDR unless 
 | `thunderbird-heart` | Thunderbird Heart | 4 | 6,400 | +750 HP, +8 HP/s, +10% healing received | — | `stout-breast` |
 | `unbowed-crest` | Unbowed Crest | 4 | 6,400 | +30% status resist, +350 HP, +15% Song resist | **Unbowed:** unstoppable and +20% Talon and Song resist for 3 s. CD 60 s | `iron-crest` |
 | `nestmother-mantle` | Nestmother's Mantle | 4 | 6,400 | +400 HP; aura 15 m: allied heroes (you included) get +10% Talon and Song resist and +4 HP/s | — | — |
+| `grit-gizzard` ★ | Grit Gizzard | 1 | 800 | +10% Song resist, +60 HP | — | — |
+| `rescue-call` ★ | Rescue Call | 2 | 1,600 | +125 HP, +1.5 HP/s | **Rescue:** the allied hero nearest the crosshair within 25 m (6° cone), or yourself if there is none, heals 150 + 1.0×SP over 3 s and gets +15% Talon and Song resist for 3 s. CD 40 s | — |
+| `kite-lift` ★ | Kite Lift | 3 | 3,200 | +1 stamina pip, +0.5 m/s move speed, +1.5 m/s sprint speed, +150 HP | **Lift:** rise 8 m straight up, then glide for up to 4 s (falling at 2 m/s, steering at run speed + 2 m/s, gun allowed); +15% Talon resist while airborne. Ends on landing or Jump. CD 35 s | `second-wind` |
+| `burr-coat` ★ | Burr Coat | 3 | 3,200 | +250 HP, +10% Talon resist; an enemy hero within 20 m who deals you gun damage takes 15% of it (before your resists) back as Song damage | — | — |
+| `heartwood-bark` ★ | Heartwood Bark | 4 | 6,400 | +450 HP, +18% Talon resist; Talon shield 500 that refills after 8 s without taking damage; −30% melee damage taken | — | `talon-bulwark` |
 
 ### 10.3 Song (ability power)
 
@@ -1914,9 +1945,49 @@ scales with SP where it says so. Active cooldowns are not reduced by CDR unless 
 | `gloom-curse` | Gloom Curse | 4 | 6,400 | +18 SP | **Curse:** the enemy hero nearest the crosshair within 25 m (6° cone) is silenced, disarmed and slowed 30% for 2.5 s. CD 60 s | `muting-whistle` |
 | `boundless-song` | Boundless Song | 4 | 6,400 | +40 SP, +20% ability range, ultimate cooldown −20% | — | `carrying-voice` |
 | `echo-chamber` | Echo Chamber | 4 | 6,400 | +20 SP; ability damage to heroes repeats 1.0 s later at 25% (damage only); ability damage shreds Song resist by 14% for 6 s | — | `mocking-note` |
+| `nettle-sting` ★ | Nettle Sting | 1 | 800 | +6 SP; your ability damage to heroes applies 25% heal reduction for 3 s | — | — |
+| `warblers-trill` ★ | Warbler's Trill | 1 | 800 | +6 SP, +4% fire rate; after you cast an ability, your next gun shot within 5 s that hits a hero deals +25 + 0.6×SP Song damage | — | — |
+| `tangle-pod` ★ | Tangle Pod | 2 | 1,600 | +8 SP, +75 HP | **Tangle:** lob a pod up to 25 m (arcing, 0.6 s flight) that bursts in a 4 m radius: 70 + 0.8×SP Song damage, 35% slow and grounded for 2 s. CD 35 s | — |
+| `blight-spores` ★ | Blight Spores | 3 | 3,200 | +14 SP; your ability damage to heroes applies 40% heal reduction for 4 s and Blight: Song damage of 3% of the target's current HP + 0.06×SP per second for 4 s | — | `nettle-sting` |
+| `skylark-cadence` ★ | Skylark Cadence | 4 | 6,400 | +24 SP, +10% fire rate, +10% CDR; after you cast an ability, your next 3 gun hits on heroes within 6 s each deal +45 + 0.8×SP Song damage and slow 20% for 1 s | — | `warblers-trill` |
+| `rookery-dirge` ★ | Rookery Dirge | 4 | 6,400 | +20 SP, +300 HP, +10% Song resist; aura 12 m: enemy heroes inside take Song damage of 1.5% of their max HP + 0.05×SP per second and have −8% Song resist | — | — |
 
-**Actives (11):** Flurry Feathers, Tailwind Volley, Talon Tempest, Healing Dew, Preening Rite, Covey Ward,
-Unbowed Crest, Muting Whistle, Whirlwind Knot, Encore, Gloom Curse. Every active uses the §9.25 primitives.
+**Actives (15):** Flurry Feathers, Tailwind Volley, Talon Tempest, Stoop Dive ★, Healing Dew, Preening Rite,
+Covey Ward, Unbowed Crest, Rescue Call ★, Kite Lift ★, Muting Whistle, Whirlwind Knot, Encore, Gloom Curse,
+Tangle Pod ★. Every active uses the §9.25 primitives.
+
+**Component chains:** quick-preen → flurry-feathers → talon-tempest · quill-clip → tailwind-volley ·
+beak-whetstone → hawkeye-lens · bloodbeak → carrion-feast · ★ hooked-spur → stoop-dive · ★ long-fletching →
+kestrel-eye · thick-quills → talon-bulwark → ★ heartwood-bark · dew-drinker → healing-dew · featherlight →
+second-wind → ★ kite-lift · down-padding → stout-breast → thunderbird-heart · ★ grit-gizzard → shade-ward →
+iron-crest → unbowed-crest · lilt-seed → rising-song · quick-refrain → tempo-shift · muting-whistle → gloom-curse ·
+carrying-voice → boundless-song · mocking-note → echo-chamber · ★ nettle-sting → blight-spores · ★ warblers-trill →
+skylark-cadence.
+
+**New primitive parameters (for the Architect):** a `meleeDamage` and a `meleeDamageTaken` stat for `statMod`;
+"% of the target's current HP" for `damage` (Blight, Rookery Dirge uses max HP); a `trigger` granted on cast that
+fires on the next N gun hits within a window (Warbler's Trill, Skylark Cadence); `unit` targeting of allies with a
+self fallback (Rescue Call). Reflection (Burr Coat) is a `trigger` on damaged with a `damage` to the source.
+
+### 10.4 Stage 4 gap review
+
+The 48 items covered raw gun power, health and resists, and ability power well. The review found these gaps; each
+row names the item that fills it.
+
+| Gap in the 48 | Why it matters now | Filled by |
+|---|---|---|
+| No melee item | Heavy melee now claims Embers and runes, breaks Woven Nests, picks up the Egg and rings Feeders | Hooked Spur → Stoop Dive; Heartwood Bark's melee resist |
+| No gun-side anti-heal | Supports, lifesteal and Rekindle fights had no gun counter | Sourberry Rounds |
+| No hybrid gun-and-Song item at low tiers | Hybrid kits (Toucan, Frigatebird, Peacock, Nightjar) had nothing between categories | Wasp Barbs, Warbler's Trill → Skylark Cadence |
+| No gap-closer active | Assassins and divers had no item to reach a target | Stoop Dive |
+| Long Fletching had no upgrade; no long-range T4 | Long-range poke had no late core | Kestrel's Eye |
+| No tier-1 Song resist | Early Song burst had no cheap answer; Shade Ward had no component | Grit Gizzard → Shade Ward |
+| No ally-targeted save | Supports could only heal themselves or everyone near them | Rescue Call |
+| No mobility active | Escapes and initiation relied on kits alone; the new rooftops reward height | Kite Lift |
+| No damage reflection | Tanks had no answer to gun carries but resists | Burr Coat |
+| Talon Bulwark had no upgrade | The Talon-tank line stopped at tier 2 | Heartwood Bark |
+| No ability-side anti-heal or current-HP damage | Spirit builds couldn't break sustain or tanks | Nettle Sting → Blight Spores |
+| Only one area-control active, and no area aura | Area-control heroes lacked an item that shapes fights | Tangle Pod, Rookery Dirge |
 
 ---
 
@@ -1977,7 +2048,7 @@ control) where possible.
 a rune is due, or after 10:00 when its lane partner can hold the wave alone (Hunter+).
 
 **Golden Egg:** the 3 bots nearest the spawn go; the bot with the lowest net worth carries; the others escort
-within 10 m. Enemy bots treat the carrier as their top target. A bot carrier drops the Egg (E) and fights if a
+within 10 m. Enemy bots treat the carrier as their top target. A bot carrier sets the Egg down (Melee) and fights if a
 lone enemy reaches it and it is healthy.
 
 **The Roc:** a flock's bots start the Roc when ≥ 4 allies are alive and within 40 m of the Hollow, and either 2+
@@ -2461,7 +2532,7 @@ An item fails if it can't be shown with a screenshot, a test or a telemetry numb
 - [ ] Dash-jump carries about 7.3 m while airborne; slide from a run reaches 9 m/s and decays in ~1 s; slopes
       extend slides.
 - [ ] Hold Jump into a 2.2 m ledge to mantle in 0.35 s; a 2.6 m rise in the same approach never mantles.
-- [ ] Updraft: mount at a station, ride at 11 m/s, boost to 18 m/s, shoot while riding, Space dismount arcs up.
+- [ ] Updraft: latch by holding Jump under the cable, ride at 11 m/s, boost to 18 m/s, shoot while riding, a fresh Jump press dismounts with an upward arc.
 - [ ] Chimney lifts to a roof; Vine climbs at 4.5 m/s.
 - [ ] Camera: shoulder swap in 0.15 s; pull-in against a wall with no clipping; crosshair shots land where the
       crosshair is, including when standing behind cover (muzzle-blocked shots hit the cover).
