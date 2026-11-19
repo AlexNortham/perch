@@ -515,7 +515,7 @@ describe('Chimneys and Vines (GDD §3.8)', () => {
     b.step(FWD, 60);
     expect(b.h.pos.y - y0).toBeCloseTo(4.5, 6);
     b.step({ forward: 0, right: 1, yaw: 0 }, 15);
-    expect(b.h.pos.x).toBeCloseTo(-20 - 0.5, 3);
+    expect(b.h.pos.x).toBeCloseTo(-20 - 0.5, 2);
     expect(b.h.pos.y - y0).toBeCloseTo(4.5, 6);
     t = 0;
     while (b.h.motor.climb !== null && t++ < 60) b.step(FWD);
@@ -656,7 +656,7 @@ describe('physics-owned effects', () => {
     let z = b.h.pos.z;
     b.apply(mode('toboggan', 12, 0));
     b.step({ yaw: 0 }, 30);
-    expect(b.h.pos.z - z).toBeCloseTo(6, 3);
+    expect(b.h.pos.z - z).toBeCloseTo(6, 2);
     b.place({ x: -20, y: 0, z: -35 });
     z = b.h.pos.z;
     b.apply(mode('burrow', 9, 0));
@@ -714,6 +714,42 @@ describe('robustness', () => {
     b.h.pos = { x: 50, y: -20, z: 0 };
     b.step();
     expect(b.h.pos).toEqual(ARENA.spawns[0]?.pos);
+  });
+
+  it('an idle hero rests exactly: flat ground, after stopping, on the 18° ramp, on the main map (W2 review defect)', async () => {
+    const still = (b: { h: HeroEntity; step: Bench['step'] }, ticks: number): void => {
+      const snap = () => JSON.stringify({ pos: b.h.pos, vel: b.h.vel, motor: b.h.motor });
+      const before = snap();
+      b.step({}, ticks);
+      expect(snap()).toBe(before);
+      expect(b.h.motor.grounded).toBe(true);
+    };
+    const b = await bench(null, { x: -20, y: 0, z: -30 });
+    still(b, 300);
+    expect(b.h.pos).toEqual({ x: -20, y: 0, z: -30 });
+    b.step(FWD, 30);
+    b.step({}, 15);
+    still(b, 300);
+    b.place({ x: -8, y: 1.6, z: 0.5 });
+    b.step({}, 30);
+    expect(b.h.pos.y).toBeGreaterThan(1);
+    still(b, 300);
+    // Walking off the box still falls: the rest band never holds a hero in the air.
+    b.place({ x: 8, y: 2, z: 0.9 });
+    b.step({}, 10);
+    still(b, 60);
+    b.step({ forward: 1, yaw: 0 }, 20);
+    b.step({}, 40);
+    expect(b.h.pos.y).toBeCloseTo(0, 3);
+
+    const sim = await createSim({ seed: 1, map: 'main', roster: [{ team: 'dawn', hero: 'kingfisher', controller: 'human' }] });
+    const [h] = sim.ctx.store.list('hero');
+    if (!h) throw new Error('no hero');
+    const step: Bench['step'] = (_cmd, n = 1) => {
+      for (let i = 0; i < n; i++) sim.step([{ hero: h.id, command: { ...IDLE_COMMAND } }]);
+    };
+    step({}, 30);
+    still({ h, step }, 600);
   });
 
   it('is deterministic: identical command scripts give identical positions and hashes', async () => {

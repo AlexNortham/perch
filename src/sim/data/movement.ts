@@ -148,4 +148,9 @@ export const CONTROLLER = {
   stepMinWidth: 0.2,
   /** Cell size of the cached ground heights units move on (moveCharacter without a controller). */
   unitGroundCell: 0.25,
+  /**
+   * A hero standing still on the ground ignores controller moves smaller than this (sum of |x|, |y|, |z|): Rapier's
+   * contact tolerance moves the feet ~1e-4 m a tick, while one tick of free fall from rest is 3.5e-3 m.
+   */
+  restBand: 1e-3,
 } as const;

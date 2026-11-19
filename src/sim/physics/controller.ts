@@ -316,17 +316,35 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
   const runSpeed = (h: HeroEntity, s: HeroState): number =>
     slowed(h, h.stats.final.moveSpeed + h.stats.final.sprintSpeed * s.sprint);
 
-  /** Move through the controller and write pos; returns the shared result. */
-  const move = (h: HeroEntity): MoveResult => {
+  /**
+   * Move through the controller and write pos; returns the shared result. `rest`: the hero stands on the ground with
+   * no horizontal motion. Rapier's contact tolerance then nudges the feet up to ~1e-4 m a tick, so a grounded move
+   * smaller than CONTROLLER.restBand is dropped and the hero stays exactly still (a real fall moves more).
+   */
+  const move = (h: HeroEntity, rest = false): MoveResult => {
     const r = space.moveHero(h.id, h.pos, h.motor.crouching, D);
+    const m = r.moved;
+    if (rest && r.grounded && Math.abs(m.x) + Math.abs(m.y) + Math.abs(m.z) < CONTROLLER.restBand) {
+      m.x = 0;
+      m.y = 0;
+      m.z = 0;
+    }
     h.pos.x += r.moved.x;
     h.pos.y += r.moved.y;
     h.pos.z += r.moved.z;
     return r;
   };
 
-  /** Gravity for one tick with exact integration (jump apex matches the data); returns the vertical delta. */
-  const fall = (v: Vec3, limit: number = AIR.maxFallSpeed): number => {
+  /**
+   * Gravity for one tick with exact integration (jump apex matches the data); returns the vertical delta. None for a
+   * hero standing on the ground: the controller's snap-down keeps it there, and a gravity step would sink the proxy
+   * into the controller's skin, where Rapier stalls a horizontal move for a tick now and then.
+   */
+  const fall = (h: HeroEntity, v: Vec3, limit: number = AIR.maxFallSpeed): number => {
+    if (h.motor.grounded && v.y <= 0) {
+      v.y = 0;
+      return 0;
+    }
     const before = v.y;
     v.y = Math.max(v.y - AIR.gravity * dt, -limit);
     return (before + v.y) * HALF * dt;
@@ -725,8 +743,8 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const vz = v.z;
     D.x = v.x * dt;
     D.z = v.z * dt;
-    D.y = airDash ? 0 : fall(v);
-    const r = move(h);
+    D.y = airDash ? 0 : fall(h, v);
+    const r = move(h, m.grounded && v.y <= 0 && D.x === 0 && D.z === 0);
     settle(h, s, r, v.y > 0);
     if (!m.grounded && m.sliding) endSlide(h, s);
 
@@ -896,7 +914,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
         const gl = Math.hypot(gx, gz) || 1;
         v.x = (gx / gl) * mode.speed;
         v.z = (gz / gl) * mode.speed;
-        D.y = fall(v, mode.vertical);
+        D.y = fall(h, v, mode.vertical);
         break;
       }
       case 'flight':
@@ -915,7 +933,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
         const dz = mode.kind === 'toboggan' ? f.z / fl : W.z * input;
         v.x = canMove ? dx * mode.speed : 0;
         v.z = canMove ? dz * mode.speed : 0;
-        D.y = fall(v);
+        D.y = fall(h, v);
         break;
       }
     }
