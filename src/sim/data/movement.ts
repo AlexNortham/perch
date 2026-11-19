@@ -49,6 +49,11 @@ export const DASH = {
   jumpWindowS: 0.15,
   jumpHorizontal: 13,
   jumpVertical: 7,
+  /**
+   * Ability dashes along the aim (DashEffect dir 'aim' without arcHeight) follow the aim pitch up to this far upward,
+   * any angle down (GDD §9.3 Plunge: "pitch clamped to 30° up"). DashEffect has no clamp field (D-SYS-003).
+   */
+  aimMaxPitchUp: 30 * DEG,
 } as const;
 
 /** GDD §3.5. */
@@ -134,6 +139,8 @@ export const DISPLACE = {
   /** Air control while displaced, as a fraction of AIR.accel. */
   airControl: 0.2,
   knockUpMaxS: 1.5,
+  /** GDD §3.9: wall slam effects (DisplaceEffect.onWall) need at least this displacement speed toward the wall. */
+  wallSlamSpeed: 4,
   /** Default for teleport 'behindTarget' without `behind`. */
   behindDefault: 1.5,
   /** Teleports look for ground from this far above the destination. */
