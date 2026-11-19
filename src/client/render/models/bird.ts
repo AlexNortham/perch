@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-magic-numbers -- authored proportions and sample poses: the numbers are the data */
 /**
  * Shared bits of every bird build: the part list a rig animates, plus eyes, legs, wings and guns. Each part's
  * geometry is authored around its own pivot (hip, shoulder, head centre, muzzle), so the rig only rotates it.

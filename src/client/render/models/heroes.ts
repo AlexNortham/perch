@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-magic-numbers -- authored proportions and sample poses: the numbers are the data */
 /**
  * Hero builds (GDD §9, §14.6). Every build takes the hero's BodyPlan and derives all sizes from it, so a change to
  * the data moves the model with the hitboxes: the head shell is centred on the head hitbox, the body fits the

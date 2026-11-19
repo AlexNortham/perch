@@ -14,6 +14,9 @@ import { STATES } from './debug';
 import type { FledglingType } from './fledgling';
 
 const LINEUP_SPACING = 2.4;
+const HERO_ID_BASE = 100;
+const CHICK_ID_BASE = 200;
+const HERO_RADIUS = 0.4;
 /** Fledgling wave layout (GDD §7.1): two wide, 1.5 m apart; the two waves face each other this far apart. */
 const WAVE = { halfWidth: 0.75, rowGap: 1.5, gap: 3, speed: 5, radius: 0.45, slingerEvery: 4 } as const;
 
@@ -46,7 +49,7 @@ export function createDebugScene(
       rig.position.x = (i - (opt.lineup.length - 1) / 2) * LINEUP_SPACING;
       rig.rotation.y = opt.yaw;
       g.add(rig);
-      heroes.push({ rig, e: fake(100 + i, opt.team, id, 'hero', opt.yaw, 0.4) });
+      heroes.push({ rig, e: fake(HERO_ID_BASE + i, opt.team, id, 'hero', opt.yaw, HERO_RADIUS) });
     });
     for (const [side, team] of ([[1, 'dawn'], [-1, 'dusk']] as const)) {
       for (let j = 0; j < opt.wave; j++) {
@@ -55,7 +58,7 @@ export function createDebugScene(
         const row = Math.floor(j / 2);
         proxy.rotation.y = side > 0 ? Math.PI : 0;
         parent.add(proxy);
-        const e = fake(200 + chicks.length, team, type, 'unit', proxy.rotation.y, WAVE.radius);
+        const e = fake(CHICK_ID_BASE + chicks.length, team, type, 'unit', proxy.rotation.y, WAVE.radius);
         e.vel.z = row === 0 ? 0 : -side * WAVE.speed;
         e.flags = row === 0 ? ViewFlag.Attacking : 0;
         chicks.push({ proxy, e, x: ((j % 2) * 2 - 1) * WAVE.halfWidth, z: side * (WAVE.gap / 2 + row * WAVE.rowGap) });

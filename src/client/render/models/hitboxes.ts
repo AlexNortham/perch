@@ -16,7 +16,7 @@ export function hitboxOverlay(plan: BodyPlan): Group {
   const head = new Mesh(new SphereGeometry(plan.head.radius, seg, seg / 2), headMaterial);
   head.position.set(-c.right, c.up, c.forward);
   const top = c.up - plan.head.radius;
-  const body = new Mesh(new CapsuleGeometry(plan.radius, Math.max(0, top - 2 * plan.radius), 4, seg), bodyMaterial);
+  const body = new Mesh(new CapsuleGeometry(plan.radius, Math.max(0, top - 2 * plan.radius), HITBOX_DEBUG.capCaps, seg), bodyMaterial);
   body.position.y = top / 2;
   for (const m of [head, body]) m.renderOrder = 10;
   g.add(body, head);

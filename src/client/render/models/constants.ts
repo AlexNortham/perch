@@ -78,6 +78,27 @@ export const RIG = {
   deathTime: 0.35,
   deathRoll: 1.5,
   headLook: 0.6,
+  runMax: 1.2,
+  climbRun: 0.9,
+  stepMinRun: 0.05,
+  airTuck: 0.6,
+  slideTuck: 0.8,
+  flightPitch: 0.65,
+  deadClearance: 0.1,
+  castRate: 12,
+  castTailWiden: 0.3,
+  tailRun: 0.12,
+  tailIdle: 0.03,
+  tailIdleRate: 1.7,
+  pitchLimit: 1.2,
+  reloadHead: 0.25,
+  reloadDrop: 0.12,
+  reloadWobble: 0.1,
+  reloadWobbleRate: 14,
+  recoilDecay: 20,
+  headTilt: 0.08,
+  headTiltRate: 0.9,
+  stunRoll: 0.3,
 } as const;
 
 /** Fledglings (GDD §7.1). Geometry is built at the nominal radius; poses scale it to entity.radius. */
@@ -93,6 +114,12 @@ export const FLEDGLING = {
   lungeRate: 6,
   idleRate: 3,
   deathScale: 0.5,
+  minScale: 0.7,
+  maxScale: 1.4,
+  idleSquash: 0.03,
+  deadRoll: 1.4,
+  deadSink: 0.1,
+  phasePerId: 1.7,
   moveSpeed: 0.5,
   body: 0xf2d98a,
   bill: 0xe8872a,
@@ -102,4 +129,4 @@ export const FLEDGLING = {
 } as const;
 
 /** Debug hitbox overlay (QA). */
-export const HITBOX_DEBUG = { head: 0xff3030, body: 0x30ff60, segments: 12 } as const;
+export const HITBOX_DEBUG = { head: 0xff3030, body: 0x30ff60, segments: 12, capCaps: 4 } as const;

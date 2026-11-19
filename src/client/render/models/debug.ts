@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-magic-numbers -- authored proportions and sample poses: the numbers are the data */
 /**
  * Dev-only model options, read from the URL (so `npm run shots -- --param …` reaches them), never in a build:
  *   modelGdd            use the GDD body plans for the four hand-built heroes (data may still be placeholder)

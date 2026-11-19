@@ -94,12 +94,12 @@ export class BirdRig extends Group {
     const sprinting = speed > RIG.sprintSpeed;
 
     // Gait.
-    const runTarget = has(f, ViewFlag.Grounded) && !sliding && !dead ? clamp(speed / RIG.runSpeedRef, 0, 1.2) : climbing ? 0.9 : 0;
+    const runTarget = has(f, ViewFlag.Grounded) && !sliding && !dead ? clamp(speed / RIG.runSpeedRef, 0, RIG.runMax) : climbing ? RIG.climbRun : 0;
     this.run += (runTarget - this.run) * k;
     this.air += ((airborne ? 1 : 0) - this.air) * k;
-    this.phase += dt * (climbing ? RIG.climbRate : (RIG.stepBase + speed * RIG.stepPerSpeed) * (this.run > 0.05 ? 1 : 0));
+    this.phase += dt * (climbing ? RIG.climbRate : (RIG.stepBase + speed * RIG.stepPerSpeed) * (this.run > RIG.stepMinRun ? 1 : 0));
     const swing = Math.sin(this.phase) * RIG.legSwing * this.run * (1 - this.air);
-    const tuck = -0.6 * this.air - (sliding ? 0.8 : 0);
+    const tuck = -RIG.airTuck * this.air - (sliding ? RIG.slideTuck : 0);
     legL.rotation.x = swing + tuck;
     legR.rotation.x = -swing + tuck;
 
@@ -141,7 +141,7 @@ export class BirdRig extends Group {
             : updraft
               ? RIG.updraftPitch
               : flying
-                ? RIG.dashPitch * 0.7
+                ? RIG.flightPitch
                 : sprinting
                   ? RIG.sprintLean
                   : RIG.runLean * this.run;
@@ -157,21 +157,21 @@ export class BirdRig extends Group {
     const rig = this.rig;
     rig.rotation.x = this.pitch + (this.flinch / RIG.flinchTime) * RIG.flinchPitch;
     rig.rotation.z = Math.sin(this.phase) * this.build.sway * this.run + this.dead * RIG.deathRoll;
-    rig.position.y = this.pivotY + bob - (sliding ? RIG.slideDrop * this.pivotY : 0) - this.dead * (this.pivotY - 0.1 * H) - this.sink;
+    rig.position.y = this.pivotY + bob - (sliding ? RIG.slideDrop * this.pivotY : 0) - this.dead * (this.pivotY - RIG.deadClearance * H) - this.sink;
 
     // Casting: head up, tail lifts, a pulse through the body.
     this.cast += ((casting ? 1 : 0) - this.cast) * k;
-    const pulse = 1 + Math.sin(t * 12) * RIG.castPulse * this.cast;
+    const pulse = 1 + Math.sin(t * RIG.castRate) * RIG.castPulse * this.cast;
     rig.scale.set(pulse, pulse, pulse);
-    tail.rotation.x = this.build.castTail * this.cast + Math.sin(this.phase) * 0.12 * this.run + Math.sin(t * 1.7 + e.id) * 0.03;
-    tail.scale.x = 1 + 0.3 * this.cast;
+    tail.rotation.x = this.build.castTail * this.cast + Math.sin(this.phase) * RIG.tailRun * this.run + Math.sin(t * RIG.tailIdleRate + e.id) * RIG.tailIdle;
+    tail.scale.x = 1 + RIG.castTailWiden * this.cast;
 
     // Head: looks where the hero aims, tilts at idle, circles when stunned, dips on reload and cast.
     this.stun += ((has(f, ViewFlag.Stunned) ? 1 : 0) - this.stun) * k;
     this.reload += ((has(f, ViewFlag.Reloading) ? 1 : 0) - this.reload) * k;
-    head.rotation.x = -clamp(e.pitch, -1.2, 1.2) * RIG.headLook + RIG.castHeadUp * this.cast + 0.25 * this.reload;
+    head.rotation.x = -clamp(e.pitch, -RIG.pitchLimit, RIG.pitchLimit) * RIG.headLook + RIG.castHeadUp * this.cast + RIG.reloadHead * this.reload;
     head.rotation.y = Math.sin(t * RIG.stunRate) * RIG.stunSwing * this.stun;
-    head.rotation.z = Math.sin(t * 0.9 + e.id) * 0.08 * idle + Math.cos(t * RIG.stunRate) * 0.3 * this.stun;
+    head.rotation.z = Math.sin(t * RIG.headTiltRate + e.id) * RIG.headTilt * idle + Math.cos(t * RIG.stunRate) * RIG.stunRoll * this.stun;
 
     // Gun: aims with the look pitch, kicks on every shot, dips and wobbles to reload.
     if (has(f, ViewFlag.Firing)) {
@@ -179,10 +179,10 @@ export class BirdRig extends Group {
       this.recoil = 1 - (this.shot % 1);
     } else {
       this.shot = 0;
-      this.recoil *= Math.exp(-20 * dt);
+      this.recoil *= Math.exp(-RIG.recoilDecay * dt);
     }
     const g = this.build.pivot.gun;
-    gun.position.set(g.x, g.y - this.reload * 0.12 * H, g.z - this.recoil * RIG.recoilKick);
-    gun.rotation.x = -clamp(e.pitch, -1.2, 1.2) - this.recoil * RIG.recoilPitch + this.reload * (RIG.reloadDip + Math.sin(t * 14) * 0.1);
+    gun.position.set(g.x, g.y - this.reload * RIG.reloadDrop * H, g.z - this.recoil * RIG.recoilKick);
+    gun.rotation.x = -clamp(e.pitch, -RIG.pitchLimit, RIG.pitchLimit) - this.recoil * RIG.recoilPitch + this.reload * (RIG.reloadDip + Math.sin(t * RIG.reloadWobbleRate) * RIG.reloadWobble);
   }
 }

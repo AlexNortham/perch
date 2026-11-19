@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-magic-numbers -- authored proportions and sample poses: the numbers are the data */
 /**
  * Primitive-building helpers: faceted shapes with a baked vertex colour, merged into one BufferGeometry per rig part
  * so a whole hero costs a handful of draw calls. Axes are the model's own: +z forward, +y up, +x the model's left

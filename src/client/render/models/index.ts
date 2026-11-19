@@ -3,19 +3,18 @@
  * fledglings, and the old team-coloured box for everything else (structures, Patrons, pickups, areas, projectiles
  * and the other units wait for their own models). Rigs and animation live in ../rigs. Owner: Technical Artist.
  */
-import { BoxGeometry, Group, Mesh, MeshLambertMaterial } from 'three';
-import type { Object3D } from 'three';
+import { BoxGeometry, Mesh, MeshLambertMaterial } from 'three';
 import { HERO_IDS, ViewFlag } from '../../../sim/core/contracts';
-import type { EntityView, HeroId, PlayerTeam } from '../../../sim/core/contracts';
+import type { HeroId, PlayerTeam } from '../../../sim/core/contracts';
 import { HEROES } from '../../../sim/heroes/registry';
-import type { Frame, ModelKit } from '../../app/contracts';
+import type { ModelKit } from '../../app/contracts';
 import { entityById, interpolate } from '../../app/loop';
 import { TEAM_COLOURS } from '../palette';
 import { BirdRig } from '../rigs/bird-rig';
 import { FledglingGroup, FledglingProxy } from '../rigs/fledgling-rig';
 import type { BirdBuild } from './bird';
 import { FLEDGLING } from './constants';
-import { GDD_PLANS, readDebugOptions, STATES } from './debug';
+import { GDD_PLANS, readDebugOptions } from './debug';
 import type { DebugOptions } from './debug';
 import { fledglingGeometry } from './fledgling';
 import type { FledglingType } from './fledgling';

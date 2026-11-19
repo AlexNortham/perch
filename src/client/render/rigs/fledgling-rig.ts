@@ -73,27 +73,27 @@ export class FledglingProxy extends Object3D {
     if (this.slot < 0) return;
     const group = this.group;
     if (!group.mesh.parent && this.parent) this.parent.add(group.mesh);
-    const s = e.radius > 0 ? Math.min(1.4, Math.max(0.7, e.radius / group.nominal)) : 1;
-    const phase = t * FLEDGLING.bobRate + e.id * 1.7;
+    const s = e.radius > 0 ? Math.min(FLEDGLING.maxScale, Math.max(FLEDGLING.minScale, e.radius / group.nominal)) : 1;
+    const phase = t * FLEDGLING.bobRate + e.id * FLEDGLING.phasePerId;
     const dead = (e.flags & ViewFlag.Dead) !== 0;
     const moving = Math.hypot(e.vel.x, e.vel.z) > FLEDGLING.moveSpeed;
     const attacking = (e.flags & ViewFlag.Attacking) !== 0;
     let bob = 0;
     let roll = 0;
     let lean = 0;
-    let squash = 1 + Math.sin(t * FLEDGLING.idleRate + e.id) * 0.03;
+    let squash = 1 + Math.sin(t * FLEDGLING.idleRate + e.id) * FLEDGLING.idleSquash;
     if (moving) {
       bob = Math.abs(Math.sin(phase)) * FLEDGLING.bobHeight;
       roll = Math.sin(phase) * FLEDGLING.waddle;
     }
     if (attacking) lean = Math.max(0, Math.sin(t * FLEDGLING.lungeRate + e.id)) * FLEDGLING.lungePitch;
     if (dead) {
-      roll = 1.4;
+      roll = FLEDGLING.deadRoll;
       squash = FLEDGLING.deathScale;
     }
     euler.set(lean, this.rotation.y, roll);
     quat.setFromEuler(euler);
-    pos.set(this.position.x, this.position.y + (bob + (dead ? -0.1 : 0)) * s, this.position.z);
+    pos.set(this.position.x, this.position.y + (bob + (dead ? -FLEDGLING.deadSink : 0)) * s, this.position.z);
     matrix.compose(pos, quat, size.set(s, s * squash, s));
     group.mesh.setMatrixAt(this.slot, matrix);
     group.mesh.instanceMatrix.needsUpdate = true;

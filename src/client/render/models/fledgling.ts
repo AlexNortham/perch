@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-magic-numbers -- authored proportions and sample poses: the numbers are the data */
 /** Fledgling geometry (GDD §7.1, §14.6): round chicks, one merged mesh each, at most ~150 triangles. */
 import type { BufferGeometry } from 'three';
 import type { TeamColours } from '../palette';
