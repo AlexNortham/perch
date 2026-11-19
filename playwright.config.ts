@@ -15,11 +15,19 @@ process.env.PERCH_E2E_PORT ??= String(
 );
 const port = process.env.PERCH_E2E_PORT;
 const baseURL = `http://127.0.0.1:${port}`;
+/** Suites that must not share the machine with the parallel ones. */
+const SERIAL = /audio\.spec\.ts$/;
 
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
   use: { baseURL, channel, launchOptions: { args } },
+  // The offline audio renders stall past 30 s when they share the machine with the parallel browser suites, so they
+  // run alone, one worker, after everything else (D-QA-010). `--no-deps` runs them without the rest.
+  projects: [
+    { name: 'app', testIgnore: SERIAL },
+    { name: 'serial', testMatch: SERIAL, dependencies: ['app'], workers: 1 },
+  ],
   webServer: {
     command: `npx vite --host 127.0.0.1 --port ${port} --strictPort`,
     url: baseURL,

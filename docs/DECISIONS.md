@@ -1238,3 +1238,10 @@ wing; the gun is never slung or detached. `tests/anim/attachment.test.ts` and th
 (`npx tsx tests/anim/posesheets.ts`) hold the rig to D-EP-035.
 **Why:** joints bend without extra draw calls (a hero is one draw call per pass instead of eight). The hands are on
 the grips by construction, and tracers start at the gun the bird holds.
+### D-QA-010 · 19/11/2026 — The audio browser suite runs alone, after the parallel e2e
+**Decision:** `playwright.config.ts` has two projects. `app` runs every e2e file in parallel except `audio.spec.ts`;
+`serial` runs `audio.spec.ts` with one worker and depends on `app`, so it starts only when the parallel suites have
+finished. The 30 s test timeout is unchanged. `npx playwright test e2e/audio.spec.ts --no-deps` runs it alone.
+**Why:** the offline `OfflineAudioContext` renders stalled past 30 s under the full parallel run in `check.sh` (3
+failures in 4 runs at the W4 gate, a different test each time) and never alone. Running them on a quiet machine
+removes the cause; a longer timeout or a retry would only hide it.
