@@ -1278,10 +1278,11 @@ which would fight pointer lock and fullscreen.
 - Hovering an icon shows its description, the next tier's effect, the AP cost and unspent AP, or why it is locked or
   maxed.
 - Releasing the key resumes aiming immediately.
-- Pointer lock stays engaged, and the game draws its own cursor while the key is held. Re-requesting pointer lock on
-  key release is unreliable in browsers (it needs a fresh user gesture), and this keeps resuming instant.
+- There is **no separate menu**. Holding the key frees the mouse: the real cursor where the browser allows an instant
+  re-lock, otherwise a game-drawn cursor with pointer lock kept. Releasing the key locks the mouse back into aiming
+  immediately, with no extra click. The engineer proves which route each of Edge, Chrome and Firefox gets.
 - The accessible names QA relies on carry over to the HUD icons (`Upgrade <ability>` with the unavailable reason).
 - The Practice Hub keeps its 32 AP and uses the same mechanism.
 - Ships with Stage 4 (UI/HUD and Camera & Input in wave 5) and is a Stage 4 gate item.
-**Why:** the user's instruction: the upgrade menu should be a hold that frees the mouse to click the existing ability
-icons, or press the ability button, to unlock and upgrade.
+**Why:** the user's instructions: the upgrade menu should be a hold that frees the mouse to click the existing ability
+icons, or press the ability button, to unlock and upgrade; releasing it locks the mouse again; it is not a separate menu.
