@@ -38,6 +38,8 @@ export const AIR = {
   accel: 15,
   /** A 'land' movement event needs at least this much airtime (no event for kerbs). */
   landEventMinAirS: 0.1,
+  /** GDD §9 Toboggan: Jump ends the toboggan mode with a hop this high, keeping its horizontal speed. */
+  tobogganHopApex: 1.2,
 } as const;
 
 /** GDD §3.4. */

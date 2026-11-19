@@ -33,6 +33,7 @@ const ARC = 4;
 const WALKABLE_NY = Math.cos(GROUND.maxSlope);
 const SLIDE_MIN_SLOPE_TAN = Math.tan(SLIDE.minSlope);
 const JUMP_SPEED = Math.sqrt(2 * AIR.gravity * AIR.jumpApex);
+const TOBOGGAN_HOP_SPEED = Math.sqrt(2 * AIR.gravity * AIR.tobogganHopApex);
 /** Mantle probes start this far above the highest reachable ledge. */
 const PROBE_PAD = 0.05;
 const DOWN = { x: 0, y: -1, z: 0 };
@@ -1096,6 +1097,17 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const input = canMove ? wish(h) : 0;
     const held = canMove ? h.command.held : 0;
     const climb = (held & Button.Jump) !== 0 ? mode.vertical : (held & Button.Crouch) !== 0 ? -mode.vertical : 0;
+    if (mode.kind === 'toboggan' && canMove && (h.command.pressed & Button.Jump) !== 0) {
+      // Jump ends a toboggan with a hop that keeps the slide's horizontal speed (air control never adds to it).
+      endMode(h);
+      if (s.mode === null) {
+        v.y = TOBOGGAN_HOP_SPEED;
+        h.motor.grounded = false;
+        s.lastGroundTick = NEVER;
+        emit(h.id, 'jump');
+      }
+      return;
+    }
     const f = lookDir(h.yaw, h.pitch);
     switch (mode.kind) {
       case 'cling':

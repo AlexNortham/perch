@@ -791,6 +791,36 @@ describe('physics-owned effects', () => {
     expect(b.h.motor.mode).toBe('burrow');
   });
 
+  it('Jump ends a toboggan with a 1.2 m hop that keeps its speed; expiry does not hop', async () => {
+    const b = await bench(null, { x: -20, y: 0, z: -35 });
+    const onEnd: Effect[] = [{ kind: 'heal', amount: 1 }];
+    const toboggan: Effect = { kind: 'movementMode', mode: 'toboggan', durationS: 3, speed: 13, verticalSpeed: 0, allowGun: false, allowAbilities: true, onEnd };
+    const ended = vi.fn();
+    b.sim.ctx.bus.on('heal.applied', ended);
+    b.h.health.hp -= 10;
+    b.apply(toboggan);
+    b.step({ yaw: 0 }, 20);
+    b.step({ yaw: 0, pressed: Button.Jump });
+    expect(b.h.motor.mode).toBeNull();
+    expect(ended).toHaveBeenCalledTimes(1); // the mode's own onEnd
+    expect(b.actions.at(-1)).toBe('jump');
+    let apex = 0;
+    for (let i = 0; i < 40 && !b.h.motor.grounded; i++) {
+      b.step({ yaw: 0 });
+      apex = Math.max(apex, b.h.pos.y);
+      if (!b.h.motor.grounded) expect(flatSpeed(b.h)).toBeCloseTo(13, 6);
+    }
+    expect(apex).toBeCloseTo(1.2, 1);
+    expect(b.h.motor.stamina).toBe(3); // no air-jump pip
+
+    b.place({ x: -20, y: 0, z: -35 });
+    b.apply({ ...toboggan, durationS: 0.2 });
+    b.step({ yaw: 0 }, 13);
+    expect(b.h.motor.mode).toBeNull();
+    expect(b.h.motor.grounded).toBe(true);
+    expect(b.h.vel.y).toBeLessThanOrEqual(0);
+  });
+
   it('attach holds the target at the carrier and applies onRelease when it ends', async () => {
     const b = await bench(null, { x: 0, y: 0, z: -30 }, { x: 0, y: 0, z: -27 });
     const victim = b.other;
