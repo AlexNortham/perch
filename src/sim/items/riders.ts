@@ -6,6 +6,9 @@ import { COMBAT } from '../data/combat';
 import { ITEM_RIDERS } from '../data/items';
 import { itemCause } from './triggers';
 
+/** Floor for the resist factor, so a near-immune target can't make an extra explode. */
+const MIN_FACTOR = 0.05;
+
 export function createRiders(ctx: SimContext): void {
   const heroOf = (id: EntityId | null): HeroEntity | undefined => (id === null ? undefined : ctx.store.getKind(id, 'hero'));
   const owned = (h: HeroEntity) => h.inventory.items.filter((o) => ITEM_RIDERS[o.item]);
@@ -15,7 +18,7 @@ export function createRiders(ctx: SimContext): void {
     const s = ctx.store.get(id)?.stats?.final;
     if (!s) return amount;
     const resist = Math.min(COMBAT.resistMax, Math.max(COMBAT.resistMin, s.talonResist - s.talonShred));
-    return amount / Math.max(0.05, (1 - resist) * (1 + Math.min(COMBAT.ampCap, s.talonAmp)));
+    return amount / Math.max(MIN_FACTOR, (1 - resist) * (1 + Math.min(COMBAT.ampCap, s.talonAmp)));
   };
   const at = (id: EntityId, p: Vec3) => ({ entity: id, point: { ...p }, dir: vec3() });
 

@@ -47,8 +47,8 @@ export const PLUMAGE_ITEMS: readonly ItemDef[] = [
     'plumage', 3, [stat('stamina', 1), stat('moveSpeed', 0.5), stat('sprintSpeed', 1.5), stat('maxHealth', 150)], 'second-wind', {
       cooldownS: 35, targeting: 'self', range: 0, effects: [
         { kind: 'statMod', id: 'kite-lift', name: 'Kite Lift', durationS: 5, stats: [stat('talonResist', 0.15, 'stack')] },
-        { kind: 'displace', mode: 'up', distance: 8 },
-        { kind: 'delay', seconds: 0.6, effects: [{ kind: 'movementMode', mode: 'glide', durationS: 4, speed: 9, verticalSpeed: 2,
+        { kind: 'displace', mode: 'up', distance: 9.5 },
+        { kind: 'delay', seconds: 0.9, effects: [{ kind: 'movementMode', mode: 'glide', durationS: 4, speed: 9, verticalSpeed: 2,
           allowGun: true, allowAbilities: true, endOn: ['land', 'jump'], onEnd: [{ kind: 'cleanse', remove: ['kite-lift'] }] }] }],
     }),
   item('burr-coat', 'Burr Coat', '+250 HP and +10% Talon resist. An enemy hero within 20 m who deals you gun damage takes 15% of it back as Song damage.',

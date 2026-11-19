@@ -54,7 +54,8 @@ export const TALON_ITEMS: readonly ItemDef[] = [
     'talon', 3, [stat('meleeDamage', 0.3, 'pct'), stat('gunDamage', 0.1), stat('maxHealth', 100)], 'hooked-spur', {
       cooldownS: 30, targeting: 'unit', range: 18, affects: { teams: 'enemies', heroesOnly: true },
       effects: [{ kind: 'dash', dir: 'target', distance: 18, durationS: 0.35, stopOnHit: true, onArrive: [
-        { kind: 'damage', amount: 140, type: 'talon' }, slow(0.4, 2), { kind: 'applyStatus', status: DISARM, durationS: 1 }] }],
+        { kind: 'area', shape: { kind: 'sphere', radius: 2.5 }, durationS: 0, attach: 'source', affects: { teams: 'enemies', heroesOnly: true },
+          effects: [{ kind: 'damage', amount: 140, type: 'talon' }, slow(0.4, 2), { kind: 'applyStatus', status: DISARM, durationS: 1 }] }] }],
     }),
   item('apex-talon', 'Apex Talon', '+40% gun damage, +10% fire rate, +15% magazine size.', 'talon', 4,
     [stat('gunDamage', 0.4), stat('fireRate', 0.1), stat('magazine', 0.15, 'pct')]),

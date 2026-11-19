@@ -1,6 +1,6 @@
 // Item-active targeting, the same model as ability casts (sim/abilities): self, direction, point and unit (the
 // candidate nearest the crosshair within the 6° cone, range and line of sight; Rescue Call falls back to the holder).
-import { LAYERS_SOLID, type EffectTarget, type Entity, type HeroEntity, type ItemActive, type SimContext, type Vec3 } from '../core/contracts';
+import { LAYERS_SOLID, type EffectTarget, type Entity, type HeroEntity, type ItemActive, type SimContext, type TargetFilter, type Vec3 } from '../core/contracts';
 import { heroAimRay, muzzlePoint } from '../core/aim';
 import { addScaled, copy, dot, normalize, sub } from '../core/math';
 import { canSee } from '../core/vision';
@@ -21,8 +21,8 @@ export function createTargeting(ctx: SimContext) {
   };
   const centre = (e: Entity): Vec3 => ({ x: e.pos.x, y: e.pos.y + centreHeight(ctx, e), z: e.pos.z });
 
-  function pickUnit(h: HeroEntity, a: ItemActive, ray: ReturnType<typeof heroAimRay>, muzzle: Vec3): Entity | null {
-    const f = a.affects ?? { teams: 'enemies' as const };
+  function pickUnit(h: HeroEntity, a: ItemActive, ray: ReturnType<typeof heroAimRay>, muzzle: Vec3, filter?: TargetFilter): Entity | null {
+    const f = filter ?? a.affects ?? { teams: 'enemies' as const };
     const range = a.range * (1 + h.stats.final.abilityRange);
     let best: Entity | null = null;
     let bestCos = COS_CONE;
@@ -38,7 +38,7 @@ export function createTargeting(ctx: SimContext) {
       best = e;
       bestCos = cos;
     }
-    return best ?? (a.selfFallback ? h : null);
+    return best ?? (!filter && a.selfFallback ? h : null);
   }
 
   /** The target an active's effects land on, or null when there is nobody to choose (nothing is spent). */
@@ -53,7 +53,9 @@ export function createTargeting(ctx: SimContext) {
         return { entity: h.id, point: p, dir: normalize(sub(p, muzzle)) };
       }
       case 'point': {
-        const p = aimPoint(ray.origin, ray.dir, ray.start);
+        // A lob lands on the enemy hero under the crosshair, not on the ground beyond it.
+        const under = pickUnit(h, a, ray, muzzle, { teams: 'enemies', heroesOnly: true });
+        const p = under ? copy(under.pos) : aimPoint(ray.origin, ray.dir, ray.start);
         const dx = p.x - h.pos.x;
         const dz = p.z - h.pos.z;
         const d = dmath.hypot(dx, dz);
