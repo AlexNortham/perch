@@ -127,6 +127,8 @@ export const DEFENCE = {
   warden: { range: 24, heroHit: 80, unitHit: 60, interval: 1, ramp: 0.15, cap: 0.75 },
   heron: { range: 30, heroHit: 25, unitHit: 12.5, interval: 0.25, ramp: 0.025, cap: 0.5 },
   boltSpeed: 60,
+  muzzleHeightFraction: 0.8,
+  scanTicks: 6,
   stomp: { range: 7, damage: 120, push: 5, interval: 4, warning: 0.5 },
   pulse: { range: 12, damage: 120, interval: 3 },
   volley: { range: 35, damage: 50, feathers: 6, targets: 3, phase1: 3, phase2: 2 },

@@ -24,6 +24,7 @@ import type {
   Lane,
   PlayerTeam,
   SimContext,
+  StatBlock,
   Tick,
   UnitEntity,
   Vec3,
@@ -233,10 +234,30 @@ export function createFledglings(ctx: SimContext): Fledglings {
       range: def.range + AI.shotRangePad, gravity: 0, pierce: 'none', affects: SHOT_AFFECTS, onHit: [hit] };
   }
 
+  // Each stat block is private to its fledgling. Prepare one per preceding tick so the whole formation
+  // can enter on the authored tick without paying the stat service's setup cost 24–36 times in that tick.
+  const prepared: Record<FledglingType, StatBlock[]> = { scrapper: [], slinger: [] };
+  let preparedFor = -1;
+  const largest = WAVES.bands[WAVES.bands.length - 1]!;
+  const lead = tracks.length * (largest.scrapper + largest.slinger);
+  const scaleAt = (at: Tick) => 1 + WAVES.scalingPerMinute * at / TICK_RATE / SECONDS_PER_MINUTE;
+  const bandAt = (at: Tick) => WAVES.bands.reduce((b, x) => (at >= ticks(x.fromS) ? x : b));
+  const statsFor = (type: FledglingType, at: Tick) => ctx.stats.create({ maxHealth: FLEDGLINGS[type].hp * scaleAt(at), moveSpeed: AI.marchSpeed });
+
+  function prepareWave(at: Tick): void {
+    if (at !== preparedFor) {
+      preparedFor = at;
+      prepared.scrapper.length = prepared.slinger.length = 0;
+    }
+    const band = bandAt(at);
+    if (prepared.scrapper.length < tracks.length * band.scrapper) prepared.scrapper.push(statsFor('scrapper', at));
+    else if (prepared.slinger.length < tracks.length * band.slinger) prepared.slinger.push(statsFor('slinger', at));
+  }
+
   const spawnWave = (): void => {
     const now = ctx.clock.tick;
-    const band = WAVES.bands.reduce((b, x) => (ctx.clock.seconds >= x.fromS ? x : b));
-    const scale = 1 + (WAVES.scalingPerMinute * now) / TICK_RATE / SECONDS_PER_MINUTE;
+    const band = bandAt(now);
+    const scale = scaleAt(now);
     const types: FledglingType[] = [
       ...Array<FledglingType>(band.scrapper).fill('scrapper'),
       ...Array<FledglingType>(band.slinger).fill('slinger'),
@@ -270,7 +291,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
       radius: def.radius,
       unit: { type, lane: track.lane.id, height: def.height, owner: null, summon: null, target: null, attacking: false },
       health: { hp, talonShield: 0, songShield: 0, barrier: 0, dead: false, respawnAt: null, inCombatUntil: 0 },
-      stats: ctx.stats.create({ maxHealth: hp, moveSpeed: AI.marchSpeed }),
+      stats: (now === preparedFor ? prepared[type].pop() : undefined) ?? statsFor(type, now),
       statuses: [],
     });
     live.push({
@@ -486,10 +507,13 @@ export function createFledglings(ctx: SimContext): Fledglings {
 
     update() {
       const now = ctx.clock.tick;
-      if (ctx.config.options.waves && ctx.objectives.nextWaveAt !== null && now >= ctx.objectives.nextWaveAt) {
-        spawnWave();
-        ctx.objectives.nextWaveAt += everyWave;
-        ctx.bus.emit({ type: 'wave.spawned', wave: ++wave });
+      const waveAt = ctx.objectives.nextWaveAt;
+      if (ctx.config.options.waves && waveAt !== null) {
+        if (now >= waveAt) {
+          spawnWave();
+          ctx.objectives.nextWaveAt = waveAt + everyWave;
+          ctx.bus.emit({ type: 'wave.spawned', wave: ++wave });
+        } else if (waveAt - now <= lead) prepareWave(waveAt);
       }
       for (const f of live) {
         const e = f.e;

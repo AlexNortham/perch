@@ -55,7 +55,7 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
 
   function cue(s: StructureEntity, attack: Attack, point: Vec3, at: number): void {
     ctx.bus.emit({ type: 'structure.attack', structure: s.id, attack, origin: {
-      ...s.pos, y: s.pos.y + s.structure.body.height * 0.8,
+      ...s.pos, y: s.pos.y + s.structure.body.height * D.muzzleHeightFraction,
     }, point: { ...point }, impactAt: at });
   }
 
@@ -72,7 +72,7 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
 
   function shoot(s: StructureEntity, a: Actor, attack: 'bolt' | 'volley', damage: number): void {
     const point = { ...a.pos, y: a.pos.y + aimHeight(ctx, a) };
-    const dy = point.y - (s.pos.y + s.structure.body.height * 0.8);
+    const dy = point.y - (s.pos.y + s.structure.body.height * D.muzzleHeightFraction);
     const travel = Math.hypot(point.x - s.pos.x, dy, point.z - s.pos.z) / D.boltSpeed;
     const at = ctx.clock.tick + Math.max(1, ticks(travel));
     pending.push({ tower: s, at, target: a.id, point, attack, damage });
@@ -278,14 +278,15 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
       for (const t of towers) {
         const s = t.e;
         if (s.removed) continue;
-        if ((now + s.id) % 6 === 0) ward(s);
+        if ((now + s.id) % D.scanTicks === 0) ward(s);
         const info = s.structure;
         if (info.transitionUntil !== undefined) {
           if (now >= info.transitionUntil) phaseTwo(t);
           else continue;
         }
-        if (info.type === 'hawk' || info.type === 'warden' || info.type === 'heron') defend(t, info.type);
-        else if (!s.stats.conditions.has('invulnerable')) baseAttack(t, info.type === 'shrine');
+        if (info.type === 'hawk' || info.type === 'warden' || info.type === 'heron') {
+          if ((now + s.id) % D.scanTicks === 0 || (info.target !== null && now >= t.next)) defend(t, info.type);
+        } else if (!s.stats.conditions.has('invulnerable')) baseAttack(t, info.type === 'shrine');
       }
     },
     hash(h: Hasher) {
