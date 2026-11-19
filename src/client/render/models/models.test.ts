@@ -1,4 +1,4 @@
-import { Bone, Box3, Group, InstancedMesh, Mesh, SkinnedMesh, Vector3 } from 'three';
+import { Bone, Box3, Group, InstancedMesh, LOD, Mesh, PerspectiveCamera, SkinnedMesh, Vector3 } from 'three';
 import type { Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 import { HERO_IDS, ViewFlag } from '../../../sim/core/contracts';
@@ -9,13 +9,20 @@ import { BirdRig } from '../rigs/bird-rig';
 import { FledglingProxy } from '../rigs/fledgling-rig';
 import type { BoneName } from './bird';
 import { STATES } from './debug';
+import { BIRD_LOD } from './sculpted';
+import { SCULPTED_BUILDS } from './sculpted-birds';
 import { fledglingGeometry } from './fledgling';
 import { createModelKit } from './index';
 import { triangles } from './parts';
 import { TEAM_COLOURS } from '../palette';
 
 const OLD: readonly HeroId[] = ['shrike', 'albatross', 'kingfisher', 'lyrebird'];
-const FOUR: readonly HeroId[] = [...OLD, 'owl', 'pelican', 'secretarybird', 'starling', 'hornbill', 'flamingo', 'penguin', 'puffin'];
+const TWELVE: readonly HeroId[] = [...OLD, 'owl', 'pelican', 'secretarybird', 'starling', 'hornbill', 'flamingo', 'penguin', 'puffin'];
+/** Birds sculpted to the style guide (D-ART-004). */
+const SCULPTED = Object.keys(SCULPTED_BUILDS) as HeroId[];
+const FOUR: readonly HeroId[] = [...TWELVE, ...SCULPTED];
+/** Style guide §11.3: at most three draw calls per bird (opaque body, cut-out feathers, gun). */
+const SCULPTED_DRAW_CALLS = 3;
 const HEAD_TOLERANCE = 0.02;
 const HERO_TRIANGLES = 1500;
 const FLEDGLING_TRIANGLES = 150;
@@ -74,12 +81,26 @@ function restBox(rig: BirdRig): Box3 {
 describe('hero models', () => {
   const kit = createModelKit();
 
-  it('gives every one of the 24 heroes a model of one draw call and at most 1500 triangles', () => {
+  it('gives every one of the 24 heroes a skinned model within its draw-call and triangle budgets', () => {
     expect(HERO_IDS).toHaveLength(24);
     for (const id of HERO_IDS) {
       for (const team of ['dawn', 'dusk'] as const) {
         const model = kit.create(heroEntity(id, team));
         expect(model).toBeInstanceOf(BirdRig);
+        const build = rigOf(model).build;
+        if (build.sculpted) {
+          // Every level within the style guide's budget (gun included) and at most three draw calls.
+          const levels = [{ geo: build.geo, cards: build.cards ?? null }, ...(build.lods ?? [])];
+          expect(levels, id).toHaveLength(BIRD_LOD.budget.length);
+          levels.forEach((l, i) => {
+            const tris = triangles(l.geo) + (l.cards ? triangles(l.cards) : 0);
+            expect(tris, `${id} level ${i}`).toBeLessThanOrEqual(BIRD_LOD.budget[i] ?? 0);
+          });
+          const lod = model.getObjectByName('birdLod');
+          lod?.children.forEach((level) => expect(level.children.length, id).toBeLessThanOrEqual(SCULPTED_DRAW_CALLS));
+          for (const m of rigOf(model).meshes) expect(m.skeleton, id).toBe(rigOf(model).mesh.skeleton);
+          continue;
+        }
         const meshes: Mesh[] = [];
         model.traverse((o) => o instanceof Mesh && meshes.push(o));
         expect(meshes.length, id).toBe(HERO_DRAW_CALLS);
@@ -313,5 +334,64 @@ describe('new birds, melee and practice targets', () => {
     const f2 = f([{ id: 1, team: 'dawn', controller: 'human' }, { id: 3, team: 'dusk', controller: 'easy' }]);
     if (m3) kit.pose(m3, foe, f2);
     expect(mark(m3)).toBeUndefined();
+  });
+});
+
+describe('sculpted birds (D-ART-004)', () => {
+  const kit = createModelKit();
+  const influences = (rig: BirdRig): number[] => [...(rig.mesh.morphTargetInfluences ?? [])];
+  const run = (id: HeroId, over: Partial<EntityView>, frames: number, from = 0): BirdRig => {
+    const rig = rigOf(kit.create(heroEntity(id)));
+    const e = entity(1, { type: id, ...over });
+    for (let i = 0; i < frames; i++) rig.animate(e, 1 / 60, from + i / 60, false);
+    return rig;
+  };
+
+  it('opens the signature display on a cast, the jaw on a shot, and blinks every few seconds', () => {
+    for (const id of SCULPTED) {
+      const idle = influences(run(id, {}, 30, 0.5));
+      expect(idle[0], `${id} display at rest`).toBeLessThan(0.01);
+      const cast = influences(run(id, { flags: ViewFlag.Grounded | ViewFlag.Casting }, 30));
+      expect(cast[0], `${id} display while casting`).toBeGreaterThan(0.95);
+      const shooting = run(id, { flags: ViewFlag.Grounded | ViewFlag.Firing }, 30);
+      let jaw = 0;
+      const e = entity(1, { type: id, flags: ViewFlag.Grounded | ViewFlag.Firing });
+      for (let i = 0; i < 30; i++) {
+        shooting.animate(e, 1 / 60, 1 + i / 60, false);
+        jaw = Math.max(jaw, influences(shooting)[1] ?? 0);
+      }
+      expect(jaw, `${id} jaw on a shot`).toBeGreaterThan(0.3);
+      // Over 7 s the eyes close at least once and are open most of the time.
+      const rig = rigOf(kit.create(heroEntity(id)));
+      const r = entity(1, { type: id });
+      let closed = 0;
+      let open = 0;
+      for (let i = 0; i < 420; i++) {
+        rig.animate(r, 1 / 60, i / 60, false);
+        if ((influences(rig)[2] ?? 0) > 0.5) closed++;
+        else open++;
+      }
+      expect(closed, `${id} blinks`).toBeGreaterThan(0);
+      expect(open, `${id} eyes open`).toBeGreaterThan(closed * 20);
+      // Every mesh of the rig carries the same three morph targets, driven together.
+      for (const m of rig.meshes) expect(m.morphTargetInfluences, id).toHaveLength(3);
+    }
+  });
+
+  it('switches level of detail by distance from the camera (style guide §11.3)', () => {
+    const rig = rigOf(kit.create(heroEntity(SCULPTED[0] ?? 'peacock')));
+    const lod = rig.getObjectByName('birdLod');
+    expect(lod).toBeInstanceOf(LOD);
+    const camera = new PerspectiveCamera(60, 16 / 9, 0.1, 500);
+    const shown = (d: number): number => {
+      camera.position.set(0, 1.5, d);
+      camera.updateMatrixWorld();
+      rig.updateMatrixWorld(true);
+      // Settle any hysteresis by updating twice.
+      (lod as LOD).update(camera);
+      (lod as LOD).update(camera);
+      return (lod as LOD).getCurrentLevel();
+    };
+    expect([shown(4), shown(25), shown(60), shown(120), shown(5)]).toEqual([0, 1, 2, 3, 0]);
   });
 });

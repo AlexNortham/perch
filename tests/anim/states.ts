@@ -4,8 +4,11 @@ import { HIT_CYCLE, LAND_CYCLE, MELEE_CYCLE } from '../../src/client/render/mode
 import { MELEE } from '../../src/client/render/models/constants';
 import type { HeroId } from '../../src/sim/core/contracts';
 
-/** A1, B1 and A2: the twelve playable birds. */
-export const PLAYABLE: readonly HeroId[] = ['shrike', 'albatross', 'kingfisher', 'lyrebird', 'owl', 'pelican', 'secretarybird', 'starling', 'hornbill', 'flamingo', 'penguin', 'puffin'];
+/** A1, B1, A2 and the sculpted A3 and B2 birds: every playable bird. */
+export const PLAYABLE: readonly HeroId[] = [
+  'shrike', 'albatross', 'kingfisher', 'lyrebird', 'owl', 'pelican', 'secretarybird', 'starling', 'hornbill', 'flamingo', 'penguin', 'puffin',
+  'peacock',
+];
 
 export const SHEET_STATES: readonly string[] = [
   'idle', 'aim', 'run', 'sprint', 'jump', 'fall', 'land', 'dash',

@@ -25,13 +25,13 @@ export const BONE_NAMES = [
   'body', 'head', 'tail', 'halo',
   'wingL1', 'wingL2', 'wingR1', 'wingR2',
   'legL1', 'legL2', 'footL', 'legR1', 'legR2', 'footR',
-  'gun', 'slide',
+  'gun', 'slide', 'spin',
 ] as const;
 export type BoneName = (typeof BONE_NAMES)[number];
 
-/** Chained bones; every other bone hangs from the rig's body frame. */
+/** Chained bones; every other bone hangs from the rig's body frame. `spin` turns a gun's feed while it fires. */
 export const BONE_PARENT: Readonly<Partial<Record<BoneName, BoneName>>> = {
-  wingL2: 'wingL1', wingR2: 'wingR1', legL2: 'legL1', footL: 'legL2', legR2: 'legR1', footR: 'legR2', slide: 'gun',
+  wingL2: 'wingL1', wingR2: 'wingR1', legL2: 'legL1', footL: 'legL2', legR2: 'legR1', footR: 'legR2', slide: 'gun', spin: 'gun',
 };
 
 /** What a cast looks like (per ability slot, from the kit): see CAST_POSE in constants.ts. */
@@ -63,6 +63,16 @@ export interface BirdBuild {
   readonly castTail: number;
   /** Flamingo: how far the right leg lifts when standing still (0 none, 1 fully). */
   readonly idleLeg?: number;
+  /** Sculpted birds (D-ART-004): drawn with the bird materials, with morph targets display, jaw and blink. */
+  readonly sculpted?: boolean;
+  /** Sculpted birds: the alpha-tested feather cards at full detail (a second draw call). */
+  readonly cards?: BufferGeometry;
+  /** Sculpted birds: lower levels of detail, each from a camera distance (m). */
+  readonly lods?: readonly { readonly geo: BufferGeometry; readonly cards: BufferGeometry | null; readonly from: number }[];
+  /** How much wider the tail spreads when casting (default RIG.castTailWiden). */
+  readonly castWiden?: number;
+  /** The gun's spinner turn rate while firing (rad/s). */
+  readonly spinRate?: number;
 }
 
 export interface Dims {
@@ -244,7 +254,7 @@ export function assemble(plan: BodyPlan, s: BirdSpec): BirdBuild {
     body: s.body, head: s.head, tail: s.tail, halo: s.halo,
     wingL1: wl.a, wingL2: wl.b, wingR1: wr.a, wingR2: wr.b,
     legL1: ll.legA, legL2: ll.legB, footL: ll.foot, legR1: lr.legA, legR2: lr.legB, footR: lr.foot,
-    gun: g.gun, slide: g.slide,
+    gun: g.gun, slide: g.slide, spin: undefined,
   };
   const at: Record<BoneName, Vector3> = {
     body: new Vector3(),
@@ -255,7 +265,7 @@ export function assemble(plan: BodyPlan, s: BirdSpec): BirdBuild {
     wingR1: v(s.pivot.wingR), wingR2: new Vector3(0, -upper, 0),
     legL1: v(s.pivot.legL), legL2: new Vector3(0, -legSeg, 0), footL: new Vector3(0, -legSeg, 0),
     legR1: v(s.pivot.legR), legR2: new Vector3(0, -legSeg, 0), footR: new Vector3(0, -legSeg, 0),
-    gun: muzzle, slide: v(g.slideAt),
+    gun: muzzle, slide: v(g.slideAt), spin: new Vector3(),
   };
   const geos: BufferGeometry[] = [];
   const index: number[] = [];

@@ -22,6 +22,8 @@ import type { DummyKind } from './dummy';
 import { FLEDGLING, STRUCTURE } from './constants';
 import { buildStructure } from './structures';
 import type { StructureBuild } from './structures';
+import { birdMaterials } from './bird-material';
+import type { BirdMaterials } from './bird-material';
 import { readDebugOptions } from './debug';
 import type { DebugOptions } from './debug';
 import { fledglingGeometry } from './fledgling';
@@ -61,6 +63,7 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
   const opt: DebugOptions = { hitboxes: false, lineup: [], wave: 0, yaw: 0, states: [], team: 'dawn', structures: [], ...dev, ...overrides };
 
   const material = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  let sculptedMats: BirdMaterials | null = null;
   const builds = new Map<string, BirdBuild>();
   const groups = new Map<string, FledglingGroup>();
   const rigs = new Set<BirdRig>();
@@ -89,7 +92,7 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
       build = make ? make(plan, TEAM_COLOURS[team]) : genericBuild(plan, TEAM_COLOURS[team], HERO_IDS.indexOf(id), HERO_IDS.length);
       builds.set(key, build);
     }
-    const rig = new BirdRig(build, plan, material, weapon.fireRate);
+    const rig = new BirdRig(build, plan, build.sculpted ? (sculptedMats ??= birdMaterials()) : material, weapon.fireRate);
     rig.name = id;
     rigs.add(rig);
     return rig;
