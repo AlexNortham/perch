@@ -1005,3 +1005,34 @@ and visible siege progression.
 **Interface requests:** sent stable accessible names for the upgrade dialog, ability controls, and labelled
 dummy HP bars through the EP. The W3 worst-tick follow-up and production-browser regressions are tracked
 outside this browser acceptance suite.
+
+### W4 · Objectives · 19/11/2026
+**Done:** `w4/objectives`, continuing ChatGPT's handover (85eedb3…f2d6034; the WIP snapshot only drops a trailing
+newline). `structures.ts` spawns all 30 anchors when `options.structures` is on: Hawk/Warden homing bolts and the
+Heron beam with §7.2 priority, stickiness and ramp, the 4 s Heron stomp with a 0.5 s telegraph, Shrine pulse, lane
+gates in order (two Wardens of one lane open both Shrines), Brood Ward ×0.35 and the 35:00 lever (×0.6, +25% vs
+structures), the Patron's volley/Screech, 3 s transition, phase 2 at 20,000 HP with a 1 m heart 6 m up, Rain and Gale,
+Home Roost heal/burn, and one `match.ended`. Every hit goes through `ctx.effects`, `via: 'structure'`; `structure.attack`
+carries origin, point and `impactAt`. Vision splits `seenBy` from `mapOnlySeenBy`, honours Fog Bank and per-holder
+true-sight radius. Waves prepare stat blocks ahead of the spawn tick and pass a caller-owned `CharacterMove`. Mine:
+88b50aa makes the 35:00 bonus add in step 4 (D-OBJ-008). D-OBJ-005…008.
+**Verified:** Git Bash `VITEST_MAX_WORKERS=1 npm run check`: typecheck, lint (117 inherited warnings), test (515
+passed, 32 gated), perf 7/7 and sim (seed 1, 10,800 ticks, `7baa0bd7b442c587`) pass; **e2e fails** (below). Two
+35-minute seed-1 replays gave `a3c8130c6f3bd064` both times (44.9 s, 41.6 s; no winner, stub bots don't push).
+`PERCH_PENDING=1` siege/practice/fledglings: 20/28 on this branch (`out/check/obj-rules-branch.log`). The five Patron
+and practice failures need Combat's `patron.depleted` and training reset on `w4/movement`: with that branch merged
+uncommitted (then aborted) siege and practice pass 14/17, leaving only the three rides.
+**Timings** (`world.perf.test.ts`, Old Mossmarket, seed 1, 12 bots, waves and structures, 3 sim minutes). Two runs
+with other agents active (9 node, 67 Edge and 25 Claude processes, Codex; CPU 40–70%): startup 166/326 ms, first
+tick 140/387 ms; first wave (tick 1800) 1.98/2.43 ms against W3's 5.9 ms; warm waves 2–6 0.43–0.62/0.40–0.54 ms;
+mean 0.331/0.478 ms; p99 1.17/3.47 ms; max 6.3/37.9 ms. A slow-tick probe found the ticks over 1.5 ms at different
+ticks in each run with no wave, death or attack burst on them, so the remaining tail is machine load or GC.
+**Disputed assertion:** the three `§§3.7/16 … rides over both flocks’ Hawks and Herons` cases. Shrike (580 HP) is shot
+by the enemy Hawk and Heron as §§7.2–7.3 require and dies at z ≈ 75, before the far Heron. With QA's usual
+`siege-health` +9000 on the rider every lane passes in both directions, all 12 towers crossed with exactly 2.00 m
+clearance and about 900 HP lost. Suggest QA adds that modifier; no assertion edited.
+**Blocked:** e2e `draw-budget` lane/low 35 > 32 and lane/medium 50 > 48 calls. scene=lane now spawns the structures;
+the blockout markers hide and each structure draws as one placeholder box (render/models, Technical Artist). 29 calls
+at t = 1 s. Needs instanced structure models or a new QA ceiling.
+**Interface requests:** Technical Artist, draw calls above; QA, the ride modifier. No contract change.
+**Limits:** no hand-played browser siege yet; structure art and the Patron e2e wait on Art and UI.
