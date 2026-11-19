@@ -728,3 +728,23 @@ still passes through pods, GDD §5.6). A unit with `unit.size` is hit as a box o
 `yaw`, grown by the cast radius on every side (square corners); it stops enemy shots from either side.
 **Why:** without pods in the aim ray, a shot at a pod 6 m away aimed at the world behind it and passed ~0.75 m from the
 pod (Economy's D-ECON-001 workaround). A Minkowski box is one slab test; the rounded corners it skips are a few cm.
+### D-HEROA-001 · 19/11/2026 — GDD numbers read as follows for Shrike, Albatross, Kingfisher, Lyrebird
+**Decision:** (1) Resist and "+x%" buffs are additive (`op: 'add'`), so Albatross's Salt Hide T1 is exactly +10 points;
+Albatross's T3 ally share is a flat 20% (half of 30% + the T1 10%, tiers being bought in order). (2) Salt Hide heals 10% of
+max HP through a hook (a Magnitude can't take a fraction of max HP). (3) Thorn Larder's burst is centred on the triggering
+hero with radius 1.5 m, 4 m from T3. (4) Echo Double's decoy shot is a fixed 4.8 Talon (30% of the level 1 gun damage); it
+doesn't grow with Molts or items. (5) Wing Slam's "within 1.5 m of the path" is dash contact (the controller's touch test).
+(6) Gale Shield's 15% slow lasts until the wall ends, then is lifted. (7) Riverstrike T2's extra 6% missing HP is a second
+hit read after the main hit lands, so it is a few HP more than 18% of the missing HP at the strike; a stun during the wind-up
+refunds the whole cooldown (framework, D-ABIL-002). (8) Butcher's Ring's heal reduction and T3 damage zone cover every enemy
+in the 9 m radius, not only heroes. (9) A kill-based refund (Spear Bill T3, Riverstrike) counts damage over time from the
+same ability (Spear Bill's bleed keeps its ability id).
+**Why:** each is the narrowest reading of the GDD text the contracts can carry; all are in data or one named constant, so
+Balance can change them.
+
+### D-HEROA-002 · 19/11/2026 — Framework fallbacks behind named constants
+**Decision:** where a W3 data shape isn't run yet (wall slam `onWall`, `SummonEffect.onEnd`, `selfEffects`), the data uses the
+new field and the hero module carries a fallback hook guarded by a constant (`WALL_SLAM_IN_FRAMEWORK`,
+`SUMMON_END_IN_FRAMEWORK`, `SELF_EFFECTS_IN_FRAMEWORK`) that is false today. After the Systems follow-up merges, set it true
+(or delete the hook): nothing applies twice.
+**Why:** the smoke tests must pass on this branch, and a hook plus the new field would otherwise double the effect after the merge.

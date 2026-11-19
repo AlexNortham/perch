@@ -670,3 +670,30 @@ hooks after the merge; Wing Slam needs `arcHeight: 0`; Gale Shield's follow hook
 (the built-in 'wall' behaviour stands still). Left: `onCaster` stays until no kit uses it; projectile-gun weapon mods
 still apply at impact time (a shot-limited mod's last bullets in flight can land after it ended); units take no
 teleport or movement mode.
+### W3 · Hero Engineer A (batch A1) · 19/11/2026
+**Done:** Shrike, Albatross, Kingfisher and Lyrebird complete and `implemented: true`: real body plans, stats, Molt
+growth, guns and all 16 abilities with their three tiers, as data in `src/sim/data/heroes/<id>.ts`. New data shapes in
+use: Echo Lute `projectileRadius`, Albatross `perRoundStartS`, Echo Double `count`/`spreadDeg`/`onEnd`, Gale Shield
+`size`/`onEnd`, Impaling Bolt `onWall`, Riverstrike T3 `selfEffects`. Tiers that change a base number use value gating
+(Bolt T3 pierce: two projectiles whose ranges swap; Spear Bill T2: two stabs whose radii swap; Plunge T3), Riverstrike
+T2 a zero-amount second hit (+6% missing HP, no hook needed). Hooks (each marked TODO(framework) where the framework
+will replace it): Shrike `boltPin`; Albatross `galeShield` (wall follows you), wall end (lifts the slow; burst until
+`onEnd`), `tempestLeap`, Salt Hide's 10%-of-max-HP heal; Kingfisher Ambush on Glint ending, Glint T3 silence, Spear Bill
+T3 reset, Riverstrike refund and T3 vanish; Lyrebird Grand Chorus penalty ends with the channel.
+**Verified:** `npx vitest run src/sim/heroes src/sim/abilities/kit.test.ts` → 87 passed (57 hero smoke tests: per hero a
+gun test, each ability at base and a tier, the ultimate locked then usable at level 6; kit validator). `npm run lint`,
+`npm run sim -- --seed 1 --minutes 3 --bots 12` (10.9k ticks/s) and `npm run e2e` (6 passed) pass. `npm run check` stops at
+`test`: ONE failure outside my paths, `src/sim/abilities/index.test.ts:305` hard-codes the Shrike placeholder's ultimate
+cooldown (`1 + 90 * 60`); Shrike's real one is 110 s (GDD §9.1) so it must read `1 + 110 * 60`. I was blocked from editing
+another role's file; the owner (or the EP at merge) makes that one-line change. All other 377 tests pass.
+**Blocked:** nothing else.
+**Interface requests:** Character Controller/Architect — (1) a point-cast `dash` with `dir: 'target'` goes nowhere because
+a point cast's `target.entity` is the caster (D-ABIL-001 vs D-CTRL-004): treat `target.entity === cause.source` as "no
+entity" and use the point (Tempest Dive uses a hook until then); (2) ability `dash` with `dir: 'aim'` is flattened, so
+Plunge's "pitch clamped to 30° up, any angle down" can't be said; (3) a 6 m `displace` travels 8.4 m (the landing slide),
+not 6 m. Ability Systems — `onEnd` on a following wall gets the cast direction, not the wall's current facing (Gale Shield T3
+should burst the way you face).
+**Next:** when the Systems follow-up merges, flip `WALL_SLAM_IN_FRAMEWORK` (Shrike), `SUMMON_END_IN_FRAMEWORK` (Albatross) and
+`SELF_EFFECTS_IN_FRAMEWORK` (Kingfisher) to true and delete the fallbacks; add tests for Echo Double T2 (two decoys at ±15°) and
+T3 (burst) and Gale Shield's wall blocking shots, which need that branch. When Economy's `trigger` lands, Kingfisher's Ambush and
+kill refunds can become trigger data.
