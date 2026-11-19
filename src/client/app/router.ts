@@ -51,11 +51,13 @@ export function parseScene(search: string): SceneRequest {
 
 /**
  * The match Play starts (D-ARCH-013): the human with the chosen hero on 'main' with fledgling waves on all three
- * lanes, plus `setup.bots` bot heroes (default 0, the practice match).
+ * lanes, plus `setup.bots` bot heroes (default 0, the practice match). Levels arrive in wave 4, so the practice match
+ * unlocks all four abilities (the ultimate is level 6 otherwise); a match with bots keeps the real rules.
  */
 export function matchConfig(setup: MatchSetup): SimConfig {
   const { seed, hero, team, difficulty, bots = 0 } = setup;
-  return { seed, map: 'main', roster: humanRoster(seed, hero, { team, difficulty, bots }) };
+  const roster = humanRoster(seed, hero, { team, difficulty, bots });
+  return bots === 0 ? { seed, map: 'main', roster, options: { unlockAbilities: true } } : { seed, map: 'main', roster };
 }
 
 /** The sim each scene runs. The menu shows the real map, empty, as its backdrop (D-EP-017). */

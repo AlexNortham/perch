@@ -49,10 +49,12 @@ describe('scene router', () => {
   });
 
   it('starts the practice match from Play and from ?scene=lane', () => {
-    const practice = { map: 'main', roster: [{ team: 'dawn', hero: 'kiwi', controller: 'human' }] };
+    // The practice match unlocks all four abilities (levels arrive in wave 4); matches with bots keep the real rules.
+    const practice = { map: 'main', roster: [{ team: 'dawn', hero: 'kiwi', controller: 'human' }], options: { unlockAbilities: true } };
     expect(sceneConfig(parseScene('?scene=lane&hero=kiwi&seed=3'))).toEqual({ seed: 3, ...practice });
     expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3 })).toEqual({ seed: 3, ...practice });
     expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3, bots: 11 }).roster.length).toBe(12);
+    expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3, bots: 11 }).options).toBeUndefined();
   });
 });
 
