@@ -1449,3 +1449,86 @@ the ground when dead (unchanged). (f) The recoil cycles from the start of Firing
 gets no shot events.
 **Interface requests:** Architect: `EntityView.castSlot` (from `AbilityState.casting`), so the rig plays the
 per-slot cast pose in play (the parameter is already on `BirdRig.animate`). The muzzle request is done (see (a)).
+
+### W4 · QA gate · 19/11/2026
+**Verdict: BLOCK** (`integrate/w4c` at f09d619). Two narrow blockers; everything else I could test passes, so a re-review
+should be quick. Nothing under `src/`, `tests/`, `e2e/`, `tools/` or `wiki/` was changed; scratch scripts live in `out/qa/` (gitignored).
+
+**Blockers**
+1. *`npm run check` is not reliably green (Audio / QA, `e2e/audio.spec.ts`).* `bash scripts/check.sh` ran four times on this
+   checkout: three FAILED at the e2e step and one passed (109 s). Each failure is a different audio test hitting the 30 s
+   timeout inside `page.evaluate` (offline render stall): `pod.resolved secured`, `pod.resolved denied`, `is positional`. The
+   other five steps passed every time. `npm run e2e` on its own passed 52/52 five times and `audio.spec.ts --repeat-each=3`
+   passed 57/57, so it is load-related, not one broken test. Repro: run `bash scripts/check.sh` until e2e fails
+   (`out/check/e2e.log`). W4-common requires all six steps green; fix the stall or give the audio group a bounded retry
+   with the reason in a comment.
+2. *The result screen has never been seen (UI/HUD with Integration web).* No test, e2e or screenshot reaches `endScreen`,
+   and no committed e2e finishes a match. The siege proof is sim-level (below), and a browser siege on real input needs
+   about 20 min of play plus state the `window.__perch` hook does not expose. The pause menu also has no Concede button
+   (`screens.ts:76`), although `actions.concede` exists in `app.ts:99`, so I could not show a Defeat screen either. Needed:
+   one browser case that ends a match and screenshots Victory (for example a client-level test feeding a real
+   `match.ended` and telemetry through `app`), and a decision whether Concede belongs on the pause menu.
+
+**Verified (own runs)**
+- `npm run check` steps: typecheck 7 s, lint 5 s (0 warnings, 0 errors), test 13 s (64 files, 790 tests, none skipped), perf 10 s
+  (7/7), sim 3 s (seed 1, 3 min, hash `24f313406956a6f6`), e2e 76 s (52 passed) on the green run. No `skip`, `PERCH_PENDING`
+  or `todo` in `src`, `tests` or `e2e`; the only skip is the Firefox case of the Edge-only CDP side-button test. M2 rule
+  suites (`siege`, `market`, `practice`, `pods`, `fledglings`) are always on.
+- Determinism: `npm run sim -- --seed 1 --minutes 35 --bots 12`, twice, hash `a1572082c03a5624` both times (matches INTEG-SIM),
+  126,000 ticks, no winner, 14.5 s and 14.3 s. Per-tick timing (own script, `out/qa/tick.mts`): mean 0.113 ms, p50 0.102,
+  p99 0.346, p99.9 0.893, no tick over 3 ms after tick 0 (66 ms warm-up); 5-minute window means 0.103 to 0.119 ms (flat, no
+  leak). Serial `npm run perf`: world +0.139 ms/tick for 166 fledglings (0.5 budget), physics 0.112, combat 0.035, abilities 0.049
+  with 96 areas.
+- Draw calls (Edge, 1920 by 1080, seed 1, t = 100 s, fixed Hedgerow camera, 12-frame peak): lane/low 17 calls, 34.7k triangles;
+  lane/medium 25, 52.8k; match (12 heroes, about 150 fledglings)/medium 36, 64.6k. Ceilings 32, 48, 248. `draw-budget.spec.ts` passes.
+- Ownership: commits since main stay in their owners' paths except recorded exceptions (integration commits, D-EP-018; ART
+  `60d0939` touching Combat and Data muzzle fields at the EP's direction; lint pass D-QA-009). Sim purity: no `Math.random`,
+  clocks, DOM, `three` or Node imports under `src/sim` outside tests (my grep hits were comments only). Runtime errors: none in
+  any e2e, in my scratch runs, or in the production Edge and Firefox runs.
+- Machine: not perfectly quiet. The user's Edge windows (about 60 `msedge.exe` processes), `node_repl` and a few idle node
+  servers were running; no other PERCH agent. Timings are upper bounds, hashes exact.
+
+**One evidence line per M2 gate item**
+| Item | Evidence | State |
+|---|---|---|
+| Seeds, levels, AP, shop | `tests/rules/market.test.ts` (bounty, Molts, 3,000 Seed ultimate, streak, 16-item catalogue and trades), `economy.test.ts:75, 90, 125` (last hit, secure/deny, passive income), `pods.test.ts`; `e2e/match.spec.ts` buys the 800 Seed Quill Clip and sells it back in the shop zone (`out/web/match-shop-bought.png` read: Hoard, 3 columns, Owned, inventory 1/12) | proven |
+| Flex slots | `economy.test.ts:22` (four slots, Patron pays none); the shop panel shows the four unlock lines | proven |
+| Structures, 2-phase Patron, won by hand | `tests/siege-proof.test.ts`: one Owl on ordinary commands (look, move, Fire, Reload), seed 1, victory at tick 69,973 (19:26), hash `d662ba91ea093bbd` re-run here and identical to INTEG-SIM, 0 deaths, 24 heart hits; Hawk 3:04, Heron 10:36, Wardens, Shrines, Patron depleted, phase 2, ended; `siege.test.ts` for gates, Brood Ward x0.35, Heron stomp, Patron phases | proven in sim; not by hand in a browser (blocker 2) |
+| Result screen | not seen | open (blocker 2) |
+| Hawk punishes shooting an allied hero | no test names it. My scratch run (`out/qa/hawk.mts`, real Dusk Riverbank Hawk, sandbox damage): the Hawk left a nearer hero and targeted the aggressor in 4 ticks (0.07 s) | observed; needs a committed test (Objectives / QA) |
+| Updraft clearance over Hawk and Heron | `siege.test.ts:54` (at least 2 m under the rider, all 12 towers), `structures.test.ts:64`; Riverbank ride in `e2e/play.spec.ts` | proven |
+| HUD, minimap, pings, scoreboard, damage numbers | PNGs read: `match-damage-numbers.png` (HP, 3 pips, Lv, AP, Seeds, four slots, ammo, Patron bars, three Hawks, minimap, feed, a 23 damage number), `match-scoreboard.png`, `match-map.png`; ping by real middle-click (`out/qa/ping.png`): world marker "Go here 22 m", feed line and minimap ring, no errors | proven |
+| Minimap vision rule | `world.test.ts:165, 213`; the minimap shows structures and allied dots only | proven |
+| Audio | `e2e/audio.spec.ts` (every hero gun and call, 11 event cues, structure alarm once per 4 s, positional, settings live, real context after a click), 57/57 on repeat; Options sliders in `out/qa/options.png` | proven (subject to blocker 1) |
+| Options persistence, Stage 2 features | `options.spec.ts`, `preview-regressions.spec.ts` in Edge and Firefox (production), `play.spec.ts`, `m2.spec.ts` | proven |
+| Practice Hub, upgrade panel | `m2.spec.ts` from the menu: Lyrebird shoots the enemy dummy and heals the ally twice with resets (`practice-heal.png` read: ally 332 / 580, +100, enemy -16); the panel frees the pointer, hover on all four skills, one click is one AP and one tier, a locked click spends nothing, Esc returns aim (`upgrades-hover-2.png` read: 32 AP) | proven. Defect: in `upgrades-hover-2.png` two description cards overlap (hover on Echo Double plus the focused Mended Song card); cosmetic (UI/HUD) |
+| Twelve birds pickable from the menu | `m2.spec.ts:218` counts 12 Pick cards across A1, A2, B1 | proven |
+| Tracers and aim (Albatross, single shot) | `tracers.spec.ts` plus PNGs read: the Albatross fan meets the reticle on an open sightline and beside a wall; the Kingfisher's blocked muzzle ends at the wall by the gun | proven |
+| Animation bar (D-EP-035) | I read all 12 pose sheets (`out/anim/*.png`, `npx tsx tests/anim/posesheets.ts`). The gun is held in every state, feet are planted when grounded and tuck or reach when airborne, nothing floats, no gun shows through a body. `tests/anim` 52/52 pass | passes, with notes below |
+| Ctrl crouch and fullscreen keyboard lock (D-EP-030) | Production build, Edge 156.0.4314.50, real menu: the Options note reads "Left Ctrl + W / R / Q / N / Tab: Works in fullscreen in Chrome and Edge"; entering Play called `requestFullscreen` then `keyboard.lock` (call-through wrappers), `fullscreenElement` is HTML; holding W then Left Ctrl set the Sliding flag; page alive, no errors (`out/qa/lock.mts`) | proven as far as automation goes |
+| Real Ctrl+W | **Manual check for the user.** The Movement entry gives no steps, only that Playwright cannot press browser shortcuts. Steps (mine): in Edge or Chrome, from the menu choose Play and a bird, click to enter (the tab goes fullscreen), hold W, press Left Ctrl; the bird should slide and the tab must stay open. Esc once releases the pointer; Resume relocks. In Firefox the default is C, so there is nothing to check | open (user) |
+| Wiki (D-EP-031) | Opened over file://: home, heroes index, Albatross, Penguin, Talon items, Old Mossmarket, Combat, Towers (`out/qa/wiki/*.png` read). 12 Playable badges, 12 "Coming in Stage 4", 16 "In the shop" items, 32 coming, no broken images, held-gun models in the portraits. `tests/wiki` 9/9 | passes |
+| Firefox | Playwright Firefox 159.0 (build 1572, already installed; nothing downloaded) on `vite preview` of `npm run build`: `preview-regressions.spec.ts` 4 passed, 1 skipped (Edge CDP side-button case), including the 55 s production soak (W, Shift, Space and crouch rounds for 45 s after a slide, pointer lock kept, sim ticks advancing, no crash, WebGL loss or navigation). Same file in Edge 156.0.4314.50: 5/5 in 55 s | proven; native Firefox side-button history still unverified |
+| M1 preview reports | Reproduced by the above: browser-safe defaults and legacy migration, side buttons without history navigation (Edge CDP), pointer-locked light, heavy and parry, the 45 s run. Tab liveness here means `page.isClosed()` false, URL unchanged and no `crash` event, which separates a renderer crash and navigation from a native close shortcut (automation cannot raise that). Two real side-button rebinds across a restart: `options.spec.ts` (reload in one context, not a cold restart) | proven, except a cold restart |
+
+**Animation notes (none blocks)**
+- Shrike: the gun reads as a very long thin pole in side views (idle, charge, dash, heavy); it looks like a stick, not a rifle.
+- Albatross: the gun is the same dark brown-grey as the wings and is hard to find in the three-quarter views (aim, idle, shoot).
+- Owl: the rifle sits at throat height across the collar in idle and run, so it crosses the face line in three-quarter view.
+- Hornbill, dead: the tail bars lie as three detached black squares beside the body. Lyrebird, dead: the lyre stands into the ground
+  (known, ART limitation e). Starling, dead: halo petals scatter in the air.
+- Secretarybird run: the leading leg looks short in the three-quarter view; planted foot error is 0.00 mm in the test, so it is the camera angle.
+- Albatross, Pelican, Penguin: the gun stays outside the flank in every view (the D-EP-035 follow-up worked).
+- Casts show the generic raise pose in play until `EntityView.castSlot` exists (ART request, open).
+
+**Follow-ups by owner**
+- *Audio / QA:* blocker 1.
+- *UI/HUD with Integration web:* blocker 2; overlapping ability cards on hover plus focus; decide on a Concede button.
+- *Objectives / QA:* a committed test for the Hawk aggressor priority (`structures.ts:114`).
+- *ART:* gun colour contrast on dark-winged birds, the Shrike's gun length, Owl rifle height, Hornbill tail when dead; `castSlot`.
+- *Architect:* `window.__perch` exposes no sim view, so no browser case can read structure or match state; a read-only `state`
+  (tick, winner, structure health) would allow a real-input siege case.
+- *EP:* PLAYABLE.md "Stage 3 (M2)" after the two blockers; run the manual Ctrl+W check above.
+
+**Blocked:** nothing for me. **Interface requests:** the read-only `__perch` state above.
+**Next:** owners fix blockers 1 and 2; independent re-review; the EP writes PLAYABLE.md and merges.
