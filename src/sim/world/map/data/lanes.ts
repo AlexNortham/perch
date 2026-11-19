@@ -198,10 +198,14 @@ const legFacades = (material: MaterialTag, style: FacadeStyle): SpecPart => join
 );
 
 /** Cover along the first leg: alternating edges, every 8 m (G19). */
-const legCover = (kind: PropSpec['kind']): PropSpec[] => [10, 18, 26, 34, 42, 50, 58].map((s, i) => {
-  const c = legAt(s, i % 2 ? -5.5 : 5.5);
-  return cover(kind, c.x, c.z, 1.5, 1.5, 1.2, LEG_YAW);
-});
+const legCover = (kind: PropSpec['kind']): PropSpec[] => [
+  ...[9, 17, 25, 33, 41, 49, 57].map((s, i) => {
+    const c = legAt(s, i % 2 ? -5.5 : 5.5);
+    return cover(kind, c.x, c.z, 1.5, 1.5, 1.2, LEG_YAW);
+  }),
+  // On the outside of the corner, where the lane turns toward the Hawk.
+  cover(kind, -101, -86, 1.5, 1.5, 1.2),
+];
 
 // ---------------------------------------------------------------------------------------------------------------
 // Hedgerow (west)
@@ -360,7 +364,7 @@ function sawmill(): SpecPart {
 }
 
 const pinewood = joinParts(
-  extend(joinParts(stiltHouse('stilt-east', 109, -70, 6), stiltHouse('stilt-west', 78, -71, 6)), {
+  extend(joinParts(stiltHouse('stilthouse-far', 109, -70, 6), stiltHouse('stilthouse-near', 78, -71, 6)), {
     nests: [
       { ...at(113.5, 6, -68.5), variant: 'twig', building: 0, storey: 0 },
       { ...at(82.5, 6, -69.5), variant: 'twig', building: 1, storey: 0 },
@@ -380,8 +384,8 @@ const pinewood = joinParts(
     ],
   }),
   props('pinewood', [
-    ...[-76, -40, -32, -6].map((z) => cover('logs', 89.75, z, 1.5, 3, 1.2)),
-    ...[-80, -72, -44, -32].map((z) => cover('crate', 100.25, z)),
+    ...[-76, -64, -40, -32, -14, -6].map((z) => cover('logs', 89.75, z, 1.5, 3, 1.2)),
+    ...[-80, -72, -52, -44, -26, -12, -2.5].map((z) => cover('crate', 100.25, z)),
     deco('pine', 104.5, -26, 6, 6, 18), deco('pine', 104.5, -10, 6, 6, 18), deco('reeds', 120, -30, 4, 8, 1.4),
     deco('feather-banner', 86.1, -66, 0.1, 1.4, 3, 7, PI / 2),
     deco('dovecote-boxes', 112, -60.2, 4, 0.4, 1.6, 7), deco('feeder', 107.75, -58, 0.6, 0.6, 1.4, 1.2),
@@ -430,12 +434,22 @@ const riverbankPrims: BlockoutPrim[] = [
 ];
 
 const riverbank = joinParts(
-  part({ prims: riverbankPrims }),
+  part({
+    prims: [
+      ...riverbankPrims,
+      // A roost stand on the west edge between the Lantern Row mouth and the market square (the east bank has the
+      // stall there): a 4.5 m deck on stilts, its stair rising south.
+      block(-14, -10.5, -64, -60, 4.1, 4.5, 'wood'),
+      ...stilts(-14, -10.5, -64, -60, 4.1),
+      ramp(-14, -12, -60, -52, 0, 4.5, 's', 'wood'),
+    ],
+    nav: [v(-12.25, 4.5, -62), v(-13, 0, -51)],
+  }),
   props('riverbank', [
     ...[-104, -86, -64, -58, -30, -20].map((z, i) => cover(i % 2 ? 'crate' : 'barrel', -7, z)),
     ...[-108, -100, -88, -52, -44, -24].map((z, i) => cover(i % 2 ? 'barrel' : 'crate', 7, z)),
     deco('stall', 12.75, -60, 3, 5, 3), deco('reeds', 11.5, -100, 4, 10, 1.6), deco('reeds', 11.5, -48, 4, 6, 1.6),
-    deco('reeds', 11.5, -28, 4, 6, 1.6), deco('bird-bath', -2, -36, 1.4, 1.4, 0.9), deco('fountain', -2, -46, 3, 3, 1.4),
+    deco('reeds', 11.5, -28, 4, 6, 1.6), deco('bird-bath', -5.5, -36, 1.4, 1.4, 0.9), deco('fountain', -5, -30, 3, 3, 1.4),
     deco('seed-stall', -12, -40, 2.5, 1.5, 2.2), deco('feather-banner', 0, -112.5, 1.4, 0.1, 4, 6),
   ]),
 );

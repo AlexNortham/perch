@@ -108,7 +108,9 @@ export const CELLAR_RUN: SpecPart = part({
   nav: [
     ...[-44, -36, -28, -20, -12, 12, 20, 28, 36, 44].map((x) => v(x, FLOOR, -64)),
     v(-4, FLOOR, -66), v(4, FLOOR, -66), v(0, FLOOR, -61), v(-5, FLOOR, -68.5), v(5, FLOOR, -68.5),
-    ...LANE_STAIRS.flatMap((r) => [v((r.x0 + r.x1) / 2, 0, r.z0 - 1.5), v((r.x0 + r.x1) / 2, -2.25, (r.z0 + r.z1) / 2)]),
+    ...LANE_STAIRS.flatMap((r) => [
+      v((r.x0 + r.x1) / 2, 0, r.z0 - 1.5), v((r.x0 + r.x1) / 2, (FLOOR + 0) / 2, (r.z0 + r.z1) / 2), v((r.x0 + r.x1) / 2, FLOOR, r.z1 + 1),
+    ]),
   ],
   props: [
     ...[-40, -30, -20, 20, 30, 40].map((x) => ({ kind: 'lantern' as const, pos: v(x, TUNNEL_CEILING - 0.6, TUNNEL.z1 - 0.2), yaw: PI, size: v(0.4, 0.6, 0.4), zone: 'cellar-run', solid: false })),
