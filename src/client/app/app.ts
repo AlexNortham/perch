@@ -45,6 +45,8 @@ const READY_FRAMES = 3;
 const MS_PER_SECOND = 1000;
 /** Wall-clock time per frame the replay spends stepping the sim (about 20 frames a second while it fast-forwards). */
 const REPLAY_FRAME_MS = 45;
+/** The longest the sim fast-forward runs before it lets the page breathe. */
+const FAST_FORWARD_SLICE_MS = 30;
 
 /** One running sim and the two newest views the renderer interpolates between. */
 interface Session {
@@ -258,8 +260,14 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     const sim = await createSim(config);
     const hero = sim.view.localHero;
     const drive = replay && hero !== null ? siegeAgent(sim, hero) : null;
+    // A long fast-forward yields to the browser every few frames, so the page keeps answering clicks while it runs.
+    let sliceStart = performance.now();
     for (let i = 0, n = Math.round(fastForwardS * TICK_RATE); i < n && !sim.isOver; i++) {
       sim.step(drive && hero !== null ? [{ hero, command: drive() }] : undefined);
+      if (performance.now() - sliceStart > FAST_FORWARD_SLICE_MS) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        sliceStart = performance.now();
+      }
     }
     sim.drainEvents();
     const heroId = sim.view.heroes.find((h) => h.id === hero)?.heroId ?? null;

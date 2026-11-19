@@ -180,7 +180,7 @@ export function createInput(
     if (!upgradeHold) return;
     upgradeHold = false;
     onUiAction('upgrades', false);
-    if (relock && relockOnRelease && enabled) lock();
+    if (relock && relockOnRelease && enabled) lock(true);
     relockOnRelease = false;
   }
 
@@ -273,7 +273,10 @@ export function createInput(
     if (b === HISTORY_BACK || b === HISTORY_FORWARD) ev.preventDefault();
   };
 
-  function lock(): void {
+  /** `again`: lock after our own release of the lock, which the browser allows without a fresh gesture. */
+  function lock(again = false): void {
+    // Without a user gesture a request only fails (and can disturb the click's own request that follows): wait for the click.
+    if (!again && doc.defaultView?.navigator.userActivation?.isActive === false) return;
     try {
       // Newer browsers return a promise that rejects without a user gesture; that just leaves the click to do it.
       void Promise.resolve(target.requestPointerLock()).catch(() => undefined);
