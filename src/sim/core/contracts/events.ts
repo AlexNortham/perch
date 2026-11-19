@@ -60,6 +60,8 @@ export interface EntityDespawnedEvent {
 export interface WeaponFiredEvent {
   readonly type: 'weapon.fired';
   readonly shooter: EntityId;
+  /** Combat sets this on instantaneous gun rays. */
+  readonly hitscan?: boolean;
   readonly muzzle: Vec3;
   /** Unit direction toward the aim point (before per-pellet spread). */
   readonly dir: Vec3;
@@ -360,6 +362,15 @@ export interface StructureStateEvent {
   readonly state: 'phase2' | 'wardUp' | 'wardDown' | 'vulnerable';
 }
 
+export interface StructureAttackEvent {
+  readonly type: 'structure.attack';
+  readonly structure: EntityId;
+  readonly attack: 'bolt' | 'beam' | 'stomp' | 'pulse' | 'volley' | 'screech' | 'rain' | 'gale' | 'transition';
+  readonly origin: Vec3;
+  readonly point: Vec3;
+  readonly impactAt: Tick;
+}
+
 export type ObjectiveAction =
   | 'eggSpawned'
   | 'eggTaken'
@@ -424,6 +435,7 @@ export type SimEvent =
   | HeroLevelEvent
   | FlexSlotsEvent
   | WaveSpawnedEvent
+  | StructureAttackEvent
   | StructureStateEvent
   | ObjectiveEvent
   | PingEvent;

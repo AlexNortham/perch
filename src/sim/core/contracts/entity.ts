@@ -68,6 +68,8 @@ export interface EntityBase {
    * spawn. Read it with core/vision.ts `canSee`.
    */
   seenBy: number;
+  /** Extra map-only visibility bits, written by world. */
+  mapOnlySeenBy?: number;
 }
 
 /**
@@ -132,6 +134,8 @@ export interface WeaponState {
   reloading: boolean;
   /** True on ticks the gun is in its fire cycle (for animation and audio). */
   firing: boolean;
+  /** Combat keeps this set during the melee swing. */
+  meleeing?: boolean;
 }
 
 /** One ability slot's state. */
@@ -178,6 +182,8 @@ export interface Progress {
 /** An owned item. */
 export interface OwnedItem {
   readonly item: ItemId;
+  /** Last tick of full-price refund during this visit. Cleared on exit. */
+  fullRefundUntil?: Tick;
   /** Tick at which the item's active is ready again (0 = ready). */
   readyAt: Tick;
 }
@@ -186,6 +192,8 @@ export interface OwnedItem {
  * Items. Writer: sim/items. Slots are counted per category; flex slots come from TeamState.flexSlots.
  */
 export interface Inventory {
+  /** Current own shop index in MapData.shops, null outside. Writer: items. */
+  shopZone?: number | null;
   readonly items: OwnedItem[];
   /** Item ids bound to item-active keys Z, X, C, V (null = empty). */
   readonly actives: [ItemId | null, ItemId | null, ItemId | null, ItemId | null];
@@ -255,6 +263,9 @@ export interface StructureInfo {
   readonly lane: LaneId | null;
   /** Patron only: 1 or 2. Everything else stays 1. */
   phase: 1 | 2;
+  broodWard?: boolean;
+  /** End tick of the invulnerable phase transition. */
+  transitionUntil?: Tick;
   /** Current attack target, or null. */
   target: EntityId | null;
   /** Collider and hitbox: a vertical cylinder of this radius and height standing on `pos`. Physics builds it at spawn. */
@@ -316,7 +327,16 @@ export interface PickupEntity extends EntityBase {
  * A lasting area (an AreaEffect with a duration). Writer: sim/abilities. Its shape and effects stay private to
  * sim/abilities; `radius` on the entity bounds it for the spatial hash and the renderer.
  */
+export type AreaDimensions =
+  | { readonly kind: 'sphere'; readonly radius: number }
+  | { readonly kind: 'cylinder'; readonly radius: number; readonly half: number }
+  | { readonly kind: 'cone'; readonly length: number; readonly cosHalf: number }
+  | { readonly kind: 'ring'; readonly inner: number; readonly outer: number; readonly half: number }
+  | { readonly kind: 'box'; readonly halfX: number; readonly half: number; readonly halfZ: number };
+
 export interface AreaInfo {
+  /** Resolved geometry: half extents in metres, cosHalf is cosine of the cone half-angle. */
+  readonly dimensions?: AreaDimensions;
   readonly owner: EntityId | null;
   readonly ability: AbilityId | null;
   readonly shape: AreaShape['kind'];

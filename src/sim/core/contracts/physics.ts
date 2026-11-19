@@ -39,9 +39,9 @@ export type Shape =
 export interface CharacterMove {
   /** Where the character ended up (feet). */
   readonly pos: Vec3;
-  readonly grounded: boolean;
+  grounded: boolean;
   /** Normal of the steepest surface hit this move, or null. Mantling and wall checks use it. */
-  readonly wall: Vec3 | null;
+  wall: Vec3 | null;
 }
 
 /** `ctx.physics`. */
@@ -54,9 +54,9 @@ export interface PhysicsService {
   overlap(shape: Shape, centre: Vec3, mask: number, out: EntityId[]): EntityId[];
   /**
    * Move a hero (or any entity physics gave a character controller) by `delta` with collide-and-slide, step-up and
-   * slope limits. Returns the result; it does not write the entity (the caller does).
+   * slope limits. When supplied, fill and return caller-owned out, reusing its position. The caller writes the entity.
    */
-  moveCharacter(entity: EntityId, delta: Vec3): CharacterMove;
+  moveCharacter(entity: EntityId, delta: Vec3, out?: CharacterMove): CharacterMove;
   /** Height of the walkable surface under (x, z) at or below `fromY`, or null if there is none. */
   groundHeight(x: number, z: number, fromY: number): number | null;
 }

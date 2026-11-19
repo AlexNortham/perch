@@ -5,6 +5,7 @@
  */
 
 /** Fixed simulation rate. Every duration in the sim is a whole number of ticks. */
+export const DEFAULT_AIM_ZOOM = 0.8;
 export const TICK_RATE = 60;
 /** Length of one tick in seconds. */
 export const TICK_SECONDS = 1 / TICK_RATE;
