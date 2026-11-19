@@ -12,6 +12,7 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
 - **Stage 1 (M0) closed 19/11/2026.** W1 and W2 on main; QA gate APPROVE (W2 · QA gate entry). See PLAYABLE.md.
 - **W2.5 contract round merged 19/11/2026** (28 requests: 22 accepted, 6 modified; INTERFACES.md §11).
 - **Stage 2 (M1) closed 19/11/2026.** W3 + integration round on main; QA gate APPROVE (W3 · QA gate entry).
+- **Wave 4 resumed by Claude 19/11/2026 (D-EP-029)** after ChatGPT stopped; contracts and test-first suites are on main.
 - **Stage 3 opened 19/11/2026.** W3.5 settles contracts first. QA's test-first suites then land on main before
   the W4 implementers start. The release gate is below and in GDD §16.
 - **Last `npm run check`:** PASS on integrate/w3 (6/6 steps incl. perf, 76 s; 5 runs in a row); sim 0.234 ms per tick

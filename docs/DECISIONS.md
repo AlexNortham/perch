@@ -933,3 +933,13 @@ tiers, actual shots, and pointer lock. Keep Practice Hub, the upgrade panel, ord
 picker behind `PERCH_PENDING=1` until their producers land. In siege, confirm a locked ultimate and passive earnings
 while inspecting.
 **Why:** player-visible state can prove input and session wiring alongside QA's rule-level assertions.
+
+### D-EP-029 · 19/11/2026 — Claude resumes wave 4 from ChatGPT's branches
+**Decision:** ChatGPT (Codex) ran the W3.5 contract round, the Director, production and test-first rounds (all on main
+at 1d9e431) and started Movement, Economy and Objectives before stopping. Its uncommitted work was committed as WIP
+snapshots on `w4/movement`, `w4/objectives` and `w4/economy`. Claude's EP continues wave 4 with ChatGPT's briefs
+(`docs/briefs/W4-*.md`): Movement, Economy and Objectives resume from those branches; UI, Consumers, Technical
+Artist, Hero A (A2) and Hero B (B1) start fresh from main; Audio starts when a slot frees; the Lint pass runs after the
+merge because it touches every owner's files. Models follow D-EP-019. ChatGPT's worktrees under `~\.codex\` are left
+untouched.
+**Why:** the user asked Claude to pick development back up from ChatGPT; resuming its branches keeps its work.
