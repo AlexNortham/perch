@@ -3,7 +3,7 @@
  *
  * A flock always sees its own entities. It sees an enemy or neutral one within 20 m of one of its fledglings, 30 m of
  * one of its structures or 40 m of one of its living heroes with line of sight, or while it is revealed. An invisible
- * one (not revealed) is seen only within 8 m of one of those eyes or inside a true-sight holder's radius.
+ * one is seen only within 8 m of an eye or inside a true-sight holder's radius. Revealing it adds a map icon.
  *
  * Heroes are evaluated every tick; every other entity every VISION.staggerTicks ticks (by id), so its bits lag by at
  * most 0.1 s (ARCHITECTURE §11 allows 0.25 s). Line-of-sight raycasts run only when no cheaper eye sees the entity.

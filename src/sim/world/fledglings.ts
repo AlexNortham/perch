@@ -29,7 +29,7 @@ import type {
   UnitEntity,
   Vec3,
 } from '../core/contracts';
-import { ticks } from '../core/math';
+import { distSq, ticks } from '../core/math';
 import { canSee } from '../core/vision';
 import { TICK_RATE, TICK_SECONDS } from '../data/core';
 import { AIR, GROUND } from '../data/movement';
@@ -318,15 +318,15 @@ export function createFledglings(ctx: SimContext): Fledglings {
   };
 
   /** Centre-to-surface distance from the fledgling to a target. */
-  const reach = (f: Fledgling, t: Damageable): number => Math.sqrt(distance2(f.e.pos, t.pos)) - t.radius;
-  const inReach = (f: Fledgling, t: Damageable, range = f.def.range): boolean => distance2(f.e.pos, t.pos) <= (range + t.radius) ** 2;
+  const reach = (f: Fledgling, t: Damageable): number => Math.sqrt(distSq(f.e.pos, t.pos)) - t.radius;
+  const inReach = (f: Fledgling, t: Damageable, range = f.def.range): boolean => distSq(f.e.pos, t.pos) <= (range + t.radius) ** 2;
 
   const valid = (f: Fledgling, t: Damageable): boolean =>
     !t.removed &&
     !t.health.dead &&
     (t.kind === 'structure' && f.assault || canSee(f.e.team as PlayerTeam, t)) &&
     !t.stats.conditions.has('intangible') &&
-    (t.kind === 'structure' ? !t.stats.conditions.has('invulnerable') && (f.assault || inReach(f, t, AI.leash)) : distance2(f.e.pos, t.pos) <= AI.leash ** 2);
+    (t.kind === 'structure' ? !t.stats.conditions.has('invulnerable') && (f.assault || inReach(f, t, AI.leash)) : distSq(f.e.pos, t.pos) <= AI.leash ** 2);
 
   /** GDD §7.1 target rules; keeps the current target unless a higher-priority one appears. */
   const pick = (f: Fledgling): void => {
@@ -343,10 +343,10 @@ export function createFledglings(ctx: SimContext): Fledglings {
       let r = NONE;
       let d = 0;
       if (t.kind === 'unit') {
-        d = Math.sqrt(distance2(me.pos, t.pos));
+        d = Math.sqrt(distSq(me.pos, t.pos));
         if (isFledgling(t) && d <= AI.fledglingAggro) r = RULE.fledgling;
       } else if (t.kind === 'hero') {
-        d = Math.sqrt(distance2(me.pos, t.pos));
+        d = Math.sqrt(distSq(me.pos, t.pos));
         const hurt = hurtAt.get(t.id);
         if (hurt !== undefined && now - hurt.tick <= hurtWindow && d <= AI.hurtAggro) r = RULE.hurtHero;
         else if (d <= AI.heroAggro) r = RULE.hero;
@@ -574,6 +574,3 @@ export function createFledglings(ctx: SimContext): Fledglings {
   };
 }
 
-function distance2(a: Vec3, b: Vec3): number {
-  return (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2;
-}

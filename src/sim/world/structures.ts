@@ -3,7 +3,7 @@ import type {
   SimContext, StructureAttackEvent, StructureEntity, UnitEntity, Vec3,
 } from '../core/contracts';
 import { LANE_IDS } from '../core/contracts';
-import { ticks } from '../core/math';
+import { distSq, ticks } from '../core/math';
 import { canSee } from '../core/vision';
 import { DEFENCE as D, FLEDGLING_AI, STRUCTURE_BODY, STRUCTURE_RADIUS } from '../data/world';
 import { isFledgling } from './fledglings';
@@ -29,7 +29,6 @@ interface Impact {
 
 export interface HeroThreat { tick: number; victimPos: Vec3 }
 
-const distance2 = (a: Vec3, b: Vec3): number => (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2;
 const enemyTeam = (s: StructureEntity): PlayerTeam => s.team === 'dawn' ? 'dusk' : 'dawn';
 
 export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, HeroThreat>) {
@@ -66,7 +65,7 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
     for (const id of nearby) {
       const a = ctx.store.get(id);
       if ((a?.kind === 'hero' || a?.kind === 'unit') && a.team === enemyTeam(s) && !a.health.dead &&
-          !a.removed && !a.stats.conditions.has('intangible') && distance2(centre, a.pos) <= range * range) actors.push(a);
+          !a.removed && !a.stats.conditions.has('intangible') && distSq(centre, a.pos) <= range * range) actors.push(a);
     }
     return actors;
   }
@@ -107,11 +106,11 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
     let bestD = Infinity;
     let close = false;
     for (const a of enemies(s, s.pos, def.range)) {
-      const dist = distance2(a.pos, s.pos);
+      const dist = distSq(a.pos, s.pos);
       if (dist <= D.stomp.range ** 2) close = true;
       if (!canSee(s.team as PlayerTeam, a) || (a.kind === 'unit' && !isFledgling(a))) continue;
       const threat = a.kind === 'hero' ? hurtAt.get(a.id) : undefined;
-      const hostile = threat && ctx.clock.tick - threat.tick <= threatWindow && distance2(s.pos, threat.victimPos) <= def.range ** 2;
+      const hostile = threat && ctx.clock.tick - threat.tick <= threatWindow && distSq(s.pos, threat.victimPos) <= def.range ** 2;
       const rank = hostile ? D.priority.aggressor : s.structure.target === a.id ? D.priority.current :
         a.kind === 'unit' ? D.priority.fledgling : D.priority.hero;
       if (rank < bestRank || (rank === bestRank && dist < bestD)) {
@@ -139,10 +138,11 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
   function baseAttack(t: Tower, shrine: boolean): void {
     const s = t.e;
     const now = ctx.clock.tick;
-    if (now < t.next && (shrine || (now < t.special && now < t.gale))) return;
+    if (s.structure.target === null && (now + s.id) % D.scanTicks !== 0) return;
+    if (now < t.next && (shrine || (now < t.special && (s.structure.phase === 1 || now < t.gale)))) return;
     const targets = enemies(s, s.pos, shrine ? D.pulse.range : D.volley.range)
       .filter((a): a is HeroEntity => a.kind === 'hero' && canSee(s.team as PlayerTeam, a))
-      .sort((a, b) => distance2(a.pos, s.pos) - distance2(b.pos, s.pos));
+      .sort((a, b) => distSq(a.pos, s.pos) - distSq(b.pos, s.pos));
     s.structure.target = targets[0]?.id ?? null;
     if (targets.length === 0) return;
     if (shrine) {
@@ -160,7 +160,7 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
       t.next = now + ticks(first ? D.volley.phase1 : D.volley.phase2);
     }
     if (now >= t.special) {
-      if (first && distance2(targets[0]!.pos, s.pos) <= D.screech.range ** 2) {
+      if (first && distSq(targets[0]!.pos, s.pos) <= D.screech.range ** 2) {
         cue(s, 'screech', s.pos, now);
         for (const a of enemies(s, s.pos, D.screech.range)) hit(s, a, 'song', D.screech.damage, D.screech.push);
         t.special = now + ticks(D.screech.interval);
@@ -169,7 +169,7 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
         t.special = now + ticks(D.rain.interval);
       }
     }
-    if (!first && now >= t.gale && distance2(s.pos, targets[0]!.pos) <= D.gale.range ** 2) {
+    if (!first && now >= t.gale && distSq(s.pos, targets[0]!.pos) <= D.gale.range ** 2) {
       const facing = targets[0]!.pos;
       const dx = facing.x - s.pos.x;
       const dz = facing.z - s.pos.z;
@@ -200,7 +200,7 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
   function ward(s: StructureEntity): void {
     let active = true;
     for (const u of fledglings[enemyTeam(s)]) {
-      if (distance2(u.pos, s.pos) <= D.ward.range ** 2) {
+      if (distSq(u.pos, s.pos) <= D.ward.range ** 2) {
         active = false;
         break;
       }
@@ -265,7 +265,7 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
   function homeRoost(): void {
     for (const zone of roosts) {
       for (const h of ctx.store.list('hero')) {
-        if (h.health.dead || distance2(h.pos, zone.pos) > zone.radius ** 2) continue;
+        if (h.health.dead || distSq(h.pos, zone.pos) > zone.radius ** 2) continue;
         if (h.team === zone.team) {
           if (h.health.hp < h.stats.final.maxHealth) apply(null, zone.team, zone.pos, h, { kind: 'heal', amount: h.stats.final.maxHealth * D.roost.healFraction });
         } else apply(null, zone.team, zone.pos, h, { kind: 'damage', type: 'song', amount: D.roost.damage });
@@ -298,7 +298,7 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
         }
         if (info.type === 'hawk' || info.type === 'warden' || info.type === 'heron') {
           if ((now + s.id) % D.scanTicks === 0 || (info.target !== null && now >= t.next)) defend(t, info.type);
-        } else if (!s.stats.conditions.has('invulnerable')) baseAttack(t, info.type === 'shrine');
+        } else baseAttack(t, info.type === 'shrine');
       }
     },
     hash(h: Hasher) {
