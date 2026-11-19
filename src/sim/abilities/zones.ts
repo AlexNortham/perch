@@ -14,8 +14,8 @@
  * - Effects from areas carry the cause with via 'area' and origin at the area centre (structures ignore them).
  * Durations of areas, summons and tethers from abilities scale with the source's `abilityDuration`.
  */
-import { AREA_TICK_S, CROSS_MARGIN, GROUND_PROBE_UP, SUMMON } from '../data/abilities';
-import { TICK_SECONDS } from '../data/core';
+import { CROSS_MARGIN, GROUND_PROBE_UP, RAD_PER_DEG, SUMMON } from '../data/abilities';
+import { EFFECT_TICK_SECONDS, TICK_SECONDS } from '../data/core';
 import { LAYERS_SOLID } from '../core/contracts';
 import type {
   AreaEffect,
@@ -211,7 +211,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       radius: bound,
       area: { owner: cause.source, ability: cause.ability, shape: effect.shape.kind, expiresAt: clock.tick + duration },
     });
-    const interval = Math.max(1, ticks(effect.intervalS ?? AREA_TICK_S));
+    const interval = Math.max(1, ticks(effect.intervalS ?? EFFECT_TICK_SECONDS));
     areas.push({
       id: ent.id,
       effect,
@@ -322,22 +322,54 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
 
   // ── Summons ────────────────────────────────────────────────────────────────────────────────────────────────
 
+  /**
+   * A summon ends (death, expiry, replacement): its onEnd effects at its last position, entity null, with its cause
+   * moved there (push and pull work from the summon) and dir = its facing.
+   */
+  const endSummon = (s: SummonState, pos: Vec3, yaw: number): void => {
+    s.done = true;
+    const list = s.effect.onEnd;
+    if (!list?.length) return;
+    const point = copy(pos);
+    effects.applyAll(list, { entity: null, point, dir: { x: Math.sin(yaw), y: 0, z: Math.cos(yaw) } }, { ...s.cause, origin: copy(point) });
+  };
+
+  // A summon killed in the damage phase ends there, while its record is still in the store.
+  ctx.bus.on('entity.died', (e) => {
+    if (e.victimKind !== 'unit') return;
+    const s = summons.find((x) => x.id === e.victim && !x.done);
+    if (s) endSummon(s, e.pos, store.get(e.victim)?.yaw ?? Math.atan2(s.dir.x, s.dir.z));
+  });
+
   effects.handle('summon', 'abilities', (effect, target, cause) => {
+    const owner = cause.source;
+    const count = Math.max(0, Math.floor(effects.magnitude(effect.count ?? 1, cause)));
+    // One application never replaces its own summons: the cap is at least `count` (D-SYS-002).
+    const cap = Math.max(effect.maxCount, count);
+    const live = summons.filter((s) => !s.done && s.cause.source === owner && s.effect.behaviour === effect.behaviour);
+    for (let i = 0; i < live.length + count - cap; i++) {
+      const old = live[i] as SummonState;
+      const u = store.get(old.id);
+      store.despawn(old.id);
+      endSummon(old, u?.pos ?? old.cause.origin, u?.yaw ?? 0);
+    }
+    const base = Math.atan2(target.dir.x, target.dir.z);
+    const spread = (effect.spreadDeg ?? 0) * RAD_PER_DEG;
+    for (let k = 0; k < count; k++) {
+      const yaw = count > 1 ? base - spread / 2 + (spread * k) / (count - 1) : base;
+      spawnSummon(effect, target.point, { x: Math.sin(yaw), y: 0, z: Math.cos(yaw) }, cause);
+    }
+  });
+
+  const spawnSummon = (effect: SummonEffect, point: Vec3, dir: Vec3, cause: EffectCause): void => {
     const tick = clock.tick;
     const owner = cause.source;
-    const live = summons.filter((s) => !s.done && s.cause.source === owner && s.effect.behaviour === effect.behaviour);
-    for (let i = 0; i <= live.length - effect.maxCount; i++) {
-      const old = live[i] as SummonState;
-      store.despawn(old.id);
-      old.done = true;
-    }
     const hp = effects.magnitude(effect.health, cause);
     const size = effect.size;
-    const dir = flat(target.dir);
     const unit = store.spawn({
       kind: 'unit',
       team: cause.team,
-      pos: copy(target.point),
+      pos: copy(point),
       vel: vec3(),
       yaw: Math.atan2(dir.x, dir.z),
       radius: size ? Math.max(size.x, size.z) / 2 : SUMMON.radius,
@@ -345,6 +377,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
         type: 'summon',
         lane: null,
         height: size?.y ?? SUMMON.height,
+        ...(size ? { size: copy(size) } : {}),
         owner,
         summon: effect.summon,
         target: null,
@@ -372,13 +405,13 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
     summons.push({
       id: unit.id,
       effect,
-      cause: { ...cause, origin: copy(target.point) },
+      cause: { ...cause, origin: copy(point) },
       dir,
       expiresAt: tick + lasting(effect.durationS, cause),
       nextAttack: tick + attack,
       done: false,
     });
-  });
+  };
 
   /** Nearest visible, unoccluded target: heroes first, then anything else the filter allows. */
   const acquire = (u: Entity, s: SummonState, range: number, f: TargetFilter): Entity | null => {
@@ -411,12 +444,13 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
     }
     if (tick >= s.expiresAt) {
       store.despawn(s.id);
-      s.done = true;
+      endSummon(s, u.pos, u.yaw);
       return;
     }
     const e = s.effect;
     u.unit.attacking = false;
-    if (e.behaviour === 'decoy') {
+    // Rooted or stunned summons stay put; physics roots a unit while it displaces it (D-ARCH-014).
+    if (e.behaviour === 'decoy' && !stats.has(u.id, 'rooted') && !stats.has(u.id, 'stunned')) {
       const speed = stats.get(u.id, 'moveSpeed');
       u.pos.x += s.dir.x * speed * TICK_SECONDS;
       u.pos.z += s.dir.z * speed * TICK_SECONDS;
@@ -467,7 +501,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
   effects.handle('tether', 'abilities', (effect, target, cause) => {
     const { source } = cause;
     if (source === null || target.entity === null || target.entity === source) return;
-    const interval = Math.max(1, ticks(effect.intervalS ?? AREA_TICK_S));
+    const interval = Math.max(1, ticks(effect.intervalS ?? EFFECT_TICK_SECONDS));
     tethers.push({
       source,
       target: target.entity,
@@ -479,13 +513,20 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       nextTick: clock.tick + interval,
       done: false,
     });
+    ctx.bus.emit({ type: 'tether', source, target: target.entity, ability: cause.ability, stage: 'start' });
   });
+
+  /** Expiry, breaking beyond breakDistance, or either end dying: the client stops drawing the link. */
+  const endTether = (t: TetherState): void => {
+    t.done = true;
+    ctx.bus.emit({ type: 'tether', source: t.source, target: t.target, ability: t.cause.ability, stage: 'end' });
+  };
 
   const tickTether = (t: TetherState): void => {
     const s = alive(t.source);
     const g = alive(t.target);
     if (!s || !g || distSq(s.pos, g.pos) > t.breakSq) {
-      t.done = true;
+      endTether(t);
       return;
     }
     if (clock.tick >= t.nextTick) {
@@ -494,7 +535,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       apply(t.effect.onSourceTick, s, toTarget, t.cause);
       apply(t.effect.onTargetTick, g, toTarget, t.cause);
     }
-    if (clock.tick >= t.expiresAt) t.done = true;
+    if (clock.tick >= t.expiresAt) endTether(t);
   };
 
   /** Runs `step` on every live entry, including ones added meanwhile, then drops finished ones. */

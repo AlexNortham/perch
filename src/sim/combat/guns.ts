@@ -73,6 +73,8 @@ export interface Guns {
   hash(h: Hasher): void;
 }
 
+const isAmmoFree = (m: ModRec): boolean => m.mod.ammoFree === true;
+
 const filter = (): CastFilter => ({
   team: null,
   allies: false,
@@ -106,7 +108,8 @@ export function createGuns(
   const rng = ctx.rng.stream('combat');
   const live: Proj[] = [];
   const spare: Proj[] = [];
-  const aimFilter = filter();
+  // The aim ray stops on seed pods too, so the bullet converges on the pod under the crosshair (GDD §4.5, §8.2).
+  const aimFilter: CastFilter = { ...filter(), pods: true };
   const shotFilter: CastFilter = { ...filter(), pods: true };
   const near: EntityId[] = [];
   const chain: EntityId[] = [];
@@ -126,13 +129,13 @@ export function createGuns(
   };
   const neg = (d: Vec3): Vec3 => ({ x: -d.x, y: -d.y, z: -d.z });
 
-  const impact = (owner: EntityId | null, pos: Vec3, normal: Vec3, target: EntityId | null, beakShot: boolean): void => {
-    ctx.bus.emit({ type: 'projectile.impact', owner, pos: copy(pos), normal, target, beakShot });
+  const impact = (cause: EffectCause, pos: Vec3, normal: Vec3, target: EntityId | null, beakShot: boolean): void => {
+    ctx.bus.emit({ type: 'projectile.impact', owner: cause.source, pos: copy(pos), normal, target, beakShot, via: cause.via });
   };
 
   const reloadSeconds = (s: HeroState, perRoundStart: boolean): number => {
     const w = s.def.weapon;
-    const base = perRoundStart ? COMBAT.perRoundStartS + w.reloadS : w.reloadS;
+    const base = perRoundStart ? (w.perRoundStartS ?? COMBAT.perRoundStartS) + w.reloadS : w.reloadS;
     return base / (1 + s.hero.stats.final.reloadSpeed);
   };
 
@@ -193,7 +196,7 @@ export function createGuns(
     const e = ctx.store.get(hit.id);
     if (!e) return;
     const point = along(o, d, hit.t, at);
-    impact(s.hero.id, point, neg(d), hit.id, hit.head);
+    impact(s.gunCause, point, neg(d), hit.id, hit.head);
     if (e.kind === 'pickup') return;
     let noFalloff = false;
     for (const m of s.mods) if (m.mod.ignoreFalloff && applies(m, e)) noFalloff = true;
@@ -312,7 +315,7 @@ export function createGuns(
     const w = s.def.weapon;
     const st = h.stats.final;
     const now = ctx.clock.tick;
-    if (!s.mods.some((m) => m.mod.ammoFree === true)) h.weapon.ammo--;
+    if (!s.mods.some(isAmmoFree)) h.weapon.ammo--;
     if (h.weapon.reloading) cancelReload(s);
     damage.inCombat(h);
     statuses.endOnAttack(h);
@@ -341,6 +344,7 @@ export function createGuns(
     const fs = w.falloff.start * (1 + st.falloffRange);
     const fe = w.falloff.end * (1 + st.falloffRange);
     const pierce = pierceOf(s);
+    const radius = w.projectileRadius ?? COMBAT.gunProjectileRadius;
     shotFilter.team = h.team;
     shotFilter.ignore = h.id;
     for (let i = 0; i < w.pellets; i++) {
@@ -349,7 +353,7 @@ export function createGuns(
         const wh = ctx.physics.raycast(muzzle, pellet, w.range, LAYERS_SOLID);
         const hits = hb.cast(muzzle, pellet, wh ? wh.distance : w.range, 0, shotFilter);
         const stop = bulletSegment(s, muzzle, pellet, hits, 0, dmg, fs, fe, null, { left: pierce });
-        if (stop < 0 && wh) impact(h.id, wh.point, copy(wh.normal), null, false);
+        if (stop < 0 && wh) impact(cause, wh.point, copy(wh.normal), null, false);
         continue;
       }
       const speed = w.projectileSpeed * (1 + st.bulletSpeed);
@@ -359,7 +363,7 @@ export function createGuns(
         pos: copy(muzzle),
         vel: { x: pellet.x * speed, y: pellet.y * speed, z: pellet.z * speed },
         yaw: Math.atan2(pellet.x, pellet.z),
-        radius: COMBAT.gunProjectileRadius,
+        radius,
         projectile: { owner: h.id, source: 'weapon', ability: null, expiresAt: now + Math.ceil((w.range / speed) * TICK_RATE) + 1 },
       });
       spawn(
@@ -371,7 +375,7 @@ export function createGuns(
           speed,
           travelled: 0,
           range: w.range,
-          radius: COMBAT.gunProjectileRadius,
+          radius,
           returning: false,
           expiresAt: e.projectile.expiresAt,
           damage: dmg,
@@ -382,6 +386,12 @@ export function createGuns(
         pellet,
         shotFilter,
       );
+    }
+    // Shot-limited mods (Heavy Rounds) count this shot; one used up ends now, before the next shot this tick.
+    if (s.mods.length > 0) {
+      let k = 0;
+      for (const m of s.mods) if (--m.shots > 0) s.mods[k++] = m;
+      s.mods.length = k;
     }
   };
 
@@ -403,7 +413,7 @@ export function createGuns(
     // A head hit lands on the head centre so `damage` effects flagged beakShot see it (GDD §5.4).
     const point = hit.head && hb.head(e, at) >= 0 ? at : along(o, p.dir, hit.t, at);
     const beak = hit.head && fx.onHit.some((x) => x.kind === 'damage' && x.beakShot === true);
-    impact(p.cause.source, point, neg(p.dir), hit.id, beak);
+    impact(p.cause, point, neg(p.dir), hit.id, beak);
     ctx.effects.applyAll(fx.onHit, { entity: hit.id, point: copy(point), dir: copy(p.dir) }, p.cause);
     return fx.pierce === 'none' || (fx.pierce === 'units' && e.kind !== 'unit');
   };
@@ -484,7 +494,7 @@ export function createGuns(
     }
     if (stop >= 0) return end(p, o);
     if (wh) {
-      impact(p.cause.source, wh.point, copy(wh.normal), null, false);
+      impact(p.cause, wh.point, copy(wh.normal), null, false);
       return end(p, o);
     }
     if (!last) return;
@@ -514,29 +524,34 @@ export function createGuns(
         return;
       }
       if (w.reloading) progressReload(s);
-      const ammoFree = s.mods.some((m) => m.mod.ammoFree === true);
       if ((h.command.pressed & Button.Reload) !== 0 && !w.reloading && w.ammo < magazine(h)) startReload(s);
       const can =
         (h.command.held & Button.Fire) !== 0 &&
         !c.has('disarmed') &&
         !c.has('eggCarrier') &&
+        h.motor.modeAllowsGun !== false &&
         now >= s.lockout &&
         s.melee === Melee.Idle &&
         s.parryClose < 0;
-      if (can && (w.ammo > 0 || ammoFree)) {
+      if (can && (w.ammo > 0 || s.mods.some(isAmmoFree))) {
         const st = h.stats.final;
-        const rate = s.def.weapon.fireRate * (1 + st.fireRate) * (1 - Math.min(1, st.fireRateSlow));
+        const wd = s.def.weapon;
+        // Spin-up (Woodpecker): fromRate → fireRate over `seconds` of continuous fire, from scratch each burst.
+        if (!wasFiring) s.spinStart = now;
+        const spun = wd.spinUp && wd.spinUp.seconds > 0 ? Math.min(1, (now - s.spinStart) / (wd.spinUp.seconds * TICK_RATE)) : 1;
+        const base = wd.spinUp ? wd.spinUp.fromRate + (wd.fireRate - wd.spinUp.fromRate) * spun : wd.fireRate;
+        const rate = base * (1 + st.fireRate) * (1 - Math.min(1, st.fireRateSlow));
         if (rate > 0) {
           // A new burst starts now (no catch-up); within continuous fire the fractional cadence is kept exactly.
           if (!wasFiring && s.nextFire < now) s.nextFire = now;
           w.firing = true;
-          while (s.nextFire <= now && (w.ammo > 0 || ammoFree)) {
+          while (s.nextFire <= now && (w.ammo > 0 || s.mods.some(isAmmoFree))) {
             fire(s);
             s.nextFire += TICK_RATE / rate;
           }
         }
       }
-      if (w.ammo <= 0 && !w.reloading && !ammoFree) startReload(s);
+      if (w.ammo <= 0 && !w.reloading && !s.mods.some(isAmmoFree)) startReload(s);
     },
     projectiles() {
       const n = live.length;
@@ -560,7 +575,8 @@ export function createGuns(
         if (h.weapon.reloading) finishReload(s);
       }
       const dur = ctx.effects.magnitude(fx.durationS, cause);
-      if (dur > 0) s.mods.push({ mod: fx, expiresAt: ctx.clock.tick + ticks(dur), hits: 0 });
+      const shots = fx.shots === undefined ? Infinity : Math.max(0, Math.round(ctx.effects.magnitude(fx.shots, cause)));
+      if (dur > 0 && shots > 0) s.mods.push({ mod: fx, expiresAt: ctx.clock.tick + ticks(dur), hits: 0, shots });
       damage.supported(cause, h);
     },
     projectile(fx, target, cause) {

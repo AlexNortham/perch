@@ -1,17 +1,19 @@
 /**
- * sim/physics: the Rapier world, the PhysicsService, the hero character controller (movement phase) and the
- * physics-owned effects (displace, dash, teleport, movementMode, attach).
- * rapier.ts: colliders and queries · controller.ts: hero movement · effects.ts: effect handlers.
+ * sim/physics: the Rapier world, the PhysicsService, the hero character controller (movement phase), units moved by
+ * physics effects, and the physics-owned effects (displace, dash, teleport, movementMode, attach).
+ * rapier.ts: colliders and queries · controller.ts: hero movement · units.ts: displaced units · effects.ts: handlers.
  */
 import type { CoreContext, Physics } from '../core/contracts';
 import { createController } from './controller';
 import { registerEffects } from './effects';
 import { createSpace } from './rapier';
+import { createUnitMover } from './units';
 
 export async function createPhysics(ctx: CoreContext): Promise<Physics> {
   const space = await createSpace(ctx);
   const ctrl = createController(ctx, space, space.service);
-  registerEffects(ctx, ctrl, space.service);
+  const units = createUnitMover(ctx, space.service);
+  registerEffects(ctx, ctrl, space.service, units);
 
   ctx.bus.on('entity.spawned', (e) => {
     if (e.kind === 'hero') {
@@ -29,6 +31,7 @@ export async function createPhysics(ctx: CoreContext): Promise<Physics> {
   ctx.bus.on('entity.despawned', (e) => {
     space.remove(e.id);
     ctrl.remove(e.id);
+    units.remove(e.id);
   });
   ctx.bus.on('hero.respawned', (e) => {
     const h = ctx.store.getKind(e.hero, 'hero');
@@ -37,6 +40,18 @@ export async function createPhysics(ctx: CoreContext): Promise<Physics> {
 
   return {
     service: space.service,
-    system: { name: 'physics', phases: { movement: ctrl.step }, hash: ctrl.hash },
+    system: {
+      name: 'physics',
+      phases: {
+        movement() {
+          ctrl.step();
+          units.step();
+        },
+      },
+      hash(h) {
+        ctrl.hash(h);
+        units.hash(h);
+      },
+    },
   };
 }

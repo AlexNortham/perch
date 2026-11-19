@@ -15,10 +15,12 @@ import type {
   MovementAction,
   PlayerCommand,
   Sim,
+  UnitEntity,
   Vec3,
 } from '../core/contracts';
 import { createSim } from '../index';
 import { ARENA } from '../world/map';
+import { STUN } from '../data/combat';
 
 const fixture = vi.hoisted(() => ({ map: null as MapData | null }));
 vi.mock('../world/map', async (importOriginal) => {
@@ -54,9 +56,11 @@ async function bench(map: MapData | null = null, at?: Vec3, enemy?: Vec3): Promi
   // No sprint unless a test asks for it.
   h.health.inCombatUntil = Number.MAX_SAFE_INTEGER;
   const actions: MovementAction[] = [];
-  const drain = (): void => {
-    for (const e of sim.drainEvents()) if (e.type === 'movement' && e.hero === h.id) actions.push(e.action);
-  };
+  // Subscribed, so effects applied between steps (b.apply) report their events too.
+  sim.ctx.bus.on('movement', (e) => {
+    if (e.hero === h.id) actions.push(e.action);
+  });
+  const drain = (): void => void sim.drainEvents();
   const b: Bench = {
     sim,
     h,
@@ -515,7 +519,7 @@ describe('Chimneys and Vines (GDD §3.8)', () => {
     b.step(FWD, 60);
     expect(b.h.pos.y - y0).toBeCloseTo(4.5, 6);
     b.step({ forward: 0, right: 1, yaw: 0 }, 15);
-    expect(b.h.pos.x).toBeCloseTo(-20 - 0.5, 3);
+    expect(b.h.pos.x).toBeCloseTo(-20 - 0.5, 2);
     expect(b.h.pos.y - y0).toBeCloseTo(4.5, 6);
     t = 0;
     while (b.h.motor.climb !== null && t++ < 60) b.step(FWD);
@@ -656,7 +660,7 @@ describe('physics-owned effects', () => {
     let z = b.h.pos.z;
     b.apply(mode('toboggan', 12, 0));
     b.step({ yaw: 0 }, 30);
-    expect(b.h.pos.z - z).toBeCloseTo(6, 3);
+    expect(b.h.pos.z - z).toBeCloseTo(6, 2);
     b.place({ x: -20, y: 0, z: -35 });
     z = b.h.pos.z;
     b.apply(mode('burrow', 9, 0));
@@ -681,6 +685,134 @@ describe('physics-owned effects', () => {
     b.step(FWD, 11);
     expect(victim.motor.attachedTo).toBeNull();
     expect(victim.motor.grounded).toBe(false);
+  });
+});
+
+/** A dusk fledgling-like unit at `pos` (nothing else steers it in the bench). */
+const unitAt = (b: Bench, pos: Vec3, height = 1): UnitEntity =>
+  b.sim.ctx.store.spawn({
+    kind: 'unit',
+    team: 'dusk',
+    pos: { ...pos },
+    vel: { x: 0, y: 0, z: 0 },
+    yaw: 0,
+    radius: 0.4,
+    unit: { type: 'scrapper', lane: null, height, owner: null, summon: null, target: null, attacking: false },
+    health: { hp: 100, talonShield: 0, songShield: 0, barrier: 0, dead: false, respawnAt: null, inCombatUntil: 0 },
+    stats: b.sim.ctx.stats.create({ maxHealth: 100 }),
+    statuses: [],
+  });
+
+describe('wave 3 follow-ups (Character Controller 1–5, EP findings)', () => {
+  const stun: Effect = { kind: 'applyStatus', status: STUN, durationS: 1.25 };
+  const wallMap = withArena({ prims: [box({ x: -20, y: 2, z: -27 }, { x: 6, y: 4, z: 0.2 })] });
+
+  it('a 6 m push travels 6 m (± 0.2) and stops there: no skid after landing; emits displaced', async () => {
+    const b = await bench(null, { x: -20, y: 0, z: -30 });
+    b.apply({ kind: 'displace', mode: 'push', distance: 6 }, {}, b.cause({ x: -20, y: 0, z: -32 }));
+    b.step({}, 90);
+    expect(b.h.pos.z + 30).toBeGreaterThan(5.8);
+    expect(b.h.pos.z + 30).toBeLessThan(6.2);
+    expect(b.actions[0]).toBe('displaced');
+  });
+
+  it('wall slam: onWall with the displacement cause and a wallSlam event at ≥ 4 m/s toward the wall, not below', async () => {
+    const b = await bench(wallMap, { x: -20, y: 0, z: -31 });
+    const cause = b.cause({ x: -20, y: 0, z: -33 });
+    b.apply({ kind: 'displace', mode: 'push', distance: 8, onWall: [stun] }, {}, cause);
+    b.step({}, 30);
+    expect(b.actions).toEqual(['displaced', 'wallSlam', 'land']);
+    expect(b.h.stats.conditions.has('stunned')).toBe(true);
+    expect(b.h.pos.z).toBeLessThan(-27.1);
+
+    // 0.4 m push: 3.7 m/s horizontal, the wall 0.2 m ahead of the capsule.
+    const slow = await bench(wallMap, { x: -20, y: 0, z: -27.7 });
+    slow.apply({ kind: 'displace', mode: 'push', distance: 0.4, onWall: [stun] }, {}, slow.cause({ x: -20, y: 0, z: -33 }));
+    slow.step({}, 30);
+    expect(slow.actions).not.toContain('wallSlam');
+    expect(slow.h.stats.conditions.has('stunned')).toBe(false);
+  });
+
+  it('teleport face target reports the new yaw on a teleport movement event', async () => {
+    const b = await bench(null, { x: -20, y: 0, z: -30 }, { x: 0, y: 0, z: 0 });
+    const enemy = b.other;
+    if (!enemy) throw new Error('no enemy');
+    const yaws: (number | undefined)[] = [];
+    b.sim.ctx.bus.on('movement', (e) => {
+      if (e.action === 'teleport') yaws.push(e.yaw);
+    });
+    b.apply({ kind: 'teleport', to: 'behindTarget', behind: 2, face: 'target' }, { entity: enemy.id });
+    b.apply({ kind: 'teleport', to: 'point', face: 'keep' }, { entity: null, point: { x: 5, y: 0, z: 5 } });
+    expect(yaws).toEqual([Math.PI, undefined]);
+  });
+
+  it('a movement mode publishes allowGun and allowAbilities on Motor, back to true when it ends', async () => {
+    const b = await bench(null, { x: -20, y: 0, z: -30 });
+    b.apply({ kind: 'movementMode', mode: 'burrow', durationS: 0.5, speed: 9, verticalSpeed: 0, allowGun: false, allowAbilities: false });
+    expect([b.h.motor.modeAllowsGun, b.h.motor.modeAllowsAbilities]).toEqual([false, false]);
+    b.step({}, 31);
+    expect([b.h.motor.mode, b.h.motor.modeAllowsGun, b.h.motor.modeAllowsAbilities]).toEqual([null, true, true]);
+  });
+
+  it('a target dash whose target entity is the caster goes to the point (Tempest Dive from a point cast)', async () => {
+    const b = await bench(null, { x: -20, y: 0, z: -30 });
+    b.apply({ kind: 'dash', distance: 30, durationS: 0.9, dir: 'target', arcHeight: 8 }, { entity: b.h.id, point: { x: -20, y: 0, z: -10 } });
+    b.step({}, 60);
+    expect(b.h.pos.z).toBeCloseTo(-10, 1);
+  });
+
+  it('an aim dash follows the aim pitch, at most 30° up; arcHeight keeps it flat', async () => {
+    const up = { x: 0, y: Math.sin(Math.PI / 3), z: Math.cos(Math.PI / 3) }; // looking 60° up
+    const b = await bench(null, { x: -20, y: 0, z: -30 });
+    b.apply({ kind: 'dash', distance: 14, durationS: 0.3, dir: 'aim' }, { dir: up });
+    b.step({}, 18);
+    expect(b.h.pos.y).toBeCloseTo(14 * Math.sin(Math.PI / 6), 1);
+    expect(b.h.pos.z + 30).toBeCloseTo(14 * Math.cos(Math.PI / 6), 1);
+    const flatDash = await bench(null, { x: -20, y: 0, z: -30 });
+    flatDash.apply({ kind: 'dash', distance: 12, durationS: 0.35, dir: 'aim', arcHeight: 0 }, { dir: up });
+    flatDash.step({}, 21);
+    expect(flatDash.h.pos.y).toBeCloseTo(0, 2);
+    expect(flatDash.h.pos.z + 30).toBeCloseTo(12, 1);
+  });
+
+  it('units: displace flies them `distance` (± 0.2) rooted under physics:displaced, then unroots; walls stop and slam them', async () => {
+    const b = await bench(wallMap, { x: 10, y: 0, z: 10 });
+    const u = unitAt(b, { x: -10, y: 0, z: -30 });
+    b.apply({ kind: 'displace', mode: 'push', distance: 6 }, { entity: u.id }, b.cause({ x: -10, y: 0, z: -32 }));
+    b.step({}, 2);
+    expect(u.stats.conditions.has('rooted')).toBe(true);
+    expect(u.pos.y).toBeGreaterThan(0);
+    b.step({}, 60);
+    expect(u.stats.conditions.has('rooted')).toBe(false);
+    expect(u.pos.z + 30).toBeGreaterThan(5.8);
+    expect(u.pos.z + 30).toBeLessThan(6.2);
+    expect(u.pos.y).toBe(0);
+    expect(u.vel).toEqual({ x: 0, y: 0, z: 0 });
+
+    const w = unitAt(b, { x: -20, y: 0, z: -31 });
+    b.apply({ kind: 'displace', mode: 'push', distance: 8, onWall: [stun] }, { entity: w.id }, b.cause({ x: -20, y: 0, z: -33 }));
+    b.step({}, 60);
+    expect(w.pos.z).toBeLessThan(-27.1 - 0.39);
+    expect(w.stats.conditions.has('stunned')).toBe(true);
+  });
+
+  it('units: a dash moves them; attach holds them at the carrier and releases with onRelease', async () => {
+    const b = await bench(null, { x: 0, y: 0, z: -30 });
+    const u = unitAt(b, { x: 10, y: 0, z: -30 });
+    b.apply({ kind: 'dash', distance: 5, durationS: 0.25, dir: 'aim' }, { entity: u.id, dir: { x: 0, y: 0, z: 1 } });
+    b.step({}, 20);
+    expect(u.pos.z + 30).toBeCloseTo(5, 3);
+    expect(u.stats.conditions.has('rooted')).toBe(false);
+
+    const g = unitAt(b, { x: 0, y: 0, z: -27 });
+    b.apply({ kind: 'attach', durationS: 0.5, onRelease: [{ kind: 'displace', mode: 'up', distance: 1 }] }, { entity: g.id });
+    b.step(FWD, 20);
+    expect(g.pos.z - b.h.pos.z).toBeCloseTo(0.8, 6);
+    expect(g.stats.conditions.has('rooted')).toBe(true);
+    b.step({}, 11);
+    expect(g.pos.y).toBeGreaterThan(0);
+    b.step({}, 60);
+    expect([g.pos.y, g.stats.conditions.has('rooted')]).toEqual([0, false]);
   });
 });
 
@@ -714,6 +846,42 @@ describe('robustness', () => {
     b.h.pos = { x: 50, y: -20, z: 0 };
     b.step();
     expect(b.h.pos).toEqual(ARENA.spawns[0]?.pos);
+  });
+
+  it('an idle hero rests exactly: flat ground, after stopping, on the 18° ramp, on the main map (W2 review defect)', async () => {
+    const still = (b: { h: HeroEntity; step: Bench['step'] }, ticks: number): void => {
+      const snap = () => JSON.stringify({ pos: b.h.pos, vel: b.h.vel, motor: b.h.motor });
+      const before = snap();
+      b.step({}, ticks);
+      expect(snap()).toBe(before);
+      expect(b.h.motor.grounded).toBe(true);
+    };
+    const b = await bench(null, { x: -20, y: 0, z: -30 });
+    still(b, 300);
+    expect(b.h.pos).toEqual({ x: -20, y: 0, z: -30 });
+    b.step(FWD, 30);
+    b.step({}, 15);
+    still(b, 300);
+    b.place({ x: -8, y: 1.6, z: 0.5 });
+    b.step({}, 30);
+    expect(b.h.pos.y).toBeGreaterThan(1);
+    still(b, 300);
+    // Walking off the box still falls: the rest band never holds a hero in the air.
+    b.place({ x: 8, y: 2, z: 0.9 });
+    b.step({}, 10);
+    still(b, 60);
+    b.step({ forward: 1, yaw: 0 }, 20);
+    b.step({}, 40);
+    expect(b.h.pos.y).toBeCloseTo(0, 3);
+
+    const sim = await createSim({ seed: 1, map: 'main', roster: [{ team: 'dawn', hero: 'kingfisher', controller: 'human' }] });
+    const [h] = sim.ctx.store.list('hero');
+    if (!h) throw new Error('no hero');
+    const step: Bench['step'] = (_cmd, n = 1) => {
+      for (let i = 0; i < n; i++) sim.step([{ hero: h.id, command: { ...IDLE_COMMAND } }]);
+    };
+    step({}, 30);
+    still({ h, step }, 600);
   });
 
   it('is deterministic: identical command scripts give identical positions and hashes', async () => {

@@ -6,7 +6,7 @@
 import { COMBAT } from '../data/combat';
 import { CROUCH_SCALE } from '../data/core';
 import type { BodyPlan, Entity, EntityId, SimContext, Team, Vec3 } from '../core/contracts';
-import { nearer, rayCapsule, rayCylinder, raySphere } from './geometry';
+import { nearer, rayBox, rayCapsule, rayCylinder, raySphere } from './geometry';
 
 export interface Hit {
   id: EntityId;
@@ -128,6 +128,10 @@ export function createHitboxes(ctx: SimContext): Hitboxes {
           const y0 = p.y + body.radius;
           const y1 = Math.max(y0, p.y + (body.head.centre.up - body.head.radius) * k - body.radius);
           t = nearer(isHead ? th : -1, rayCapsule(o, d, p.x, p.z, y0, y1, body.radius + radius));
+        } else if (e.kind === 'unit' && e.unit.size) {
+          // A wall (Gale Shield): a box of its size standing on pos, turned by yaw.
+          const s = e.unit.size;
+          t = rayBox(o, d, p.x, p.y + s.y / 2, p.z, e.yaw, s.x / 2, s.y / 2, s.z / 2, radius);
         } else if (e.kind === 'unit') {
           const y0 = p.y + e.radius;
           const y1 = Math.max(y0, p.y + e.unit.height - e.radius);

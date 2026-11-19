@@ -3,6 +3,7 @@
  * Units: metres, seconds; fractions where 0.25 means 25%.
  */
 import type { Condition, StatId, StatusDef } from '../core/contracts';
+import { EFFECT_TICK_SECONDS } from './core';
 
 export const COMBAT = {
   /** GDD §5.4: default beak-shot multiplier (WeaponDef.beakShotMult overrides it, Owl ×2.0). */
@@ -31,8 +32,6 @@ export const COMBAT = {
   weakPointMult: 1.5,
   /** GDD §5.2 step 9: lifesteal from non-hero targets is 50% effective. */
   lifestealNonHeroMult: 0.5,
-  /** GDD §5.12: DoTs, heals over time and areas tick this often. */
-  tickIntervalS: 0.5,
   /** GDD §5.13: in combat for this long after dealing or taking hero damage, firing, or casting a damaging ability. */
   combatStateS: 4,
   /** INTERFACES §6: assist window. */
@@ -93,7 +92,7 @@ const graded = (id: string, name: string, durationS: number, stats: readonly Sta
   modifiers: { stats: stats.map((stat) => ({ stat, op, value: 1 })) },
 });
 
-/** Damage over time: apply with magnitude = damage per second; it ticks every tickIntervalS, per source. */
+/** Damage over time: apply with magnitude = damage per second; it ticks every EFFECT_TICK_SECONDS, per source. */
 const dot = (id: string, name: string, type: 'talon' | 'song'): StatusDef => ({
   id,
   name,
@@ -101,7 +100,7 @@ const dot = (id: string, name: string, type: 'talon' | 'song'): StatusDef => ({
   stacking: 'perSource',
   maxStacks: 1,
   durationS: 4,
-  periodic: { intervalS: COMBAT.tickIntervalS, effects: [{ kind: 'damage', amount: COMBAT.tickIntervalS, type }] },
+  periodic: { intervalS: EFFECT_TICK_SECONDS, effects: [{ kind: 'damage', amount: EFFECT_TICK_SECONDS, type }] },
 });
 
 export const STUN = onOff('stun', 'Stunned', true, 1, ['stunned']);

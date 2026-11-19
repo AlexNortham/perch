@@ -55,9 +55,11 @@ const T = {
 
 /** An ability dash (DashEffect) in progress. */
 interface ScriptedDash {
+  /** Unit direction; dirY ≠ 0 for 'aim' dashes that follow the aim pitch. */
   readonly dirX: number;
+  readonly dirY: number;
   readonly dirZ: number;
-  /** Horizontal metres per tick. */
+  /** Metres per tick along the direction. */
   readonly step: number;
   readonly n: number;
   t: number;
@@ -77,10 +79,18 @@ interface Mode {
   readonly until: number;
   readonly speed: number;
   readonly vertical: number;
+  readonly allowGun: boolean;
+  readonly allowAbilities: boolean;
   readonly onCollide: readonly Effect[];
   readonly onEnd: readonly Effect[];
   readonly cause: EffectCause;
   readonly hit: EntityId[];
+}
+
+/** A displacement's wall-slam payload (DisplaceEffect.onWall with the displacement's cause). */
+export interface Slam {
+  readonly onWall: readonly Effect[];
+  readonly cause: EffectCause;
 }
 
 interface Ride {
@@ -138,7 +148,10 @@ export interface HeroState {
   heroDamagedAt: number;
   remountAt: number;
   vineSide: number;
+  /** In a push, pull or along displacement until landing (20% air control, stops at walls). */
   displaced: boolean;
+  /** That displacement's wall slam, until it fires or the hero lands. */
+  slam: Slam | null;
   knockUpUntil: number;
   dash: ScriptedDash | null;
   mode: Mode | null;
@@ -173,6 +186,7 @@ function freshState(groundY: number): HeroState {
     remountAt: NEVER,
     vineSide: 0,
     displaced: false,
+    slam: null,
     knockUpUntil: NEVER,
     dash: null,
     mode: null,
@@ -316,17 +330,35 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
   const runSpeed = (h: HeroEntity, s: HeroState): number =>
     slowed(h, h.stats.final.moveSpeed + h.stats.final.sprintSpeed * s.sprint);
 
-  /** Move through the controller and write pos; returns the shared result. */
-  const move = (h: HeroEntity): MoveResult => {
+  /**
+   * Move through the controller and write pos; returns the shared result. `rest`: the hero stands on the ground with
+   * no horizontal motion. Rapier's contact tolerance then nudges the feet up to ~1e-4 m a tick, so a grounded move
+   * smaller than CONTROLLER.restBand is dropped and the hero stays exactly still (a real fall moves more).
+   */
+  const move = (h: HeroEntity, rest = false): MoveResult => {
     const r = space.moveHero(h.id, h.pos, h.motor.crouching, D);
+    const m = r.moved;
+    if (rest && r.grounded && Math.abs(m.x) + Math.abs(m.y) + Math.abs(m.z) < CONTROLLER.restBand) {
+      m.x = 0;
+      m.y = 0;
+      m.z = 0;
+    }
     h.pos.x += r.moved.x;
     h.pos.y += r.moved.y;
     h.pos.z += r.moved.z;
     return r;
   };
 
-  /** Gravity for one tick with exact integration (jump apex matches the data); returns the vertical delta. */
-  const fall = (v: Vec3, limit: number = AIR.maxFallSpeed): number => {
+  /**
+   * Gravity for one tick with exact integration (jump apex matches the data); returns the vertical delta. None for a
+   * hero standing on the ground: the controller's snap-down keeps it there, and a gravity step would sink the proxy
+   * into the controller's skin, where Rapier stalls a horizontal move for a tick now and then.
+   */
+  const fall = (h: HeroEntity, v: Vec3, limit: number = AIR.maxFallSpeed): number => {
+    if (h.motor.grounded && v.y <= 0) {
+      v.y = 0;
+      return 0;
+    }
     const before = v.y;
     v.y = Math.max(v.y - AIR.gravity * dt, -limit);
     return (before + v.y) * HALF * dt;
@@ -336,8 +368,27 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     if (s.airTicks >= T.land) emit(h.id, 'land');
     s.airTicks = 0;
     s.airDashUsed = false;
+    // A displacement ends where it lands: its distance is the flat-ground distance (GDD §3.9), with no skid after.
+    if (s.displaced) {
+      h.vel.x = 0;
+      h.vel.z = 0;
+    }
     s.displaced = false;
+    s.slam = null;
     h.motor.knockedUp = false;
+  };
+
+  /**
+   * GDD §3.9 wall slam: a displaced hero meeting a wall (outward normal `n`) with at least DISPLACE.wallSlamSpeed
+   * toward it gets the displacement's onWall effects and a 'wallSlam' movement event, once per displacement.
+   */
+  const wallSlam = (h: HeroEntity, s: HeroState, n: Vec3, vx: number, vz: number): void => {
+    const slam = s.slam;
+    const nl = Math.hypot(n.x, n.z);
+    if (!slam || nl === 0 || -(vx * n.x + vz * n.z) / nl < DISPLACE.wallSlamSpeed) return;
+    s.slam = null;
+    emit(h.id, 'wallSlam');
+    ctx.effects.applyAll(slam.onWall, { entity: h.id, point: copy(h.pos), dir: { x: -n.x / nl, y: 0, z: -n.z / nl } }, slam.cause);
   };
 
   /**
@@ -351,8 +402,12 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const was = m.grounded;
     m.grounded = r.grounded && !rising;
     if (r.hasWall && (s.displaced || !m.grounded)) {
+      const vx = v.x;
+      const vz = v.z;
       v.x = s.displaced ? 0 : r.moved.x / dt;
       v.z = s.displaced ? 0 : r.moved.z / dt;
+      // After the stop, so a slam effect that displaces the hero again keeps its new velocity.
+      if (s.displaced) wallSlam(h, s, r.wall, vx, vz);
     }
     if (m.grounded) {
       const along = Math.hypot(r.moved.x, r.moved.z);
@@ -407,12 +462,19 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     h.motor.dashing = false;
   };
 
+  /** No movement mode: the gun and casting are allowed again (Motor.modeAllows*, D-ARCH-016). */
+  const clearMode = (h: HeroEntity): void => {
+    h.motor.mode = null;
+    h.motor.modeAllowsGun = true;
+    h.motor.modeAllowsAbilities = true;
+  };
+
   const endMode = (h: HeroEntity): void => {
     const s = states.get(h.id);
     const mode = s?.mode;
     if (!s || !mode) return;
     s.mode = null;
-    h.motor.mode = null;
+    clearMode(h);
     const f = lookDir(h.yaw, 0);
     ctx.effects.applyAll(mode.onEnd, { entity: h.id, point: copy(h.pos), dir: f }, mode.cause);
   };
@@ -446,7 +508,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     m.grounded = true;
     m.crouching = false;
     m.knockedUp = false;
-    m.mode = null;
+    clearMode(h);
     m.attachedTo = null;
     m.stamina = h.stats.final.stamina;
     states.set(h.id, freshState(pos.y));
@@ -725,8 +787,8 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const vz = v.z;
     D.x = v.x * dt;
     D.z = v.z * dt;
-    D.y = airDash ? 0 : fall(v);
-    const r = move(h);
+    D.y = airDash ? 0 : fall(h, v);
+    const r = move(h, m.grounded && v.y <= 0 && D.x === 0 && D.z === 0);
     settle(h, s, r, v.y > 0);
     if (!m.grounded && m.sliding) endSlide(h, s);
 
@@ -763,18 +825,20 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const f1 = d.t / d.n;
     D.x = d.dirX * d.step;
     D.z = d.dirZ * d.step;
-    D.y = d.arc * ARC * (f1 * (1 - f1) - f0 * (1 - f0));
+    D.y = d.dirY * d.step + d.arc * ARC * (f1 * (1 - f1) - f0 * (1 - f0));
     const r = move(h);
     h.vel = { x: r.moved.x / dt, y: r.moved.y / dt, z: r.moved.z / dt };
     h.motor.grounded = r.grounded && D.y <= 0;
-    const blocked = Math.hypot(r.moved.x, r.moved.z) < d.step * HALF;
-    const dir = { x: d.dirX, y: 0, z: d.dirZ };
+    // Horizontal progress against what was asked: a pitched dash sliding along the floor isn't blocked.
+    const flatStep = Math.hypot(D.x, D.z);
+    const blocked = Math.hypot(r.moved.x, r.moved.z) < flatStep * HALF;
+    const dir = flatStep > 0 ? { x: D.x / flatStep, y: 0, z: D.z / flatStep } : lookDir(h.yaw, 0);
     const stopped = (d.onHit.length > 0 || d.stopOnHit) && touch(h, d.cause, d.hit, d.onHit, dir) && d.stopOnHit;
     if (d.t < d.n && !blocked && !stopped) return;
     s.dash = null;
     h.motor.dashing = false;
-    const exit = d.keepSpeed && !blocked && !stopped ? Math.min(d.step / dt, runSpeed(h, s) + DASH.exitBonus) : 0;
-    h.vel = { x: d.dirX * exit, y: 0, z: d.dirZ * exit };
+    const exit = d.keepSpeed && !blocked && !stopped ? Math.min(flatStep / dt, runSpeed(h, s) + DASH.exitBonus) : 0;
+    h.vel = { x: dir.x * exit, y: 0, z: dir.z * exit };
     ctx.effects.applyAll(d.onArrive, { entity: h.id, point: copy(h.pos), dir }, d.cause);
   };
 
@@ -896,7 +960,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
         const gl = Math.hypot(gx, gz) || 1;
         v.x = (gx / gl) * mode.speed;
         v.z = (gz / gl) * mode.speed;
-        D.y = fall(v, mode.vertical);
+        D.y = fall(h, v, mode.vertical);
         break;
       }
       case 'flight':
@@ -915,7 +979,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
         const dz = mode.kind === 'toboggan' ? f.z / fl : W.z * input;
         v.x = canMove ? dx * mode.speed : 0;
         v.z = canMove ? dz * mode.speed : 0;
-        D.y = fall(v);
+        D.y = fall(h, v);
         break;
       }
     }
@@ -949,9 +1013,10 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
       // Dead heroes stay where they fell; nothing they were doing survives (no onEnd effects).
       interrupt(h);
       s.mode = null;
-      m.mode = null;
+      if (m.mode !== null) clearMode(h);
       m.knockedUp = false;
       s.displaced = false;
+      s.slam = null;
       h.vel = { x: 0, y: 0, z: 0 };
       return;
     }
@@ -1031,6 +1096,8 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
       endMode(h);
       s.mode = { ...mode, hit: [] };
       h.motor.mode = mode.kind;
+      h.motor.modeAllowsGun = mode.allowGun;
+      h.motor.modeAllowsAbilities = mode.allowAbilities;
     },
     endMode,
     startAttach(h, a) {

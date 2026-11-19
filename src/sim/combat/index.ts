@@ -56,6 +56,7 @@ export const createCombatSystem: SystemFactory = (ctx: SimContext) => {
       gunCause: cause('weapon'),
       meleeCause: cause('melee'),
       nextFire: 0,
+      spinStart: 0,
       reloadAt: 0,
       mods: [],
       melee: Melee.Idle,
@@ -145,6 +146,8 @@ export const createCombatSystem: SystemFactory = (ctx: SimContext) => {
       for (const s of heroes.values()) {
         h.num(s.hero.id);
         h.num(s.nextFire);
+        h.num(s.spinStart);
+        for (const m of s.mods) h.num(m.shots);
         h.num(s.reloadAt);
         h.num(s.melee);
         h.num(s.meleeAt);
