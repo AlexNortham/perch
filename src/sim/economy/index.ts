@@ -1,8 +1,6 @@
-/**
- * Economy (GDD §8), wave 3: Seeds, the last-hit share, seed pods and passive income. Bounties, levels, Molts, AP and
- * flex slots are wave 4.
- */
-import type { EntityId, HeroEntity, SeedReason, SystemFactory, Team } from '../core/contracts';
+/** Earned Seeds, Molts, bounties and flock unlocks (GDD §8). */
+import type { EntityId, HeroEntity, PlayerTeam, SeedReason, SystemFactory, Team } from '../core/contracts';
+import { distSq } from '../core/math';
 import { TICK_RATE } from '../data/core';
 import { ECONOMY } from '../data/economy';
 
@@ -27,6 +25,21 @@ export const createEconomySystem: SystemFactory = (ctx) => {
   const { bus, store, clock } = ctx;
   const pods = new Map<EntityId, PodState>();
   const hits: Hit[] = [];
+  const streaks = new Map<EntityId, number>();
+  const falls = { dawn: { hawk: 0, heron: 0, warden: 0, shrine: 0 }, dusk: { hawk: 0, heron: 0, warden: 0, shrine: 0 } };
+
+  const levelUp = (h: HeroEntity): void => {
+    const rules = ECONOMY.levels;
+    const p = h.progress;
+    while (p.level < rules.max && p.netWorth >= rules.baseCost * p.level + rules.costGrowth * p.level * (p.level - 1)) {
+      p.level++;
+      p.molts++;
+      const growth = ctx.heroes[h.hero.heroId].def.growth;
+      ctx.stats.set(h.id, 'economy:molts', { stats: growth.map((g) => ({ ...g, value: g.value * p.molts })) });
+      bus.emit({ type: 'hero.level', hero: h.id, level: p.level, ap: p.level % rules.doubleApEvery === 0 ? 2 : 1,
+        unlockSlot: p.level === rules.ultimate ? rules.ultimateSlot : null });
+    }
+  };
 
   /** Whole Seeds only, rounded down at payment (GDD §8.1). */
   const pay = (hero: EntityId, amount: number, reason: SeedReason): void => {
@@ -36,6 +49,7 @@ export const createEconomySystem: SystemFactory = (ctx) => {
     h.progress.seeds += n;
     h.progress.netWorth += n;
     bus.emit({ type: 'seeds.gained', hero, amount: n, reason });
+    levelUp(h);
   };
 
   bus.on('entity.spawned', (e) => {
@@ -43,9 +57,44 @@ export const createEconomySystem: SystemFactory = (ctx) => {
     const h = store.getKind(e.id, 'hero');
     const start = ctx.config.options.startSeeds ?? ECONOMY.startSeeds;
     if (h && start > 0) {
-      h.progress.seeds = start;
-      h.progress.netWorth = start;
+      h.progress.seeds = Math.floor(start);
+      h.progress.netWorth = h.progress.seeds;
+      levelUp(h);
     }
+  });
+
+  bus.on('entity.died', (e) => {
+    if (e.victimTeam === 'neutral') return;
+    const side: PlayerTeam = e.victimTeam === 'dawn' ? 'dusk' : 'dawn';
+    const all = store.list('hero');
+    if (e.victimKind === 'structure') {
+      if (!store.getKind(e.victim, 'structure')?.health.dead) return;
+      const type = e.victimType;
+      if (type !== 'hawk' && type !== 'heron' && type !== 'warden' && type !== 'shrine') return;
+      for (const h of all) if (h.team === side) pay(h.id, ECONOMY.objective[type], 'objective');
+      if (++falls[side][type] <= ECONOMY.flexAwards[type]) {
+        const slots = ++ctx.teams[side].flexSlots;
+        bus.emit({ type: 'flexSlots', team: side, slots });
+      }
+      return;
+    }
+    if (e.victimKind !== 'hero') return;
+    const victim = store.getKind(e.victim, 'hero');
+    if (!victim?.health.dead) return;
+    const rules = ECONOMY.bounty;
+    const shutdown = Math.min(rules.streakCap, rules.perStreakKill * Math.max(0, (streaks.get(victim.id) ?? 0) - rules.freeKills));
+    streaks.delete(victim.id);
+    const worth = { dawn: 0, dusk: 0 };
+    for (const h of all) worth[h.team] += h.progress.netWorth;
+    const deficit = Math.max(0, worth[victim.team] - worth[side]) / Math.max(1, worth[victim.team]);
+    const bounty = (rules.base + rules.worthFraction * victim.progress.netWorth + shutdown) *
+      (1 + Math.min(rules.comebackCap, rules.comebackRate * deficit));
+    const killer = e.creditHero === null ? undefined : store.getKind(e.creditHero, 'hero');
+    if (killer && killer.team !== side) return;
+    if (killer) streaks.set(killer.id, (streaks.get(killer.id) ?? 0) + 1);
+    const recipients = all.filter((h) => h.team === side && (killer ? h === killer || e.assisters.includes(h.id) :
+      !h.health.dead && distSq(h.pos, e.pos) <= rules.shareRange ** 2));
+    for (const h of recipients) pay(h.id, bounty / recipients.length, !killer ? 'share' : h === killer ? 'heroKill' : 'assist');
   });
 
   bus.on('entity.died', (e) => {
@@ -54,7 +103,7 @@ export const createEconomySystem: SystemFactory = (ctx) => {
     }
     const body = store.getKind(e.victim, 'unit');
     if (!body) return;
-    const v = FLEDGLING.base[e.victimType] * Math.min(FLEDGLING.growthCap, 1 + (FLEDGLING.growthPerMin * clock.tick) / TICK_RATE / 60);
+    const v = FLEDGLING.base[e.victimType] * Math.min(FLEDGLING.growthCap, 1 + FLEDGLING.growthPerMin * clock.seconds / ECONOMY.secondsPerMinute);
     const instant = v * FLEDGLING.instantShare;
 
     if (e.creditHero !== null) {
@@ -63,10 +112,7 @@ export const createEconomySystem: SystemFactory = (ctx) => {
     } else {
       // No hero landed it: split among enemy heroes in range (lost if none).
       const inRange = (h: HeroEntity): boolean => {
-        const dx = h.pos.x - body.pos.x;
-        const dy = h.pos.y - body.pos.y;
-        const dz = h.pos.z - body.pos.z;
-        return h.team !== e.victimTeam && !h.health.dead && dx * dx + dy * dy + dz * dz <= FLEDGLING.shareRange ** 2;
+        return h.team !== e.victimTeam && !h.health.dead && distSq(h.pos, body.pos) <= FLEDGLING.shareRange ** 2;
       };
       const heroes = store.list('hero');
       let n = 0;
@@ -145,6 +191,8 @@ export const createEconomySystem: SystemFactory = (ctx) => {
     },
     hash(h) {
       h.value([...pods]);
+      h.value(streaks);
+      h.value(falls);
     },
   };
 };

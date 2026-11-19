@@ -1010,3 +1010,39 @@ and visible siege progression.
 **Interface requests:** sent stable accessible names for the upgrade dialog, ability controls, and labelled
 dummy HP bars through the EP. The W3 worst-tick follow-up and production-browser regressions are tracked
 outside this browser acceptance suite.
+
+### W4 · Economy & Items · 19/11/2026
+
+**Done:** `w4/economy` (ChatGPT's four commits, then Claude's handover from `28588d2`) implements GDD §8 earnings
+and the D-EP-026 shop. Every earned Seed goes to wallet and net worth; buying, selling and refunds touch the wallet
+only. One payment awards every crossed level with its Molt, AP and level-6 ultimate (`hero.level`; Combat heals the
+HP gain, Abilities grants AP and the unlock). Bounties use base + 3% worth + shutdown streak with the capped comeback
+multiplier, split between killer and assisters, or among enemy heroes within 40 m for a non-hero kill. Hawk, Heron,
+Warden and Shrine pay the whole flock and open the four flex slots (2 Hawks, 1 Heron, 1 Shrine); a Patron pays
+nothing. Items fills `ctx.itemCatalogue` with the sixteen items over four tiers, validates each trade at execution
+(own shop zone, funds, uniqueness, 12 + flex capacity, component replaced in place at net cost), tracks
+`inventory.shopZone` and same-visit `fullRefundUntil` (cleared on exit, anchor change, expiry, death or spawn), binds
+the first four actives to the item buttons, runs Mocking Note's hero-only non-proc `abilityHit` trigger, Flurry's
+instant reload, timed fire rate and CDR-independent 30 s cooldown (kept across a sale), and Dew Drinker's 8 s quiet
+regen restarted by every health hit. Pod rules are unchanged. Owned paths have no lint warnings. D-ECON-003/004
+record the reward and refund decisions.
+
+**Checks:** `npm ci --prefer-offline --no-audit --no-fund`; `npm run check` PASS 6/6 (typecheck 41 s, lint 9 s,
+test 25 s, perf 21 s, sim 8 s, e2e 35 s; 140 s; 116 repo lint warnings, none in owned paths).
+`PERCH_PENDING=1 npx vitest run tests/rules/market.test.ts tests/rules/pods.test.ts src/sim/economy src/sim/items`:
+41/46 pass (market 12/15, pods 13/13, economy 9/9, items 7/9); log in `out/economy/rules.log`. ChatGPT measured
+the market suite at 15/15 failing before implementation. Item tests use real shots, reloads, casts, regeneration,
+heals and movement for all sixteen items.
+
+**Cross-branch dependencies (all five failures):** World must spawn `map.structures` when
+`options.structures` is set for `tests/rules/market.test.ts` “§§8.4–8.6 a Heron bounty crosses two thresholds,
+applies both Molts and heals the gained max HP”, “§§8.4/8.7 dawn gets one flex slot for each agreed fall, with
+capacity 12 through 16” and “§§8.4/8.7 dusk gets one flex slot for each agreed fall, with capacity 12 through 16”.
+W4 Combat must read `closeGunDamage` within 15 m and add `beakShotFlat` once per trigger pull (today it is per beak
+pellet) for `src/sim/items/items.test.ts` “Close Talons boosts a real gun hit only within 15 m” and “Whetstone adds
+its flat damage once across a mixed shotgun volley”. Run both files with `PERCH_PENDING=1` at integration.
+
+**Limitations and requests:** the Patron check uses today's single-phase death; after W4 Combat a phase-one fall
+emits `patron.depleted` instead and Economy still pays nothing. Combat should confirm held HP and ammo stay within
+their caps when a sale lowers the maximum. This branch predates main's `6ba3741` (D-EP-029); STATUS and DECISIONS
+merge by appending.

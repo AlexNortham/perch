@@ -1,6 +1,6 @@
 /**
  * Economy tuning (GDD §8). Owner: Economy & Items (Balance & Data from W7).
- * Units: metres, seconds; fractions where 0.5 means 50%. Wave 3 covers seeds and seed pods only.
+ * Units: metres, seconds; fractions where 0.5 means 50%.
  */
 export const ECONOMY = {
   /** GDD §8.1: Seeds a hero starts with (SimOptions.startSeeds overrides it). */
@@ -8,6 +8,14 @@ export const ECONOMY = {
   /** GDD §8.4: passive income, Seeds per second per hero from `passiveFromS` (assumed in the GDD). */
   passivePerSecond: 1,
   passiveFromS: 30,
+  secondsPerMinute: 60,
+  levels: { max: 30, baseCost: 400, costGrowth: 50, doubleApEvery: 10, ultimate: 6, ultimateSlot: 3 },
+  bounty: {
+    base: 120, worthFraction: 0.03, freeKills: 2, perStreakKill: 60, streakCap: 360,
+    comebackRate: 2, comebackCap: 0.5, shareRange: 40,
+  },
+  objective: { hawk: 300, heron: 600, warden: 250, shrine: 500 },
+  flexAwards: { hawk: 2, heron: 1, warden: 0, shrine: 1 },
   fledgling: {
     /** GDD §8.2: base value by type; V = base × min(growthCap, 1 + growthPerMin × minutes). */
     base: { scrapper: 40, slinger: 50 },

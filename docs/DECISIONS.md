@@ -952,3 +952,15 @@ Options notes which reserved combinations only work in fullscreen in Chrome/Edge
 move of crouch to C. The settings migration change in `src/client/app/settings.ts` lands in the W4 integration round.
 **Why:** the user wants to hold W and press Ctrl to slide without the tab closing. A normal tab can never block Ctrl+W;
 a fullscreen page in Chromium can.
+### D-ECON-003 · 19/11/2026 — Pay earned Seeds and Molts together
+**Decision:** round each hero's share at payment and credit both wallet and lifetime earnings. For every crossed
+threshold, apply that hero's growth table and emit one level event. Combat heals the HP gain and Abilities grants
+the event's AP and ultimate unlock. Use the two flocks' pre-payment worth to calculate a hero bounty.
+**Why:** buying and selling must preserve earned levels. A single bounty can cross several thresholds.
+
+### D-ECON-004 · 19/11/2026 — Track refunds by shop visit and preserve active cooldowns on sale
+**Decision:** the inventory records the current allied shop anchor. Each purchase records an inclusive last tick for
+its full refund. Clearing that tick on a change of anchor or death ends the visit. A sale preserves the active's
+current cooldown, including explicit refunds from ability effects, for repurchase in the same match.
+**Why:** the UI can display the same refund the simulation validates. Buying back Flurry Feathers should respect its
+30 s cooldown even when its price is fully refunded.
