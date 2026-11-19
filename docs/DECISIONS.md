@@ -952,3 +952,16 @@ Options notes which reserved combinations only work in fullscreen in Chrome/Edge
 move of crouch to C. The settings migration change in `src/client/app/settings.ts` lands in the W4 integration round.
 **Why:** the user wants to hold W and press Ctrl to slide without the tab closing. A normal tab can never block Ctrl+W;
 a fullscreen page in Chromium can.
+
+### D-AUDIO-001 · 19/11/2026 — Audio is proved by measured samples in a real browser
+**Decision:** `src/client/audio/audio.test.ts` bundles the module and renders it in Edge through an OfflineAudioContext
+(plus one live AudioContext for the gesture check), asserting on measured RMS and signatures. `createAudio` takes an
+optional `{ ctx, lookahead }` seam; the app still calls `createAudio(settings)`.
+**Why:** Node has no WebAudio, and a fake graph only proves events arrived. Measured samples distinguish sound that is
+generated and routed from mere event delivery.
+
+### D-AUDIO-002 · 19/11/2026 — Context is created on the first gesture; positional voices are one-shots
+**Decision:** no AudioContext exists until `resume()`; events before it are ignored. Positional sounds fix their panner
+position at emission, voices over 60 m are not created, and the slide/updraft loops are one-shots for now.
+**Why:** it satisfies browser autoplay rules without queueing stale sounds, keeps the 48-voice budget simple, and
+avoids per-frame panner updates until the loop sounds need them.
