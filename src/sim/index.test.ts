@@ -129,6 +129,8 @@ describe('createSim', () => {
     const h = sim.ctx.store.getKind(1, 'hero');
     if (!h) throw new Error('no hero');
     h.abilities.casting = 2;
+    h.motor.updraftInReach = 0;
+    h.keepsakes = { count: 2, totals: { maxHealth: 30 } };
     const roc = sim.ctx.store.spawn({
       kind: 'unit', team: 'neutral', pos: { x: 0, y: 0, z: 9 }, vel: { x: 0, y: 0, z: 0 }, yaw: 0, radius: 2,
       unit: { type: 'roc', lane: null, height: 9, owner: null, summon: null, target: null, attacking: false, camp: 3, asleep: true, enraged: true },
@@ -145,6 +147,9 @@ describe('createSim', () => {
     expect(v.objectives.campAt).toEqual([null, 600]);
     sim.ctx.objectives.campAt[0] = 900;
     expect(v.objectives.campAt).toEqual([null, 600]);
+    expect(v.heroes[0]).toMatchObject({ updraftInReach: true, keepsakes: { count: 2, totals: { maxHealth: 30 } } });
+    h.keepsakes.totals.maxHealth = 45;
+    expect(v.heroes[0]?.keepsakes?.totals.maxHealth).toBe(30);
   });
 });
 

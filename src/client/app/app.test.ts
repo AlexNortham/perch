@@ -146,6 +146,13 @@ describe('settings store', () => {
     expect(sanitizeSettings({ mute: true }).mute).toBe(true);
     expect(sanitizeSettings({ mute: 'yes' }).mute).toBe(false);
   });
+
+  it('drops a saved binding for an action that no longer exists (how the retired Interact key migrates)', () => {
+    const s = sanitizeSettings({ bindings: { jump: 'KeyJ', ancientAction: 'KeyE' } });
+    expect(s.bindings.jump).toBe('KeyJ');
+    expect(Object.keys(s.bindings)).not.toContain('ancientAction');
+    expect(Object.keys(s.bindings).sort()).toEqual(Object.keys(DEFAULT_SETTINGS.bindings).sort());
+  });
 });
 
 describe('fixed-step loop', () => {

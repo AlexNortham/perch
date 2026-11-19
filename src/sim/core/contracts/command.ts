@@ -36,7 +36,11 @@ export const Button = {
   ShoulderSwap: 0x8000,
   /** Aim (RMB): tighter spread and the hero's zoom, per GDD §5.6. */
   Aim: 0x10000,
-  /** Interact (E): pick up, drop or deliver the Golden Egg; mount an Updraft at a station. */
+  /**
+   * @deprecated D-EP-039, D-ARCH-022: there is no Interact key in Stage 4. Updrafts mount on held Jump, the Egg is
+   * taken by melee and delivered automatically. Kept only so Stage 3 code compiles until wave 5 stops reading it;
+   * the W5.5 contract round deletes it. Bit 0x20000 is never reused, so old command logs stay readable.
+   */
   Interact: 0x20000,
 } as const;
 export type ButtonName = keyof typeof Button;

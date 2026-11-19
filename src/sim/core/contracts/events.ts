@@ -211,6 +211,12 @@ export interface EntityDiedEvent {
   readonly beakShot?: boolean;
   readonly via: EffectVia;
   readonly pos: Vec3;
+  /**
+   * Hero victims: its flock's Rekindle will revive it in place (GDD §7.12). Combat sets it when TeamState.rekindle
+   * has a charge and this hero hasn't revived under it; world spends the charge on this event; economy pays no
+   * bounty and telemetry counts no kill. On-kill item and ability effects still trigger.
+   */
+  readonly revives?: boolean;
 }
 
 /** Emitter: sim/combat. Consumers: sim/physics (re-seat the controller), client, sim/ai. */
@@ -218,6 +224,8 @@ export interface HeroRespawnedEvent {
   readonly type: 'hero.respawned';
   readonly hero: EntityId;
   readonly pos: Vec3;
+  /** Revived where it fell by Rekindle (GDD §7.12), not at the Home Roost. */
+  readonly revived?: boolean;
 }
 
 export type MovementAction =
@@ -399,14 +407,17 @@ export interface StructureAttackEvent {
 export interface UnitAttackEvent {
   readonly type: 'unit.attack';
   readonly unit: EntityId;
-  /** bite, dashBite (weasel), slam (badger), rake, flap, shriek (Roc). */
-  readonly attack: 'bite' | 'dashBite' | 'slam' | 'rake' | 'flap' | 'shriek';
+  /** bite (all biters), dashBite (weasel), lash and spit (toad), slam (badger), rake, flap, shriek (Roc). */
+  readonly attack: 'bite' | 'dashBite' | 'lash' | 'spit' | 'slam' | 'rake' | 'flap' | 'shriek';
   readonly origin: Vec3;
   readonly point: Vec3;
   readonly impactAt: Tick;
 }
 
-/** The Roc woke (damaged while asleep), went back to sleep (reset) or enraged. Emitter: sim/world. Consumers: client, sim/ai. */
+/**
+ * A dormant camp creature or the Roc woke, went back to sleep (leash reset), or the Roc enraged (the map-wide roar).
+ * Emitter: sim/world. Consumers: client, sim/ai.
+ */
 export interface UnitStateEvent {
   readonly type: 'unit.state';
   readonly unit: EntityId;
@@ -414,25 +425,34 @@ export interface UnitStateEvent {
 }
 
 export type ObjectiveAction =
+  /** Starts lowering from the canopy (not claimable until EggState/PickupInfo.claimableAt). */
   | 'eggSpawned'
+  /** Picked up by a melee hit (D-EP-039). */
   | 'eggTaken'
   | 'eggDropped'
-  /** Untouched for its return time: back on its perch. */
-  | 'eggReturned'
+  /** Unattended: starts rolling toward its Hatching Stone. */
+  | 'eggRolling'
+  /** Cooled to nothing and cracked. */
+  | 'eggSpoiled'
+  /** `value` is E after cooling and the comeback factor; economy hatches the golden pods from it. */
   | 'eggDelivered'
+  /** The Roc wakes (20:00, then each respawn). */
   | 'rocSpawned'
-  /** The Roc died and the Ember appeared at `pos`. */
+  /** One Ember landed at `pos` (three per Roc kill). */
   | 'emberDropped'
-  /** `hero` claimed it by heavy melee, or `hero` is null when it timed out to the Roc's killers. */
+  /** `hero` claimed one by heavy melee. */
   | 'emberClaimed'
   | 'runeSpawned'
+  /** Claimed by heavy melee; `variant` is the rune. */
   | 'runeTaken'
-  /** A Thicket camp (ObjectiveEvent.camp) spawned or respawned its creatures. */
+  /** A Thicket camp (`camp`) spawned or respawned its creatures. */
   | 'campSpawned'
   /** Its last creature died; `hero` landed the blow. */
   | 'campCleared'
-  /** A breakable interactable other than a Nest (MapData.interactables) was used or broken; `variant` names it. */
-  | 'interacted';
+  /** `hero` gained `value` keepsakes; `variant` is the last one's stat. */
+  | 'keepsakeGained'
+  /** A Berry was eaten by `hero`. */
+  | 'berryEaten';
 
 /**
  * Emitter: sim/world. Consumers: sim/economy (Egg payout), sim/ai, telemetry, client (announcer, minimap).
@@ -450,8 +470,10 @@ export interface ObjectiveEvent {
   readonly pos: Vec3;
   /** Camp actions: index into MapData.thickets. */
   readonly camp?: number;
-  /** Runes: the rune id. Interactables: the interactable kind. */
+  /** Runes: the rune id. Keepsakes: the stat. */
   readonly variant?: string;
+  /** eggDelivered: the Egg's value E in Seeds. keepsakeGained: how many. */
+  readonly value?: number;
 }
 
 /** Emitter: core (from PlayerCommand.ping). Consumers: client (minimap, audio), sim/ai. */

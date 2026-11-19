@@ -73,6 +73,7 @@ export type BindAction =
   | 'item2'
   | 'item3'
   | 'item4'
+  /** Retired (D-EP-039, D-ARCH-022): listed in RETIRED_BIND_ACTIONS (app/bindings), deleted in the W5.5 round. */
   | 'interact'
   | 'ping'
   | 'shoulderSwap'

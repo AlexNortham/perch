@@ -37,6 +37,12 @@ interface PrimBase {
   readonly material: MaterialTag;
   /** False for decoration nothing collides with. */
   readonly solid: boolean;
+  /**
+   * Solid prims only: what it blocks. Absent = everything (today's prims). 'movement': heroes and units, but not
+   * sight, bullets, projectiles or areas (a shot window's invisible filler, GDD §6.8). 'sight': vision and `unit`
+   * targeting only (an ivy curtain; sim/world ignores it within 3 m of the viewer).
+   */
+  readonly blocks?: 'movement' | 'sight';
 }
 
 /** A box turned by yaw about its centre. `size` is the full extent (not half). */
@@ -112,15 +118,26 @@ export interface Ledge {
 }
 
 /**
- * Link types bots path over (GDD §6.7). Stairs are ramps and use 'walk', as do doors; ladders use 'vine' (both are
- * Climbs that physics treats alike).
+ * Link types bots path over (GDD §6.7). Doors and stairs use 'walk', ladders 'vine', hatches and skylights 'drop',
+ * leap windows 'mantle'. A Bough Spring is a 'walk' link onto its pad that carries `spring` (GDD §6.7 calls it a
+ * spring link; a field keeps the union closed so existing exhaustive tables compile).
  */
 export type NavLinkKind = 'walk' | 'jump' | 'dashJump' | 'mantle' | 'chimney' | 'vine' | 'updraft' | 'drop';
+
+export interface NavLink {
+  readonly from: number;
+  readonly to: number;
+  readonly kind: NavLinkKind;
+  /** Index into MapData.springs: walking onto that pad launches the bot to `to`. */
+  readonly spring?: number;
+}
 
 /** Navigation graph for bots. Links are one-way; add both for two-way. */
 export interface NavGraph {
   readonly nodes: readonly Vec3[];
-  readonly links: readonly { readonly from: number; readonly to: number; readonly kind: NavLinkKind }[];
+  readonly links: readonly NavLink[];
+  /** Per node: index into MapData.rooms, −1 outdoors (GDD §6.7). Absent on maps without interiors. */
+  readonly nodeRoom?: readonly number[];
 }
 
 export interface StructureAnchor extends TeamAnchor {
@@ -134,19 +151,26 @@ export interface ShopAnchor extends TeamAnchor {
   readonly kind: 'roost' | 'stall';
   /** Zone radius (m): buying and selling work inside it. */
   readonly radius: number;
+  /** Both flocks may use it (the Magpie Den, GDD §7.15); `team` is then the half it stands in. Default false. */
+  readonly neutral?: boolean;
 }
+
+/** Thicket families (GDD §7.8); the tier no longer implies the family. */
+export type ThicketFamily = 'beetles' | 'weasels' | 'rats' | 'toads' | 'badgers';
 
 export interface ThicketAnchor extends Anchor {
   readonly tier: ThicketTier;
+  /** Default by tier, as in Stage 3: 1 beetles, 2 weasels, 3 badgers. */
+  readonly family?: ThicketFamily;
   /** Indoor camps: index into MapData.buildings and the storey it sits on. Absent outdoors. */
   readonly building?: number;
   readonly storey?: number;
 }
 
-/** A Nest (breakable, GDD §7.9). Plain Anchors are fine: variant defaults to world data's first. */
+/** A Nest (breakable, GDD §7.9). Plain Anchors are fine: the variant defaults to 'twig'. */
 export interface NestAnchor extends Anchor {
-  /** GDD variant id; world data maps it to HP, contents and model. */
-  readonly variant?: string;
+  /** 'twig', 'woven' or 'keepsake'; world data maps it to HP, drops and model. */
+  readonly variant?: 'twig' | 'woven' | 'keepsake';
   /** Inside a building: index into MapData.buildings and the storey. Absent outdoors. */
   readonly building?: number;
   readonly storey?: number;
@@ -171,20 +195,28 @@ export interface Storey {
   readonly height: number;
 }
 
-/** A room: an interior volume on one storey. Vision rays still use the prims; rooms are for audio, bots and the map. */
+/**
+ * An interior volume (GDD §6.11): one storey, cellar or the Cellar Run. Vision and shots still use the prims; rooms
+ * drive sound (−6 dB and a 2 kHz low-pass heard from outside), bots, the minimap's ▲/▼ and the room rules below.
+ */
 export interface Room {
-  /** Index into MapData.buildings. */
+  /** Index into MapData.buildings, or −1 for the Cellar Run and the Magpie Den. */
   readonly building: number;
+  /** Storey index; −1 for cellars and the Cellar Run. */
   readonly storey: number;
   readonly volume: BoxVolume;
+  /** 'hide': a bird hide (hidden while wholly inside, GDD §7.15); 'tunnel': the Cellar Run (+30% run speed). */
+  readonly tag?: 'hide' | 'tunnel';
 }
 
 /**
- * A hole in a building's shell or between rooms. The prims leave the gap; this records what passes through it.
- * `rooms` are the two sides as indices into MapData.rooms, −1 for outdoors.
+ * A hole in a building's shell or between rooms (GDD §6.8 kit). The prims leave the gap (a shot window also gets a
+ * `blocks: 'movement'` filler prim); this records what passes through it. `rooms` are the two sides as indices into
+ * MapData.rooms, −1 for outdoors.
  */
 export interface Opening {
-  readonly kind: 'door' | 'window' | 'hatch' | 'arch' | 'balcony';
+  /** door, shot window, leap window, hatch, skylight, arch, balcony door, street grate. */
+  readonly kind: 'door' | 'window' | 'leap' | 'hatch' | 'skylight' | 'arch' | 'balcony' | 'grate';
   readonly rooms: readonly [number, number];
   /** Centre of the gap. */
   readonly centre: Vec3;
@@ -192,8 +224,12 @@ export interface Opening {
   readonly height: number;
   /** Facing of the gap's outward normal (radians), toward `rooms[1]`. */
   readonly yaw: number;
-  /** A hero can walk or mantle through (doors, arches, balconies; windows only if mantle-sized). */
+  /** A hero can walk, mantle or drop through (everything but shot windows). */
   readonly passable: boolean;
+  /** An ivy curtain hangs in it (GDD §6.8): its `blocks: 'sight'` prim is in `prims`. */
+  readonly curtain?: boolean;
+  /** Physics stops the Egg carrier here (the Cellar Run's stair heads, GDD §7.15). */
+  readonly blocksEggCarrier?: boolean;
 }
 
 /** A building (GDD §6 archetypes). Interiors are made of prims; this groups them. */
@@ -223,14 +259,27 @@ export interface JungleZone {
 }
 
 /**
- * Something in the world a hero interacts with that is neither a shop nor an objective with its own field (GDD
- * §6/§7 Stage 4 list: e.g. a boon statue, a vantage point, a vent). sim/world spawns the ones that are entities.
+ * Jungle and interior interactables with a single anchor (GDD §§7.14, 7.15). None needs a key (D-EP-039): Berries are
+ * eaten by walking within reach, Bell Feeders broken by melee, Lookouts work by standing near. sim/world spawns the
+ * Berries (pickups) and Feeders (structures) and reads the rest. Ivy curtains are Openings; Hides and the Cellar Run
+ * are Rooms; Bough Springs are MapData.springs.
  */
 export interface InteractableAnchor extends Anchor {
-  /** GDD kind id; world data maps it to behaviour. */
-  readonly kind: string;
+  readonly kind: 'berry' | 'feeder' | 'lookout';
   readonly building?: number;
   readonly storey?: number;
+  /** A Feeder that forms one hybrid camp with a Thicket (the Granary's Rats): index into MapData.thickets. */
+  readonly camp?: number;
+}
+
+/** A Bough Spring (GDD §7.15): stepping onto the pad launches a hero along an authored arc to `land`. */
+export interface Spring {
+  readonly pad: Vec3;
+  /** Pad radius (m). */
+  readonly radius: number;
+  readonly land: Vec3;
+  /** Height of the arc's apex (m, world y). */
+  readonly apexY: number;
 }
 
 /** Bot hints (GDD §6.7): safe spots behind towers and ambush spots near Thickets. */
@@ -274,4 +323,5 @@ export interface MapData {
   readonly openings?: readonly Opening[];
   readonly jungle?: readonly JungleZone[];
   readonly interactables?: readonly InteractableAnchor[];
+  readonly springs?: readonly Spring[];
 }

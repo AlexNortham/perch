@@ -58,6 +58,7 @@ function flagsOf(e: Entity): number {
     case 'structure':
       if (e.structure.target !== null) f |= ViewFlag.Attacking;
       if (e.structure.weakPoint !== null) f |= ViewFlag.WeakPoint;
+      if (e.structure.lit) f |= ViewFlag.Lit;
       break;
     case 'pickup':
       if (e.pickup.carrier !== null) f |= ViewFlag.Carried;
@@ -155,6 +156,8 @@ function heroView(ctx: SimContext, h: HeroEntity, scores: TelemetryCollector): H
     stamina: h.motor.stamina,
     staminaMax: h.stats.final.stamina,
     dashJumpReady: h.motor.dashJumpReady ?? false,
+    ...(h.motor.updraftInReach != null && { updraftInReach: true }),
+    ...(h.keepsakes && { keepsakes: { count: h.keepsakes.count, totals: { ...h.keepsakes.totals } } }),
     respawnAt: h.health.respawnAt,
     talonShield: h.health.talonShield,
     songShield: h.health.songShield,
@@ -173,7 +176,8 @@ function teamView(ctx: SimContext, team: PlayerTeam, heroes: readonly HeroView[]
   const t = ctx.teams[team];
   let netWorth = 0;
   for (const h of heroes) if (h.team === team) netWorth += h.netWorth;
-  return { team, kills: scores.teamKills(team), netWorth, flexSlots: t.flexSlots, emberUntil: t.emberUntil };
+  return { team, kills: scores.teamKills(team), netWorth, flexSlots: t.flexSlots, emberUntil: t.emberUntil,
+    ...(t.rekindle && { rekindle: { ...t.rekindle } }) };
 }
 
 /** Snapshot the sim for the client. `heroIds` is the roster order. */
