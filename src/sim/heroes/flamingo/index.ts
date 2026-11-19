@@ -5,13 +5,14 @@
  */
 import type { HeroModule } from '../../core/contracts';
 import { flamingoDef, TIDE_ALLY_RADIUS, TIDE_HEAL_HOOK_FRACTION, TIDE_HEAL_OVER_S } from '../../data/heroes/flamingo';
+const ULT_SLOT = 3;
 
 export const flamingo: HeroModule = {
   def: flamingoDef,
   implemented: true,
   hooks: (ctx) => ({
     onCast(cast) {
-      if (cast.slot !== 3 || cast.target.entity === null) return;
+      if (cast.slot !== ULT_SLOT || cast.target.entity === null) return;
       const main = ctx.store.getKind(cast.target.entity, 'hero');
       if (!main) return;
       const healed = [main];

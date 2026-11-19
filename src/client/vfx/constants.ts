@@ -246,3 +246,28 @@ export const BURSTS = {
   ],
 } as const satisfies Record<string, readonly Part[]>;
 export type BurstKind = keyof typeof BURSTS;
+
+// ── Draw-time literals, named (W4 lint pass, D-EP-009). Sizes in metres, alphas 0..1, scales are multipliers. ──────
+export const HALF_TURN_DEG = 180;
+/** Slide sparks trail behind the hero and sit just above the ground. */
+export const SLIDE_SPARK = { trail: 0.05, lift: 0.1 } as const;
+export const PROJECTILE_DRAW = { glowAlpha: 0.45, trailThickness: 0.9, trailAlpha: 0.7 } as const;
+export const POD_DRAW = { witherShrink: 0.6, haloAlpha: 0.22 } as const;
+export const AREA_DRAW = { coneLift: 0.3, coneFillBoost: 1.5, ringFillBoost: 3, innerScale: 0.9, rimFade: 0.5 } as const;
+export const SUMMON_DRAW = { trapCore: 0.5, trapAlpha: 0.6, turretAlpha: 0.7 } as const;
+export const MELEE_DRAW = {
+  chargeSwell: 0.3, chargeAt: 0.5, heavyWidth: 0.5, lightWidth: 0.25, thickness: 0.12, alpha: 0.7, guardAt: 0.6,
+} as const;
+export const MARKER_DRAW = {
+  stunDots: 3, disarmScale: 1.3, disarmDrop: 0.2, silenceLift: 0.35, silenceSwell: 0.25, silenceDot: 1.4,
+  silenceRing: 0.7, silenceRingAlpha: 0.8, footMin: 0.6, slowScale: 1.2, groundedScale: 0.8, groundedSteps: 3,
+  ringAlpha: 0.9,
+} as const;
+export const TETHER_DRAW = { minLength: 1e-3, alpha: 0.9 } as const;
+export const HIT_FLASH_DRAW = { radiusScale: 1.2, alpha: 0.55 } as const;
+/** Particle pool: instance colour is RGB, and the generator is a fixed-seed LCG so effects look the same every run. */
+export const FX_DRAW = {
+  colourComponents: 3, seed: 12345, minLength: 1e-6, coneBaseShift: 0.5, tracerTail: 0.25, jitterCentre: 0.5,
+  boxFlatten: 0.6, speedFloor: 0.6, speedRange: 0.4, lifeFloor: 0.85, lifeRange: 0.3, half: 0.5,
+} as const;
+export const MAPPING_DRAW = { beamWidthScale: 0.6, reachForward: 1.2, deathLift: 0.8 } as const;

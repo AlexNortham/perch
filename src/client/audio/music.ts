@@ -1,33 +1,14 @@
 // Adaptive music (GDD §13.5): four synthesised stems (pad, bass, percussion, lead) on a 96 BPM grid. A state change
-// re-targets the stem gains on the next bar with a short cross-fade.
+// re-targets the stem gains on the next bar with a short cross-fade. The tables live in ./data/music.
 import { hiss, tone, type Ctx } from './synth';
+import {
+  BASS, BPM, FADE_TIME_CONSTANT, FIFTH, HAT, KICK, LEAD, LEAD_FLAT_AT, LEAD_FLAT_EVERY, LEAD_PATTERN, LOWERED_FIFTH, PAD,
+  PENTATONIC_RATIOS, PERC_DOUBLE_EVERY, PERC_EVERY, ROOTS, SECONDS_PER_MINUTE, STALL, STATES, STEM_GAIN, STEPS_PER_BAR,
+  STEPS_PER_BEAT, THIRD_MAJOR, THIRD_MINOR, type MusicState,
+} from './data/music';
 
-export type MusicState = 'menu' | 'heroSelect' | 'laning' | 'roaming' | 'skirmish' | 'objective' | 'siege' | 'victory' | 'defeat';
-
-const BPM = 96;
-export const STEP = 60 / BPM / 4; // a 16th note
-const STEPS_PER_BAR = 16;
-const FADE_TIME_CONSTANT = 0.4; // ~2 s to settle fully, audibly crossed within a second
-const STALL = 0.5; // a gap longer than this (tab was hidden) restarts the grid at "now"
-
-type Stems = readonly [pad: number, bass: number, perc: number, lead: number];
-interface StateDef { readonly stems: Stems; readonly minor: boolean; readonly perc: 'none' | 'light' | 'full' | 'double' }
-export const STATES: Record<MusicState, StateDef> = {
-  menu: { stems: [1, 0, 0, 0.7], minor: false, perc: 'none' },
-  heroSelect: { stems: [1, 0, 0.6, 0.8], minor: false, perc: 'light' },
-  laning: { stems: [1, 0.8, 0, 0], minor: false, perc: 'none' },
-  roaming: { stems: [1, 0.8, 0.6, 0], minor: false, perc: 'light' },
-  skirmish: { stems: [1, 0.8, 1, 0], minor: false, perc: 'full' },
-  objective: { stems: [1, 0.8, 1, 0.9], minor: true, perc: 'full' },
-  siege: { stems: [1, 1, 1, 0.9], minor: true, perc: 'double' },
-  victory: { stems: [1, 0.5, 0, 1], minor: false, perc: 'none' },
-  defeat: { stems: [1, 0, 0, 0], minor: true, perc: 'none' },
-};
-// Chord roots in Hz across a 4-bar loop (A, F, C, G).
-const ROOTS = [110, 87.31, 130.81, 98];
-const THIRD_MAJOR = 5 / 4, THIRD_MINOR = 6 / 5, FIFTH = 3 / 2;
-const LEAD_PATTERN = [0, 2, 4, 2, 5, 4, 2, 0]; // scale degrees of a pentatonic motif, one per 2 steps
-const PENTATONIC_RATIOS = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2];
+export { STATES, type MusicState };
+export const STEP = SECONDS_PER_MINUTE / BPM / STEPS_PER_BEAT; // a 16th note
 
 export interface Music {
   setState(s: MusicState): void;
@@ -53,7 +34,7 @@ export function createMusic(c: Ctx, out: AudioNode, lookahead: number): Music {
 
   const apply = (s: MusicState, t: number): void => {
     applied = s;
-    STATES[s].stems.forEach((v, i) => stems[i]!.gain.setTargetAtTime(v * 0.5, t, FADE_TIME_CONSTANT));
+    STATES[s].stems.forEach((v, i) => stems[i]!.gain.setTargetAtTime(v * STEM_GAIN, t, FADE_TIME_CONSTANT));
   };
 
   const schedule = (i: number, t: number): void => {
@@ -62,16 +43,16 @@ export function createMusic(c: Ctx, out: AudioNode, lookahead: number): Music {
     const s = STATES[applied ?? current];
     const third = s.minor ? THIRD_MINOR : THIRD_MAJOR;
     const inBar = i % STEPS_PER_BAR;
-    if (inBar === 0) [1, third, FIFTH].forEach((r) => tone(c, stems[0]!, t, { f: root * 2 * r, dur: STEP * STEPS_PER_BAR, g: 0.12, a: 0.5, type: 'triangle' }));
-    if (inBar % 4 === 0) tone(c, stems[1]!, t, { f: root, dur: STEP * 3, g: 0.4, type: 'sine' });
-    const percEvery = s.perc === 'double' ? 1 : 2;
+    if (inBar === 0) [1, third, FIFTH].forEach((r) => tone(c, stems[0]!, t, { f: root * PAD.octave * r, dur: STEP * STEPS_PER_BAR, g: PAD.g, a: PAD.a, type: 'triangle' }));
+    if (inBar % BASS.everySteps === 0) tone(c, stems[1]!, t, { f: root, dur: STEP * BASS.lengthSteps, g: BASS.g, type: 'sine' });
+    const percEvery = s.perc === 'double' ? PERC_DOUBLE_EVERY : PERC_EVERY;
     // Percussion is always scheduled; the stem gain is what silences it. 'light' keeps only off-beat hats.
-    if (inBar % 8 === 0) tone(c, stems[2]!, t, { f: 100, f2: 45, dur: 0.12, g: 0.5 }); // kick
-    if (inBar % percEvery === 0 && (s.perc !== 'light' || inBar % 4 === 2)) hiss(c, stems[2]!, t, { f: 7000, dur: 0.03, g: 0.12, type: 'highpass' });
+    if (inBar % KICK.everySteps === 0) tone(c, stems[2]!, t, { f: KICK.f, f2: KICK.f2, dur: KICK.dur, g: KICK.g });
+    if (inBar % percEvery === 0 && (s.perc !== 'light' || inBar % HAT.offBeatEvery === HAT.offBeatStep)) hiss(c, stems[2]!, t, { f: HAT.f, dur: HAT.dur, g: HAT.g, type: 'highpass' });
     if (inBar % 2 === 0) {
       const d = LEAD_PATTERN[(inBar / 2) % LEAD_PATTERN.length]!;
-      const r = PENTATONIC_RATIOS[d % PENTATONIC_RATIOS.length]! * (s.minor && d % 3 === 2 ? 5 / 6 : 1);
-      tone(c, stems[3]!, t, { f: root * 8 * r, dur: STEP * 3, g: 0.12, type: 'triangle' });
+      const r = PENTATONIC_RATIOS[d % PENTATONIC_RATIOS.length]! * (s.minor && d % LEAD_FLAT_EVERY === LEAD_FLAT_AT ? LOWERED_FIFTH : 1);
+      tone(c, stems[3]!, t, { f: root * LEAD.octave * r, dur: STEP * LEAD.lengthSteps, g: LEAD.g, type: 'triangle' });
     }
   };
 

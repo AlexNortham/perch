@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-magic-numbers -- test fixtures: GDD §9 hero numbers and test positions */
 /**
  * Test kit for sim/combat's co-located tests (not imported by the sim). Builds a SimContext from core with fixture
  * heroes that carry real GDD §9 guns and body plans, a fake PhysicsService with an AABB world, and steps only the

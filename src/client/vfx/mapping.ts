@@ -4,7 +4,7 @@
  */
 import type { EntityId, EntityView, PlayerTeam, SimEvent, Team, Vec3 } from '../../sim/core/contracts';
 import { ENEMY_RED, NEUTRAL_COLOUR, TEAM_COLOURS } from '../app/palette';
-import { CHEST, RANGED_DISTANCE, RANGED_TYPES, TRACER } from './constants';
+import { CHEST, MAPPING_DRAW, RANGED_DISTANCE, RANGED_TYPES, TRACER } from './constants';
 import type { BurstKind } from './constants';
 
 export interface Lookup {
@@ -82,7 +82,7 @@ export function mapEvents(events: readonly SimEvent[], lk: Lookup, sink: FxSink)
         if (e.attack === 'stomp' || e.attack === 'pulse' || e.attack === 'screech' || e.attack === 'rain' || e.attack === 'gale' || e.attack === 'transition') {
           sink.burst('structureBlast', e.point, UP, tint);
         } else {
-          sink.tracer(e.origin, e.point, tint, e.attack === 'beam' ? TRACER.structureWidth * 0.6 : TRACER.structureWidth);
+          sink.tracer(e.origin, e.point, tint, e.attack === 'beam' ? TRACER.structureWidth * MAPPING_DRAW.beamWidthScale : TRACER.structureWidth);
         }
         break;
       }
@@ -121,7 +121,7 @@ export function mapEvents(events: readonly SimEvent[], lk: Lookup, sink: FxSink)
         const a = lk.entity(e.attacker);
         if (!a) break;
         const at = chestOf(a);
-        const reach = { x: at.x + Math.sin(a.yaw) * 1.2, y: at.y, z: at.z + Math.cos(a.yaw) * 1.2 };
+        const reach = { x: at.x + Math.sin(a.yaw) * MAPPING_DRAW.reachForward, y: at.y, z: at.z + Math.cos(a.yaw) * MAPPING_DRAW.reachForward };
         if (e.target === null) sink.burst('whiff', reach, { x: Math.sin(a.yaw), y: 0, z: Math.cos(a.yaw) }, teamTint(a.team));
         else sink.burst(e.heavy ? 'swipeHeavy' : 'swipe', reach, { x: Math.sin(a.yaw), y: 0, z: Math.cos(a.yaw) }, teamTint(a.team));
         break;
@@ -132,7 +132,7 @@ export function mapEvents(events: readonly SimEvent[], lk: Lookup, sink: FxSink)
         break;
       }
       case 'entity.died': {
-        if (e.victimKind !== 'projectile') sink.burst('death', { x: e.pos.x, y: e.pos.y + 0.8, z: e.pos.z }, UP, WHITE);
+        if (e.victimKind !== 'projectile') sink.burst('death', { x: e.pos.x, y: e.pos.y + MAPPING_DRAW.deathLift, z: e.pos.z }, UP, WHITE);
         break;
       }
       case 'pod.resolved':

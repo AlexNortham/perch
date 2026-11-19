@@ -1379,3 +1379,36 @@ Edge with real key and mouse input. PNGs are in `out/web/` (gitignored), all loo
    passive income plus fast-forward, not from real kills; killing fledglings for Seeds, a Patron fight and victory
    by player controls are INTEG-SIM's siege proof.
 **Blocked:** nothing. **Interface requests:** none. Manual W+Ctrl in a real tab is still unchecked.
+
+### W4 · Lint and test hygiene · 19/11/2026
+**Role:** QA, acting for Audio, VFX, Heroes, Abilities, Combat and Build (one commit each, no behaviour change).
+Base `fe56ab7` on `integrate/w4c`. `npx eslint .` now reports 0 warnings (was 485). No rule is suppressed globally.
+**Warnings before → after, per owner:**
+- Audio 375 → 0 (`synth.ts` 303, `music.ts` 42, `index.ts` 30). Recipes and music tables moved to `src/client/audio/data/`
+  (`heroes.ts` guns, calls, casts; `cues.ts` combat, movement, structure, objective and ping cues; `music.ts` tempo,
+  states, chords, stem recipes). `synth.ts` keeps only the primitives, `music.ts` and `index.ts` keep logic with named
+  constants (`Len` cue lengths, `ULT_SLOT`, LCG constants).
+- VFX 67 → 0 (`bound.ts` 48, `fx.ts` 15, `mapping.ts` 4): named groups at the end of `vfx/constants.ts` (D-EP-009).
+- Abilities 34 → 0: `fixtures.ts` is now `fixtures.testkit.ts` (imports in `fixtures.test.ts` and
+  `abilities.perf.test.ts` follow).
+- Heroes 9 → 0 (hornbill 3, penguin 2, flamingo, pelican, puffin, secretarybird 1 each): local named constants.
+- Combat 0 → 0: `testkit.ts` loses its file-level eslint-disable, now redundant.
+- Build: `eslint.config.js` no-magic-numbers ignores `src/client/**/data/**`, `**/testkit.ts`, `**/*.testkit.ts` (D-QA-009).
+**Audio tests, old → new** (`src/client/audio/audio.test.ts` launched Edge inside vitest; 4 of 9 timed out in parallel):
+| Old test (vitest) | New test |
+|---|---|
+| every hero gun produces a distinct, finite signal | `e2e/audio.spec.ts` same name |
+| every hero call plays on respawn and differs per hero | `e2e/audio.spec.ts` same name |
+| the event table makes sound (11 events in one test) | `e2e/audio.spec.ts` "the event table makes sound: <event>", one test per event (11) |
+| structure under hero fire sounds the map-wide alarm at most once per 4 s | `e2e/audio.spec.ts` same name |
+| master 0 silent; sfx 0 mutes effects; music 0 mutes music | `e2e/audio.spec.ts` same name |
+| volume changes live, mid-sound, and reset() silences old voices | `e2e/audio.spec.ts` same name |
+| positional: farther quieter, beyond 60 m dropped, enemies pan | `e2e/audio.spec.ts` same name |
+| music states differ; change takes effect next bar | `e2e/audio.spec.ts` same name |
+| live context: no context until a real click, then real-time signal | `e2e/audio.spec.ts` same name |
+The old file had no voice-allocation or settings-maths tests, so these are new fast unit tests in the rewritten
+`src/client/audio/audio.test.ts` (Node, fake context, 4 tests, ~0.2 s): positional voices beyond `MAX_DISTANCE` are
+dropped; the `MAX_VOICES` cap refuses a farther voice and steals for a nearer one; `reset()` frees voices; master,
+sfx and music buses follow the volume settings live. The e2e file runs serially (`describe.configure`) because
+concurrent headless offline renders stalled about 1 in 50 runs; 95 of 95 passed over 5 repeats.
+**Verification:** `npm run check`, all six steps PASS with parallel tests (typecheck, lint 0 warnings, test, perf, sim, e2e).

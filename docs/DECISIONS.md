@@ -1222,3 +1222,9 @@ of these hold:
   statistically significant margin.
 `docs/BALANCE.md` records the match count, the convergence numbers and why it stopped.
 **Why:** the user said 1,000 is a minimum and to run more if needed.
+### D-QA-009 · 19/11/2026 — Tables of numbers are data: lint exempts `src/client/**/data/**` and testkits
+**Decision:** `@typescript-eslint/no-magic-numbers` ignores `src/client/**/data/**` (mirroring D-BUILD-009's map-data
+exemption) and `**/testkit.ts`, `**/*.testkit.ts`. Sound recipes and music patterns live in `src/client/audio/data/`;
+logic stays under the rule. Ability fixtures shared with the perf test are `fixtures.testkit.ts`.
+**Why:** A recipe such as a gun's filter frequencies is authored tuning, like map coordinates, and naming each number
+would hide it. The exemption is narrow and path-based; no rule is disabled globally.

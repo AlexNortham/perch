@@ -20,7 +20,9 @@ import {
 } from '../../data/heroes/pelican';
 
 const GULP_SLOT = 0;
-const HALF_CONE_COS = Math.cos((GULP_CONE_DEG / 2) * (Math.PI / 180));
+const HALF_TURN_DEG = 180;
+const RAD_PER_DEG = Math.PI / HALF_TURN_DEG;
+const HALF_CONE_COS = Math.cos((GULP_CONE_DEG / 2) * RAD_PER_DEG);
 
 const onEntity = (e: Entity): EffectTarget => ({ entity: e.id, point: e.pos, dir: { x: 0, y: 0, z: 1 } });
 

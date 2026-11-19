@@ -19,7 +19,7 @@ import {
 } from 'three';
 import type { BufferGeometry, Group } from 'three';
 import type { Vec3 } from '../../sim/core/contracts';
-import { BURSTS, CAPACITY, TRANSIENT_CAPACITY } from './constants';
+import { BURSTS, CAPACITY, FX_DRAW, TRANSIENT_CAPACITY } from './constants';
 import type { Part, Shape } from './constants';
 
 const RING_INNER = 0.82;
@@ -41,7 +41,7 @@ function geometry(shape: Shape): BufferGeometry {
     case 'cone': {
       const g = new ConeGeometry(1, 1, ROUND_SEGMENTS, 1, true);
       g.rotateX(Math.PI / 2);
-      g.translate(0, 0, 0.5);
+      g.translate(0, 0, FX_DRAW.coneBaseShift);
       return g;
     }
     case 'ring': {
@@ -65,7 +65,7 @@ export class Instances {
   constructor(shape: Shape, material: MeshBasicMaterial) {
     this.capacity = CAPACITY[shape];
     this.mesh = new InstancedMesh(geometry(shape), material, this.capacity);
-    this.mesh.instanceColor = new InstancedBufferAttribute(new Float32Array(this.capacity * 3), 3);
+    this.mesh.instanceColor = new InstancedBufferAttribute(new Float32Array(this.capacity * FX_DRAW.colourComponents), FX_DRAW.colourComponents);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 10;
     this.mesh.count = 0;
@@ -153,7 +153,7 @@ interface Rec {
 export class Transients {
   readonly recs: Rec[] = [];
   private next = 0;
-  private seed = 12345;
+  private seed: number = FX_DRAW.seed;
   private readonly q = new Quaternion();
   private readonly c = { r: 0, g: 0, b: 0 };
 
@@ -195,7 +195,7 @@ export class Transients {
     const dy = to.y - from.y;
     const dz = to.z - from.z;
     const len = Math.hypot(dx, dy, dz);
-    if (len < 1e-6) return;
+    if (len < FX_DRAW.minLength) return;
     const r = this.take();
     r.shape = 'box';
     r.x = from.x;
@@ -206,7 +206,7 @@ export class Transients {
     r.ay = dy / len;
     r.az = dz / len;
     r.s0 = width;
-    r.s1 = width * 0.25;
+    r.s1 = width * FX_DRAW.tracerTail;
     r.len = len;
     r.life = life;
     r.gravity = 0;
@@ -224,9 +224,9 @@ export class Transients {
         const r = this.take();
         r.shape = p.shape;
         const sc = p.scatter ?? 0;
-        r.x = pos.x + (this.rand() - 0.5) * 2 * sc;
-        r.y = pos.y + (this.rand() - 0.5) * 2 * sc * (p.shape === 'box' ? 0.6 : 0);
-        r.z = pos.z + (this.rand() - 0.5) * 2 * sc;
+        r.x = pos.x + (this.rand() - FX_DRAW.jitterCentre) * 2 * sc;
+        r.y = pos.y + (this.rand() - FX_DRAW.jitterCentre) * 2 * sc * (p.shape === 'box' ? FX_DRAW.boxFlatten : 0);
+        r.z = pos.z + (this.rand() - FX_DRAW.jitterCentre) * 2 * sc;
         // Direction: the axis blended with a random one.
         let dx = ax * (1 - p.spread) + (this.rand() * 2 - 1) * p.spread;
         let dy = ay * (1 - p.spread) + (this.rand() * 2 - 1) * p.spread;
@@ -235,7 +235,7 @@ export class Transients {
         dx /= l;
         dy /= l;
         dz /= l;
-        const speed = p.speed * (0.6 + 0.4 * this.rand());
+        const speed = p.speed * (FX_DRAW.speedFloor + FX_DRAW.speedRange * this.rand());
         r.vx = dx * speed;
         r.vy = dy * speed;
         r.vz = dz * speed;
@@ -258,7 +258,7 @@ export class Transients {
         r.s0 = p.s0;
         r.s1 = p.s1;
         r.len = p.len ?? 0;
-        r.life = p.life * (0.85 + 0.3 * this.rand());
+        r.life = p.life * (FX_DRAW.lifeFloor + FX_DRAW.lifeRange * this.rand());
         r.gravity = p.gravity ?? 0;
         rgb(p.tint ? tint : p.colour, r);
       }
@@ -280,7 +280,7 @@ export class Transients {
       const fade = 1 - t;
       const size = r.s0 + (r.s1 - r.s0) * t;
       const x = r.x + r.vx * r.age;
-      const y = r.y + r.vy * r.age - 0.5 * r.gravity * r.age * r.age;
+      const y = r.y + r.vy * r.age - FX_DRAW.half * r.gravity * r.age * r.age;
       const z = r.z + r.vz * r.age;
       c.r = r.r * fade;
       c.g = r.g * fade;
