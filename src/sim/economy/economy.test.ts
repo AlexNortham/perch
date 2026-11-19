@@ -6,6 +6,51 @@ const at = { x: 0, y: 0, z: 0 };
 const near = { x: 5, y: 0, z: 0 };
 const far = { x: 60, y: 0, z: 0 };
 
+it('a unit killing a hero shares the bounty only with living enemies within 40 m', async () => {
+  const sb = await createSandbox({ heroes: [
+    { hero: 'shrike', at: { ...at, x: -25 } }, { hero: 'kingfisher', team: 'dusk', at: near },
+    { hero: 'albatross', team: 'dusk', at: { ...at, x: 30 } },
+  ] });
+  const [victim, paid, unpaid] = sb.heroes as [EntityId, EntityId, EntityId];
+  const attacker = sb.dummy({ kind: 'unit', type: 'slinger', team: 'dusk', at: near, hp: 100 });
+  sb.apply({ kind: 'damage', type: 'talon', amount: 2000 }, victim, sb.cause(attacker, { via: 'unit' }));
+  sb.step();
+  expect(sb.hero(paid).progress.seeds).toBe(120);
+  expect(sb.hero(unpaid).progress.seeds).toBe(0);
+});
+
+it('real fixture structure deaths award both flock members, heal two crossed Molts and stop granting flex slots at four', async () => {
+  const sb = await createSandbox({ heroes: ['shrike', { hero: 'kingfisher', team: 'dawn' }],
+    options: { startSeeds: 50, unlockAbilities: false } });
+  const [hero, ally] = sb.heroes as [EntityId, EntityId];
+  const h = sb.hero(hero);
+  const source = sb.dummy({ kind: 'unit', type: 'scrapper', at: near, team: 'dusk', hp: 100 });
+  sb.apply({ kind: 'damage', type: 'talon', amount: 200 }, hero, sb.cause(source));
+  sb.step();
+  const wounded = h.health.hp;
+  for (const type of ['hawk', 'heron', 'hawk', 'hawk', 'warden', 'shrine', 'shrine'] as const) {
+    const id = sb.dummy({ kind: 'structure', type, at, team: 'dusk', hp: 100 });
+    sb.apply({ kind: 'damage', type: 'talon', amount: 1000 }, id, sb.cause(hero, { via: 'weapon' }));
+    sb.step();
+    if (type === 'heron') {
+      expect(h.progress).toMatchObject({ level: 3, molts: 2, seeds: 950 });
+      expect(h.abilities.ap).toBe(2);
+      expect(h.health.hp - wounded).toBeCloseTo(68);
+    }
+  }
+  expect(sb.ctx.teams.dawn.flexSlots).toBe(4);
+  expect(sb.eventsOf('flexSlots').map((e) => e.slots)).toEqual([1, 2, 3, 4]);
+  expect(h.progress.seeds).toBe(2800);
+  expect(sb.hero(ally).progress.seeds).toBe(2800);
+});
+
+it('the last threshold caps growth at 29 Molts and grants a total of 32 AP', async () => {
+  const sb = await createSandbox({ heroes: ['shrike'], options: { unlockAbilities: false, startSeeds: 60_000 } });
+  const h = sb.hero(sb.heroes[0]!);
+  expect(h.progress).toMatchObject({ level: 30, molts: 29 });
+  expect(h.abilities.ap).toBe(32);
+});
+
 /** Dawn hero, two Dusk heroes (one near the fledgling, one far) and a Dawn Scrapper dummy that is then killed. */
 async function setup(killedBy: 'hero' | 'unit') {
   const sb = await createSandbox({

@@ -22,7 +22,13 @@ export const createItemSystem: SystemFactory = (ctx) => {
     if (item.id === 'dew-drinker') dewOwners.add(h.id);
   }
 
-  function unequip(h: HeroEntity, item: ItemDef): void {
+  function unequip(h: HeroEntity, item: ItemDef, owned: OwnedItem): void {
+    if (item.active) {
+      // Record the current timer on removal so an ability's reset or refund survives a repurchase.
+      const saved = cooldowns.get(h.id) ?? new Map<ItemId, number>();
+      saved.set(item.id, owned.readyAt);
+      cooldowns.set(h.id, saved);
+    }
     ctx.stats.set(h.id, 'items:' + item.id, null);
     triggers.remove(h, item);
     if (item.id === 'dew-drinker') {
@@ -60,7 +66,7 @@ export const createItemSystem: SystemFactory = (ctx) => {
     if (h.progress.seeds < cost) return;
     const owned: OwnedItem = { item: id, readyAt: cooldowns.get(h.id)?.get(id) ?? 0, fullRefundUntil: ctx.clock.tick + refundWindow };
     if (component) {
-      unequip(h, component);
+      unequip(h, component, items[index]!);
       items[index] = owned;
     } else items.push(owned);
     h.progress.seeds -= cost;
@@ -74,10 +80,11 @@ export const createItemSystem: SystemFactory = (ctx) => {
     const items = h.inventory.items;
     const index = items.findIndex((owned) => owned.item === id);
     if (!def || index < 0) return;
-    const refund = items[index]!.fullRefundUntil !== undefined ? def.cost : Math.floor(def.cost * SHOP.resaleFraction);
+    const owned = items[index]!;
+    const refund = owned.fullRefundUntil !== undefined ? def.cost : Math.floor(def.cost * SHOP.resaleFraction);
     items.splice(index, 1);
     h.progress.seeds += refund;
-    unequip(h, def);
+    unequip(h, def, owned);
     bindActives(h);
     ctx.bus.emit({ type: 'item.sold', hero: h.id, item: id, refund });
   }
@@ -106,9 +113,6 @@ export const createItemSystem: SystemFactory = (ctx) => {
       const owned = h.inventory.items.find((i) => i.item === id);
       if (!active || !owned || owned.readyAt > ctx.clock.tick || (conditions.has('silenced') && !active.whileSilenced)) continue;
       owned.readyAt = ctx.clock.tick + ticks(active.cooldownS);
-      const saved = cooldowns.get(h.id) ?? new Map<ItemId, number>();
-      saved.set(id, owned.readyAt);
-      cooldowns.set(h.id, saved);
       ctx.effects.applyAll(active.effects, { entity: h.id, point: { ...h.pos }, dir: vec3() }, itemCause(h, id));
       ctx.bus.emit({ type: 'item.activated', hero: h.id, item: id });
     }
