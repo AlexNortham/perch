@@ -13,6 +13,7 @@
  * stands and attacks: Scrappers apply a melee `damage` effect, Slingers fire a combat `projectile`, both `via: 'unit'`.
  */
 import type {
+  CharacterMove,
   Damageable,
   DamageBonus,
   DamageEffect,
@@ -31,7 +32,8 @@ import { ticks } from '../core/math';
 import { canSee } from '../core/vision';
 import { TICK_RATE, TICK_SECONDS } from '../data/core';
 import { AIR, GROUND } from '../data/movement';
-import { FLEDGLING_AI as AI, FLEDGLINGS, STRUCTURE_RADIUS, WAVES } from '../data/world';
+import type { HeroThreat } from './structures';
+import { DEFENCE, FLEDGLING_AI as AI, FLEDGLINGS, STRUCTURE_RADIUS, WAVES } from '../data/world';
 import type { FledglingDef, FledglingType } from '../data/world';
 import { aimHeight } from './vision';
 
@@ -177,6 +179,8 @@ interface Fledgling {
   readonly fileIndex: 0 | 1;
   /** The attack, scaled at spawn: a melee damage effect or a projectile carrying it. */
   readonly attack: Effect;
+  readonly lateAttack: Effect;
+  assault: boolean;
   target: Damageable | null;
   rank: number;
   nextPick: Tick;
@@ -190,6 +194,7 @@ interface Fledgling {
 }
 
 export interface Fledglings {
+  readonly hurtAt: ReadonlyMap<EntityId, HeroThreat>;
   /** Movement phase: steer every fledgling that isn't rooted or stunned. */
   steer(): void;
   /** World phase: waves, targets and attacks. */
@@ -201,10 +206,11 @@ export function createFledglings(ctx: SimContext): Fledglings {
   const tracks = ctx.map.lanes.flatMap((l) => [buildTrack(ctx, l, 'dawn'), buildTrack(ctx, l, 'dusk')]);
   const live: Fledgling[] = [];
   /** Hero → last tick it damaged an enemy hero (rule 2; the Hawk rule in W4 reads it too). */
-  const hurtAt = new Map<EntityId, Tick>();
+  const hurtAt = new Map<EntityId, HeroThreat>();
   const near: EntityId[] = [];
   const dest = { x: 0, y: 0, z: 0 };
   const delta = { x: 0, y: 0, z: 0 };
+  const movement: CharacterMove = { pos: { x: 0, y: 0, z: 0 }, grounded: false, wall: null };
   const retarget = ticks(AI.retargetS);
   const hurtWindow = ticks(AI.hurtWindowS);
   const everyWave = ticks(WAVES.everyS);
@@ -216,8 +222,16 @@ export function createFledglings(ctx: SimContext): Fledglings {
     let by = ctx.store.get(ev.source);
     if (by?.kind === 'unit' && by.unit.owner !== null) by = ctx.store.get(by.unit.owner);
     const victim = ctx.store.get(ev.target);
-    if (by?.kind === 'hero' && victim && by.team !== victim.team) hurtAt.set(by.id, ctx.clock.tick);
+    if (by?.kind === 'hero' && victim && by.team !== victim.team) hurtAt.set(by.id, { tick: ctx.clock.tick, victimPos: { ...victim.pos } });
   });
+
+  function attackOf(type: FledglingType, scale: number, late: boolean): Effect {
+    const def = FLEDGLINGS[type];
+    const bonus = late ? [{ mult: WAVES.vsStructures * DEFENCE.ward.lateFledglingMult, targetKinds: ['structure'] as const }] : VS_STRUCTURES;
+    const hit: DamageEffect = { kind: 'damage', amount: def.damage * scale, type: 'talon', bonus };
+    return def.projectileSpeed === 0 ? hit : { kind: 'projectile', speed: def.projectileSpeed, radius: AI.shotRadius,
+      range: def.range + AI.shotRangePad, gravity: 0, pierce: 'none', affects: SHOT_AFFECTS, onHit: [hit] };
+  }
 
   const spawnWave = (): void => {
     const now = ctx.clock.tick;
@@ -228,17 +242,21 @@ export function createFledglings(ctx: SimContext): Fledglings {
       ...Array<FledglingType>(band.slinger).fill('slinger'),
     ];
     const rows = Math.ceil(types.length / WAVES.files);
+    const attacks = {
+      scrapper: [attackOf('scrapper', scale, false), attackOf('scrapper', scale, true)],
+      slinger: [attackOf('slinger', scale, false), attackOf('slinger', scale, true)],
+    } as const;
     for (const track of tracks) {
       types.forEach((type, i) => {
         const fileIndex = (i % WAVES.files) as 0 | 1;
         const file = (fileIndex - (WAVES.files - 1) / 2) * WAVES.gap;
         const s = (rows - 1 - Math.floor(i / WAVES.files)) * WAVES.gap;
-        spawn(track, type, s, file, fileIndex, scale, now);
+        spawn(track, type, s, file, fileIndex, scale, now, attacks[type]);
       });
     }
   };
 
-  const spawn = (track: Track, type: FledglingType, s: number, file: number, fileIndex: 0 | 1, scale: number, now: Tick): void => {
+  const spawn = (track: Track, type: FledglingType, s: number, file: number, fileIndex: 0 | 1, scale: number, now: Tick, attacks: readonly [Effect, Effect]): void => {
     const def = FLEDGLINGS[type];
     const hp = def.hp * scale;
     const pos = pointAt(track, s, file, { x: 0, y: 0, z: 0 });
@@ -255,27 +273,15 @@ export function createFledglings(ctx: SimContext): Fledglings {
       stats: ctx.stats.create({ maxHealth: hp, moveSpeed: AI.marchSpeed }),
       statuses: [],
     });
-    const hit: DamageEffect = { kind: 'damage', amount: def.damage * scale, type: 'talon', bonus: VS_STRUCTURES };
-    const attack: Effect =
-      def.projectileSpeed > 0
-        ? {
-            kind: 'projectile',
-            speed: def.projectileSpeed,
-            radius: AI.shotRadius,
-            range: def.range + AI.shotRangePad,
-            gravity: 0,
-            pierce: 'none',
-            affects: SHOT_AFFECTS,
-            onHit: [hit],
-          }
-        : hit;
     live.push({
       e,
       def,
       track,
       file,
       fileIndex,
-      attack,
+      attack: attacks[0],
+      lateAttack: attacks[1],
+      assault: false,
       target: null,
       rank: NONE,
       nextPick: now + 1 + (e.id % retarget),
@@ -292,9 +298,9 @@ export function createFledglings(ctx: SimContext): Fledglings {
   const valid = (f: Fledgling, t: Damageable): boolean =>
     !t.removed &&
     !t.health.dead &&
-    canSee(f.e.team as PlayerTeam, t) &&
+    (t.kind === 'structure' && f.assault || canSee(f.e.team as PlayerTeam, t)) &&
     !t.stats.conditions.has('intangible') &&
-    dist(f.e.pos, t.pos) <= AI.leash;
+    (t.kind === 'structure' ? !t.stats.conditions.has('invulnerable') && (f.assault || reach(f, t) <= AI.leash) : dist(f.e.pos, t.pos) <= AI.leash);
 
   /** GDD §7.1 target rules; keeps the current target unless a higher-priority one appears. */
   const pick = (f: Fledgling): void => {
@@ -316,7 +322,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
       } else if (t.kind === 'hero') {
         d = dist(me.pos, t.pos);
         const hurt = hurtAt.get(t.id);
-        if (hurt !== undefined && now - hurt <= hurtWindow && d <= AI.hurtAggro) r = RULE.hurtHero;
+        if (hurt !== undefined && now - hurt.tick <= hurtWindow && d <= AI.hurtAggro) r = RULE.hurtHero;
         else if (d <= AI.heroAggro) r = RULE.hero;
       } else if (t.kind === 'structure') {
         d = reach(f, t);
@@ -328,6 +334,19 @@ export function createFledglings(ctx: SimContext): Fledglings {
       best = t;
       rank = r;
       bestD = d;
+    }
+    if (!best && f.assault && !f.target) {
+      // From the breached gate march to the closest open objective, even beyond normal aggro range.
+      for (const s of ctx.store.list('structure')) {
+        if (s.team === team || s.stats.conditions.has('invulnerable')) continue;
+        if (s.structure.lane !== null && (s.structure.lane !== f.track.lane.id || s.structure.type !== 'warden')) continue;
+        const d = reach(f, s);
+        if (d < bestD) {
+          bestD = d;
+          best = s;
+          rank = RULE.structure;
+        }
+      }
     }
     if (best && rank < f.rank) setTarget(f, best, rank);
   };
@@ -355,7 +374,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
       proc: false,
       origin,
     };
-    ctx.effects.apply(f.attack, { entity: t.id, point, dir }, cause);
+    ctx.effects.apply(ctx.clock.seconds >= DEFENCE.ward.lateAtS ? f.lateAttack : f.attack, { entity: t.id, point, dir }, cause);
   };
 
   const face = (e: UnitEntity, x: number, z: number): void => {
@@ -377,7 +396,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
     delta.x = mx;
     delta.y = e.vel.y * TICK_SECONDS;
     delta.z = mz;
-    const r = ctx.physics.moveCharacter(e.id, delta);
+    const r = ctx.physics.moveCharacter(e.id, delta, movement);
     if (r.grounded) e.vel.y = 0;
     e.pos.x = r.pos.x;
     e.pos.y = r.pos.y;
@@ -430,6 +449,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
   };
 
   return {
+    hurtAt,
     steer() {
       let k = 0;
       for (const f of live) {
@@ -474,7 +494,8 @@ export function createFledglings(ctx: SimContext): Fledglings {
       for (const f of live) {
         const e = f.e;
         if (e.removed) continue;
-        if (f.at.off > AI.pathLeash) {
+        if (ctx.config.options.structures && f.at.s >= f.track.holdS - AI.avoidLead) f.assault = true;
+        if (!f.assault && f.at.off > AI.pathLeash) {
           f.returning = true;
           setTarget(f, null, NONE);
         } else if (f.returning && f.at.off <= f.track.lane.halfWidth) {
@@ -512,6 +533,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
         h.num(f.nextAttack);
         h.num(f.returning ? 1 : 0);
         h.num(f.hold);
+        h.num(f.assault ? 1 : 0);
       }
       for (const t of tracks) h.value(t.holding);
       h.value(hurtAt);
