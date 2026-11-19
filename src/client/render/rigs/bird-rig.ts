@@ -344,7 +344,7 @@ export class BirdRig extends Group {
     const R = this.plan.radius;
     pos.x += (HOLD.reloadPull.x * r + HOLD.parryPull.x * this.parry) * R;
     pos.y += (HOLD.reloadPull.y * r + HOLD.parryPull.y * this.parry - HOLD.lowerDrop * this.lower + HOLD.heavyLift * (pose === 'heavy' ? back : 0) + HOLD.chargeLift * this.charge) * H;
-    pos.z += (HOLD.reloadPull.z * r + HOLD.parryPull.z * this.parry) * R;
+    pos.z += (HOLD.reloadPull.z * r + HOLD.parryPull.z * this.parry + (pose === 'light' ? HOLD.lightReach * lunge : 0)) * R;
     B.gun.position.copy(pos);
     B.gun.quaternion.copy(qB).multiply(qC);
     B.slide.position.copy(at.slide);
