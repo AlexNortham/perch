@@ -165,9 +165,10 @@ Gate M2:
   interior activities) · Economy & Items, split across two engineers by category
   (64 items: the 48 GDD items + 16 new, about 14 actives) · Hero Engineer A, batch A3 (peacock, vulture, swift, hummingbird) · Hero Engineer B,
   batch B2 (cassowary, toucan, woodpecker, nightjar) · Technical Artist (A3 and B2 birds) · QA
-- **W6**: Build Lab (Balance & Data, pulled forward from M4): 1,000+ headless bot matches at full sim speed, learning
-  per-hero item scores with synergy and timing terms; recommended builds in the shop and the wiki (D-EP-036) ·
-  Level Designer (detail polish and bot navigation through interiors) · Hero Engineer B, batch B3 (frigatebird, cockatoo, swan,
+- **Simulation track** (runs alongside Stages 4 and 5; never holds up a gate, D-EP-044): the Build Lab (1,000+ matches
+  until the scores converge, D-EP-036/037) and later the ability-balance campaigns (D-EP-043). Their results merge
+  into whichever release is next once they have converged and been validated.
+- **W6**: Level Designer (detail polish and bot navigation through interiors) · Hero Engineer B, batch B3 (frigatebird, cockatoo, swan,
   kiwi) · Technical Artist (B3 birds) · Bot AI (build lists and tuning for all 24) · Hero polish (fixes from earlier
   reviews) · QA (20 seeded headless matches, soak)
 
@@ -186,9 +187,8 @@ Gate M3:
 - [ ] Always-on top scoreboard bar replaces the Tab scoreboard (no keybind): timer and flock Seed totals in the
   centre, six portraits per side with health bars, Seeds, respawn countdowns and vision dimming; kill feed with
   callouts; objective status in a strip below and on the minimap (D-EP-041)
-- [ ] Build Lab: at least 1,000 headless matches, then more until the scores converge (D-EP-037); every hero has a recommended build (early, mid and late core
-  plus situational picks) in the shop and the wiki; bots buy varied but synergistic builds, measured over 20 matches
-  (no two of a hero's builds near-identical; synergy above a random baseline) (D-EP-036)
+- [ ] Bots buy varied, synergistic builds from item scores (a starter table from GDD §11 until the Build Lab
+  converges): over 20 matches no two builds of a hero are near-identical, and synergy beats a random baseline (D-EP-036)
 - [ ] Launchable: a 1 + 11 bots match with any of the 24 heroes starts from the menu; PLAYABLE.md "Stage 4 (M3)" written
 
 ### M4 — Balance and polish

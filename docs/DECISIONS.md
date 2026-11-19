@@ -1482,3 +1482,12 @@ deletion.
 references are in the W4.5 Architect STATUS entry.
 **Why:** a stat is how items express it everywhere else; a one-time hash move in a contract round is cheaper than a
 special case in the hash.
+
+### D-EP-044 · 19/11/2026 — Simulation campaigns run as their own track
+**Decision:** the Build Lab (D-EP-036/037) and the ability-balance campaigns (D-EP-043) run on a separate simulation
+track. They can start during Stage 4, and their results (learned item scores, recommended builds, balance changes)
+merge into whichever release is next once they have converged and been validated. No stage gate waits for them.
+Stage 4 still ships score-based bot shopping from a starter table built from the GDD §11 cores, so builds vary and
+synergise from the start. The Stage 4 gate now checks varied, synergistic bot builds rather than Build Lab convergence.
+**Why:** the user's instruction: the simulated games can come separately; start them in Stage 4, merge them when
+ready, and don't let them hold a stage up for days.
