@@ -50,7 +50,7 @@ export const STYLES = `
 .pu-dead{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:rgba(80,10,10,.28);text-shadow:0 2px 6px rgba(0,0,0,.9)}
 .pu-dead small{font-size:22px;letter-spacing:.1em;color:${TEXT_DIM}}
 .pu-dead b{font-size:96px;line-height:1}
-.pu-cluster{position:absolute;left:28px;bottom:28px;width:420px;display:flex;flex-direction:column;gap:8px;padding:12px 14px;background:${PANEL_BG};border-radius:6px}
+.pu-cluster{position:absolute;left:28px;bottom:28px;width:460px;display:flex;flex-direction:column;gap:8px;padding:12px 14px;background:${PANEL_BG};border-radius:6px}
 .pu-bar{position:relative;height:22px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden;display:flex}
 .pu-bar>div{height:100%;flex:none;width:0}
 .pu-bar span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;text-shadow:0 1px 2px #000}
@@ -74,11 +74,12 @@ export const STYLES = `
 .pu-slot .cd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;text-shadow:0 1px 3px #000}
 .pu-slot .ch{position:absolute;right:4px;top:3px;font-size:14px;font-weight:800;color:${BEAK_CSS}}
 .pu-slot .lk{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:12px;font-weight:700;letter-spacing:.08em}
+.pu-slot.lock .nm{display:none}
 .pu-slot.lock .lk{display:flex}
 .pu-slot .tiers{position:absolute;left:0;right:0;bottom:3px;display:flex;justify-content:center;gap:3px}
 .pu-slot .tiers i{width:10px;height:4px;border-radius:1px;background:rgba(255,255,255,.25)}
 .pu-slot .tiers i.on{background:${BEAK_CSS}}
-.pu-ammo{margin-left:auto;text-align:right;font-size:34px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.pu-ammo{margin-left:auto;white-space:nowrap;text-align:right;font-size:34px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
 .pu-ammo small{display:block;font-size:13px;font-weight:700;letter-spacing:.1em;color:${TEXT_DIM};margin-top:4px;height:15px}
 .pu-ammo.rl small{color:${BEAK_CSS}}
 .pu-ammo.low{color:#ff6a5a}
