@@ -47,6 +47,12 @@ export const CYLINDER_DEFAULT_HEIGHT = 3;
 export const AREA_STOREY_DY = 1.5;
 export const AREA_FLOOR_LIFT = 0.5;
 
+/**
+ * GDD §6.8: an ivy curtain (a 'sight' prim) blocks `unit` targeting both ways, except for a caster or target within
+ * this distance of it.
+ */
+export const CURTAIN_SEE_THROUGH_M = 3;
+
 /** Areas with onCross watch this much beyond their edge, so a fast mover (a dash) can't skip the line. */
 export const CROSS_MARGIN = 1;
 
