@@ -121,7 +121,7 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
         screens.append(heroSelectScreen(actions, c.seed, c.mode));
         break;
       case 'pause':
-        screens.append(pauseScreen(actions, openOptions));
+        screens.append(pauseScreen(actions, openOptions, c.view.seconds));
         break;
       case 'end':
         screens.append(endScreen(actions, c));

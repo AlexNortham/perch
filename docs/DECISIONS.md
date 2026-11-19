@@ -1260,3 +1260,11 @@ serial Playwright project (D-QA-010) because the fast-forward uses a full core.
 Seed 1 reaches Victory at tick 69,973 (19:26) in about 8 s, the same tick as the headless proof. The browser hash
 equals the same commands run on the bare sim in the page, so the app adds nothing to the sim; it differs from
 Node's hash from tick 3 onward (see the W4 gate-fix STATUS entry).
+### D-UI-005 · 19/11/2026 — Concede on the pause menu confirms with a second click
+**Decision:** the pause menu has Concede between Options and Quit to menu (GDD §12.10). Before
+`CONCEDE_AFTER_SECONDS` (15:00) it is disabled and the line under it gives the reason and the current match time.
+From 15:00 the first click turns it into "Confirm concede" and the second calls `actions.concede()`; the sim ends
+the match and the ordinary end screen shows Defeat. Disabled buttons keep their background and dim their text and
+border.
+**Why:** GDD asks for a confirm; a second click on the same button confirms without a modal or a native dialog,
+which would fight pointer lock and fullscreen.
