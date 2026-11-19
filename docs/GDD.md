@@ -654,8 +654,8 @@ A quarter has three zones, south to north:
 | Zone (west quarter) | Extent | Character | Holds |
 |---|---|---|---|
 | **Gatefields** | z −114…−88 | Brick storehouses beside the base wall; the quietest zone, farmed early by its own flock | Granary (Rat Thicket, Bell Feeder), Warehouse, the Weasel yard's south entrance |
-| **Lantern Row** | z −88…−44 | Lantern-hung alleys between the Heron and Hawk lines; the main rotation corridor between Hedgerow and Riverbank | Tavern (Cellar Run stairs), Hollow-tree House, Weasel and west tier-1 yards, a Hide, a Bough Spring |
-| **Old Square** | z −44…0 | Open squares and tall buildings toward the centre; the contested zone | Bell Tower (Feeder, Lookout), Market Hall (Toad Thicket), tier-1 and tier-3 yards, Egg Perch plaza, a Bough Spring |
+| **Lantern Row** | z −88…−44 | Lantern-hung alleys between the Heron and Hawk lines; the main rotation corridor between Hedgerow and Riverbank | Tavern (Cellar Run stairs), Hollow-tree House, Weasel and Lantern Beetle yards, a Hide, both Bough Spring pads |
+| **Old Square** | z −44…0 | Open squares and tall buildings toward the centre; the contested zone | Bell Tower (Feeder, Lookout), Market Hall (Toad Thicket), West Beetle and Badger yards, Egg Perch plaza, both Spring landings |
 
 **Paths** (west quarter; widths are clear ground between solids):
 
