@@ -794,3 +794,9 @@ t=100 s (fledglings meeting mid-lane, too small to judge up close); files out/sh
 in the parallel suite, so `npm run check` failed its test step on several runs and passed on others (also without the
 rules suites); the budget or the parallelism needs a decision. (b) Audio is still a stub, so volumes reach nothing.
 (c) The Esc-to-pause keydown and the pointer-lock exit both report pause; the 100 ms dedupe holds in the e2e.
+**Addendum (D-EP-022, item 8):** timing assertions moved out of the parallel run. Five tests now live in
+`*.perf.test.ts` files (combat, world, physics, abilities, main map), excluded from `npm test`; `npm run perf` runs them
+serially (median of 5) and is a step in `scripts/check.sh` after `test`. The three ability kits moved to
+`src/sim/abilities/fixtures.ts` so the perf test can share them; the physics determinism test moved with its timed
+`cityRun`. Serial numbers: world +0.339 ms/tick (budget 0.5), physics 0.34 ms (1), abilities 0.034 ms (0.3), combat
+0.088 ms (0.3). Budgets unchanged. (This supersedes "found, not fixed (a)" above.)

@@ -3,6 +3,7 @@ import { performance } from 'node:perf_hooks';
 import { describe, expect, it } from 'vitest';
 import { Button } from '../core/contracts';
 import type { HeroId, PlayerTeam } from '../core/contracts';
+import { medianRun, PERF_RUNS } from '../../../tests/helpers/perf';
 import { createKit } from './testkit';
 
 const GUNS: readonly HeroId[] = ['kingfisher', 'albatross', 'shrike', 'owl', 'pelican', 'lyrebird'];
@@ -39,7 +40,7 @@ function measure(firing: boolean): { ms: number; hits: number; shots: number } {
 describe('performance', () => {
   it('12 heroes firing continuously with 150 units in the spatial hash stay inside the combat budget', () => {
     const idle = measure(false);
-    const busy = measure(true);
+    const busy = medianRun(PERF_RUNS, () => measure(true), (r) => r.ms);
     console.log(`combat: ${busy.ms.toFixed(3)} ms/tick firing (${idle.ms.toFixed(3)} idle), ${busy.shots} shots, ${busy.hits} hits`);
     expect(busy.shots).toBeGreaterThan(1000);
     expect(busy.hits).toBeGreaterThan(1000);

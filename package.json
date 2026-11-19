@@ -15,6 +15,7 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "test": "vitest run",
+    "perf": "vitest run --config vitest.perf.config.ts --disable-console-intercept",
     "sim": "tsx tools/sim.ts",
     "shots": "tsx tools/shots.ts",
     "e2e": "playwright test",

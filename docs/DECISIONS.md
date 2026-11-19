@@ -583,6 +583,14 @@ Character Controller (the accepted wave 2 contract follow-ups, the framework gap
 defect). QA's test-first suites for wave 4 (structures, levels, AP, shop) move into the wave 3 gate review.
 **Why:** Stage 2's launchable gate needs UI; Hero A's kits need framework features that the original owners aren't
 scheduled to build; eight agents is the wave limit, so QA's in-wave slot moves to the gate.
+### D-EP-022 · 19/11/2026 — Timing assertions run serially in their own check step
+**Decision:** every test that asserts on elapsed time or ms per tick lives in a `*.perf.test.ts` file (combat, world,
+physics, abilities, main map build). `npm test` excludes that pattern; `npm run perf` (vitest.perf.config.ts) runs
+only those files, one at a time, and each test takes the median of 5 runs (tests/helpers/perf.ts). `scripts/check.sh`
+runs `perf` right after `test`. The budgets are unchanged.
+**Why:** a wall-clock budget measured while 47 test files run in parallel tests the machine's load, not the code: the
+fledgling test read 0.17 ms alone and 0.54 to 0.84 ms in the parallel run against a 0.5 ms budget, and failed the gate
+at random. Serial runs and a median measure the code; loosening the budget would have hidden real regressions.
 ### D-ARCH-011 · 18/11/2026 — Commands are copied into a per-hero latch and sanitised
 **Decision:** each hero's spawn-time command object is core's latch. After the ai phase core copies the fresh command
 into it (a `step()` command first, else whatever a bot assigned to `h.command`, judged fresh when it isn't the latch

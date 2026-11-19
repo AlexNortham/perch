@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Merge gate: typecheck, lint, unit tests, a 3-minute headless sim (seed 1, 12 bots), the e2e smoke test.
+# Merge gate: typecheck, lint, unit tests, serial timing tests (perf), a 3-minute headless sim (seed 1, 12 bots), the e2e smoke test.
 # Stops at the first failure. One PASS/FAIL line per step; each step's full output is in out/check/<step>.log.
 set -u
 cd "$(dirname "$0")/.."
@@ -23,6 +23,7 @@ step() {
 step typecheck npm run typecheck
 step lint npm run lint
 step test npm test
+step perf npm run perf
 step sim npm run sim -- --seed 1 --minutes 3 --bots 12 --out out/check/telemetry-seed-1.json
 step e2e npm run e2e
 printf 'PASS  check     %4ss\n' "$(($(date +%s) - started))"

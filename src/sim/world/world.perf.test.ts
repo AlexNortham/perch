@@ -1,6 +1,7 @@
 /* eslint-disable no-restricted-properties -- a benchmark measures wall time; the clock never reaches the sim */
 import { performance } from 'node:perf_hooks';
 import { describe, expect, it } from 'vitest';
+import { PERF_RUNS } from '../../../tests/helpers/perf';
 import { createSim } from '../index';
 
 const FORCED_WAVES = 7;
@@ -35,8 +36,10 @@ async function measure(waves: boolean): Promise<{ ms: number; alive: number; dea
 
 describe('performance', () => {
   it('~150 fledglings marching and fighting, vision included, stay inside the world budget', async () => {
-    const base = await measure(false);
-    const busy = await measure(true);
+    const runs: { base: Awaited<ReturnType<typeof measure>>; busy: Awaited<ReturnType<typeof measure>> }[] = [];
+    for (let i = 0; i < PERF_RUNS; i++) runs.push({ base: await measure(false), busy: await measure(true) });
+    runs.sort((a, b) => a.busy.ms - a.base.ms - (b.busy.ms - b.base.ms));
+    const { base, busy } = runs[Math.floor(PERF_RUNS / 2)] as (typeof runs)[number];
     const cost = busy.ms - base.ms;
     console.log(
       `world: ${busy.alive} fledglings, ${busy.ms.toFixed(3)} ms/tick (${base.ms.toFixed(3)} without), ` +

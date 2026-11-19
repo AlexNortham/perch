@@ -1,5 +1,5 @@
 import { viteSingleFile } from 'vite-plugin-singlefile';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig(({ mode }) => ({
   // `vite build --mode single` → dist/perch.html with every script and style inlined (runs from file://).
@@ -13,6 +13,8 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: { noDiscovery: true, include: [] },
   test: {
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+    // Timing tests run serially in `npm run perf` (D-EP-022), never in the parallel unit run.
+    exclude: [...configDefaults.exclude, '**/*.perf.test.ts'],
     environment: 'node',
     passWithNoTests: true,
   },
