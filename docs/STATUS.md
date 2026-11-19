@@ -1006,3 +1006,31 @@ and visible siege progression.
 **Interface requests:** sent stable accessible names for the upgrade dialog, ability controls, and labelled
 dummy HP bars through the EP. The W3 worst-tick follow-up and production-browser regressions are tracked
 outside this browser acceptance suite.
+
+### W4 · Hero Engineer A (batch A2) · 19/11/2026
+**Done:** worktree branch from main 6ba3741. Hornbill, Flamingo, Penguin and Puffin ship with GDD 9.9-9.12 body,
+stats, gun, four kits with all tiers, a swatch (0xD2452B, 0xF2799B, 0xF2A81D, 0x3E7FA6) and `implemented: true`. Hooks only where
+data cannot say it: Hornbill (hero-only Heavy slow, Mud Seal fire rate ends with the barrier and T3 slow immunity, Hop
+slick at take-off, Marked Prey refund), Flamingo (Tide Turn 30% max-HP heal, T2 allies within 6 m), Penguin (aside/up
+knockback from Toboggan, Space hop, March touch hits and end slam), Puffin (turret slow, Rogue Wave start at your feet
+and wet trail). Wrote accurate player-facing text with numbers for every A2 ability and tier, and rewrote the terse
+A1 text (Shrike, Albatross, Kingfisher, Lyrebird) to match their data. Added Echo Double T2 (two decoys at +-15 deg)
+and T3 (expiry burst) runtime tests, Gale Shield wall-blocks-shot and end-facing burst tests, and `maxPitchUpDeg` on
+Wing Slam, Spear Bill and Plunge (Plunge 30; the flat dashes keep `arcHeight: 0` until Physics honours the cap).
+
+**Verified:** `npm run check` in Git Bash, all six steps PASS (typecheck 45 s, lint 36 s, test 15 s, perf 19 s,
+sim 4 s, e2e 26 s). `npx vitest run src/sim` 421/421 (four new hero test files plus the added A1 tests). Evidence:
+`out/shots/heroa-hornbill-lane.png` (1920 x 1080, HP 620, 15/15, ability names; placeholder body, Art's) and
+`out/shots/heroa-puffin-practice.png`.
+
+**Limits:** these framework features are in the contracts but not in this tree, so the tests assert what runs today
+and put the rest behind `PERCH_PENDING=1`: Combat `weaponMod.gunDamage` (Heavy Rounds +40%, Marked Prey +40/60%) and
+`reloadFraction` (Bounding Hop half reload); Abilities `extraCount`/`preferHeroes` (Burrow Colony cap),
+`move.maxCarry`/`onWall` and no-repeat `onEnter` (Rogue Wave: today the carry overruns about 27 m and the wave re-hits
+the target once); World honouring `concealsAlliesOutside` (Fog Bank concealment against outside observers).
+Toboggan's Space hop is a hook (a one-tick hover replaces the slide, then a dash) because modes do not yet end on
+Jump. Models and picker cards are other owners' work.
+
+**Interface requests:** Combat: gunDamage and reloadFraction on weaponMod. Abilities: extraCount, preferHeroes,
+maxCarry, onWall, once-per-entry onEnter. Physics: end a toboggan on Jump and honour maxPitchUpDeg so the data's
+arcHeight 0 can go.

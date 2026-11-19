@@ -943,3 +943,13 @@ Artist, Hero A (A2) and Hero B (B1) start fresh from main; Audio starts when a s
 merge because it touches every owner's files. Models follow D-EP-019. ChatGPT's worktrees under `~\.codex\` are left
 untouched.
 **Why:** the user asked Claude to pick development back up from ChatGPT; resuming its branches keeps its work.
+
+### D-HEROA-003 · 19/11/2026 — A2 kits use contract fields now and hooks only for what data cannot say
+**Decision:** Hornbill, Flamingo, Penguin and Puffin put every number in data (named values for tier changes, a base
+number a tier switches on starts at 0) and use the W3.5 fields (weaponMod gunDamage, reloadFraction, pierce, onlyVsStatus;
+extraCount, preferHeroes, move maxCarry and onWall, concealsAlliesOutside) even where the owning system has not landed.
+Hooks cover hero-only slows, fraction-of-max-HP heals, placing an effect at the caster's feet (a direction cast's point
+is the aim point), per-touch hits (Emperor's March) and Toboggan's Space hop. No fallback duplicates a framework
+feature, so nothing double-fires when the owners land (D-HEROA-002).
+**Why:** duplicating framework behaviour in hooks caused the W3 double bursts; asserting only what runs today and gating
+the rest behind PERCH_PENDING keeps the suite honest.
