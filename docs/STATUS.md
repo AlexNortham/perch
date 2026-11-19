@@ -1710,3 +1710,43 @@ traces were shortened) failed `match.spec.ts` once under load; it passed alone (
 **Notes for owners:** GDD §3.1 still lists "Inspect / upgrade abilities: Left Alt (tap)", which D-EP-038 replaces
 (Director). The determinism spec is QA's from now on (follow-ups).
 **Blocked:** nothing. **Interface requests:** none.
+### W4.5 · QA test-first · 19/11/2026
+**Branch:** `worktree-agent-a031161937ab8cc08` from `integrate/w5` ac0f0c6. Edits only `tests/**`, `e2e/**`, this
+entry and the decisions below. Every suite is gated (`describe.runIf(process.env.PERCH_PENDING === '1')` for rules,
+`test.skip(isPending, …)` from `e2e/pending.ts` for browser specs); every assertion cites its GDD section or decision.
+**Rules suites** (`tests/rules/`, `expect` calls / tests): `golden-egg` §7.11, D-EP-039 (67 / 18): spawn, 10 s lowering,
+melee pickup, carrier rules, trailing-carrier boost and caps, drops (death, enemy melee, stun, own Melee), unattended
+roll, spoil, automatic delivery, golden pods, payout, ×1.25, keepsakes, next spawns. `roc-embers` §7.12 (62 / 18):
+wake, HP growth, regen, resists, Hollow-only damage, aggro, Rake, Gale Flap, enrage and Sky Shriek, reset, kill
+reward, the 7/6/5 respawns, Ember fall and claim, Rekindle charges and revive, expiry. `thickets` §7.8 (53 / 13): map
+counts, five families (spawn time, creatures, HP scaling, resists, payout, respawn), dormant and 35 m rule, aggro,
+bites, dash-bite, rat heal reduction, toad lash and spit, Slam, leash, indoor camps. `nests` §7.9 (47 / 13): counts,
+spawn times, solidity, breaking rules, drops, pickups, respawn, crumbs, loss on death. `runes` §7.10 (23 / 8): spots,
+spawn, type pairs, replacement, claim, strength at 5:00 / 22:30 / 40:00 / 45:00 for each of the four, duration, death.
+`interactables` §§7.13–7.15, 6.8, 8.8 (91 / 31): Keepsakes (types, buckets, repeat damping, one source, caps), Bell
+Feeders, Berries, Hides, Bough Springs, Lookouts, ivy curtains, Cellar Run, Magpie Den. `no-interact` D-EP-039,
+§3.7 (29 / 11): latch anywhere along the cable on held Jump, taps, reach and `updraftInReach`, dismounts, lockouts,
+carrier, no Interact bit in any bot command over 4 sim minutes. `items` §10 (87 / 26 tests; 105 cases): the 64-item
+catalogue, one stats test per item (64), the 16 Stage 4 items in play, all 15 actives, Second Clutch, Nestmother's
+Mantle. `bot-shopping` D-EP-036 (18 / 6): determinism, softmax sampling, similarity, synergy over the random baseline.
+**Browser specs** (`e2e/`): `hold-upgrade` D-EP-038 (32 / 7), `scoreboard-bar` D-EP-041 (32 / 6), `practice-swap`
+D-EP-040 (21 / 6), `hero-select-layout` (5 / 3 tests, 6 cases with both pickers), `no-interact` D-EP-039 (13 / 3).
+**Expected red** (`PERCH_PENDING=1`): rules suites 232 failed, 22 passed of 254 (the 22 are checks the Stage 3 build
+already meets: the stats of the 16 existing items, tier costs, component chains, the rune spots and two table-coverage checks). Every
+failure is a missing entity, event or field (no Egg, Roc, camps, rooms, builds module, bot purchases); none is an
+error in a suite. Browser: the layout-shift spec reproduces the user's bug (card 1 moves 3.55 px on hover or focus);
+hold-upgrade 6 of 7 fail, scoreboard 6 of 6, swap 5 of 6, no-interact 3 of 3 (the passes keep Stage 3 behaviour).
+**Verified:** `bash scripts/check.sh` with the suites gated: `PASS typecheck 8s · lint 4s · test 13s · perf 11s · sim 3s ·
+e2e 102s · check 141s`.
+**Requests for the wave 5 owners (markup the browser specs need):**
+- UI/HUD, scoreboard: region `Scoreboard`; `[data-portrait]` with `data-side="own|enemy"`, `data-hero`,
+  `data-dead`; inside it a `progressbar` (health), `[data-field="seeds"]` and, while dead, `[data-field="respawn"]`;
+  `[data-field="flock-seeds"][data-side]` and `[data-field="clock"]`. Remove the Tab region and the `scoreboard` binding.
+- UI/HUD, hold to upgrade: HUD icons are buttons named `Upgrade <ability>` carrying the unavailable reason; a game-drawn
+  cursor, if used, is `.pu-cursor`. UI/HUD, swap: a `Swap bird` button on screen and in the pause menu, Practice Hub only.
+- Rules suites assume today's contracts (INTERFACES §14): pickups `egg`, `ember`, `rune`, `sprig`, `crumb`, `keepsake`,
+  `berry`; crumb variants contain `quick`, `light` or `sweet`; rune variants contain `swift`, `fierce`, `sage` or
+  `stout`; `MapData.rooms` tag `hide` / `tunnel`; `src/sim/data/builds.ts` exports `BUILDS`.
+**Notes:** the existing `siege.test.ts` and `controller.test.ts` still press Interact; the Physics owner moves them to
+held Jump with the latch. If a suite misreads the GDD, say so here rather than editing it (README rule). **Blocked:**
+nothing. **Interface requests:** none.
