@@ -1875,8 +1875,8 @@ the three `siege.test.ts` rides that press Interact, expected under D-EP-039; th
 combat 0.034 ms firing); `npm run sim -- --seed 1 --minutes 3 --bots 12` 10,800 ticks in 2.0 s, hash `c87c7cfe2e2bea0a`;
 `npm run e2e` 35 passed, 28 skipped, 1 failed (`play.spec.ts` mounts with E). `PERCH_PENDING=1`: no-interact 13/15
 (the two left are the bots and the default bindings); items 100/105 (Blight's reading below, and four Economy/QA
-cases); the world suites fail at setup on missing Egg, Roc, camps and rooms, none in these systems. New tests:
-physics 72, combat stage4 15, abilities stage4 8, framework-gaps 3 (end to end through items' triggers).
+cases); the world suites fail at setup on missing Egg, Roc, camps and rooms, none in these systems. Tests: the
+physics suite is now 72, plus combat `stage4` 15, abilities `stage4` 8 and `framework-gaps` 3 (end to end).
 **Interface requests:**
 - Architect (W5.5): `Layer` bits for sight and movement prims (now `PHYSICS_LAYERS`); `AbilityDef.surface` and a dash
   steer field for the two value names; `endOn: 'stun'`; `HealEffect.triggerPct` (Gape); make `updraftInReach` required.
