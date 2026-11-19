@@ -164,6 +164,8 @@ export interface HeroState {
   boostReadyAt: number;
   heroDamagedAt: number;
   remountAt: number;
+  /** The line just left: no air mount on it again until the hero has been out of reach of it or landed. */
+  leftLine: number;
   vineSide: number;
   /** In a push, pull or along displacement until landing (20% air control, stops at walls). */
   displaced: boolean;
@@ -210,6 +212,7 @@ function freshState(groundY: number): HeroState {
     boostReadyAt: NEVER,
     heroDamagedAt: NEVER,
     remountAt: NEVER,
+    leftLine: -1,
     vineSide: 0,
     displaced: false,
     slam: null,
@@ -403,6 +406,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     s.wallJumps = 0;
     s.wallAt = NEVER;
     s.fatigueAt = NEVER;
+    s.leftLine = -1;
     // A displacement ends where it lands: its distance is the flat-ground distance (GDD §3.9), with no skid after.
     if (s.displaced) {
       h.vel.x = 0;
@@ -480,6 +484,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     h.vel.x *= keep;
     h.vel.y = h.vel.y * keep + (jump ? UPDRAFT.dismountUp : 0);
     h.vel.z *= keep;
+    s.leftLine = ride.line;
     s.ride = null;
     s.remountAt = clock.tick + T.remount;
     h.motor.updraft = null;
@@ -723,7 +728,10 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
       const l = lines[i];
       if (!l) continue;
       const c = closestOnLine(l, h.pos);
-      if (c.d2 <= UPDRAFT.airMountRadius ** 2) {
+      // A jump or drop off a line falls back through its reach: that is leaving, not a remount.
+      if (c.d2 > UPDRAFT.airMountRadius ** 2) {
+        if (i === s.leftLine) s.leftLine = -1;
+      } else if (i !== s.leftLine) {
         mountLine(h, s, i, c.s);
         return true;
       }

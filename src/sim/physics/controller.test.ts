@@ -982,6 +982,57 @@ describe('wave 3 follow-ups (Character Controller 1–5, EP findings)', () => {
   });
 });
 
+describe('Hedgerow traversal run (GDD §3.10) on Old Mossmarket', () => {
+  it('dash, dash-jump on the cue, slide, mantle-glide over the 1.2 m hedge, mount, boost over the Hawk, jump off', async () => {
+    const sb = await createSandbox({ map: 'main', heroes: [{ hero: 'shrike', at: { x: -90.5, y: 0, z: -66 }, yaw: 0 }] });
+    const me = sb.heroes[0]!;
+    const h = () => sb.hero(me);
+    const actions = () => sb.eventsOf('movement').filter((e) => e.hero === me).map((e) => e.action);
+    sb.move(me, 1);
+    sb.step(30);
+    sb.press(me, Button.Dash);
+    sb.step();
+    expect(sb.stepUntil(() => h().motor.dashJumpReady === true, 30), 'the cue shows during the dash').not.toBeNull();
+    sb.press(me, Button.Jump);
+    sb.step();
+    expect(h().motor.stamina, 'dash plus dash-jump spend two of three pips').toBeCloseTo(1, 1);
+    sb.hold(me, Button.Crouch); // before landing, to carry the speed into a slide
+    sb.stepUntil(() => h().motor.grounded, 120);
+    expect(h().motor.sliding).toBe(true);
+    expect(flatSpeed(h()), 'landing keeps the dash-jump speed').toBeCloseTo(13, 0);
+
+    sb.hold(me, Button.Jump); // into the hedge's face (x −92…−88, z −49…−47.5)
+    expect(sb.stepUntil(() => h().motor.mantling, 60)).not.toBeNull();
+    sb.stepUntil(() => !h().motor.mantling, 60);
+    expect(h().pos.y).toBeCloseTo(1.2, 1);
+    expect(h().motor.sliding, 'crouch held: the mantle exits in a slide').toBe(true);
+    expect(flatSpeed(h())).toBeGreaterThan(10);
+    sb.release(me, Button.Jump | Button.Crouch);
+
+    // On to the station 6 m gateward of the Hawk, then mount facing the bridge.
+    expect(sb.stepUntil(() => {
+      sb.look(me, Math.atan2(-95 - h().pos.x, -41 - h().pos.z), 0);
+      return Math.hypot(h().pos.x + 95, h().pos.z + 41) < 1;
+    }, 300)).not.toBeNull();
+    sb.move(me, 0);
+    sb.look(me, 0, 0);
+    sb.press(me, Button.Interact);
+    expect(sb.stepUntil(() => h().motor.updraft !== null && h().pos.y > 11.99, 60)).not.toBeNull();
+    sb.press(me, Button.Dash);
+    sb.stepUntil(() => h().pos.z >= -35, 120);
+    expect(h().pos.y, 'the rider passes 2 m over the 10 m tower cap').toBeCloseTo(12, 3);
+    expect(flatSpeed(h())).toBeCloseTo(18, 3);
+    sb.press(me, Button.Jump);
+    sb.step();
+    expect(sb.stepUntil(() => h().motor.grounded, 300), 'a jump off falls back through the line without remounting').not.toBeNull();
+    expect(h().motor.updraft).toBeNull();
+    expect(actions()).toEqual([
+      'dash', 'dashJump', 'land', 'slide', 'mantle', 'slide', 'mantleGlide', 'land',
+      'updraftOn', 'updraftBoost', 'updraftOff', 'land',
+    ]);
+  });
+});
+
 describe('robustness', () => {
   it('never tunnels through a 0.1 m wall: dash, 40 m push, 30 m/s fall onto a thin floor', async () => {
     const thin = withArena({
