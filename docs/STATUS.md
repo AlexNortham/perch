@@ -981,3 +981,27 @@ the existing 5 s concession timeout, preserved in `out/check/w4-parallel-test.lo
 `out/shots/review/practice.png` at 1920 × 1080 and confirmed both targets and the 32 AP HUD.
 **Limits** Sandbox placement and damage amplification isolate siege boundaries. The integrated manual siege
 at normal damage, visible tower clearance and browser interaction evidence are separate gates. No contract change requested.
+
+### W4 · Browser QA · 19/11/2026
+**Done:** w4/browser-tests from b2a7a96. Play → Shrike → Dawn spawn in Old Mossmarket now measures movement
+and fires under pointer lock. Riverbank is reached by walking from the roost before E mounts, Shift boosts,
+the weapon fires and Space dismounts. The sampled walk/dash was 8.99/27.50 m/s and cruise/boost was 11/18 m/s.
+The 100-second fixed-camera Hedgerow cases peaked at 25, 41 and 217 calls against ceilings of 32, 48 and 248.
+
+**Verified:** Git Bash `VITEST_MAX_WORKERS=1 npm run check` passed typecheck, lint, test, perf, sim and e2e in
+177 s. Unit tests 503/503, perf 6/6, seed 1 completed 10,800 ticks with hash `4e8cc26604dd382e`, browser
+15 passed and 4 skipped. Lint had 117 inherited warnings. Inspected the Riverbank rider and the three Hedgerow
+scenes. See `out/check/browser-shots/`, the counters and movement samples in `out/check/browser-baseline.json`,
+and the six step logs under `out/check/` in this worktree.
+
+**Expected red:** `PERCH_PENDING=1 npx playwright test e2e/m2.spec.ts --workers=1` gave four failures
+(`out/check/browser-pending.log`). “Menu offers Practice Hub” failed because the button was absent.
+“Tapping Inspect opens Ability Upgrades” failed on the actual practice route because there was no dialog.
+“Ordinary Play presents the actual Dusk Patron” failed because live siege and its objective display were
+pending. “There are twelve selectable M2 hero cards” found four. The branches behind those first assertions
+need integrated proof for dummy resets and targeted healing, inspection purchases and pointer return,
+and visible siege progression.
+
+**Interface requests:** sent stable accessible names for the upgrade dialog, ability controls, and labelled
+dummy HP bars through the EP. The W3 worst-tick follow-up and production-browser regressions are tracked
+outside this browser acceptance suite.

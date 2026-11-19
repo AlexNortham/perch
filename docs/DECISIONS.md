@@ -912,3 +912,24 @@ always enabled.
 **Why:** Event and transaction assertions detect regressions in credit, lifetime earnings, upgrades and objective
 state. Sandbox placement and amplified damage isolate rule boundaries and keep the siege runs short. A full
 player-controlled match at normal damage remains a separate integration gate.
+
+### D-QA-BROWSER-001 · 19/11/2026 — Measure browser movement in simulation ticks
+**Decision:** start through Play and an enabled hero card. Verify the selected kit and Dawn's spawn, then compare
+metres per simulated second over at least nine ticks before and after Shift. Require a 1.75× gain. Reach the actual
+Riverbank station from the Home Roost ramp, mount with E, measure cruise and boost, shoot and dismount with Space.
+**Why:** steady walking cannot meet the speed ratio. Sampling ticks keeps slower browser frames from distorting it.
+The app's read-only hero hook supplies the measurements.
+
+### D-QA-BROWSER-002 · 19/11/2026 — Bound draw calls in a populated lane and full match
+**Decision:** use seed 1, fast-forward 6,000 ticks and a fixed 1920×1080 Hedgerow camera (-95,10,-20 looking at
+-95,0,6). Sample twelve frames with map, fledglings and active lane VFX. Baseline peaks were 25 low and 41 medium in
+lane and 217 medium in the full match. Ceilings are 32, 48 and 248 with a floor of 25,000 triangles.
+**Why:** seven calls in each lane fixture and 31 in the 12-hero fixture allow variation while catching material
+regressions. The triangle floor requires a populated frame. Serial performance checks cover timing.
+
+### D-QA-BROWSER-003 · 19/11/2026 — Observe Practice Hub and upgrades through player-visible state
+**Decision:** use Playwright keyboard and mouse input and read labelled dummy health, descriptions, HUD points and
+tiers, actual shots, and pointer lock. Keep Practice Hub, the upgrade panel, ordinary siege and the twelve-hero
+picker behind `PERCH_PENDING=1` until their producers land. In siege, confirm a locked ultimate and passive earnings
+while inspecting.
+**Why:** player-visible state can prove input and session wiring alongside QA's rule-level assertions.
