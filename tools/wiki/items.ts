@@ -54,7 +54,7 @@ export function registerItems(ctx: Ctx, extra: Map<string, string>): void {
   const builtCard = (i: ItemDef): string => {
     const into = ITEMS.filter((x) => x.component === i.id);
     const comp = i.component ? byId.get(i.component) : undefined;
-    const stats = i.passive.stats.map((s) => `<li>${esc(statLine(s))}</li>`).join('');
+    const stats = (i.passive.stats ?? []).map((s) => `<li>${esc(statLine(s))}</li>`).join('');
     const procs = i.procs.length > 0 ? `<p><strong>Trigger:</strong> ${esc(i.procs.map((p) => `on ${p.on}${p.heroesOnly ? ' (heroes only)' : ''}`).join(', '))}.</p>` : '';
     const active = i.active ? `<p><strong>Active:</strong> cooldown ${num(i.active.cooldownS)} s, ${TARGETING[i.active.targeting] ?? i.active.targeting}${i.active.range > 0 ? `, range ${num(i.active.range)} m` : ''}. Bound to the first free item key (Z, X, N or V).</p>` : '';
     const chain = [comp ? `Upgrades from ${refLink(comp.id)} (pay ${num(i.cost - comp.cost)} Seeds with it in hand)` : '', into.length ? `Upgrades into ${into.map((x) => refLink(x.id)).join(', ')}` : ''].filter(Boolean).join('. ');

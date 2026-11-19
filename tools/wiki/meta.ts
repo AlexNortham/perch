@@ -24,10 +24,10 @@ const TERM_PAGE: Record<string, string> = {
   'Golden Egg': 'units/planned#golden-egg', 'The Roc': 'units/planned#roc', 'Thicket': 'units/planned#thickets', 'Feather rune': 'units/planned#runes',
 };
 
-export function registerMeta(ctx: Ctx, _extra: Map<string, string>): void {
+export function registerMeta(ctx: Ctx): void {
   const built = HERO_IDS.filter(isBuilt);
   const soon = HERO_IDS.filter((id) => !isBuilt(id));
-  const crouch = `${keyName(DEFAULT_BINDINGS.crouch)} (or ${keyName(LOCKED_CROUCH)} in fullscreen in Chrome and Edge)`;
+  const crouch = DEFAULT_BINDINGS.crouch === LOCKED_CROUCH ? keyName(LOCKED_CROUCH) : `${keyName(DEFAULT_BINDINGS.crouch)} (or ${keyName(LOCKED_CROUCH)} in fullscreen in Chrome and Edge)`;
 
   const blocks: Record<string, () => string> = {
     'status-now': () => `<div class="note"><strong>Now: Stage ${CURRENT_STAGE} (M${CURRENT_STAGE - 1}, The loop).</strong> ${built.length} of ${HERO_IDS.length} birds are playable and the Magpie's Hoard stocks ${ITEMS.length} items. You can play a full practice match from your base to the enemy Patron.</div>`,

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera and aim · PERCH Wiki</title>
+<meta name="description" content="The third-person camera, aiming and the crosshair.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../assets/wiki.css">
+<script>try{var t=localStorage.getItem('perch-wiki-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
+</head>
+<body>
+<header class="top">
+  <button class="menu-btn" aria-label="Toggle menu" aria-expanded="false">☰</button>
+  <a class="brand" href="../index.html"><span class="logo" aria-hidden="true"></span>PERCH <small>Wiki</small></a>
+  <form class="search" role="search" onsubmit="return false"><input id="q" type="search" placeholder="Search heroes, items, mechanics…" aria-label="Search the wiki" autocomplete="off"><ul id="results" hidden></ul></form>
+  <button class="theme-btn" aria-label="Switch light or dark theme">◐</button>
+</header>
+<div class="shell">
+  <nav class="side" aria-label="Wiki sections"><ul><li class=""><a href="../index.html">Home</a></li><li class=""><a href="../getting-started/index.html">Getting started</a><details><summary>more</summary><ul><li><a href="../getting-started/controls.html">Controls</a></li><li><a href="../getting-started/options.html">Options</a></li><li><a href="../getting-started/modes.html">Game modes</a></li></ul></details></li><li class=""><a href="../heroes/index.html">Heroes</a><details><summary>more</summary><ul><li><a href="../heroes/shrike.html">Shrike</a></li><li><a href="../heroes/albatross.html">Albatross</a></li><li><a href="../heroes/kingfisher.html">Kingfisher</a></li><li><a href="../heroes/lyrebird.html">Lyrebird</a></li><li><a href="../heroes/hornbill.html">Hornbill</a></li><li><a href="../heroes/flamingo.html">Flamingo</a></li><li><a href="../heroes/penguin.html">Penguin</a></li><li><a href="../heroes/puffin.html">Puffin</a></li><li><a href="../heroes/peacock.html">Peacock</a></li><li><a href="../heroes/vulture.html">Vulture</a></li><li><a href="../heroes/swift.html">Swift</a></li><li><a href="../heroes/hummingbird.html">Hummingbird</a></li><li><a href="../heroes/owl.html">Owl</a></li><li><a href="../heroes/pelican.html">Pelican</a></li><li><a href="../heroes/secretarybird.html">Secretarybird</a></li><li><a href="../heroes/starling.html">Starling</a></li><li><a href="../heroes/cassowary.html">Cassowary</a></li><li><a href="../heroes/toucan.html">Toucan</a></li><li><a href="../heroes/woodpecker.html">Woodpecker</a></li><li><a href="../heroes/nightjar.html">Nightjar</a></li><li><a href="../heroes/frigatebird.html">Frigatebird</a></li><li><a href="../heroes/cockatoo.html">Cockatoo</a></li><li><a href="../heroes/swan.html">Swan</a></li><li><a href="../heroes/kiwi.html">Kiwi</a></li><li><a href="../heroes/abilities.html">Abilities</a></li></ul></details></li><li class=""><a href="../items/index.html">The Magpie's Hoard</a><details><summary>more</summary><ul><li><a href="../items/talon.html">Talon items</a></li><li><a href="../items/plumage.html">Plumage items</a></li><li><a href="../items/song.html">Song items</a></li></ul></details></li><li class=""><a href="index.html">Mechanics</a><details open><summary>more</summary><ul><li><a href="movement.html">Movement</a></li><li class="here"><a href="camera-aim.html">Camera and aim</a></li><li><a href="combat.html">Combat</a></li><li><a href="statuses.html">Statuses</a></li><li><a href="economy.html">Economy</a></li><li><a href="vision.html">Vision</a></li></ul></details></li><li class=""><a href="../map/index.html">Old Mossmarket</a></li><li class=""><a href="../units/index.html">Units and objectives</a><details><summary>more</summary><ul><li><a href="../units/fledglings.html">Fledglings</a></li><li><a href="../units/towers.html">Towers</a></li><li><a href="../units/patrons.html">Patrons</a></li><li><a href="../units/practice-dummies.html">Practice dummies</a></li><li><a href="../units/planned.html">Planned objectives</a></li></ul></details></li><li class=""><a href="../glossary.html">Glossary</a><details><summary>more</summary><ul><li><a href="../patch-notes.html">Patch notes</a></li></ul></details></li></ul></nav>
+  <main>
+    <p class="crumbs"><a href="../index.html">Home</a> <span aria-hidden="true">›</span> <a href="index.html">Mechanics</a></p>
+    <article><h1>Camera and aim</h1><p>PERCH uses an over-the-shoulder third-person camera. The crosshair is honest: the game casts a ray from the camera through the crosshair, and your shots, aimed abilities and unit-targeted abilities all start from that ray, so what you aim at is what you hit.</p>
+<div class="table-wrap"><table><thead><tr><th>Setting</th><th>Value</th></tr></thead><tbody><tr><td>Shoulder offset</td><td>0.75 m right, 0.35 m up (swap with the shoulder key)</td></tr><tr><td>Camera boom</td><td>3.2 m for a 1.8 m bird, between 2.6 and 4 m</td></tr><tr><td>Look pitch limits</td><td>-80° to +80°</td></tr><tr><td>Aim ray length</td><td>300 m</td></tr><tr><td>Aiming zoom (right mouse)</td><td>FOV ×0.8; ×0.5 for the Owl</td></tr><tr><td>Field of view (Options)</td><td>75° to 110°, default 90°</td></tr><tr><td>Mouse sensitivity (Options)</td><td>0.1 to 5, default 1</td></tr><tr><td>Pings</td><td>at most 3 per 4 s</td></tr></tbody></table></div>
+<h2 id="shoulder-camera">Shoulder camera</h2>
+<p>The camera sits behind your bird and to one side. Swap shoulders to look round a corner. When a wall would block the view the camera pulls in towards you.</p>
+<h2 id="aiming">Aiming</h2>
+<p>Hold the aim button (right mouse) to zoom and to tighten your gun's spread. Heroes with long-range guns, such as the Owl, zoom further. Your bird's gun fires from its muzzle toward the point the crosshair ray hits, so close-up shots can look off-centre but still land where you aimed.</p>
+<h2 id="unit-targeting">Unit targeting</h2>
+<p>Abilities that lock onto a unit (a heal on an ally, a stab on an enemy) choose whoever is nearest the crosshair inside a narrow cone and within range. The cast fails if there is nobody there.</p>
+<h2 id="pings">Pings</h2>
+<p>A middle-mouse tap places a contextual ping; holding opens a wheel. The number of pings is limited to stop spam.</p></article>
+    <footer>Last regenerated 2026-11-19 · Stage 3 (M2). Generated from the game's own data by <code>npm run wiki</code>.</footer>
+  </main>
+</div>
+<div id="lightbox" hidden><img alt="Enlarged view"><p></p></div>
+<script src="../assets/search-index.js"></script>
+<script>window.WIKI_ROOT="../";</script>
+<script src="../assets/wiki.js"></script>
+</body>
+</html>

@@ -6,7 +6,7 @@ import { HEROES } from '../../src/sim/heroes/registry';
 import { AP_COSTS, UNLOCK_LEVELS } from '../../src/sim/data/abilities';
 import { COMBAT } from '../../src/sim/data/combat';
 import { DEFAULT_AIM_ZOOM } from '../../src/sim/data/core';
-import { heroStage, isBuilt, plannedHero } from './facts';
+import { STATUSES, heroStage, isBuilt, plannedHero } from './facts';
 import type { PlannedHero } from './facts';
 import { silhouette } from './icons';
 import { esc, num, pct } from './lib';
@@ -50,7 +50,7 @@ function statusesOf(a: AbilityDef): { id: string; name: string }[] {
 
 export const abilityAnchor = (a: AbilityDef): string => `ability-${a.id.replace(/\./g, '-')}`;
 
-function abilityCard(ctx: Ctx, a: AbilityDef, slot: number, hero: string): string {
+function abilityCard(ctx: Ctx, a: AbilityDef, slot: number): string {
   const stats = [
     `<span class="chip">${TARGETING[a.targeting]}</span>`,
     `<span class="chip">Cooldown ${num(a.cooldownS)} s</span>`,
@@ -62,7 +62,7 @@ function abilityCard(ctx: Ctx, a: AbilityDef, slot: number, hero: string): strin
     `<span class="chip">${slot === 3 ? `Ultimate, unlocks at level ${UNLOCK_LEVELS[3]}` : `Unlocks at level ${UNLOCK_LEVELS[slot]}`}</span>`,
   ].join('');
   const values = Object.entries(a.values).filter(([, v]) => v !== 0).map(([k, v]) => `<span class="chip">${humanise(k)} ${num(v)}</span>`).join('');
-  const statuses = statusesOf(a).map((s) => `<span class="chip">${ctx.link(`mechanics/statuses#status-${s.id}`, s.name)}</span>`).join('');
+  const statuses = statusesOf(a).map((s) => `<span class="chip">${STATUSES.some((g) => g.id === s.id) ? ctx.link(`mechanics/statuses#status-${s.id}`, s.name) : esc(s.name)}</span>`).join('');
   const tiers = a.upgrades.map((u, i) => {
     const deltas: string[] = [];
     if (u.cooldownS) deltas.push(`cooldown ${u.cooldownS > 0 ? '+' : ''}${num(u.cooldownS)} s`);
@@ -178,7 +178,7 @@ ${ctx.md([...archetypes.entries()].map(([k, v]) => (k in ARCHETYPE ? `### ${ARCH
 <p>${esc(def.name)} fights with the ${esc(w.name)}, which ${gunLine}${w.pellets > 1 ? ` and spreads ${w.pellets} pellets per shot` : ''}. Damage drops off between ${num(w.falloff.start)} m and ${num(w.falloff.end)} m, and head hits are beak shots worth ×${num(w.beakShotMult ?? COMBAT.beakShotMult)}. Every level above 1 is a Molt: ${esc(growth)}.</p>
 ${ctx.md(tips.get(id) ?? '')}
 <h2>Abilities</h2><p>Four abilities. Slots 1 to 3 unlock at level ${UNLOCK_LEVELS[0]}, the ultimate at level ${UNLOCK_LEVELS[3]}. Each can be upgraded three times, for ${AP_COSTS.join(', ')} AP, in order; see ${ctx.link('mechanics/economy#ability-points', 'Ability Points')}. The shortest cooldown in the kit is ${esc(quick?.name ?? '')} at ${num(quick?.cooldownS ?? 0)} s.</p>
-${def.abilities.map((a, i) => abilityCard(ctx, a, i, id)).join('')}`;
+${def.abilities.map((a, i) => abilityCard(ctx, a, i)).join('')}`;
         } else {
           const rows: [string, string][] = [['Archetype', ARCHETYPE[def.archetype]], ['Status', `Coming in Stage ${stage}`]];
           info = `<aside class="infobox"><h3>${esc(def.name)}</h3><figure><img src="${rel(ctx.here, `img/silhouette-${id}.svg`)}" alt="${esc(def.name)}: silhouette, coming in Stage ${stage}" width="320" height="320"></figure>

@@ -34,7 +34,7 @@ export function layout(opts: {
 <meta name="description" content="${esc(opts.description)}">
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="${link('assets/wiki.css')}">
-<script>try{var t=localStorage.getItem('perch-wiki-theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<script>try{var t=localStorage.getItem('perch-wiki-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
 </head>
 <body>
 <header class="top">
@@ -51,7 +51,7 @@ export function layout(opts: {
     <footer>Last regenerated ${esc(opts.date)} · Stage ${opts.stage} (M${opts.stage - 1}). Generated from the game's own data by <code>npm run wiki</code>.</footer>
   </main>
 </div>
-<div id="lightbox" hidden><img alt=""><p></p></div>
+<div id="lightbox" hidden><img alt="Enlarged view"><p></p></div>
 <script src="${link('assets/search-index.js')}"></script>
 <script>window.WIKI_ROOT=${JSON.stringify(rel(path, 'index.html').replace(/index\.html$/, ''))};</script>
 <script src="${link('assets/wiki.js')}"></script>
@@ -171,7 +171,7 @@ export const JS = `/* PERCH wiki: theme toggle, client-side search over assets/s
     var dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
     var next = dark ? 'light' : 'dark';
     root.dataset.theme = next;
-    try { localStorage.setItem('perch-wiki-theme', next); } catch (e) { /* storage blocked: the toggle still works for this page */ }
+    try { localStorage.setItem('perch-wiki-theme', next); } catch { /* storage blocked: the toggle still works for this page */ }
   });
   var btn = document.querySelector('.menu-btn');
   btn.addEventListener('click', function () {

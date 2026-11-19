@@ -80,7 +80,7 @@ const structCam = (h: number, radius: number, step = 12): Cam => {
 };
 for (const [type, label] of [['hawk', 'Sentinel Hawk'], ['heron', 'Stilt Heron'], ['warden', 'Nest Warden'], ['shrine', 'Roost Shrine']] as const) {
   const hgt = STRUCTURE_BODY[type].height;
-  add(`unit:${type}`, 'unit', type, `The ${label}, a Dawn tower`, 640, 480, { t: 'structure', token: type, team: 'dawn', cam: structCam(hgt, STRUCTURE_RADIUS[type]) }, [...U, STRUCTURE_BODY[type], DEFENCE[type]]);
+  add(`unit:${type}`, 'unit', type, `The ${label}, a Dawn tower`, 640, 480, { t: 'structure', token: type, team: 'dawn', cam: structCam(hgt, STRUCTURE_RADIUS[type]) }, [...U, STRUCTURE_BODY[type], type === 'shrine' ? DEFENCE.pulse : DEFENCE[type]]);
 }
 for (const [team, name] of [['dawn', 'Elder Raven'], ['dusk', 'Great Owl']] as const) {
   const hgt = STRUCTURE_BODY.patron.height;

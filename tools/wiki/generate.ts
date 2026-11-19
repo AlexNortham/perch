@@ -98,7 +98,7 @@ export function generate(outDir: string, date = new Date().toISOString().slice(0
     },
   };
 
-  registerMeta(ctx, extraFiles);
+  registerMeta(ctx);
   registerHeroes(ctx, extraFiles);
   registerItems(ctx, extraFiles);
   registerMechanics(ctx);

@@ -1096,3 +1096,37 @@ for planned content and PLAYABLE.md for patch notes. Every stage gate now includ
 and a coverage test fails if a feature in the data has no wiki entry.
 **Why:** the user asked for a full HTML game wiki that is updated whenever features are added. Generating it from the
 data is the only way it can't drift.
+
+### D-WIKI-001 · 19/11/2026 — Own generator, own Markdown renderer, no new dependency
+**Decision:** `tools/wiki/` is a plain TypeScript generator run by `npm run wiki` (tsx). Hand-written prose lives in
+`tools/wiki/pages/*.md` with `{{block}}` lines that the generator fills from game data, and `[[page|text]]` links
+checked at build. A 60-line Markdown renderer covers headings, lists, tables and inline styles. No package was added.
+**Why:** the pages are mostly tables and cards generated from data; a full Markdown library would add a dependency for
+a handful of prose paragraphs.
+
+### D-WIKI-002 · 19/11/2026 — Built facts from data, planned facts from the GDD, stages from STATUS.md
+**Decision:** built heroes, abilities, items, statuses, structures, economy, movement and combat numbers are read from
+`src/sim/data/*`, the hero registry (`implemented`), `loadMap('main')` and `mapSvg`. Heroes and items not built yet are
+read from GDD section 9 and 10 tables and marked **Coming in Stage N**; N comes from the milestone headings and batch
+lists in STATUS.md (Stage = M + 1). Patch notes come from PLAYABLE.md; the current stage gets a section built from data
+until its own notes are written at the gate. Lines naming the reference game are dropped when the GDD is quoted, and
+a test fails if such a name reaches a page (D-EP-002).
+**Why:** nothing is copied by hand, so a balance change or a newly implemented hero changes the wiki.
+
+### D-WIKI-003 · 19/11/2026 — Hash-named screenshots, captured by Playwright from the game itself
+**Decision:** every screenshot has a file name `img/<kind>-<name>-<hash>.jpg` where the hash covers the capture job,
+the data it shows (hero body plan, ability definition, structure numbers) and the source of the code that draws it
+(models, VFX, UI, map). `npm run wiki` captures only files that do not exist yet and deletes unreferenced ones;
+`npm run wiki -- --images` forces a full re-capture. Captures use the dev server and the installed Edge: model
+pictures use `modelLineup`, `modelYaw`, `modelState`, `modelStructure`, `modelWave` and `renderCam`; ability pictures
+cast the ability for real in the practice scene with the bound key; UI pictures press the real shop, upgrade,
+scoreboard and big-map keys. A failed capture copies the hero's portrait to the ability's file name and is reported.
+Item icons and "coming soon" silhouettes are generated SVG; the map is `mapSvg` output.
+**Why:** regenerating must not churn git, and a changed model, ability or UI must produce a new picture.
+
+### D-WIKI-004 · 19/11/2026 — The coverage test warns about stale screenshots instead of failing
+**Decision:** `tests/wiki/coverage.test.ts` fails for a missing hero, implemented ability, catalogue item, status,
+structure type or unit type, for broken links or anchors, missing alt text, external URLs and reference-game names. A
+screenshot whose hash moved because another role changed a model or an ability only produces a warning.
+**Why:** a merge by another role must not turn the gate red for something only `npm run wiki` (a browser run) can fix.
+The EP regenerates the wiki at each gate.

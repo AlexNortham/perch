@@ -1250,3 +1250,24 @@ and `auxclick`. Edge's Mouse 4 capture still navigates back, the 1 failing pendi
 at the merge, because physics now hops. QA: after the settings change, the pending default-keys case expects
 "Left Ctrl" in Edge.
 **Next:** EP merge; Architect settings and `exitFullscreen` wiring; manual Ctrl check in Edge/Chrome.
+### W4 · Docs & Wiki · 19/11/2026
+**Done:** the generated game wiki (D-EP-031): `tools/wiki/**` (generator, image plan, Playwright capture, 22 prose pages),
+`wiki/**` committed (open `wiki/index.html` over file://), `tests/wiki/coverage.test.ts`, and the `wiki` script. 51 pages:
+home, getting started (install, controls with the Ctrl-crouch and fullscreen note, Options, modes), Heroes (index of 24,
+a page each, Abilities list), the Magpie's Hoard (index and Talon, Plumage, Song), Mechanics (movement, camera and aim,
+combat, statuses, economy, vision), the map, Units and objectives (fledglings, towers, Patrons with Brood Ward and Home
+Roost, dummies, planned), glossary, patch notes. Built facts come from `src/sim/data/*`, the hero registry and
+`mapSvg`; unbuilt heroes, items and objectives come from the GDD and are marked "Coming in Stage N" (stages from the
+milestones in this file). Search, themes, breadcrumbs, click-to-enlarge pictures, no external resources.
+Images (175 files, 3.3 MB): 114 JPEG screenshots of the running game (36 hero portrait/front/side, 48 ability casts,
+11 units and structures, 3 pose sheets, 5 map, 10 UI, 1 banner) plus 61 generated SVG (48 item icons, 12 silhouettes
+and the map). Names carry a hash of what they show; `npm run wiki` captures only what changed, `-- --images` forces all.
+**Verified:** `npm run wiki` (first run 622 s, 0 fallbacks; second run re-captured 1 and reused 113); `npx vitest run
+tests/wiki` 9 passed; typecheck and lint clean for my paths. Looked at PNGs of home, hero, items and map pages in Edge
+over file:// and a sample of captures.
+**Blocked:** nothing. **Limitations:** ability pictures are cast in the practice arena with default aim, so unit-targeted
+and ally abilities show the cast pose more than a hit; hero tips are short; the Stage 3 patch-note section is built from
+data until PLAYABLE.md gains its Stage 3 notes at the gate.
+**Interface requests:** EP: regenerate with `npm run wiki` at each gate (browser run, about 10 min from scratch); the
+coverage test only warns when screenshots go stale.
+**Next:** regenerate after the W4 integration merges.
