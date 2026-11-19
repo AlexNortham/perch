@@ -1177,3 +1177,11 @@ so they can test stable releases.
   nothing is copied from the wiki into the game or into PERCH's own wiki.
 **Why:** the user's instruction: make the map more detailed, make buildings enterable with things to do in them,
 include the jungle and boxes, and use the reference game's wiki for building features.
+
+### D-EP-034 · 19/11/2026 — 64 items by the end of Stage 4
+**Decision:** the item target rises from 48 to 64. Stage 4 ships all 48 GDD items (16 are in the Stage 3 shop) plus 16
+new items, designed by the Game Director in the W4.5 pass. Mechanics may draw on the reference game's item design;
+names, effects and wording stay original (D-EP-002). The new items fill gaps across Talon, Plumage and Song and all
+four tiers, bringing the actives to about 14. Wave 5 splits the item work across two Economy & Items engineers by
+category. The Stage 4 gate reads "All 24 heroes and 64 items".
+**Why:** the user's instruction: 16 items isn't enough; 48 in total if not 64.
