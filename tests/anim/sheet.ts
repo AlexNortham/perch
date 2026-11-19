@@ -24,9 +24,14 @@ const cols = Number(q.get('cols')) || 8;
 const size = Number(q.get('size')) || 240;
 const LABEL = 22;
 const TITLE = 34;
+// Default: three-quarter (front right) and side (the bird's right, the gun side). `views=` may add the far side
+// ('left') and 'back', where anything that passes through the body would show.
+const VIEW_NAMES = ['3/4', 'side', 'left', 'back'];
+const viewNames = (q.get('views')?.split(',') ?? ['3/4', 'side']).filter((v) => VIEW_NAMES.includes(v));
 const rows = Math.ceil(states.length / cols);
 const width = cols * size;
-const height = TITLE + rows * (LABEL + 2 * size);
+const cell = LABEL + viewNames.length * size;
+const height = TITLE + rows * cell;
 const DT = 1 / 60;
 
 const sheet = document.getElementById('sheet') as HTMLDivElement;
@@ -72,10 +77,13 @@ const entity = (): EntityView =>
 const camera = new PerspectiveCamera(30, 1, 0.05, 50);
 const dist = (H * 0.7) / Math.tan((15 * Math.PI) / 180);
 const look = new Vector3(0, H * 0.5, 0);
-const views = [
-  { name: '3/4', at: new Vector3(-Math.sin(0.7) * dist, H * 0.5 + dist * 0.22, Math.cos(0.7) * dist) },
-  { name: 'side', at: new Vector3(-dist, H * 0.5 + dist * 0.05, 0) },
-];
+const VIEWS: Record<string, Vector3> = {
+  '3/4': new Vector3(-Math.sin(0.7) * dist, H * 0.5 + dist * 0.22, Math.cos(0.7) * dist),
+  side: new Vector3(-dist, H * 0.5 + dist * 0.05, 0),
+  left: new Vector3(dist, H * 0.5 + dist * 0.05, 0),
+  back: new Vector3(0, H * 0.5 + dist * 0.1, -dist),
+};
+const views = viewNames.map((name) => ({ name, at: VIEWS[name] as Vector3 }));
 
 const label = (text: string, x: number, y: number, cls = 'label'): void => {
   const d = document.createElement('div');
@@ -85,7 +93,7 @@ const label = (text: string, x: number, y: number, cls = 'label'): void => {
   d.style.top = `${y}px`;
   sheet.appendChild(d);
 };
-label(`${HEROES[hero].def.name} (${hero}): every state, three-quarter (top) and side (bottom). Red dot: the sim's muzzle point.`, 8, 6, 'title');
+label(`${HEROES[hero].def.name} (${hero}): views top to bottom ${viewNames.join(', ')} ('side' is the gun side). Red dot: the sim's muzzle point.`, 8, 6, 'title');
 
 let rig: BirdRig | null = null;
 states.forEach((name, i) => {
@@ -104,7 +112,7 @@ states.forEach((name, i) => {
   const col = i % cols;
   const row = Math.floor(i / cols);
   const x = col * size;
-  const top = TITLE + row * (LABEL + 2 * size);
+  const top = TITLE + row * cell;
   label(name, x + 4, top + 2);
   views.forEach((v, j) => {
     const y = top + LABEL + j * size;

@@ -176,7 +176,7 @@ export const albatrossDef: HeroDef = {
     height: 2.3,
     radius: 0.5,
     head: { centre: { right: 0, up: 2.05, forward: 0 }, radius: 0.2 },
-    muzzle: { right: 0.25, up: 1.6, forward: 0.35 },
+    muzzle: { right: 0.38, up: 1.6, forward: 0.35 },
   },
   stats: {
     maxHealth: 720,

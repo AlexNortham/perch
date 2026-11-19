@@ -39,11 +39,11 @@ import { HEROES } from '../heroes/registry';
 import { ARENA } from '../world/map';
 import { createCombatSystem } from './index';
 
-const body = (height: number, headR: number, headUp: number, radius: number): BodyPlan => ({
+/** The muzzle is the hero's own (it is where shots start), so a data change moves the fixture with it. */
+const body = (height: number, headR: number, headUp: number, radius: number): Omit<BodyPlan, 'muzzle'> => ({
   height,
   radius,
   head: { centre: { right: 0, up: headUp, forward: 0 }, radius: headR },
-  muzzle: { right: 0.25, up: headUp - 0.4, forward: 0.35 },
 });
 
 const gun = (w: Partial<WeaponDef> & Pick<WeaponDef, 'name' | 'fireRate' | 'falloff'>): WeaponDef => ({
@@ -59,7 +59,7 @@ const gun = (w: Partial<WeaponDef> & Pick<WeaponDef, 'name' | 'fireRate' | 'fall
 
 const fixture = (
   id: HeroId,
-  b: BodyPlan,
+  b: Omit<BodyPlan, 'muzzle'>,
   hp: number,
   weaponDamage: number,
   magazine: number,
@@ -67,7 +67,7 @@ const fixture = (
 ): HeroModule => ({
   def: {
     ...HEROES[id].def,
-    body: b,
+    body: { ...b, muzzle: HEROES[id].def.body.muzzle },
     stats: { maxHealth: hp, healthRegen: 2, moveSpeed: 7, sprintSpeed: 2, stamina: 3, weaponDamage, magazine },
     growth: [
       { stat: 'maxHealth', op: 'add', value: 30 },

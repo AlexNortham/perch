@@ -168,7 +168,7 @@ export const pelicanDef: HeroDef = {
     height: 2.1,
     radius: 0.48,
     head: { centre: { right: 0, up: 1.85, forward: 0 }, radius: 0.19 },
-    muzzle: { right: 0.3, up: 1.1, forward: 0.45 },
+    muzzle: { right: 0.48, up: 1.1, forward: 0.45 },
   },
   stats: {
     maxHealth: 640,

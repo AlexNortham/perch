@@ -1396,15 +1396,15 @@ sampled every 0.05 s over 1.6 s after settling. Measured worst cases: main grip 
 in red); I looked at all 12 plus the generic one, and at the hornbill in the practice hub (`out/anim/ingame-hornbill.png`).
 `npm run check` 6/6 PASS (e2e 33 passed). Draw-budget peaks: lane/low 17 (was 24, ceiling 32), lane/medium 26 (was
 41, ceiling 48), match/medium 36 (was 218, ceiling 248).
-**Limitations:** (a) The albatross, pelican, penguin and secretarybird muzzles sit inside or against their flank, so
-their stock is turned out 8 to 15 degrees (`toe` in the build) to clear the body; see the interface requests.
-(b) The view carries no cast slot, so in play every cast shows the fallback 'raise' pose. Per-slot poses show in the
+**Limitations:** (a) Resolved: at the EP's direction, acting for Hero Engineers A and B on this field only,
+`body.muzzle.right` is now albatross 0.38, pelican 0.48, penguin 0.32 and secretarybird 0.34, so each gun runs
+outside its flank. The stock turn-out workaround is gone. The combat test kit now reads each fixture's muzzle from
+hero data instead of a copied 0.25/0.35, and `aim.test.ts` keeps its own generic body. Side, far-side and back
+sheets (`--views side,left,back`) show no part of the gun through the body. (b) The view carries no cast slot, so in play every cast shows the fallback 'raise' pose. Per-slot poses show in the
 sheets and `modelState=castN`. Most casts are instant, so casts are mostly seen on windups and channels.
 (c) Above the step-rate cap (30 rad/s), short-legged birds' feet slip at full speed; the stance foot stays down.
 (d) Climb, mantle and Updraft keep both wings on the gun, so there is no flapping. (e) The Lyrebird's lyre dips into
 the ground when dead (unchanged). (f) The recoil cycles from the start of Firing at the base fire rate, because pose
 gets no shot events.
-**Interface requests:** Hero data (via the EP): `body.muzzle.right` for albatross 0.25 → 0.38, pelican 0.30 → 0.48,
-penguin 0.25 → 0.32, secretarybird 0.25 → 0.34 (forward and up unchanged), which puts each gun outside its flank.
-I then delete those four `toe:` lines. Architect: `EntityView.castSlot` (from `AbilityState.casting`), so the rig
-plays the per-slot cast pose in play (the parameter is already on `BirdRig.animate`).
+**Interface requests:** Architect: `EntityView.castSlot` (from `AbilityState.casting`), so the rig plays the
+per-slot cast pose in play (the parameter is already on `BirdRig.animate`). The muzzle request is done (see (a)).

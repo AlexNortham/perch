@@ -81,8 +81,6 @@ const pelican: Build = (plan, team) => {
     // Gulp, Feeding Frenzy, Belly Flop, Bottomless Pouch.
     casts: ['throw', 'raise', 'leap', 'aim'],
     sway: 0.1, castTail: -0.3,
-    // The muzzle sits inside the belly (interface request): turn the stock out so the gatling clears the flank.
-    toe: 0.27,
   });
 };
 
@@ -117,7 +115,6 @@ const secretarybird: Build = (plan, team) => {
     // Stomp Kick, Long Stride, Snake Stamp, Viper Dance.
     casts: ['stomp', 'leap', 'leap', 'stomp'],
     sway: 0.05, castTail: -0.5,
-    toe: 0.14,
   });
 };
 
@@ -252,7 +249,6 @@ const penguin: Build = (plan, team) => {
     // Toboggan, Huddle, Ice Floe, Emperor's March.
     casts: ['leap', 'raise', 'sweep', 'stomp'],
     sway: 0.15, castTail: -0.3,
-    toe: 0.16,
   });
 };
 

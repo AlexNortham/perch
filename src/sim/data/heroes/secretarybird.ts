@@ -182,7 +182,7 @@ export const secretarybirdDef: HeroDef = {
     height: 2.2,
     radius: 0.3,
     head: { centre: { right: 0, up: 2, forward: 0 }, radius: 0.15 },
-    muzzle: { right: 0.25, up: 1.45, forward: 0.35 },
+    muzzle: { right: 0.34, up: 1.45, forward: 0.35 },
   },
   stats: {
     maxHealth: 600,
