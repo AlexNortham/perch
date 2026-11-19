@@ -1143,3 +1143,29 @@ Jump. Models and picker cards are other owners' work.
 **Interface requests:** Combat: gunDamage and reloadFraction on weaponMod. Abilities: extraCount, preferHeroes,
 maxCarry, onWall, once-per-entry onEnter. Physics: end a toboggan on Jump and honour maxPitchUpDeg so the data's
 arcHeight 0 can go.
+### W4 · Hero Engineer B (B1) · 19/11/2026
+**Done:** w4-hero-b worktree branch (from main 6ba3741). Owl, Pelican, Secretarybird and Starling ship real data in
+`src/sim/data/heroes/<id>.ts` (body plan, stats, gun, swatch, sixteen ability descriptions and all tier texts) and are
+`implemented: true`. Hooks: Owl (glide ends on landing or Space), Pelican (Gulp: cone pick, carry and spit, swallow
+with pod and heal), Secretarybird (Footwork, Stomp bonus, Long Stride touches, Viper Dance chain). Starling needs none.
+Owl sets `aimZoom` 0.5 and `aimRange` 220 explicitly. Sixteen smoke-test files' worth of cases: owl 12, pelican 12,
+secretarybird 13, starling 14 (`src/sim/heroes/<id>/<id>.test.ts`), all on real casts, gun fire, tiers and expiry.
+
+**Verified:** typecheck, lint, perf (6/6), sim (seed 1, 10,800 ticks) and e2e (15 passed, 9 skipped) pass. `npm test`
+has 4 failures in `src/sim/physics/physics.test.ts` and `controller.test.ts`: both build their roster from `owl`
+(line 16 and line 50) and assume the W1 placeholder body (radius 0.4). Owl's real radius is 0.36, so a raycast distance
+and the attach gap moved. Fix there: use any hero still on the placeholder (`toucan`). Not edited: not my path.
+Lane PNGs inspected: `out/shots/herob-{owl,pelican,secretarybird,starling}.png` (Pelican shows 640 HP, 50/50 ammo and
+its three ability names; models are the generic rig, Art's).
+
+**Limitations:** `weaponMod.gunDamage` and `ignoreFalloff` are not read by Combat yet, so Pelican's Pouch damage uses
+`statMod gunDamage`. The `trigger` effect has no handler (items stub), so Frenzy T3 shreds through `weaponMod.onBulletHit`.
+Night Eyes T3's +10% damage applies from any source, not only the flock. Owl's glide cannot end itself: the hook ends it
+with a one-tick replacement mode. Pelican writes a swallowed fledgling's `pos` before killing it. Footwork's 5 s timer
+is shared by all stacks.
+
+**Interface requests:** (1) Abilities: a rooted hero cannot cast a movement ability, so Starling's Scatter cannot cast
+while rooted, which its GDD text ("removes roots on cast") needs; a per-ability flag would fix it. (2) Physics: end a
+movement mode on landing and on an event (Owl's Silent Wing), and an `endMode` service. (3) Combat: honour
+`weaponMod.gunDamage`. (4) Durations of 0 in `applyStatus` still apply a one-tick status (min 1 tick), so tiers gate by
+an empty-radius area instead.
