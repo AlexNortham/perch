@@ -849,3 +849,29 @@ provides 32 practice AP. The bound upgrade action opens a cursor-friendly panel 
 Each skill shows its effect and next tier on hover or focus, and a click spends the displayed AP when affordable.
 **Why:** the player asked for an area to practise both roles and a way to read and upgrade abilities with the mouse.
 A fresh training budget lets the player compare tiers immediately while the lane match retains earned progression.
+### D-DIR-007 · 19/11/2026 — Traversal chains, browser controls and combat cues
+**Decision:** adopt the linked reference's movement sequence and costs in GDD §3. PERCH sets its own
+dash-jump window (0.10–0.30 s), wall impulse and fatigue curve, down-dash timing and velocity, and slide
+and mantle speeds. Keep Shift and WASD, set crouch to C and move item slot 3 to N. Migrate old defaults as
+a pair, preserve custom choices and resolve collisions with a browser-safe free key. Bind ordinary and side
+mouse buttons with explicit swaps. Show light release, heavy commitment, lunge, hit and recovery, and both
+parry outcomes.
+**Why:** the new default supports the full traversal chain in a normal Firefox tab. Timing and impact cues let
+players learn the controls by watching and listening. Run GDD §3.10, check the stamina and timing thresholds
+and exercise mouse press, hold and release for the M2 gate. [Movement reference](https://deadlock.wiki/Movement)
+
+### D-DIR-008 · 19/11/2026 — Hawk and Heron clearance under the Updraft
+**Decision:** keep the §6.3 ground anchors and existing gateward 6 m station setbacks (D-LEVEL-003).
+Cap tower geometry and poses at 10 m above the lane, leaving 2 m below rider feet. The Hawk statue sits
+on an 8 m column. The Heron keeps its stilt legs, frame, stepping pose and bill beam. Keep ground-anchored
+combat reach at 22 m for Hawk fire, 30 m for the Heron beam and 7 m for its stomp.
+**Why:** the lane retains its tower silhouettes and fight geometry. Verify clearance at normal and boost
+speed over both kinds of tower and check the existing range thresholds.
+
+### D-DIR-009 · 19/11/2026 — Practice Hub and ability inspection
+**Decision:** Practice Hub begins at the menu, lets the player select an available hero, and offers repeatable
+damage and ally healing on labelled targets. Its four base abilities and 32 AP use the usual tier rules.
+Tap the inspect action to free the pointer for hover descriptions, focus and click-to-upgrade. Keep the
+keyboard upgrade chord and return to aiming on Close or Esc.
+**Why:** the player can try any unlocked kit and all tiers, including ally heals, using the same controls
+and outcomes as the match. Check the two target paths, the AP panel and a fresh Play session in the M2 gate.
