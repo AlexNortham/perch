@@ -1881,3 +1881,7 @@ other agents loaded the machine; it passed on the re-run. No `src/` change.
   map, baked vertex AO, decals, the bird rim term) and the §10 lighting values.
 - Level Designer: collision for landing boards and perch beams deeper than 0.5 m (§2.6), and no lines or poles across
   lanes or within 3 m of an Updraft (§1.1).
+
+### 2026-11-19 · Docs & Wiki engineer (W5b) · WIKI
+Done: the wiki coverage test already generated into a temp folder; it now also compares that output with the committed `wiki/` (ignoring the date) and only warns when stale (D-WIKI-001). `npm run wiki` unchanged. Proved: dropping a hero page from the generator fails 3 tests; reverted. About 2 s of generation, no screenshots.
+Decision D-WIKI-001: a stale committed wiki is a console warning, never a failure; the gate regenerates it (D-EP-031).
