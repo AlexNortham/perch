@@ -41,6 +41,7 @@ const hit = (sb: Sandbox, source: EntityId, target: EntityId, amount: number) =>
 
 async function at(f: Family, extra: readonly ('shrike' | 'kingfisher')[] = []) {
   const sb = await world({ heroes: ['shrike', ...extra, 'lyrebird'] });
+  expect(campsOf(sb, f.family).length, '§7.8 the detailed map has ' + f.family + ' camps').toBeGreaterThan(0);
   const [anchor, index] = campsOf(sb, f.family)[0]!;
   advanceTo(sb, f.firstS + 1);
   const hero = sb.heroes[0]!;
@@ -62,6 +63,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Thickets (§7.8)', { timeo
   describe.each(FAMILIES)('$family', (f) => {
     it('§7.8 spawns at its first-spawn time with the table\'s creatures, HP scaled +2% per minute at spawn, and the table\'s resists', async () => {
       const sb = await world({ heroes: ['shrike', 'lyrebird'] });
+      expect(campsOf(sb, f.family).length, '§7.8 the detailed map has ' + f.family + ' camps').toBeGreaterThan(0);
       const [, index] = campsOf(sb, f.family)[0]!;
       advanceTo(sb, f.firstS - 2);
       expect(unitsOf(sb, index), 'nothing before the first spawn').toHaveLength(0);
