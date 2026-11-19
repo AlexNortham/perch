@@ -12,7 +12,8 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
 - **Stage 1 (M0) closed 19/11/2026.** W1 and W2 on main; QA gate APPROVE (W2 · QA gate entry). See PLAYABLE.md.
 - **W2.5 contract round merged 19/11/2026** (28 requests: 22 accepted, 6 modified; INTERFACES.md §11).
 - **Stage 2 (M1) closed 19/11/2026.** W3 + integration round on main; QA gate APPROVE (W3 · QA gate entry).
-- **Wave 4 resumed by Claude 19/11/2026 (D-EP-029)** after ChatGPT stopped; contracts and test-first suites are on main.
+- **Stage 3 (M2) closed 19/11/2026.** W4 (ChatGPT + Claude, D-EP-029) merged; QA gate BLOCK, gate fixes, QA re-review APPROVE.
+  Pushed to GitHub `main` as a stable release (D-EP-032). Next: Stage 4, starting with the W4.5 design and contract round.
 - **Stage 3 opened 19/11/2026.** W3.5 settles contracts first. QA's test-first suites then land on main before
   the W4 implementers start. The release gate is below and in GDD §16.
 - **Last `npm run check`:** PASS on integrate/w3 (6/6 steps incl. perf, 76 s; 5 runs in a row); sim 0.234 ms per tick
@@ -141,16 +142,16 @@ Gate M1:
   structures, Patrons) · QA
 
 Gate M2:
-- [ ] Seeds, levels, AP and the shop work
-- [ ] All structures and the 2-phase Patron work, so a match can be won by hand
-- [ ] HUD, minimap and audio done
-- [ ] Animation bar (D-EP-035): every playable bird holds its gun in every state; attachment tests pass; pose
+- [x] Seeds, levels, AP and the shop work
+- [x] All structures and the 2-phase Patron work, so a match can be won by hand
+- [x] HUD, minimap and audio done
+- [x] Animation bar (D-EP-035): every playable bird holds its gun in every state; attachment tests pass; pose
   sheets reviewed
-- [ ] Launchable: a full match against the structures can be started from the menu; PLAYABLE.md "Stage 3 (M2)"
+- [x] Launchable: a full match against the structures can be started from the menu; PLAYABLE.md "Stage 3 (M2)"
   written
-- [ ] Firefox traversal remains playable during a sustained run; safe movement keys, side-mouse melee/parry,
+- [x] Firefox traversal remains playable during a sustained run; safe movement keys, side-mouse melee/parry,
   charged melee feedback and reference-based movement are proven (D-EP-027)
-- [ ] The menu's Practice Hub has repeatable damage and healing dummies; opening upgrades releases the mouse,
+- [x] The menu's Practice Hub has repeatable damage and healing dummies; opening upgrades releases the mouse,
   shows ability descriptions on hover and allows an affordable upgrade by click (D-EP-028)
 
 ### M3 — Full 6v6
