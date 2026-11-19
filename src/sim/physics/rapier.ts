@@ -379,7 +379,8 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
       else out.wall = null;
       return out;
     }
-    // Cheap path (units): follow the cached ground; steps up to stepUp, snaps down by snapDown; no walls.
+    // Cheap path (units): follow the cached ground; steps up to stepUp, snaps down by snapDown; no walls (world's
+    // steering keeps units on their lanes and in their camps; a displaced unit's walls are units.ts's ray).
     syncStatic();
     const x = e.pos.x + delta.x;
     const z = e.pos.z + delta.z;
