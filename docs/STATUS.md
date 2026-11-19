@@ -1924,3 +1924,10 @@ physics suite is now 72, plus combat `stage4` 15, abilities `stage4` 8 and `fram
 - Docs & Wiki: `tools/wiki/mechanics.ts` prints `UPDRAFT.stationRadius` / `airMountRadius` and "press the interact
   key" (both kept as deprecated for it). Bot AI: hold Jump while `motor.updraftInReach` (no-interact bot test).
 **Next:** hero and item owners switch to the shapes above; QA flips the no-interact suite on once bots ride.
+
+### Stage 4 · EP note · 20/11/2026 · integrate/w5 after Systems
+Systems (W5a) is merged. The EP switched two QA tests from the retired Interact/E mount to a held Jump (D-EP-039): the
+siege rides now boost once the mount animation completes, and `e2e/play.spec.ts` holds Space. Under heavy load (33
+node processes) the world perf test read 0.849 ms against 0.5, while physics, combat and abilities read faster than
+before. Objectives is asked to measure on a quiet machine. To re-check at the gate: the world perf test, and the audio
+e2e's 30 s timeout under load.
