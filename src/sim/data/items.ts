@@ -1,4 +1,5 @@
 import type { ItemActive, ItemCategory, ItemDef, ItemTier, StatId, StatModifier, StatOp, TriggerDef } from '../core/contracts';
+import { SONG_ITEMS } from './items-song';
 
 export const SHOP = { baseSlots: 12, refundSeconds: 20, resaleFraction: 0.5 } as const;
 export const DEW = { quietSeconds: 8, bonusRegen: 10 } as const;
@@ -10,6 +11,7 @@ function item(id: string, name: string, description: string, category: ItemCateg
 }
 
 export const ITEMS: readonly ItemDef[] = [
+  ...SONG_ITEMS,
   item('quill-clip', 'Quill Clip', '+25% magazine size and +6% gun damage.', 'talon', 1,
     [stat('magazine', 0.25, 'pct'), stat('gunDamage', 0.06)]),
   item('close-talons', 'Close Talons', '+20% gun damage within 15 m.', 'talon', 1, [stat('closeGunDamage', 0.2)]),

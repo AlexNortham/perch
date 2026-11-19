@@ -1,6 +1,7 @@
 import { ITEM_BUTTONS, type EntityId, type HeroEntity, type ItemDef, type ItemId, type OwnedItem, type SystemFactory } from '../core/contracts';
 import { distSq, ticks, vec3 } from '../core/math';
 import { DEW, ITEMS, SHOP } from '../data/items';
+import { createSongItems } from './song';
 import { createTriggers, itemCause } from './triggers';
 
 const byId = new Map(ITEMS.map((item) => [item.id, item]));
@@ -12,6 +13,7 @@ const refundWindow = ticks(SHOP.refundSeconds);
 export const createItemSystem: SystemFactory = (ctx) => {
   ctx.itemCatalogue?.push(...ITEMS);
   const triggers = createTriggers(ctx);
+  createSongItems(ctx);
   const lastHurt = new Map<EntityId, number>();
   const dewOwners = new Set<EntityId>();
   const cooldowns = new Map<EntityId, Map<ItemId, number>>();
