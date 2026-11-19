@@ -1247,3 +1247,45 @@ and `auxclick`. Edge's Mouse 4 capture still navigates back, the 1 failing pendi
 at the merge, because physics now hops. QA: after the settings change, the pending default-keys case expects
 "Left Ctrl" in Edge.
 **Next:** EP merge; Architect settings and `exitFullscreen` wiring; manual Ctrl check in Edge/Chrome.
+
+### W4 · Integration (web) · 19/11/2026
+**Branch:** `worktree-agent-a5ca649f38fec2f9c` from `integrate/w4c`; six commits, one per item, in `src/client/**` and
+`e2e/**` only. `npm run check` 6/6 green (typecheck, lint, test, perf, sim, e2e 32 passed). `m2.spec.ts` and
+`preview-regressions.spec.ts` are now always on (their PERCH_PENDING skips are gone); all e2e were run in installed
+Edge with real key and mouse input. PNGs are in `out/web/` (gitignored), all looked at.
+1. **Settings.** Root cause: `DEFAULT_SETTINGS` and `sanitizeSettings` took the static `DEFAULT_BINDINGS`, so a new
+   profile never got the input module's Left Ctrl crouch. Fix in `app/settings.ts`: a fresh profile, the sanitiser
+   fallback and Options' Reset use `defaultBindings()`. Storage key is now `perch.settings.v3`; a v2 (or v1) profile
+   migrates once, and where keyboard lock exists an untouched `KeyC` crouch becomes `ControlLeft` unless that code is
+   used by another action. `app.ts` `show()` calls `input.exitFullscreen()` for menu, heroSelect and end. Unit test
+   covers lock/no lock, custom and taken codes. The old Edge crouch key in e2e was `KeyC`; `crouchKey(page)` now asks
+   the browser.
+2. **Mouse 4/5.** Root cause: only the Options capture swallowed them; play, menus and the pointerup path did not.
+   Fix in `input/index.ts`: capture-phase `preventDefault` on mousedown, mouseup, pointerup and auxclick for buttons 3
+   and 4, always. Not pointerdown: cancelling it suppresses the compatibility mousedown and broke Options capture
+   (found by the existing side-button test). `options.spec.ts` sends real CDP back presses on the menu and during
+   capture; it fails without the fix (history navigates) and passes with it.
+3. **Key routing.** New `keys.spec.ts`: in Play and the Practice Hub, B opens the Magpie's Hoard (pointer freed, B
+   closes), held Tab shows the Scoreboard (pointer stays locked), M toggles the big map, an Alt tap opens Ability
+   Upgrades. All pass, no source defect. The rebound-melee pointer-lock case passed 6 of 6 repeats here. The
+   Practice Hub trial failure was in the test: it strafed to a position and the crosshair was about 50 px off the
+   dummy, so a second trial hit once. New `aimAtDummy` steers with real mouse look to the dummy label.
+   Shots: `keys-{match,practice}-{shop,scoreboard,map,upgrades}.png`.
+4. **Tracers.** VFX does draw `weapon.traces` (`vfx/mapping.ts`). `tracers.spec.ts` freezes the render loop two frames
+   after a shot and saves it: Kingfisher's line and Albatross's six pellets meet the centre reticle on a far open
+   sightline; the Albatross fan is centred on the reticle beside a wall; Kingfisher's trace ends on the enemy dummy
+   under the reticle with its -22 number. With the muzzle pressed to a wall the trace stops at the wall next to the
+   gun, not at the reticle, which is right for a blocked muzzle. No defect found. `tracer-*.png`.
+5. **Practice Hub.** `m2.spec.ts` now starts from the menu: Lyrebird shoots the enemy dummy and heals the ally dummy
+   twice with resets; upgrade panel frees the pointer, all four skills hovered, one click is exactly 1 AP and one
+   tier, the last tier is bought, a forced click on the maxed (locked) upgrade spends nothing, Escape closes it and
+   right-mouse aim returns. `practice-heal.png`, `upgrades-hover-1..4.png`, `upgrades-locked-click.png`,
+   `ability-upgrades.png`.
+6. **Play from the menu.** New `match.spec.ts`: Kingfisher; 872+ Seeds and Lv 2 by minute 15, buy Quill Clip (800) in
+   the base shop zone, sell it back for the full refund, Tab, M, then walk the Hedgerow lane with W and mouse steering
+   (`walkTo`) to the fledgling clash and sweep fire until a damage number (non-green) appears; passed 3 of 3 repeats.
+   `match-*.png`. To avoid a 15 minute wait, `?t=` now also fast-forwards a match started from the menu
+   (`app.ts`, router comment); every action after the hero appears is real input. Limitation: the Seeds come from
+   passive income plus fast-forward, not from real kills; killing fledglings for Seeds, a Patron fight and victory
+   by player controls are INTEG-SIM's siege proof.
+**Blocked:** nothing. **Interface requests:** none. Manual W+Ctrl in a real tab is still unchecked.
