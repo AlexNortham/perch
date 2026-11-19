@@ -175,7 +175,7 @@ export const penguinDef: HeroDef = {
     height: 1.6,
     radius: 0.42,
     head: { centre: { right: 0, up: 1.42, forward: 0 }, radius: 0.18 },
-    muzzle: { right: 0.25, up: 1.1, forward: 0.35 },
+    muzzle: { right: 0.32, up: 1.1, forward: 0.35 },
   },
   stats: {
     maxHealth: 700,

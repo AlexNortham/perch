@@ -74,8 +74,6 @@ const albatross: Build = (plan, team) => {
     // Gale Shield, Wing Slam, Salt Hide, Tempest Dive.
     casts: ['sweep', 'leap', 'raise', 'leap'],
     sway: 0.12, castTail: -0.3,
-    // The muzzle sits inside this wide chest (interface request): turn the stock out so the gun clears the flank.
-    toe: 0.2,
   });
 };
 

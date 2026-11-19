@@ -1,4 +1,4 @@
-// Pose sheets: `npx tsx tests/anim/posesheets.ts [hero…] [--states a,b] [--cols n] [--size px] [--out dir]`
+// Pose sheets: `npx tsx tests/anim/posesheets.ts [hero…] [--states a,b] [--views 3/4,side,left,back] [--cols n] [--size px] [--out dir]`
 // Serves the app with Vite, opens tests/anim/sheet.html for each playable bird (or those named) and saves
 // out/anim/<hero>.png: every animation state from three-quarter and side views (D-EP-035 review).
 import { mkdirSync } from 'node:fs';
@@ -12,7 +12,7 @@ import { PLAYABLE } from './states';
 const READY_TIMEOUT_MS = 60_000;
 const { values, positionals } = parseArgs({
   allowPositionals: true,
-  options: { states: { type: 'string' }, cols: { type: 'string' }, size: { type: 'string' }, out: { type: 'string' }, suffix: { type: 'string' } },
+  options: { states: { type: 'string' }, cols: { type: 'string' }, size: { type: 'string' }, views: { type: 'string' }, out: { type: 'string' }, suffix: { type: 'string' } },
 });
 const heroes = positionals.length > 0 ? positionals : PLAYABLE;
 const dir = resolve(values.out ?? 'out/anim');
@@ -28,7 +28,7 @@ try {
   page.on('console', (msg) => msg.type() === 'error' && console.error(`[page] ${msg.text()}`));
   for (const hero of heroes) {
     const q = new URLSearchParams({ hero });
-    for (const k of ['states', 'cols', 'size'] as const) if (values[k]) q.set(k, values[k]);
+    for (const k of ['states', 'cols', 'size', 'views'] as const) if (values[k]) q.set(k, values[k]);
     await page.goto(`${base}tests/anim/sheet.html?${q}`);
     await page.waitForFunction('window.__sheetReady === true', null, { timeout: READY_TIMEOUT_MS });
     const png = `${dir}/${hero}${values.suffix ?? ''}.png`;
