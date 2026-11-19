@@ -82,13 +82,14 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
     };
     /** The captured press still has its up, click and auxiliary events to come (side buttons navigate history): eat them. */
     const drainMouse = (): void => {
-      for (const t of NAV_EVENTS) window.addEventListener(t, swallow, true);
       const stop = (): void => {
         for (const t of NAV_EVENTS) window.removeEventListener(t, swallow, true);
         window.removeEventListener('mouseup', later, true);
       };
       const later = (): void => void setTimeout(stop, 0);
+      // Registered first so it still runs after the swallowing listener stops propagation.
       window.addEventListener('mouseup', later, true);
+      for (const t of NAV_EVENTS) window.addEventListener(t, swallow, true);
       setTimeout(stop, MOUSE_DRAIN_MS);
     };
     const finish = (code: string): void => {
