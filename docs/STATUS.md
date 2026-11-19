@@ -568,7 +568,7 @@ one-tick dash stall from fresh seats); wall slam with `onWall` and 'wallSlam'; '
 fix), 14,840 and 15,011 ticks/s = 0.067 ms/tick (stub bots). New tests: src/sim/combat/followups.test.ts (10),
 src/sim/abilities/followups.test.ts (10), 8 new in src/sim/physics/controller.test.ts (rest on flat ground, after
 stopping, on the ramp and on 'main'; displace distance; wall slam fast and slow; teleport yaw; mode flags; target dash;
-pitched and flat aim dashes; units displaced, slammed, dashed, attached). Three W2 physics tolerances loosened from
+pitched and flat aim dashes; units displaced, slammed, dashed, attached). Two W2 physics tolerances loosened from
 0.5 mm to 5 mm (vine shimmy x, toboggan distance): Rapier sub-millimetre noise, not behaviour.
 **Blocked:** nothing.
 **Interface requests:** Architect (W3.5) — `DashEffect.maxPitchUpDeg` (or `followPitch`), so the 30° Plunge clamp is
