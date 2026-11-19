@@ -592,3 +592,23 @@ edit the suite.
 **Interface requests:** none. Pod hit radius is 1 m (GDD gives none): bullets leave the muzzle, not the camera, so a
 crosshair-centred shot at 6 m passes ~0.75 m from the pod.
 **Next:** wave 4: bounties, comeback, levels, Molts, AP, flex slots, shop and items. `data/items.ts` untouched.
+### W3 · Camera & Input · 19/11/2026
+**Done:** `src/client/input`: pointer lock (click, and a re-request on resume), mouse look (0.06 deg/count, aim multiplier,
+invert Y), WASD axes, every GDD §3.1 action as a `Button` bit, Alt+1-4 upgrade intents, crouch toggle, UI actions
+(pause always reported, even disabled; shop/scoreboard/big map down and up), press latch (a tap between steps is
+`pressed` once, `held` is exact), `DEFAULT_BINDINGS`, `rebind()` (swaps on conflict), `setPingResolver()` (tap of the ping
+button). `src/client/camera`: the player camera is `aimRay` plus eased parts (shoulder blend 0.15 s, crouch 0.12 s),
+sphere-cast pull-in on the map's solid primitives (`collide.ts`, snaps in, eases out at 6 m/s, min boom 0.6, moves along
+the aim ray so the crosshair stays honest), dash FOV kick, death camera (orbit and rise, cross-fade back), overview and top
+kept, `rayWorldPoint()` for pings.
+**Verified:** `npm run check` PASS (typecheck, lint, test, sim, e2e). New: input.test.ts (16), camera.test.ts (10): pose
+equals `aimRay` at rest for both shoulders and three looks; pull-in, recovery rate, min boom; ramps; dash kick; death cam.
+Playtest `out/playtest-cam.ts` (not committed): vite server, `?scene=lane&hero=shrike`, click (1280x720), hold KeyW 1 s,
+hold ShiftLeft 150 ms, screenshots before/dash/after; `pointerLockElement` was set and the view moved down the lane.
+**Blocked:** nothing.
+**Interface requests:** App — (1) call `input.setLook` on `hero.respawned` for the human (nothing else sets it);
+(2) wire pings: `input.setPingResolver(() => ...)` using `rayWorldPoint(map, ray.origin, ray.dir, range, ray.start)` and
+choose the kind; `createInput` now returns `Input` (an `InputController` plus that method). Architect — aim zoom (RMB, FOV
+x0.8, Owl x0.5) needs an aim flag or hero zoom reachable by the camera; not done. Renderer — hero fade under 1 m camera
+distance (GDD §4.1) is not signalled by the camera.
+**Next:** Updraft boost and sprint FOV, auto shoulder swap, ping wheel (UI), the aim zoom once the flag exists.

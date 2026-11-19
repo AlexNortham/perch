@@ -650,3 +650,12 @@ a muzzle-offset bullet misses a smaller orb at lane range.
 ### D-ECON-002 · 19/11/2026 — Passive income lands in wave 3
 **Decision:** 1 Seed per second per hero from 0:30 (GDD §8.4, marked assumed), paid as `seeds.gained` reason 'passive'.
 **Why:** tiny, and net-worth curves are otherwise flat until bounties exist in wave 4.
+### D-CAM-001 · 19/11/2026 — Pull-in moves the camera along the aim ray; ramps are wedges
+**Decision:** collision pull-in shifts the camera along the aim ray's own direction by the amount the pivot-to-camera
+sphere cast is blocked, rather than along the pivot-to-camera line; ramps are tested as wedges, not boxes.
+**Why:** the crosshair then always points along the sim's aim ray. Ramp boxes would contain the hero standing on the slope.
+
+### D-CAM-002 · 19/11/2026 — Resume re-locks the pointer both ways
+**Decision:** `setEnabled(true)` requests the pointer lock (works when resume came from a click) and a click on the
+stage re-locks if the browser refused. Esc is reported once whether it arrives as a keydown, a lock loss or both.
+**Why:** Esc releases the lock, and a request without a user gesture is refused.
