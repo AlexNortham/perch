@@ -1544,3 +1544,10 @@ always-on, as with the vitest suites. They also set `actionTimeout: 8_000`, so a
 pickup, and `sandbox:` stat sources for conditions such as `eggCarrier` and `grounded`.
 **Why:** the rules live in world, combat, economy and physics together; a unit stub of one system would pass while
 the pipeline is broken.
+
+### D-ECON-A-001 · 19/11/2026 — Item behaviour data cannot say is a `Rider`, run by sim/items
+**Decision:** non-hero and long-range gun bonuses, Skipping Stone's bounce, heavy-melee slows and Carrion Feast's heal are data rows (`Rider`, items-kit.ts) that `items/riders.ts` runs as proc damage (resist-corrected so it adds the stated share). **Why:** the frozen contracts have no per-target gun bonus. **Consequence:** the extra is a separate hit (via `item`), not the weapon hit itself.
+### D-ECON-A-002 · 19/11/2026 — Item shields and auras are engine grants
+**Decision:** shields come from `ITEM_SHIELDS` on buy and respawn (the difference when upgrading); auras are `ItemDef.aura` areas the engine despawns on sale or death. **Why:** no removal API for shields. **Consequence:** a sold shield lasts until the holder's next death.
+### D-ECON-A-003 · 19/11/2026 — The starter score table is the GDD 11.4 prior
+**Decision:** `STARTER_SCORES` gives each of 24 heroes base 1.0 minus 0.05 per list place, 0.2 off the list, +0.3 component synergy, +0.3 in the archetype core for the phase; situational picks stay in data/ai. **Why:** D-EP-036; the Build Lab replaces it in W6.
