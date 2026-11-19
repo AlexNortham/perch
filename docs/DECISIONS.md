@@ -1544,3 +1544,28 @@ always-on, as with the vitest suites. They also set `actionTimeout: 8_000`, so a
 pickup, and `sandbox:` stat sources for conditions such as `eggCarrier` and `grounded`.
 **Why:** the rules live in world, combat, economy and physics together; a unit stub of one system would pass while
 the pipeline is broken.
+### D-HEROA-004 · 19/11/2026 — A3 kits: values-gated hooks where a tier cannot add into a nested effect
+**Decision:** a tier can only add to named values, append effects or change cooldown, charges and range. Where a number
+lives inside an effect a tier cannot reach (a dash's `onHit`, a tether's break distance, a projectile's per-hero hit
+count), the data emits a `hook` effect or the cast hook builds the effect, and the hook reads the tier's value from
+`cause.values` or the tier from `cast.tier`: Slipstream `pass`, Wing Scythe `stun`, Sky Stitch `slam`, Hundred Eyes
+`darts` and `mark`, Nectar Sip (break distance 12 m, 16 m from T2; slow from T3). Nothing that can be an area, status or
+value is a hook.
+**Why:** keeps tiers as data (the validator and the HUD read them) without a new contract field, and never applies a
+zero-strength status (D-HEROB-001).
+
+### D-HEROA-005 · 19/11/2026 — Strut's "next ability" and Pick the Bones' healing
+**Decision:** Strut applies a movement buff plus an empty marker status. The next landed cast of another slot removes
+the marker and gives +25% Song damage for 0.8 s (damage resolves in the damage phase and projectiles land later, so
+the bonus must outlast the cast). Pick the Bones heals through a Song lifesteal of 50% that lasts one tick, applied
+just before the cone.
+**Why:** both use the real pipeline (resists, heal reduction, credit) and need no damage-event listener. Ceiling: two
+casts inside 0.8 s both get the Strut bonus; any other Song damage the same tick also heals.
+
+### D-HEROA-006 · 19/11/2026 — Hummingbird's Hover is a hook on vertical speed
+**Decision:** while Jump is held in the air after the climb (vertical speed at or below 0), no movement mode, dash, knock-up,
+climb or ride, with a 1.5 s budget that refills on landing, the hook sets vertical speed to half a gravity step so the
+controller's exact integration nets zero. Thousand Beats raises Dart's maximum by 2 with `abilityCharges`, and a delayed
+double refund fills the slots, because a refund of a full ability does nothing.
+**Why:** `MovementModeEffect.endOn` (W5 Controller) is not in this tree, and a `hover` mode would need a hook to end it
+anyway.
