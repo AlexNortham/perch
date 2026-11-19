@@ -1,6 +1,7 @@
 /** Pure view-to-display mapping for the HUD (unit tested); no DOM here. */
 import type { HeroView } from '../../sim/core/contracts';
 import type { AbilitySlotState } from '../../sim/core/contracts/entity';
+import { AP_COSTS, UNLOCK_LEVELS } from '../../sim/data/abilities';
 import { TICK_RATE } from '../../sim/data/core';
 import { DECIMAL_COOLDOWN_BELOW_S, MAX_TIER } from './constants';
 import type { HitKind } from './constants';
@@ -35,7 +36,7 @@ export function abilityDisplay(slot: Readonly<AbilitySlotState>, maxCharges: num
     sweep: slot.unlocked ? sweep : 0,
     charges: maxCharges > 1 ? String(slot.charges) : '',
     tier: slot.tier,
-    canUpgrade: slot.unlocked && ap > 0 && slot.tier < MAX_TIER,
+    canUpgrade: slot.unlocked && slot.tier < MAX_TIER && ap >= (AP_COSTS[slot.tier] ?? Infinity),
   };
 }
 
@@ -79,6 +80,8 @@ const KEY_NAMES: Readonly<Record<string, string>> = {
   Mouse0: 'LMB',
   Mouse1: 'MMB',
   Mouse2: 'RMB',
+  Mouse3: 'M4',
+  Mouse4: 'M5',
   ShiftLeft: 'Shift',
   ControlLeft: 'Ctrl',
   AltLeft: 'Alt',

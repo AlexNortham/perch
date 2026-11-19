@@ -1,6 +1,6 @@
 /** Presentation constants for the UI (D-EP-009). Colours are GDD §12 / §14. */
 import type { Archetype, PlayerTeam } from '../../sim/core/contracts';
-import { ALLY_TEAL, DAWN_COLOURS, DUSK_COLOURS, ENEMY_RED } from '../render/palette';
+import { ALLY_TEAL, DAWN_COLOURS, DUSK_COLOURS, ENEMY_RED } from '../app/palette';
 
 export const hex = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;
 
@@ -35,6 +35,34 @@ export const POD_BANNER_MS = 1400;
 export const DECIMAL_COOLDOWN_BELOW_S = 10;
 /** Upgrade tiers per ability (GDD §6). */
 export const MAX_TIER = 3;
+
+/** Shop and inventory (GDD §8.7, §8.8). The sim's Items system is the authority; these only label the previews. */
+export const BASE_ITEM_SLOTS = 12;
+export const MAX_FLEX_SLOTS = 4;
+export const SELL_REFUND_FRACTION = 0.5;
+export const FULL_REFUND_FRACTION = 1;
+/** Minimap: last-seen enemy ghosts fade over this many seconds (GDD §12.5). */
+export const GHOST_FADE_S = 6;
+export const MINIMAP_SIZE = { width: 220, height: 254 } as const;
+/** Big map height as a share of the screen (GDD §12.5). */
+export const BIG_MAP_SCREEN_SHARE = 0.7;
+/** Kill feed: lines kept and seconds each is shown (GDD §12.8). */
+export const FEED_LINES = 5;
+export const FEED_S = 6;
+export const FEED_OBJECTIVE_S = 8;
+/** World pings last this long (GDD §12.5). */
+export const PING_S = 6;
+/** Damage numbers drift up this many metres over this many seconds; hits on one target within MERGE_S merge. */
+export const DAMAGE_NUMBER_RISE_M = 0.6;
+export const DAMAGE_NUMBER_S = 0.8;
+export const DAMAGE_NUMBER_MERGE_S = 0.15;
+/** Heavy melee hold time to charge (sim/data/combat melee.heavyHoldS) is read from the sim data, not repeated here. */
+export const ITEM_CATEGORY_CSS = { talon: '#ff8a3d', plumage: '#4fcf6a', song: '#a97bff' } as const;
+export const NUMBER_CSS = { talon: '#ffffff', song: '#c9a6ff', beak: '#ffd24a', weak: '#ff9a2e', shield: '#9aa3ad' } as const;
+/** Wedge colours for the ping kinds. */
+export const PING_CSS = { attack: '#ff4a4a', take: '#ffd24a', defend: '#3ddcb4', goHere: '#ffffff', danger: '#ff8a3d', onMyWay: '#7fd6ff', retreat: '#b0b0ff', needHelp: '#ff6ab0' } as const;
+export const PING_LABEL = { attack: 'Attack', take: 'Take', defend: 'Defend', goHere: 'Go here', danger: 'Danger', onMyWay: 'On my way', retreat: 'Retreat', needHelp: 'Need help' } as const;
+export const WHEEL_PINGS = ['danger', 'onMyWay', 'retreat', 'needHelp'] as const;
 
 export const ARCHETYPE_LABEL: Readonly<Record<Archetype, string>> = {
   gunCarry: 'Gun Carry',

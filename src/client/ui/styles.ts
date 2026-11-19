@@ -108,6 +108,7 @@ export const OPTIONS_STYLES = `
 .pu-val{width:52px;text-align:right;font-variant-numeric:tabular-nums}
 .pu-seg{display:flex;gap:6px}
 .pu-seg .pu-btn{padding:5px 14px;font-size:14px}
+.pu-bind-warn{margin:-2px 0 4px;padding:4px 8px;font-size:12px;color:${BEAK_CSS};border-left:3px solid ${BEAK_CSS};background:rgba(255,210,74,.08)}
 .pu-btnrow{display:flex;gap:16px}
 .pu-btn.on{background:${TEAM_CSS.dawn};color:#1a1204;border-color:${TEAM_CSS.dawn}}
 `;

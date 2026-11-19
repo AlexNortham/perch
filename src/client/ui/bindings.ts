@@ -1,6 +1,6 @@
 /** Pure key-binding helpers for the Options screen: readable names, capture, swap on conflict, reset. */
 import type { BindAction, Bindings } from '../app/contracts';
-import { rebind as swapBindings } from '../input';
+import { rebind as swapBindings } from '../app/bindings';
 
 /** Player-facing action names, in the order the Controls list shows them. */
 export const ACTION_LABELS: Readonly<Record<BindAction, string>> = {
@@ -14,7 +14,7 @@ export const ACTION_LABELS: Readonly<Record<BindAction, string>> = {
   fire: 'Fire',
   aim: 'Aim',
   reload: 'Reload',
-  melee: 'Melee',
+  melee: 'Melee (tap light, hold heavy)',
   parry: 'Parry',
   ability1: 'Ability 1',
   ability2: 'Ability 2',
@@ -81,6 +81,39 @@ export function capture(bindings: Bindings, action: BindAction, code: string): R
 /** Reset one action to its default key (swapping with whoever holds it now). */
 export const resetAction = (bindings: Bindings, action: BindAction, defaults: Bindings): RebindResult =>
   rebind(bindings, action, defaults[action]);
+
+const MODIFIER_CODES: readonly string[] = ['ControlLeft', 'ControlRight', 'MetaLeft', 'MetaRight'];
+/** Keys that Ctrl/Meta turn into a browser shortcut (close tab, new tab or window, quit, reload, switch tab). */
+const RESERVED_WITH_MODIFIER: readonly string[] = ['KeyW', 'KeyT', 'KeyN', 'KeyQ', 'KeyR', 'Tab'];
+
+export interface ChordWarning {
+  /** The action bound to Ctrl or Meta. */
+  readonly action: BindAction;
+  /** The actions whose keys form a reserved browser chord with it, with their key names ("Ctrl + W"). */
+  readonly chords: readonly string[];
+}
+
+/** Bindings that can make a reserved browser chord while the modifier action is held. Never blocks the binding. */
+export function chordWarnings(bindings: Bindings): ChordWarning[] {
+  const out: ChordWarning[] = [];
+  for (const action of ACTIONS) {
+    const mod = bindings[action];
+    if (!MODIFIER_CODES.includes(mod)) continue;
+    const chords = ACTIONS.filter((a) => a !== action && RESERVED_WITH_MODIFIER.includes(bindings[a])).map(
+      (a) => `${keyName(mod)} + ${keyName(bindings[a])}`,
+    );
+    if (chords.length > 0) out.push({ action, chords });
+  }
+  return out;
+}
+
+/** True where the Keyboard Lock API exists (Chrome, Edge); the input module uses it in fullscreen. */
+export const canLockKeyboard = (nav: object = navigator): boolean =>
+  typeof (nav as { keyboard?: { lock?: unknown } }).keyboard?.lock === 'function';
+
+/** The note under a binding that forms a reserved chord, matched to the current browser. */
+export const chordNote = (lockable: boolean): string =>
+  lockable ? 'Works in fullscreen in Chrome and Edge.' : 'In Firefox this combination closes the tab.';
 
 /** One-line description of a rebind for the status line. */
 export function describeRebind(action: BindAction, code: string, swapped: BindAction | null, bindings: Bindings): string {
