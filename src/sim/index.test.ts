@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Button, HERO_IDS, IDLE_COMMAND, RETIRED_BUTTONS, ViewFlag } from './core/contracts';
-import type { HeroCommand, Sim } from './core/contracts';
+import type { HeroCommand, RosterSlot, Sim } from './core/contracts';
 import { allBotRoster, createSim, humanRoster } from './index';
 
 async function run(seed: number, ticks: number, drive?: (sim: Sim) => HeroCommand[]): Promise<Sim> {
@@ -49,6 +49,24 @@ describe('createSim', () => {
       }),
     ).rejects.toThrow(/twice/);
     await expect(createSim({ seed: 1.5, roster: [] })).rejects.toThrow(/integer/);
+  });
+
+  it('practiceStart puts the Practice Hub player there, facing its yaw; the training targets stay (D-ARCH-026)', async () => {
+    const roster: RosterSlot[] = [
+      { team: 'dawn', hero: 'swan', controller: 'human' },
+      { team: 'dusk', hero: 'shrike', controller: 'dummy' },
+    ];
+    const options = { practiceHub: true, waves: false, neutrals: false, structures: false };
+    const practiceStart = { pos: { x: 5, y: 0, z: 7 }, yaw: 1 };
+    const plain = await createSim({ seed: 1, map: 'arena', roster, options });
+    const moved = await createSim({ seed: 1, map: 'arena', roster, options: { ...options, practiceStart } });
+    moved.step([]);
+    const [me, dummy] = moved.ctx.store.list('hero');
+    expect([me?.pos.x, me?.pos.z, me?.yaw]).toEqual([5, 7, 1]);
+    expect(dummy?.pos).toEqual(plain.ctx.store.list('hero')[1]?.pos);
+    await expect(createSim({ seed: 1, map: 'arena', roster, options: { practiceStart } })).rejects.toThrow(/practiceHub/);
+    const nan = { ...practiceStart, yaw: Number.NaN };
+    await expect(createSim({ seed: 1, map: 'arena', roster, options: { ...options, practiceStart: nan } })).rejects.toThrow(/finite/);
   });
 
   it('latches commands: look, shoulder swap, one-shot fields cleared when not refreshed', async () => {

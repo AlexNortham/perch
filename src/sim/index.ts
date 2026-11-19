@@ -114,6 +114,10 @@ function resolveConfig(c: SimConfig): ResolvedSimConfig {
     if (++perTeam[r.team] > TEAM_SIZE) throw new Error(`createSim: more than ${TEAM_SIZE} heroes on ${r.team}`);
     if (r.controller === 'human' && ++humans > 1) throw new Error('createSim: more than one human');
   }
+  const start = c.options?.practiceStart;
+  if (start && (!c.options?.practiceHub || !isFiniteVec(start.pos) || !Number.isFinite(start.yaw))) {
+    throw new Error('createSim: practiceStart needs practiceHub and a finite position and yaw');
+  }
   const waves = c.options?.waves ?? map === 'main';
   return {
     seed: c.seed,
@@ -122,6 +126,7 @@ function resolveConfig(c: SimConfig): ResolvedSimConfig {
     options: {
       waves,
       practiceHub: c.options?.practiceHub ?? false,
+      ...(start && { practiceStart: { pos: copy(start.pos), yaw: start.yaw } }),
       structures: c.options?.structures ?? (map === 'main' && c.options?.waves === undefined && c.roster.length > 0),
       neutrals: c.options?.neutrals ?? waves,
       unlockAbilities: c.options?.unlockAbilities ?? false,
@@ -147,18 +152,20 @@ function spawnHero(ctx: SimContext, slot: number, r: RosterSlot, indexInTeam: nu
     pos: { x: humanSpawn.pos.x + (r.team === 'dawn' ? -1 : 1) * TRAINING_TARGET.side, y: humanSpawn.pos.y, z: humanSpawn.pos.z + TRAINING_TARGET.ahead },
     hp: stats.final.maxHealth * (r.team === 'dawn' ? TRAINING_TARGET.alliedHpFraction : 1),
   } : undefined;
+  const start = r.controller === 'human' ? ctx.config.options.practiceStart : undefined;
+  const yaw = start?.yaw ?? anchor.yaw;
   const [a1, a2, a3, a4] = def.abilities;
   return ctx.store.spawn({
     kind: 'hero',
     team: r.team,
-    pos: copy(training?.pos ?? anchor.pos),
+    pos: copy(training?.pos ?? start?.pos ?? anchor.pos),
     vel: vec3(),
-    yaw: anchor.yaw,
+    yaw,
     radius: def.body.radius,
     hero: { heroId: r.hero, slot, controller: r.controller, ...(training && { training }) },
     pitch: 0,
     shoulder: 1,
-    command: { ...IDLE_COMMAND, yaw: anchor.yaw },
+    command: { ...IDLE_COMMAND, yaw },
     health: {
       hp: training?.hp ?? stats.final.maxHealth,
       talonShield: 0,
