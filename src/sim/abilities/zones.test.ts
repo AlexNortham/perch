@@ -146,16 +146,23 @@ describe('area effects', () => {
     expect(t.ctx.store.list('area')).toHaveLength(0);
   });
 
-  it('a moving area travels along its direction and carries what it reaches', () => {
+  it('a moving area travels along its direction and launches what it reaches once, up to maxCarry or its travel left', () => {
     const { t, foe, cause } = arena({ x: 0, y: 0, z: 6 });
     const wave = zone({ shape: { kind: 'box', size: { x: 16, y: 4, z: 2 } }, durationS: 1, move: { speed: 12, carry: true }, effects: [] });
     t.ctx.effects.apply(wave, at({ x: 0, y: 0, z: 5 }), cause);
     t.step(5);
     expect(t.ctx.store.list('area')[0]?.pos.z).toBeCloseTo(6);
+    // Physics adds each push to the velocity, so a push per tick would stack: one launch per entity.
     const carried = t.of('displace');
-    expect(carried).toHaveLength(5);
-    expect(carried[0]?.effect).toEqual({ kind: 'displace', mode: 'along', distance: 0.2 });
-    expect(carried.every((a) => a.target.entity === foe.id && a.target.dir.z === 1)).toBe(true);
+    expect(carried).toHaveLength(1);
+    expect(carried[0]?.effect).toMatchObject({ kind: 'displace', mode: 'along' });
+    expect((carried[0]?.effect as { distance: number }).distance).toBeCloseTo(12 * (59 / 60), 5); // the travel left
+    expect(carried[0]?.target).toMatchObject({ entity: foe.id, dir: { z: 1 } });
+
+    const capped = arena({ x: 0, y: 0, z: 6 });
+    capped.t.ctx.effects.apply({ ...wave, move: { speed: 12, carry: true, maxCarry: 3 } }, at({ x: 0, y: 0, z: 5 }), capped.cause);
+    capped.t.step(5);
+    expect(capped.t.of('displace').map((a) => a.effect)).toEqual([{ kind: 'displace', mode: 'along', distance: 3 }]);
   });
 
   it('a lasting area from an ability scales with abilityDuration', () => {

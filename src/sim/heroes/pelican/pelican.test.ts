@@ -142,6 +142,16 @@ describe('Pelican', () => {
       sb.step(TICK_RATE * 7);
       expect(sb.ctx.stats.get(me, 'fireRate')).toBe(0); // 8 s
     });
+
+    it('T3 shreds through an Items weaponHit trigger: a fledgling hit does not shred', async () => {
+      const { sb, me } = await setup([], [0, 3, 0, 0]);
+      const unit = sb.dummy({ kind: 'unit', type: 'scrapper', team: 'dusk', at: AT(8), hp: 5000 });
+      sb.cast(me, 1);
+      sb.step(2);
+      shoot(sb, me, unit, TICK_RATE);
+      expect(hitsOn(sb, me, unit).length).toBeGreaterThan(0);
+      expect(sb.ctx.stats.get(unit, 'talonShred')).toBe(0);
+    });
   });
 
   describe('Belly Flop', () => {

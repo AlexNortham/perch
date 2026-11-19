@@ -178,18 +178,18 @@ describe('Puffin', () => {
       sb.step(TICK_RATE * 2);
       const hits = abilityHits(sb, me, hit, 'puffin.rogueWave');
       expect(hits.length).toBeGreaterThanOrEqual(1);
-      if (process.env.PERCH_PENDING === '1') expect(hits).toHaveLength(1); // Abilities: onEnter must not repeat once the carry is capped
+      expect(hits).toHaveLength(1); // onEnter does not repeat: the carried target rides inside the wave (D-ABIL-011)
       expect([hits[0]?.damageType, hits[0]?.amount]).toEqual(['song', expect.closeTo(160, 0)]);
       expect(abilityHits(sb, me, side, 'puffin.rogueWave')).toHaveLength(0);
     });
 
-    it('carries the enemy with it (Abilities maxCarry, 12 m cap): run with PERCH_PENDING=1 until it lands', async () => {
+    it('carries the enemy with it, at most 12 m (Abilities maxCarry)', async () => {
       const { sb, me, rest } = await setup([{ hero: 'pelican', at: AT(0, 12), team: 'dusk' }]);
       const foe = rest[0] as EntityId;
       sb.cast(me, 3, AT(0, 30));
       sb.step(TICK_RATE * 2);
       expect(sb.hero(foe).pos.z).toBeGreaterThan(12); // carried by displace along the wave at least a little
-      if (process.env.PERCH_PENDING === '1') expect(sb.hero(foe).pos.z - 12).toBeLessThanOrEqual(12.5);
+      expect(sb.hero(foe).pos.z - 12).toBeLessThanOrEqual(12.5);
     });
 
     it('T1 22 m wide, T2 220 damage, T3 wet ground slows 30%', async () => {

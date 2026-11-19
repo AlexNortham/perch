@@ -13,7 +13,8 @@
  * origin is the muzzle point. `cooldownMod` always changes the cause's source's cooldowns.
  *
  * A cast: press → checks (unlocked, a charge, not stunned, silenced, egg-carrying or casting, no movement mode that
- * forbids abilities; rooted or grounded block casts that move the caster) → `ability` start → castS wind-up (stun or
+ * forbids abilities; rooted or grounded block casts that move the caster, but rooted not one that cleanses the root
+ * itself) → `ability` start → castS wind-up (stun or
  * silence interrupts it and nothing is spent) → land: effects, selfEffects, then the hook's onCast, then a charge is
  * spent and its cooldown starts (so cooldownMod in the cast's own effects reaches only the other slots) → `ability`
  * land → optional channel with channelEffects every channelIntervalS, ended by its duration ('end'), a second press
@@ -331,7 +332,7 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
     if (!slot || !r || !slot.unlocked || slot.charges < 1 || clock.tick < (hs.lockUntil[i] ?? 0)) return;
     // A movement mode that forbids abilities (Burrow) blocks new casts, not the re-press that ends a channel (D-ARCH-016).
     if (h.motor.modeAllowsAbilities === false) return;
-    if (blocked(h.id) || (r.movement && (stats.has(h.id, 'rooted') || stats.has(h.id, 'grounded')))) return;
+    if (blocked(h.id) || (r.movement && ((stats.has(h.id, 'rooted') && !r.unroots) || stats.has(h.id, 'grounded')))) return;
     const origin = muzzlePoint(h.pos, h.yaw, hs.def.body, h.motor.crouching);
     const target = pickTarget(hs, r, origin);
     if (!target) return;

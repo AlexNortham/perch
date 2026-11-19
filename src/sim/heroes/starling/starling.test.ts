@@ -5,7 +5,7 @@ import { createSandbox } from '../../../../tests/helpers/sandbox';
 import type { Sandbox } from '../../../../tests/helpers/sandbox';
 import { TICK_RATE } from '../../data/core';
 import { validateKit } from '../../abilities/kit';
-import { SLOW } from '../../data/combat';
+import { ROOT, SLOW } from '../../data/combat';
 import { starlingDef } from '../../data/heroes/starling';
 import { starling } from './index';
 
@@ -115,8 +115,15 @@ describe('Starling', () => {
   });
 
   describe('Scatter', () => {
-    it('names slows and roots in its cleanse (a rooted hero cannot cast a movement ability: INTERFACES request)', () => {
+    it('casts while rooted, lifts the root and travels (GDD §9.8: removes slows and roots on cast)', async () => {
       expect(starlingDef.abilities[2].effects[0]).toMatchObject({ kind: 'cleanse', remove: ['slow', 'root'] });
+      const { sb, me, foe } = await setup([{ hero: FOE, at: AT(20, 6) }]);
+      sb.apply({ kind: 'applyStatus', status: ROOT, durationS: 5 }, me, sb.cause(foe));
+      expect(sb.ctx.stats.has(me, 'rooted')).toBe(true);
+      sb.cast(me, 2, AT(20));
+      sb.step(TICK_RATE * 1.2);
+      expect(sb.ctx.stats.has(me, 'rooted')).toBe(false);
+      expect(sb.entity(me).pos.z).toBeGreaterThan(10);
     });
 
     it('is intangible for 1 s, travels 12 m through a hero and lifts a slow', async () => {

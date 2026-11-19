@@ -1116,6 +1116,11 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
       }
       return;
     }
+    if (mode.kind === 'glide' && canMove && (h.command.pressed & Button.Jump) !== 0) {
+      // GDD §9.5: Space ends a glide (no hop: the hero falls from there).
+      endMode(h);
+      return;
+    }
     const f = lookDir(h.yaw, h.pitch);
     switch (mode.kind) {
       case 'cling':
@@ -1153,8 +1158,11 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     D.x = v.x * dt;
     D.z = v.z * dt;
     const r = move(h);
+    const wasGrounded = h.motor.grounded;
     settle(h, s, r, v.y > 0);
-    if (mode.onCollide.length > 0) touch(h, mode.cause, mode.hit, mode.onCollide, { x: v.x, y: 0, z: v.z });
+    // GDD §9.5: a glide also ends on landing.
+    if (mode.kind === 'glide' && h.motor.grounded && !wasGrounded) endMode(h);
+    else if (mode.onCollide.length > 0) touch(h, mode.cause, mode.hit, mode.onCollide, { x: v.x, y: 0, z: v.z });
   };
 
   const followCarrier = (h: HeroEntity, s: HeroState, a: Attach): void => {

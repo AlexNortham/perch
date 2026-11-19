@@ -1,16 +1,14 @@
 /**
  * Penguin's hooks: only what data can't say yet.
  * - Toboggan: each enemy touched is knocked 4 m to the side of the slide (or up 0.5 s at T3), once, by the movement mode's
- *   onCollide. Space ends the slide with a 1.2 m hop that carries the speed on.
+ *   onCollide. Space's hop out of the slide is Physics' (the toboggan movement mode), not a hook.
  * - Emperor's March: heroes you touch while it lasts go up and take damage once each; when it ends, the slam.
  */
-import { Button } from '../../core/contracts';
 import type { EffectCause, EffectTarget, EntityId, HeroEntity, HeroModule, Tick, Vec3 } from '../../core/contracts';
 import { STUN } from '../../data/combat';
 import { TICK_RATE } from '../../data/core';
-import { MARCH, penguinDef, TOBOGGAN, TOBOGGAN_ASIDE_M, TOBOGGAN_HIT_HOOK, TOBOGGAN_KNOCK_UP_M } from '../../data/heroes/penguin';
+import { MARCH, penguinDef, TOBOGGAN_ASIDE_M, TOBOGGAN_HIT_HOOK, TOBOGGAN_KNOCK_UP_M } from '../../data/heroes/penguin';
 
-const TOBOGGAN_ABILITY = 'penguin.toboggan';
 const MARCH_ABILITY = 'penguin.emperorsMarch';
 /** Touch reach beyond the two bodies (m). */
 const TOUCH_MARGIN = 0.3;
@@ -77,19 +75,6 @@ export const penguin: HeroModule = {
         });
       },
       onTick(hero) {
-        // Space ends the slide: a 1.2 m hop forward that keeps the speed for a moment.
-        if (hero.motor.mode === 'toboggan' && (hero.command.pressed & Button.Jump) !== 0) {
-          const cause: EffectCause = {
-            source: hero.id, team: hero.team, via: 'ability', ability: TOBOGGAN_ABILITY, item: null, values: null, songPower: 0, proc: false, origin: { ...hero.pos },
-          };
-          // A one-tick hover replaces the slide (its onEnd runs), then the dash carries the hero on.
-          ctx.effects.apply({ kind: 'movementMode', mode: 'hover', durationS: 0.01, speed: 0, verticalSpeed: 0, allowGun: true, allowAbilities: true }, at(hero), cause);
-          ctx.effects.apply(
-            { kind: 'dash', distance: TOBOGGAN.speed * TOBOGGAN.hopCarryS, durationS: TOBOGGAN.hopCarryS, dir: 'aim', arcHeight: TOBOGGAN.hopHeight, maxPitchUpDeg: 0 },
-            at(hero),
-            cause,
-          );
-        }
         const m = marches.get(hero.id);
         if (!m) return;
         if (hero.health.dead) {

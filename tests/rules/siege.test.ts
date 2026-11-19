@@ -50,7 +50,7 @@ function hitsFrom(sb: Sandbox, source: EntityId, target: EntityId) {
   return sb.eventsOf('damage.applied').filter((e) => e.source === source && e.target === target);
 }
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W4 siege objectives', () => {
+describe('W4 siege objectives', () => {
   it('§7 §§6.6/16: spawns both flocks from their anchors and keeps tower bodies at least 2 m under the rider', async () => {
     const { sb } = await siege();
     const actual = sb.ctx.store.list('structure');
@@ -75,6 +75,8 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W4 siege objectives', () => {
       tower(sb, team, 'hawk', lane), tower(sb, team, 'heron', lane),
     ]);
     for (const [rider, i, next] of [[dawn, 0, 1], [dusk, -1, -2]] as const) {
+      // The live enemy towers shoot at the rider; it must survive to the far end so the ride tests clearance only.
+      sb.modify(rider, 'siege-ride', { conditions: ['invulnerable'] });
       const origin = line.stations.at(i)!;
       const toward = line.stations.at(next)!;
       sb.place(rider, origin, Math.atan2(toward.x - origin.x, toward.z - origin.z));

@@ -821,6 +821,30 @@ describe('physics-owned effects', () => {
     expect(b.h.vel.y).toBeLessThanOrEqual(0);
   });
 
+  it('a glide ends itself on landing and on Jump, running its onEnd (GDD §9.5)', async () => {
+    const b = await bench(null, { x: -20, y: 0, z: -35 });
+    const ended = vi.fn();
+    b.sim.ctx.bus.on('heal.applied', ended);
+    b.h.health.hp -= 10;
+    const glide: Effect = { kind: 'movementMode', mode: 'glide', durationS: 4, speed: 9, verticalSpeed: 2, allowGun: true, allowAbilities: true, onEnd: [{ kind: 'heal', amount: 1 }] };
+    b.place({ x: -20, y: 1, z: -35 });
+    b.apply(glide);
+    b.step(FWD, 20);
+    expect(b.h.motor.mode).toBe('glide');
+    b.step(FWD, 20);
+    expect(b.h.motor.grounded).toBe(true);
+    expect(b.h.motor.mode).toBeNull();
+    expect(ended).toHaveBeenCalledTimes(1);
+
+    b.place({ x: -20, y: 10, z: -35 });
+    b.apply(glide);
+    b.step(FWD, 5);
+    b.step({ ...FWD, pressed: Button.Jump });
+    expect(b.h.motor.mode).toBeNull();
+    expect(b.h.motor.grounded).toBe(false);
+    expect(ended).toHaveBeenCalledTimes(2);
+  });
+
   it('attach holds the target at the carrier and applies onRelease when it ends', async () => {
     const b = await bench(null, { x: 0, y: 0, z: -30 }, { x: 0, y: 0, z: -27 });
     const victim = b.other;

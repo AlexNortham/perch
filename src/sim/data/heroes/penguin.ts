@@ -16,8 +16,8 @@ export const TOBOGGAN_HIT_HOOK = 'tobogganHit';
 /** Toboggan's side knockback and the T3 knock-up (0.5 s in the air at 25 m/s² gravity: 0.78 m). */
 export const TOBOGGAN_ASIDE_M = 4;
 export const TOBOGGAN_KNOCK_UP_M = 0.78;
-/** Space ends the slide with a 1.2 m hop; you carry the speed (13 m/s) on for this long. */
-export const TOBOGGAN = { speed: 13, durationS: 3, hopHeight: 1.2, hopCarryS: 0.5 } as const;
+/** Space ends the slide with Physics' 1.2 m hop (AIR.tobogganHopApex), which keeps the slide speed. */
+export const TOBOGGAN = { speed: 13, durationS: 3 } as const;
 /** Emperor's March: touched heroes go up 1.0 s (3.125 m at 25 m/s² gravity); the slam is 6 m. */
 export const MARCH = { touchHit: 150, touchK: 1.2, knockUpM: 3.125, slamRadius: 6, slamHit: 100, slamK: 0.8 } as const;
 export const MARCH_SPEED_ID = 'penguin.march';
@@ -41,7 +41,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     range: 0,
     cooldownS: 16,
     charges: 1,
-    hook: true, // an aside knockback and the Space hop
+    hook: true, // the aside knockback
     values: { damage: 60, knockUp: 0 },
     effects: [
       {

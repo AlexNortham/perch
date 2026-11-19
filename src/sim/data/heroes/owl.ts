@@ -79,8 +79,6 @@ const glide = (durationS: Magnitude): MovementModeEffect => ({
   allowAbilities: true,
   onEnd: GLIDE_END,
 });
-/** Ends a glide at once: a one-tick replacement mode (the hook uses it for landing and Space). */
-export const GLIDE_STOP: Effect = { ...glide(0.001), speed: 0 };
 
 /** Moonlit Mark's shot: one that stops at the first hero, and (from T3) one that pierces every hero. */
 const mark = (range: Magnitude, pierce: 'units' | 'all'): Effect => ({

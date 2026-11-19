@@ -57,7 +57,7 @@ function ownShop(sb: Sandbox, team: PlayerTeam, kind: 'roost' | 'stall') {
   return sb.ctx.map.shops.find((s) => s.team === team && s.kind === kind)!;
 }
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W4 earnings and AP', () => {
+describe('W4 earnings and AP', () => {
   it('§§8.4–8.6 a Heron bounty crosses two thresholds, applies both Molts and heals the gained max HP', async () => {
     const { sb, buyer, ally, enemy } = await market(50, true);
     const h = sb.hero(buyer);
@@ -155,7 +155,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W4 earnings and AP', () => {
   });
 });
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W4 shop transactions', () => {
+describe('W4 shop transactions', () => {
   it('§§8.7–8.8 the 16-item catalogue spans four tiers and trades validate own zone, funds, ownership and uniqueness', async () => {
     const { sb, buyer, enemy } = await market(2 * ITEM_COST);
     expect(sb.sim.itemCatalogue.map((item) => item.id).sort()).toEqual([...ITEMS].sort());
