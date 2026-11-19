@@ -19,3 +19,7 @@ dummies and show their live health and feedback. The upgrade control opens a non
 the hub and live match. The player can browse all four abilities, hover or focus to see each real description,
 current tier and next upgrade, and click a valid upgrade. Show cost/unspent AP and a reason when locked or maxed.
 Provide a discoverable close action and restore playing input cleanly. Preserve rebound keyboard shortcuts.
+
+Use accessible names that also let QA exercise the real controls: an Ability Upgrades dialog, descriptions linked
+to their ability, Upgrade <ability> buttons with the unavailable reason, and Enemy dummy / Ally dummy health
+progress bars exposing current and maximum HP. Keep tooltips discoverable with keyboard focus.
