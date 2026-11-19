@@ -749,7 +749,7 @@ CPU render submission ≤ 4 ms per frame.
 | Draw calls | Limit |
 |---|---|
 | Map | ≤ 70 at Medium (merged per material in 64 × 64 m cells; was 60) |
-| Birds | ≤ 3 per bird (body and feathers, cut-out cards, gun) |
+| Birds | ≤ 3 per bird (opaque body, cut-out feather cards, gun) |
 | Fledglings and creatures | 1 per type and team (instanced) |
 | Whole frame | ≤ 240, under the existing full-match ceiling of 248 (D-QA-BROWSER-002) |
 
