@@ -1152,3 +1152,11 @@ structure type or unit type, for broken links or anchors, missing alt text, exte
 screenshot whose hash moved because another role changed a model or an ability only produces a warning.
 **Why:** a merge by another role must not turn the gate red for something only `npm run wiki` (a browser run) can fix.
 The EP regenerates the wiki at each gate.
+
+### D-EP-032 · 19/11/2026 — main is the stable release line; the studio carries on stage after stage
+**Decision:** `main`, local and on GitHub, receives only completed, gated stages; each push is a stable release for
+the user to test. Work in progress stays on integration and agent branches and is never pushed. From the Stage 3
+sign-off onwards, integration merges happen in a separate worktree, so the main checkout stays on `main` and
+`npm start` there always runs the latest stable stage. After each gate the EP starts the next stage without waiting.
+**Why:** the user's instruction: carry on with the following stages, but only push to main when a stage is complete,
+so they can test stable releases.
