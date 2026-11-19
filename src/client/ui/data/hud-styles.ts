@@ -43,6 +43,8 @@ export const HUD_STYLES = `
 .pu-mid .lead{align-self:stretch;height:${u(16)};font-size:${f(13)};font-weight:800;color:${SEEDS_CSS}}
 .pu-mid .lead[data-side=own]{text-align:left;padding-left:${u(12)}}
 .pu-mid .lead[data-side=enemy]{text-align:right;padding-right:${u(12)}}
+.pu-mid .rekindle{font-size:${f(13)};font-weight:700;color:${ALLY_CSS}}
+.pu-mid .rekindle.warn{color:${ENEMY_CSS};animation:pu-pulse .8s ease-in-out infinite}
 .pu-mid .window{font-size:${f(13)};color:${TEXT_DIM}}
 .pu-strip{display:flex;align-items:center;gap:${u(12)};padding:${u(2)} ${u(10)};background:${PANEL_BG};border-radius:${u(6)};font-size:${f(12)}}
 .pu-strip .patron{display:flex;align-items:center;gap:${u(6)}}
@@ -92,7 +94,7 @@ export const HUD_STYLES = `
 .pu-announce b{display:block;font-size:${f(36)};letter-spacing:.14em}
 .pu-announce small{display:block;font-size:${f(18)};color:${SEEDS_CSS}}
 .pu-statusword{position:absolute;left:50%;bottom:${u(190)};transform:translateX(-50%);font-size:${f(36)};font-weight:800;letter-spacing:.14em;color:#ff6a5a;text-shadow:0 2px 6px #000}
-.pu-uphint{position:absolute;left:50%;top:calc(50% + ${u(150)});transform:translateX(-50%);font-size:${f(16)};font-weight:700;color:${BEAK_CSS};text-shadow:0 1px 3px #000;white-space:nowrap}
+.pu-uphint{position:absolute;left:50%;top:calc(50% - ${u(170)});transform:translateX(-50%);font-size:${f(16)};font-weight:700;color:${BEAK_CSS};text-shadow:0 1px 3px #000;white-space:nowrap}
 
 /* Health gauge beside the bird (G03) */
 .pu-gauge{position:absolute;left:22%;top:62%;width:${u(160)};height:${u(265)}}

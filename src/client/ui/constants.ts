@@ -48,6 +48,8 @@ export const MAP_STYLE = {
   pingBase: 4,
   pingWave: 12,
   pingWrap: 8,
+  timerFont: 9,
+  timerStroke: 2.5,
   pingGrow: 1.5,
 } as const;
 const SENS = { min: 0.1, max: 5, step: 0.05 } as const;

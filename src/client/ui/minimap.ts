@@ -4,6 +4,7 @@
  */
 import { ViewFlag } from '../../sim/core/contracts';
 import type { MapData, PlayerTeam, SimView } from '../../sim/core/contracts';
+import { TICK_RATE } from '../../sim/data/core';
 import { loadMap } from '../../sim/world/map';
 import type { AppActions } from '../app/contracts';
 import { ALLY_TEAL, ENEMY_RED, LANE_COLOURS, NEUTRAL_COLOUR, TEAM_COLOURS } from '../app/palette';
@@ -144,6 +145,21 @@ export function createMapView(parent: HTMLElement, cls: string, size: () => { wi
             break;
         }
       }
+      // Rune and Thicket camp timers sit on their spots while the spot waits to respawn.
+      const timer = (pos: { x: number; y: number; z: number }, at: number | null | undefined): void => {
+        if (at === null || at === undefined || at <= view.tick) return;
+        const q = P(pos);
+        ctx.font = `bold ${MAP_STYLE.timerFont * k}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.lineWidth = MAP_STYLE.timerStroke * k;
+        ctx.strokeStyle = '#000';
+        ctx.fillStyle = '#fff';
+        const text = String(Math.ceil((at - view.tick) / TICK_RATE));
+        ctx.strokeText(text, q.x, q.y);
+        ctx.fillText(text, q.x, q.y);
+      };
+      map.runeSpots.forEach((spot, i) => timer(spot.pos, view.objectives.runeAt?.[i]));
+      map.thickets.forEach((camp, i) => timer(camp.pos, view.objectives.campAt?.[i]));
       for (const g of ghosts.update(view, team)) dot(g.pos, MAP_STYLE.ghost, hex(ENEMY_RED), '#000', g.alpha * MAP_STYLE.ghostAlpha);
       // Camera cone: the local hero's facing (yaw 0 faces +z, north).
       const meEnt = view.entities.find((e) => e.id === view.localHero);

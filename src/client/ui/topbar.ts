@@ -15,6 +15,8 @@ import { portraitFace } from './portraits';
 import type { Streaks } from './streaks';
 
 const PER_SIDE = 6;
+/** Rekindle turns red this long before it lapses. */
+const REKINDLE_WARN_S = 30;
 /** An ally under this share of max health gets the red critical tag. */
 const CRITICAL_SHARE = 0.25;
 const SIDES = ['own', 'enemy'] as const;
@@ -126,10 +128,13 @@ export function createTopBar(streaks: Streaks): TopBar {
   const pill: Record<Side, HTMLElement> = { own: makePill('own'), enemy: makePill('enemy') };
   const lead = el('lead', 'div', mid);
   const windowEl = el('window', 'div', mid);
+  const rekindleEl = el('rekindle', 'div', mid);
   const setClock = text(clockEl);
   const setPill = { own: text(pill.own), enemy: text(pill.enemy) };
   const setLead = text(lead);
   const setWindow = text(windowEl);
+  const setRekindle = text(rekindleEl);
+  const setWarn = flag(rekindleEl, 'warn');
 
   // The compact objective strip under the portraits: both Patrons with phase, and each lane's standing towers.
   const strip = el('pu-strip', 'div', root);
@@ -228,6 +233,10 @@ export function createTopBar(streaks: Streaks): TopBar {
       lead.dataset['side'] = l.side ?? '';
       setLead(l.side === null ? '' : `+${l.pct}%`);
       setWindow(nextObjective(view.objectives, view.tick) ?? '');
+      const rk = view.teams[mine].rekindle;
+      const rkLeft = rk && rk.charges > 0 ? Math.max(0, (rk.until - view.tick) / TICK_RATE) : 0;
+      setRekindle(rkLeft > 0 && rk ? `Rekindle x${rk.charges}  ${clock(rkLeft)}` : '');
+      setWarn(rkLeft > 0 && rkLeft <= REKINDLE_WARN_S);
 
       const byId = new Map<number, EntityView>();
       for (const e of view.entities) if (e.kind === 'hero') byId.set(e.id, e);
