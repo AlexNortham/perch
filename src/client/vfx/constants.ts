@@ -55,7 +55,7 @@ export const POD = {
   pulseDepth: 0.18,
   /** Gold for the side that can secure it, grey-blue for the side that can deny it. */
   secure: 0xffc83a,
-  deny: 0x7d8aa5,
+  deny: 0x7a8cd8,
   risingDim: 0.5,
 } as const;
 
