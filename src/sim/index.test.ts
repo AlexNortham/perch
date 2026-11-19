@@ -10,7 +10,8 @@ async function run(seed: number, ticks: number, drive?: (sim: Sim) => HeroComman
 }
 
 describe('createSim', () => {
-  it('is deterministic: same seed and commands give the same hash', async () => {
+  // Three 12-bot sims of 600 ticks: 0.8 s alone, but 5.5 s in a parallel `npm test` beside browser work, so 20 s.
+  it('is deterministic: same seed and commands give the same hash', { timeout: 20_000 }, async () => {
     const drive = (sim: Sim): HeroCommand[] => [
       { hero: 1, command: { ...IDLE_COMMAND, yaw: sim.tick * 0.01, pressed: sim.tick % 50 === 0 ? Button.ShoulderSwap : 0 } },
     ];
