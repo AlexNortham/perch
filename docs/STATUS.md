@@ -1771,11 +1771,12 @@ Seed values economy pays. Springs, the Cellar Run speed and carrier block are Ph
 198s` (820 unit tests, 57 e2e). New `neutrals.test.ts` (10, real map) and `interactables.test.ts` (8, fixture maps for
 Feeders, Granary, Berries, Hides, Lookouts, ivy, indoor camps, Nest classes) drive claims with `melee` events as combat
 reports them. `npm run sim -- --seed 1 --minutes 35 --bots 12` twice: `56e1571ac513c9e4` both times. **Budget (GDD
-§6.12, 0.1 ms):** a full 35-minute 12-bot match costs +0.028 and +0.032 ms/tick with neutrals on (same process,
-alternating runs); the synthetic worst case (every camp and the Roc fighting a dummy hero at once, re-aggroed every
-2 s) +0.07…0.09 ms in `world.perf.test.ts` (loose bound 0.3 for loaded machines), of which world's own parts are about
-0.04 ms (neutrals update 0.015, steer 0.005, extra vision 0.017, instrumented); the rest is combat and the spatial hash
-handling the extra entities. **PERCH_PENDING=1** on this branch alone: thickets 10/25, nests 4/13, runes 4/23,
+§6.12, 0.1 ms):** a whole 35-minute 12-bot match costs +0.028 and +0.032 ms/tick with neutrals on (two pairs of runs
+in one process). The synthetic worst case in `world.perf.test.ts` (all 16 camps and the Roc fighting a dummy hero each
+at once, re-aggroed every 2 s; both matches stepped in alternating 1 s chunks): +0.14 ms median, quartiles +0.08…+0.19,
+loose bound 0.3. World's own share of that, instrumented, is about 0.04 ms (neutrals update 0.015, steer 0.005, extra
+vision 0.017); the rest is combat, statuses, hero knockback physics and the spatial hash serving 49 fighting
+creatures, which a real match never has at once. **PERCH_PENDING=1** on this branch alone: thickets 10/25, nests 4/13, runes 4/23,
 golden-egg 4/18, roc-embers 11/18, interactables 5/31. With temporary local patches (combat's melee hit test taking
 `PickupInfo.melee` pickups, `heavyMelee` pressing Melee) the Egg and rune suites pass everything world owns except the
 disputed assertions below. No remaining failure is a world bug I know of; they wait on these:

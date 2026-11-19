@@ -11,6 +11,9 @@ const WARMUP_TICKS = 25 * 60;
 const MEASURE_TICKS = 1200;
 /** Re-aggro every camp this often while measuring, so they keep fighting instead of walking home. */
 const AGGRO_EVERY_TICKS = 120;
+/** The objectives benchmark: this many alternating chunks of this many ticks per match (25 s each in all). */
+const OBJECTIVE_CHUNKS = 25;
+const CHUNK_TICKS = 60;
 
 const cause = (h: HeroEntity): EffectCause => ({ source: h.id, team: h.team, via: 'weapon', ability: null, item: null, values: null,
   songPower: 0, proc: false, origin: { ...h.pos } });
@@ -26,18 +29,18 @@ function aggroAll(sim: Sim): void {
 }
 
 /**
- * ms per tick of a siege match at 1:25 with waves and twelve dummy heroes (which never act) standing, unkillable, 4 m
- * from a camp each and the Roc's lair; with `neutrals`, every Stage 4 objective is forced live at 1:00: every camp
- * spawned and fighting its hero (re-aggroed every 2 s), every Nest, Feeder and Berry up, both runes, the Egg and the
- * awake Roc. Dummies keep the two matches identical apart from the objectives.
+ * A siege match with waves and twelve dummy heroes (which never act) standing, unkillable, 4 m from a camp each and the
+ * Roc's lair, stepped to 1:00; with `neutrals`, every Stage 4 objective is then forced live: every camp spawned, every
+ * Nest, Feeder and Berry up, both runes, the Egg and the awake Roc. Dummies keep the two matches identical apart from
+ * the objectives. `step` re-aggroes every camp on its hero every 2 s.
  */
-async function objectives(neutrals: boolean): Promise<{ ms: number; creatures: number; breakables: number; pickups: number }> {
+async function objectives(neutrals: boolean): Promise<{ sim: Sim; step: (n: number) => void }> {
   const roster = allBotRoster(1, 12).map((s) => ({ ...s, controller: 'dummy' as const }));
   const sim = await createSim({ seed: 1, map: 'main', roster, options: { waves: true, structures: true, neutrals } });
   const o = sim.ctx.objectives;
-  const step = (n: number, aggro = false): void => {
+  const step = (n: number): void => {
     for (let i = 0; i < n; i++) {
-      if (aggro && i % AGGRO_EVERY_TICKS === 0) aggroAll(sim);
+      if (neutrals && sim.tick % AGGRO_EVERY_TICKS === 0) aggroAll(sim);
       sim.step();
       sim.drainEvents();
     }
@@ -50,23 +53,24 @@ async function objectives(neutrals: boolean): Promise<{ ms: number; creatures: n
     sim.ctx.effects.apply({ kind: 'heal', amount: 1e9 }, { entity: h.id, point, dir: { x: 0, y: 0, z: 1 } }, cause(h));
     sim.ctx.effects.apply({ kind: 'teleport', to: 'point', face: 'keep' }, { entity: h.id, point, dir: { x: 0, y: 0, z: 1 } }, cause(h));
   });
-  step(60 * 60);
+  for (let i = 0; i < 60 * 60; i++) {
+    sim.step();
+    sim.drainEvents();
+  }
   if (neutrals) {
     const now = sim.tick + 1;
     for (const at of [o.campAt, o.nestAt, o.interactableAt]) at?.fill(now);
     o.runesAt = o.eggAt = o.rocAt = now;
   }
-  step(25 * 60, neutrals);
+  step(25 * 60);
+  return { sim, step };
+}
+
+/** ms per tick of `step(n)`. (Process CPU time ticks in 15.6 ms steps on Windows, too coarse for a chunk.) */
+function chunkMs(step: (n: number) => void, n: number): number {
   const t0 = performance.now();
-  step(MEASURE_TICKS, neutrals);
-  const ms = (performance.now() - t0) / MEASURE_TICKS;
-  const units = sim.ctx.store.list('unit');
-  return {
-    ms,
-    creatures: units.filter((u) => u.team === 'neutral').length,
-    breakables: sim.ctx.store.list('structure').filter((s) => s.structure.type === 'nest').length,
-    pickups: sim.ctx.store.list('pickup').length,
-  };
+  step(n);
+  return (performance.now() - t0) / n;
 }
 
 /** ms per tick over a window after `FORCED_WAVES` waves 2 s apart (168 fledglings) have marched for 25 s. */
@@ -139,18 +143,26 @@ describe('performance', () => {
   }, 120_000);
 
   it('every Stage 4 objective live, every camp fighting, stays inside the objectives budget (GDD §6.12)', async () => {
-    const runs: { off: Awaited<ReturnType<typeof objectives>>; on: Awaited<ReturnType<typeof objectives>> }[] = [];
-    for (let i = 0; i < PERF_RUNS; i++) runs.push({ off: await objectives(false), on: await objectives(true) });
-    runs.sort((a, b) => a.on.ms - a.off.ms - (b.on.ms - b.off.ms));
-    const { off, on } = runs[Math.floor(PERF_RUNS / 2)] as (typeof runs)[number];
-    const cost = on.ms - off.ms;
+    // Both matches live in one process and step in alternating 1 s chunks, so load from other processes
+    // falls on both alike; the median chunk pair is the cost.
+    const off = await objectives(false);
+    const on = await objectives(true);
+    const pairs: { off: number; on: number }[] = [];
+    for (let i = 0; i < OBJECTIVE_CHUNKS; i++) pairs.push({ off: chunkMs(off.step, CHUNK_TICKS), on: chunkMs(on.step, CHUNK_TICKS) });
+    pairs.sort((a, b) => a.on - a.off - (b.on - b.off));
+    const mid = pairs[Math.floor(OBJECTIVE_CHUNKS / 2)]!;
+    const cost = mid.on - mid.off;
+    const units = on.sim.ctx.store.list('unit');
+    const creatures = units.filter((u) => u.team === 'neutral').length;
+    const breakables = on.sim.ctx.store.list('structure').filter((s) => s.structure.type === 'nest').length;
     console.log(
-      `objectives: ${on.creatures} creatures (Roc included), ${on.breakables} Nests and Feeders, ${on.pickups} pickups; ` +
-        `${on.ms.toFixed(3)} ms/tick (${off.ms.toFixed(3)} without), +${cost.toFixed(3)} ms; runs ` +
-        runs.map((r) => `+${(r.on.ms - r.off.ms).toFixed(3)}`).join(', '),
+      `objectives: ${creatures} creatures (Roc included), ${breakables} Nests and Feeders, ` +
+        `${on.sim.ctx.store.list('pickup').length} pickups; median chunk ${mid.on.toFixed(3)} ms/tick (${mid.off.toFixed(3)} ` +
+        `without), +${cost.toFixed(3)} ms; quartiles +${(pairs[Math.floor(OBJECTIVE_CHUNKS / 4)]!.on - pairs[Math.floor(OBJECTIVE_CHUNKS / 4)]!.off).toFixed(3)}` +
+        `…+${(pairs[Math.floor((3 * OBJECTIVE_CHUNKS) / 4)]!.on - pairs[Math.floor((3 * OBJECTIVE_CHUNKS) / 4)]!.off).toFixed(3)}`,
     );
-    expect(on.creatures).toBeGreaterThan(40);
-    expect(on.breakables).toBeGreaterThan(20);
+    expect(creatures).toBeGreaterThan(40);
+    expect(breakables).toBeGreaterThan(20);
     // GDD §6.12: 0.1 ms per tick for all Stage 4 objectives together. Loose bound for loaded machines, as above.
     expect(cost).toBeLessThan(0.3);
   }, 300_000);
