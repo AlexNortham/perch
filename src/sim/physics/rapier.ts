@@ -24,6 +24,7 @@ import type {
 } from '../core/contracts';
 import { CROUCH_SCALE } from '../data/core';
 import { CONTROLLER, GROUND } from '../data/movement';
+import * as dmath from '../core/dmath';
 
 const BITS = 16;
 const ALL_LAYERS = 0xffff;
@@ -36,12 +37,12 @@ const IDENTITY = { x: 0, y: 0, z: 0, w: 1 };
 const HALF = 0.5;
 /** Tolerance on the walkable-normal test. */
 const NORMAL_EPS = 1e-3;
-const WALKABLE_NY = Math.cos(GROUND.maxSlope) - NORMAL_EPS;
+const WALKABLE_NY = dmath.cos(GROUND.maxSlope) - NORMAL_EPS;
 /** Room checks lift the capsule this far so resting on the floor isn't an overlap. */
 const FIT_LIFT = CONTROLLER.skin * 2;
 const COLUMN_PAD = 1;
 
-const yawRot = (yaw: number) => ({ x: 0, y: Math.sin(yaw * HALF), z: 0, w: Math.cos(yaw * HALF) });
+const yawRot = (yaw: number) => ({ x: 0, y: dmath.sin(yaw * HALF), z: 0, w: dmath.cos(yaw * HALF) });
 
 /** Result of a hero move. One object, reused: read it before the next move. */
 export interface MoveResult {

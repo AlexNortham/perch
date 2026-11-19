@@ -59,6 +59,12 @@ export interface PhysicsService {
   moveCharacter(entity: EntityId, delta: Vec3, out?: CharacterMove): CharacterMove;
   /** Height of the walkable surface under (x, z) at or below `fromY`, or null if there is none. */
   groundHeight(x: number, z: number, fromY: number): number | null;
+  /**
+   * Stage 4 (D-EP-039, GDD §3.7): the nearest Updraft cable point within mounting reach of a hero standing at `pos`
+   * (anywhere along the cable, reach from movement data), or null. `t` is the arc length along the cable from its
+   * first point. Physics uses it to mount on held Jump; sim/ai to plan mounts. Optional until physics lands it.
+   */
+  updraftInReach?(pos: Vec3): { readonly updraft: number; readonly point: Vec3; readonly t: number } | null;
 }
 
 /** What src/sim/physics's `createPhysics` resolves to. */

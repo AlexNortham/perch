@@ -127,6 +127,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
       audio.setSettings(next);
       renderer.setQuality(next.quality);
     },
+    previewHero: (hero) => audio.previewHero?.(hero),
   };
   const ui = createUi(overlay, actions);
   const onUiAction = (action: UiAction, down: boolean): void => {
@@ -210,6 +211,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     pointerReleased = false;
     screen = next;
     input.setEnabled(next === 'match' && playable());
+    audio.onScreen?.(next);
     if (next === 'match') audio.resume();
     else if (next !== 'pause') input.exitFullscreen();
     const telemetry = next === 'end' ? session.sim.telemetry() : null;

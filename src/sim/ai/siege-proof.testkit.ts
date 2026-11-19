@@ -9,6 +9,7 @@
 import { Button, IDLE_COMMAND, LAYERS_SOLID } from '../core/contracts';
 import type { Entity, EntityId, HeroId, PlayerCommand, Sim, StructureEntity, Vec3 } from '../core/contracts';
 import { aimRay, muzzlePoint, rightDir } from '../core/aim';
+import * as dmath from '../core/dmath';
 
 export const SIEGE_HERO: HeroId = 'owl';
 export const SIEGE_ROUTE = ['hawk', 'heron', 'warden', 'shrine', 'patron'] as const;
@@ -56,7 +57,7 @@ export function siegeAgent(sim: Sim, me: EntityId): () => PlayerCommand {
   };
   const inSight = (from: Vec3, p: Vec3, target: EntityId): boolean => {
     const d = { x: p.x - from.x, y: p.y - from.y, z: p.z - from.z };
-    const len = Math.hypot(d.x, d.y, d.z);
+    const len = dmath.hypot(d.x, d.y, d.z);
     const hit = ctx.physics.raycast(from, { x: d.x / len, y: d.y / len, z: d.z / len }, len, LAYERS_SOLID, me);
     return !hit || hit.entity === target || hit.distance > len - 1;
   };
@@ -69,7 +70,7 @@ export function siegeAgent(sim: Sim, me: EntityId): () => PlayerCommand {
     }
     const goal = nextStructure();
     let to = EXIT[leg];
-    if (to && Math.hypot(h.pos.x - to.x, h.pos.z - to.z) < 1.5) leg++;
+    if (to && dmath.hypot(h.pos.x - to.x, h.pos.z - to.z) < 1.5) leg++;
     if (!to) {
       // Up the lane, never ahead of the own Riverbank wave: its fledglings draw the towers and the enemy wave.
       const stand = goal ? standFor(goal) : { x: 0, z: 0 };
@@ -80,7 +81,7 @@ export function siegeAgent(sim: Sim, me: EntityId): () => PlayerCommand {
       to = { x: Math.abs(h.pos.z - z) > 3 ? 0 : stand.x, z };
     }
 
-    const dist = (e: Entity): number => Math.hypot(e.pos.x - h.pos.x, e.pos.z - h.pos.z);
+    const dist = (e: Entity): number => dmath.hypot(e.pos.x - h.pos.x, e.pos.z - h.pos.z);
     const foes = ctx.store.list('unit').filter((u) => u.team === 'dusk' && alive(u)).sort((a, b) => dist(a) - dist(b) || a.id - b.id);
     const muzzle = muzzlePoint(h.pos, h.yaw, body, h.motor.crouching);
     let target: Entity | undefined;
@@ -90,17 +91,17 @@ export function siegeAgent(sim: Sim, me: EntityId): () => PlayerCommand {
 
     const dx = to.x - h.pos.x;
     const dz = to.z - h.pos.z;
-    const len = Math.hypot(dx, dz);
+    const len = dmath.hypot(dx, dz);
     if (target) {
       // The camera sits behind and beside the pivot, so turning moves it: iterate until the crosshair is on the point.
       const p = aimPoint(target);
       for (let i = 0; i < 8; i++) {
         const ray = aimRay(h.pos, yaw, pitch, h.shoulder, body, h.motor.crouching);
-        yaw = Math.atan2(p.x - ray.origin.x, p.z - ray.origin.z);
-        pitch = Math.atan2(p.y - ray.origin.y, Math.hypot(p.x - ray.origin.x, p.z - ray.origin.z));
+        yaw = dmath.atan2(p.x - ray.origin.x, p.z - ray.origin.z);
+        pitch = dmath.atan2(p.y - ray.origin.y, dmath.hypot(p.x - ray.origin.x, p.z - ray.origin.z));
       }
     } else if (len > 1) {
-      yaw = Math.atan2(dx, dz);
+      yaw = dmath.atan2(dx, dz);
       pitch = 0;
     }
     // Walk toward `to` in world terms, whatever the look direction.
@@ -110,7 +111,7 @@ export function siegeAgent(sim: Sim, me: EntityId): () => PlayerCommand {
     const reload = h.weapon.ammo === 0 ? Button.Reload : 0;
     return {
       ...IDLE_COMMAND,
-      forward: wx * Math.sin(yaw) + wz * Math.cos(yaw),
+      forward: wx * dmath.sin(yaw) + wz * dmath.cos(yaw),
       right: wx * r.x + wz * r.z,
       yaw,
       pitch,

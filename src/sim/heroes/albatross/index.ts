@@ -7,6 +7,7 @@
  */
 import type { EffectCause, EntityId, HeroModule } from '../../core/contracts';
 import { albatrossDef, SHIELD_SLOW_ID } from '../../data/heroes/albatross';
+import * as dmath from '../../core/dmath';
 
 const WALL_AHEAD_M = 2;
 const SALT_HIDE_HEAL = 0.1;
@@ -35,9 +36,9 @@ export const albatross: HeroModule = {
         const wall = ctx.store.getKind(target.entity, 'unit');
         const hero = ctx.store.getKind(cause.source, 'hero');
         if (!wall || !hero) return;
-        wall.pos.x = hero.pos.x + Math.sin(hero.yaw) * WALL_AHEAD_M;
+        wall.pos.x = hero.pos.x + dmath.sin(hero.yaw) * WALL_AHEAD_M;
         wall.pos.y = hero.pos.y;
-        wall.pos.z = hero.pos.z + Math.cos(hero.yaw) * WALL_AHEAD_M;
+        wall.pos.z = hero.pos.z + dmath.cos(hero.yaw) * WALL_AHEAD_M;
         wall.yaw = hero.yaw;
         if (!walls.has(wall.id)) walls.set(wall.id, { hero: hero.id, cause });
       },

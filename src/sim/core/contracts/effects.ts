@@ -67,6 +67,15 @@ export interface DamageEffect {
   readonly bonus?: readonly DamageBonus[];
   /** Fraction of missing hp added to damage. */
   readonly missingHpPct?: Magnitude;
+  /** Fraction of the target's current hp added to damage, read when the hit resolves (Blight Spores). */
+  readonly currentHpPct?: Magnitude;
+  /** Fraction of the target's max hp added to damage (Rookery Dirge's aura). */
+  readonly maxHpPct?: Magnitude;
+  /**
+   * Trigger effects only: fraction of the triggering hit's amount (before the holder's resists) added to damage
+   * (Burr Coat returns 0.15 of the gun damage it took).
+   */
+  readonly triggerPct?: Magnitude;
   /** Execute below this post-hit fraction of max hp. */
   readonly executeBelow?: Magnitude;
 }
@@ -82,7 +91,7 @@ export interface HealEffect {
 export interface ApplyStatusEffect {
   readonly kind: 'applyStatus';
   readonly status: StatusDef;
-  /** Overrides the status's own duration. */
+  /** Overrides the status's own duration. A resolved duration ≤ 0 applies nothing (tiers can switch a status on). */
   readonly durationS?: Magnitude;
   /** Graded statuses: scales the status's modifiers (e.g. 0.3 for a 30% slow). Default 1. */
   readonly magnitude?: Magnitude;
@@ -247,6 +256,11 @@ export interface MovementModeEffect {
   readonly onCollide?: readonly Effect[];
   /** Applied to the hero (at its position) when the mode ends. */
   readonly onEnd?: readonly Effect[];
+  /**
+   * Besides its duration, the mode ends when the hero lands and/or presses Jump. Absent keeps physics' per-mode
+   * default (glide ends on both, D-CTRL-009; toboggan on Jump, with its hop). Lets kits say it without a hook.
+   */
+  readonly endOn?: readonly ('land' | 'jump')[];
 }
 
 /** Attach the target to the source's socket for a while (Pelican's Gulp). Owner: sim/physics. */
@@ -392,6 +406,12 @@ export interface TriggerDef {
   /** Who the effects land on: the other party of the event, or the holder. */
   readonly target: 'other' | 'self';
   readonly effects: readonly Effect[];
+  /** The trigger ends after firing this many times (Warbler's Trill 1, Skylark Cadence 3), or at its duration. */
+  readonly uses?: number;
+  /** Only events whose hit came this way ('damaged' by a gun: 'weapon'). */
+  readonly via?: EffectVia;
+  /** Only when the other party is within this many metres (Burr Coat 20 m). */
+  readonly withinM?: number;
 }
 
 /** Give the target a trigger for a while (item procs use the same TriggerDef permanently). Owner: sim/items. */

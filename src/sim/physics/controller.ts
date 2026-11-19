@@ -24,14 +24,15 @@ import { COMBAT } from '../data/combat';
 import { TICK_SECONDS } from '../data/core';
 import { AIR, CHIMNEY, CONTROLLER, DASH, DISPLACE, GROUND, MANTLE, SLIDE, UPDRAFT, VINE } from '../data/movement';
 import type { MoveResult, Space } from './rapier';
+import * as dmath from '../core/dmath';
 
 const dt = TICK_SECONDS;
 const NEVER = Number.NEGATIVE_INFINITY;
 
 const HALF = 0.5;
 const ARC = 4;
-const WALKABLE_NY = Math.cos(GROUND.maxSlope);
-const SLIDE_MIN_SLOPE_TAN = Math.tan(SLIDE.minSlope);
+const WALKABLE_NY = dmath.cos(GROUND.maxSlope);
+const SLIDE_MIN_SLOPE_TAN = dmath.tan(SLIDE.minSlope);
 const JUMP_SPEED = Math.sqrt(2 * AIR.gravity * AIR.jumpApex);
 const TOBOGGAN_HOP_SPEED = Math.sqrt(2 * AIR.gravity * AIR.tobogganHopApex);
 /** Mantle probes start this far above the highest reachable ledge. */
@@ -236,7 +237,7 @@ function makeLine(points: readonly Vec3[]): Line {
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1];
     const b = points[i];
-    if (a && b) length += Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+    if (a && b) length += dmath.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
     cum.push(length);
   }
   return { points, cum, length };
@@ -338,16 +339,16 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
   const wish = (h: HeroEntity): number => {
     let f = h.command.forward;
     let r = h.command.right;
-    const len = Math.hypot(f, r);
+    const len = dmath.hypot(f, r);
     if (len > 1) {
       f /= len;
       r /= len;
     }
-    const sin = Math.sin(h.yaw);
-    const cos = Math.cos(h.yaw);
+    const sin = dmath.sin(h.yaw);
+    const cos = dmath.cos(h.yaw);
     W.x = sin * f - cos * r;
     W.z = cos * f + sin * r;
-    const m = Math.hypot(W.x, W.z);
+    const m = dmath.hypot(W.x, W.z);
     if (m > 0) {
       W.x /= m;
       W.z /= m;
@@ -423,7 +424,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
    */
   const wallSlam = (h: HeroEntity, s: HeroState, n: Vec3, vx: number, vz: number): void => {
     const slam = s.slam;
-    const nl = Math.hypot(n.x, n.z);
+    const nl = dmath.hypot(n.x, n.z);
     if (!slam || nl === 0 || -(vx * n.x + vz * n.z) / nl < DISPLACE.wallSlamSpeed) return;
     s.slam = null;
     emit(h.id, 'wallSlam');
@@ -432,7 +433,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
 
   const rememberWall = (s: HeroState, n: Vec3): void => {
     if (Math.abs(n.y) > AIR.wall.maxNormalY) return;
-    const len = Math.hypot(n.x, n.z);
+    const len = dmath.hypot(n.x, n.z);
     if (len === 0) return;
     s.wallX = n.x / len;
     s.wallZ = n.z / len;
@@ -459,7 +460,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
       if (s.displaced) wallSlam(h, s, r.wall, vx, vz);
     }
     if (m.grounded) {
-      const along = Math.hypot(r.moved.x, r.moved.z);
+      const along = dmath.hypot(r.moved.x, r.moved.z);
       s.downhill = along > 0 ? -r.moved.y / along : 0;
       v.y = 0;
       s.lastGroundTick = clock.tick;
@@ -606,18 +607,18 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
   /** Slide speed and steering for one tick; ends the slide at crouch-walk speed. */
   const slideTick = (h: HeroEntity, s: HeroState, crouchSpeed: number): void => {
     // Steer toward the look direction at SLIDE.steerDegPerS.
-    const fx = Math.sin(h.yaw);
-    const fz = Math.cos(h.yaw);
-    const ang = Math.atan2(fx * s.slideZ - fz * s.slideX, fz * s.slideZ + fx * s.slideX);
+    const fx = dmath.sin(h.yaw);
+    const fz = dmath.cos(h.yaw);
+    const ang = dmath.atan2(fx * s.slideZ - fz * s.slideX, fz * s.slideZ + fx * s.slideX);
     const turn = clamp(ang, -SLIDE.steerPerS * dt, SLIDE.steerPerS * dt);
-    const c = Math.cos(turn);
-    const sn = Math.sin(turn);
+    const c = dmath.cos(turn);
+    const sn = dmath.sin(turn);
     const x = s.slideX * c + s.slideZ * sn;
     s.slideZ = s.slideZ * c - s.slideX * sn;
     s.slideX = x;
     // Downhill steeper than SLIDE.minSlope adds gravity along the slope; elsewhere friction decays it.
     if (s.downhill > SLIDE_MIN_SLOPE_TAN) {
-      const sin = s.downhill / Math.hypot(1, s.downhill);
+      const sin = s.downhill / dmath.hypot(1, s.downhill);
       s.slideSpeed = Math.min(SLIDE.maxSlopeSpeed, s.slideSpeed + AIR.gravity * sin * dt);
     } else {
       s.slideSpeed -= s.slideDecel * dt;
@@ -633,7 +634,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
   const groundAccel = (v: Vec3, input: number, speed: number): void => {
     const dx = W.x * speed * input - v.x;
     const dz = W.z * speed * input - v.z;
-    const diff = Math.hypot(dx, dz);
+    const diff = dmath.hypot(dx, dz);
     const stepSize = (input > 0 ? GROUND.accel : GROUND.decel) * dt;
     if (diff <= stepSize) {
       v.x += dx;
@@ -647,11 +648,11 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
   /** Air control: steer toward the input; never adds horizontal speed above max(current, run). */
   const airControl = (v: Vec3, input: number, run: number, factor: number): void => {
     if (input === 0 || factor === 0) return;
-    const before = Math.hypot(v.x, v.z);
+    const before = dmath.hypot(v.x, v.z);
     const a = AIR.accel * factor * input * dt;
     v.x += W.x * a;
     v.z += W.z * a;
-    const after = Math.hypot(v.x, v.z);
+    const after = dmath.hypot(v.x, v.z);
     const cap = Math.max(before, run);
     if (after > cap) {
       v.x *= cap / after;
@@ -660,11 +661,11 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
   };
 
   const tryMantle = (h: HeroEntity, s: HeroState, normal: Vec3, input: number, vx: number, vz: number, gap = h.radius): boolean => {
-    const nl = Math.hypot(normal.x, normal.z);
+    const nl = dmath.hypot(normal.x, normal.z);
     if (nl === 0) return false;
     const dx = -normal.x / nl;
     const dz = -normal.z / nl;
-    const speed = Math.hypot(vx, vz);
+    const speed = dmath.hypot(vx, vz);
     const forward = lookDir(h.yaw, 0);
     if (forward.x * dx + forward.z * dz < MANTLE.facing) return false;
     // Pushing into the wall: the input direction, or the flight direction when airborne without input.
@@ -805,7 +806,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     if (wantCrouch !== m.crouching && (wantCrouch || space.fits(h.id, h.pos, false))) m.crouching = wantCrouch;
     if (m.sliding && (!m.crouching || !canMove)) endSlide(h, s);
 
-    const speed = Math.hypot(v.x, v.z);
+    const speed = dmath.hypot(v.x, v.z);
     if (canMove && m.grounded && !m.sliding && !m.dashing && canSlide(h, s, speed)) {
       startSlide(h, s, speed, crouchSpeed);
     }
@@ -920,7 +921,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     if (m.sliding && r.hasWall) {
       v.x = r.moved.x / dt;
       v.z = r.moved.z / dt;
-      s.slideSpeed = Math.hypot(v.x, v.z);
+      s.slideSpeed = dmath.hypot(v.x, v.z);
       if (s.slideSpeed <= crouchSpeed) endSlide(h, s);
       else {
         s.slideX = v.x / s.slideSpeed;
@@ -928,8 +929,8 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
       }
     }
     if (!m.grounded && m.sliding) endSlide(h, s);
-    if (!wasGrounded && m.grounded && canMove && canSlide(h, s, Math.hypot(v.x, v.z))) {
-      startSlide(h, s, Math.hypot(v.x, v.z), crouchSpeed);
+    if (!wasGrounded && m.grounded && canMove && canSlide(h, s, dmath.hypot(v.x, v.z))) {
+      startSlide(h, s, dmath.hypot(v.x, v.z), crouchSpeed);
     }
     m.dashJumpReady = canLeave && dashJumpReady(h, s);
 
@@ -954,7 +955,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     s.mantle = null;
     h.motor.mantling = false;
     h.motor.grounded = true;
-    const speed = Math.hypot(mt.exitX, mt.exitZ);
+    const speed = dmath.hypot(mt.exitX, mt.exitZ);
     const crouching = (h.command.held & Button.Crouch) !== 0;
     h.motor.crouching = crouching;
     h.vel = { x: mt.exitX, y: 0, z: mt.exitZ };
@@ -982,8 +983,8 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     h.vel = { x: r.moved.x / dt, y: r.moved.y / dt, z: r.moved.z / dt };
     h.motor.grounded = r.grounded && D.y <= 0;
     // Horizontal progress against what was asked: a pitched dash sliding along the floor isn't blocked.
-    const flatStep = Math.hypot(D.x, D.z);
-    const blocked = Math.hypot(r.moved.x, r.moved.z) < flatStep * HALF;
+    const flatStep = dmath.hypot(D.x, D.z);
+    const blocked = dmath.hypot(r.moved.x, r.moved.z) < flatStep * HALF;
     const dir = flatStep > 0 ? { x: D.x / flatStep, y: 0, z: D.z / flatStep } : lookDir(h.yaw, 0);
     const stopped = (d.onHit.length > 0 || d.stopOnHit) && touch(h, d.cause, d.hit, d.onHit, dir) && d.stopOnHit;
     if (d.cause.via === 'melee') {
@@ -1129,7 +1130,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
       case 'glide': {
         const gx = input > 0 ? W.x : f.x;
         const gz = input > 0 ? W.z : f.z;
-        const gl = Math.hypot(gx, gz) || 1;
+        const gl = dmath.hypot(gx, gz) || 1;
         v.x = (gx / gl) * mode.speed;
         v.z = (gz / gl) * mode.speed;
         D.y = fall(h, v, mode.vertical);
@@ -1146,7 +1147,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
       }
       case 'toboggan':
       case 'burrow': {
-        const fl = Math.hypot(f.x, f.z) || 1;
+        const fl = dmath.hypot(f.x, f.z) || 1;
         const dx = mode.kind === 'toboggan' ? f.x / fl : W.x * input;
         const dz = mode.kind === 'toboggan' ? f.z / fl : W.z * input;
         v.x = canMove ? dx * mode.speed : 0;

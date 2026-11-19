@@ -18,11 +18,12 @@ import {
   GULP_SPIT,
   pelicanDef,
 } from '../../data/heroes/pelican';
+import * as dmath from '../../core/dmath';
 
 const GULP_SLOT = 0;
 const HALF_TURN_DEG = 180;
 const RAD_PER_DEG = Math.PI / HALF_TURN_DEG;
-const HALF_CONE_COS = Math.cos((GULP_CONE_DEG / 2) * RAD_PER_DEG);
+const HALF_CONE_COS = dmath.cos((GULP_CONE_DEG / 2) * RAD_PER_DEG);
 
 const onEntity = (e: Entity): EffectTarget => ({ entity: e.id, point: e.pos, dir: { x: 0, y: 0, z: 1 } });
 
@@ -32,14 +33,14 @@ export const pelican: HeroModule = {
   hooks: (ctx) => {
     /** The nearest enemy hero or fledgling the cone reaches, or undefined. */
     const grab = (hero: HeroEntity, aim: { x: number; z: number }): HeroEntity | UnitEntity | undefined => {
-      const len = Math.hypot(aim.x, aim.z) || 1;
+      const len = dmath.hypot(aim.x, aim.z) || 1;
       let best: HeroEntity | UnitEntity | undefined;
       let bestD = Infinity;
       const consider = (e: HeroEntity | UnitEntity): void => {
         if (e.team === hero.team || e.health.dead || e.removed || e.stats.conditions.has('intangible')) return;
         const dx = e.pos.x - hero.pos.x;
         const dz = e.pos.z - hero.pos.z;
-        const d = Math.hypot(dx, dz);
+        const d = dmath.hypot(dx, dz);
         const reach = d - e.radius;
         if (reach > GULP_REACH_M || Math.abs(e.pos.y - hero.pos.y) > GULP_REACH_M) return;
         const inCone = d <= e.radius + hero.radius || (dx * aim.x + dz * aim.z) / (d * len) >= HALF_CONE_COS;

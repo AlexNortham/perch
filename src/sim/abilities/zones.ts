@@ -42,6 +42,7 @@ import { canSee } from '../core/vision';
 import { copy, distSq, ticks, vec3 } from '../core/math';
 import { boundRadius, inside, isEmpty, resolveShape, sideOf } from './shapes';
 import type { ResolvedShape } from './shapes';
+import * as dmath from '../core/dmath';
 
 const DEFAULT_KINDS: readonly EntityKind[] = ['hero', 'unit'];
 const HERO_KINDS: readonly EntityKind[] = ['hero'];
@@ -92,7 +93,7 @@ export function centreHeight(ctx: SimContext, e: Entity): number {
 /** True when nothing solid lies between the two points. */
 export function clearLine(ctx: SimContext, from: Vec3, to: Vec3): boolean {
   const d = { x: to.x - from.x, y: to.y - from.y, z: to.z - from.z };
-  const len = Math.hypot(d.x, d.y, d.z);
+  const len = dmath.hypot(d.x, d.y, d.z);
   if (len === 0) return true;
   const dir = { x: d.x / len, y: d.y / len, z: d.z / len };
   return ctx.physics.raycast(from, dir, len, LAYERS_SOLID) === null;
@@ -100,7 +101,7 @@ export function clearLine(ctx: SimContext, from: Vec3, to: Vec3): boolean {
 
 /** Unit horizontal direction; +z when the input has no horizontal part. */
 function flat(dir: Vec3): Vec3 {
-  const len = Math.hypot(dir.x, dir.z);
+  const len = dmath.hypot(dir.x, dir.z);
   return len > 0 ? { x: dir.x / len, y: 0, z: dir.z / len } : { x: 0, y: 0, z: 1 };
 }
 
@@ -211,7 +212,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       team: cause.team,
       pos: centre,
       vel: vec3(),
-      yaw: Math.atan2(dir.x, dir.z),
+      yaw: dmath.atan2(dir.x, dir.z),
       radius: bound,
       area: {
         dimensions: shape,
@@ -349,14 +350,14 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
     const list = s.effect.onEnd;
     if (!list?.length) return;
     const point = copy(pos);
-    effects.applyAll(list, { entity: null, point, dir: { x: Math.sin(yaw), y: 0, z: Math.cos(yaw) } }, { ...s.cause, origin: copy(point) });
+    effects.applyAll(list, { entity: null, point, dir: { x: dmath.sin(yaw), y: 0, z: dmath.cos(yaw) } }, { ...s.cause, origin: copy(point) });
   };
 
   // A summon killed in the damage phase ends there, while its record is still in the store.
   ctx.bus.on('entity.died', (e) => {
     if (e.victimKind !== 'unit') return;
     const s = summons.find((x) => x.id === e.victim && !x.done);
-    if (s) endSummon(s, e.pos, store.get(e.victim)?.yaw ?? Math.atan2(s.dir.x, s.dir.z));
+    if (s) endSummon(s, e.pos, store.get(e.victim)?.yaw ?? dmath.atan2(s.dir.x, s.dir.z));
   });
 
   effects.handle('summon', 'abilities', (effect, target, cause) => {
@@ -372,11 +373,11 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       store.despawn(old.id);
       endSummon(old, u?.pos ?? old.cause.origin, u?.yaw ?? 0);
     }
-    const base = Math.atan2(target.dir.x, target.dir.z);
+    const base = dmath.atan2(target.dir.x, target.dir.z);
     const spread = (effect.spreadDeg ?? 0) * RAD_PER_DEG;
     for (let k = 0; k < count; k++) {
       const yaw = count > 1 ? base - spread / 2 + (spread * k) / (count - 1) : base;
-      spawnSummon(effect, target.point, { x: Math.sin(yaw), y: 0, z: Math.cos(yaw) }, cause);
+      spawnSummon(effect, target.point, { x: dmath.sin(yaw), y: 0, z: dmath.cos(yaw) }, cause);
     }
   });
 
@@ -390,7 +391,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       team: cause.team,
       pos: copy(point),
       vel: vec3(),
-      yaw: Math.atan2(dir.x, dir.z),
+      yaw: dmath.atan2(dir.x, dir.z),
       radius: size ? Math.max(size.x, size.z) / 2 : SUMMON.radius,
       unit: {
         type: 'summon',

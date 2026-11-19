@@ -124,6 +124,7 @@ function resolveConfig(c: SimConfig): ResolvedSimConfig {
       neutrals: c.options?.neutrals ?? waves,
       unlockAbilities: c.options?.unlockAbilities ?? false,
       startSeeds: c.options?.startSeeds ?? null,
+      ...(c.options?.botShopping && { botShopping: c.options.botShopping }),
     },
   };
 }

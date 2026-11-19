@@ -5,7 +5,7 @@
  */
 import type { Controller, EntityId, HeroId, ItemId, PlayerTeam, StatusId, Team, Tick, Vec3 } from './base';
 import type { MovementModeKind } from './effects';
-import type { WeaponState, AbilitySlotState, AreaInfo, EntityKind, ObjectiveState, OwnedItem, ProjectileInfo, StructureInfo } from './entity';
+import type { WeaponState, AbilitySlotState, AreaInfo, EntityKind, Keepsakes, ObjectiveState, OwnedItem, ProjectileInfo, StructureInfo } from './entity';
 import type { MapId } from './map';
 
 /** Animation and state bits on EntityView.flags. */
@@ -58,6 +58,12 @@ export const ViewFlag = {
   WeakPoint: 0x400000,
   Meleeing: 0x800000,
   Aiming: 0x1000000,
+  /** UnitInfo.asleep: the Roc before it is woken, or after it resets (GDD §7.12). */
+  Asleep: 0x2000000,
+  /** UnitInfo.enraged: the Roc below its enrage threshold (GDD §7.12). */
+  Enraged: 0x4000000,
+  /** StructureInfo.lit: a Bell Feeder's chime lamp is lit (GDD §7.14). */
+  Lit: 0x8000000,
 } as const;
 
 export interface EntityView {
@@ -82,6 +88,12 @@ export interface EntityView {
   /** Heroes: Motor.mode (glide, flight, cling, toboggan, burrow) or null. */
   readonly mode: MovementModeKind | null;
   readonly meleePose?: WeaponState['meleePose'];
+  /** Heroes: AbilityState.casting (slot 0–3) while casting or channelling, so the rig plays that slot's pose. */
+  readonly castSlot?: number;
+  /** Pickups: PickupInfo.variant (the rune). Structures: StructureInfo.variant (the Nest kind). Absent when ''. */
+  readonly variant?: string;
+  /** Thicket creatures: UnitInfo.camp, the index into MapData.thickets. */
+  readonly camp?: number;
   /** SeenBy bits: which flocks can see it (minimap, outlines). */
   readonly seenBy: number;
   /** Full minimap visibility (world-visible bits plus map-only reveals). */
@@ -125,6 +137,10 @@ export interface HeroView {
   readonly stamina: number;
   readonly staminaMax: number;
   readonly dashJumpReady?: boolean;
+  /** Motor.updraftInReach !== null: the HUD shows the hold-Jump prompt (D-EP-039). */
+  readonly updraftInReach?: boolean;
+  /** Keepsake count and per-stat totals for the HUD (GDD §7.13); absent before the first. */
+  readonly keepsakes?: Readonly<Keepsakes>;
   readonly respawnAt: Tick | null;
   readonly talonShield: number;
   readonly songShield: number;
@@ -142,6 +158,8 @@ export interface TeamView {
   readonly netWorth: number;
   readonly flexSlots: number;
   readonly emberUntil: Tick;
+  /** TeamState.rekindle (GDD §7.12), absent when the flock never held it. */
+  readonly rekindle?: { readonly until: Tick; readonly charges: number };
 }
 
 export interface SimView {

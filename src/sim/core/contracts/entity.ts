@@ -23,25 +23,32 @@ import type {
 } from './base';
 import type { PlayerCommand } from './command';
 import type { AreaShape, MovementModeKind, SummonKind } from './effects';
-import type { StatBlock } from './stats';
+import type { StatBlock, StatId } from './stats';
 import type { StatusInstance } from './statuses';
 
 export type EntityKind = 'hero' | 'unit' | 'structure' | 'projectile' | 'pickup' | 'area';
 
 /**
  * Non-hero units (GDD §7): fledglings (Scrappers, Slingers) march the lanes; Thicket creatures (beetles, weasels,
- * badgers and cubs) and the Roc are neutral; summons belong to a hero.
+ * rats, toads, badgers and cubs) and the Roc are neutral; summons belong to a hero.
  */
-export type UnitType = 'scrapper' | 'slinger' | 'beetle' | 'weasel' | 'badger' | 'cub' | 'roc' | 'summon';
+export type UnitType = 'scrapper' | 'slinger' | 'beetle' | 'weasel' | 'rat' | 'toad' | 'badger' | 'cub' | 'roc' | 'summon';
 /** Thicket (neutral camp) tiers (GDD §7.8). */
 export type ThicketTier = 1 | 2 | 3;
 
 /** Bits for EntityBase.seenBy. */
 export const SeenBy = { dawn: 0x1, dusk: 0x2, all: 0x3 } as const;
-/** Sentinel Hawk, Stilt Heron, Nest Warden, Roost Shrine, Patron (Great Owl / Elder Raven), and neutral Nests. */
+/**
+ * Sentinel Hawk, Stilt Heron, Nest Warden, Roost Shrine, Patron (Great Owl / Elder Raven), and 'nest': every neutral
+ * breakable, told apart by StructureInfo.variant ('twig', 'woven', 'keepsake' Nests and the 'feeder' Bell Feeder).
+ * One type keeps the tower tables keyed on `Exclude<StructureType, 'nest'>` unchanged (D-ARCH-023).
+ */
 export type StructureType = 'hawk' | 'heron' | 'warden' | 'shrine' | 'patron' | 'nest';
-/** Seed pod (last-hit orb), Feather rune, the Golden Egg, the Phoenix Ember. */
-export type PickupType = 'pod' | 'rune' | 'egg' | 'ember';
+/**
+ * Seed pod (last-hit orb, also the Egg's golden pods), Feather rune, the Golden Egg, a Phoenix Ember; Stage 4: a
+ * Nest's seed sprig, crumb or keepsake drop, and a Berry (GDD §§7.9, 7.13, 7.15).
+ */
+export type PickupType = 'pod' | 'rune' | 'egg' | 'ember' | 'sprig' | 'crumb' | 'keepsake' | 'berry';
 
 /** Fields every entity has. */
 export interface EntityBase {
@@ -112,6 +119,11 @@ export interface Motor {
   mantling: boolean;
   /** Index into MapData.updrafts while riding one, else null. */
   updraft: number | null;
+  /**
+   * Stage 4 (D-EP-039): the Updraft whose cable is within mounting reach (PhysicsService.updraftInReach) while not
+   * riding, else null. Holding Jump mounts it. The HUD prompts from it; bots read it.
+   */
+  updraftInReach?: number | null;
   /** Index into MapData.climbs while climbing a Chimney or Vine, else null. */
   climb: number | null;
   /** Knocked up: airborne with no control until landing (GDD §5.9). */
@@ -222,6 +234,18 @@ export interface HeroEntity extends EntityBase {
   abilities: AbilityState;
   progress: Progress;
   inventory: Inventory;
+  /** Permanent boons gained this match (GDD §7.13). Writer: sim/world. Absent until the first one. */
+  keepsakes?: Keepsakes;
+}
+
+/**
+ * A hero's keepsakes. sim/world also sets their sum as the stat source 'world:keepsakes' (one source in the resist
+ * and CDR stacks, capped per GDD §7.13).
+ */
+export interface Keepsakes {
+  count: number;
+  /** Summed value per stat, after the keepsake caps. */
+  totals: Partial<Record<StatId, number>>;
 }
 
 /**
@@ -249,6 +273,17 @@ export interface UnitInfo {
   target: EntityId | null;
   /** True on ticks the unit is attacking (animation). */
   attacking: boolean;
+  /** Thicket creatures: index into MapData.thickets of the camp it belongs to and leashes to (GDD §7.8). */
+  readonly camp?: number | null;
+  /** Dormant: a Thicket camp with no hero within its wake radius, or the Roc before 20:00 (GDD §§7.8, 7.12). */
+  asleep?: boolean;
+  /** The Roc: below its enrage threshold (GDD §7.12). */
+  enraged?: boolean;
+  /**
+   * Neutral units: sim/combat drops damage whose credited hero stands outside this region (a sphere, cut off above
+   * `maxY` when set). World sets it: the Hollow below y −2 for the Roc, 35 m around a dormant camp's anchor.
+   */
+  damageFrom?: { readonly centre: Vec3; readonly radius: number; readonly maxY?: number } | null;
 }
 
 export interface UnitEntity extends EntityBase {
@@ -276,6 +311,19 @@ export interface StructureInfo {
   readonly body: { readonly radius: number; readonly height: number };
   /** Patron phase 2: the heart-feather weak point (GDD §7.7), world position; null otherwise. */
   weakPoint: { readonly centre: Vec3; readonly radius: number } | null;
+  /** Breakables: 'twig', 'woven', 'keepsake' (Nests, GDD §7.9) or 'feeder' (§7.14), for models and drops. Absent for towers. */
+  readonly variant?: 'twig' | 'woven' | 'keepsake' | 'feeder';
+  /** Placed from a map anchor: index into MapData.nests (Nests) or MapData.interactables (Bell Feeders). */
+  readonly anchor?: number;
+  /**
+   * Breakables only (Nests, Bell Feeders). sim/combat ignores damage by anything `by` excludes, and a melee hit deals
+   * `light`/`heavy` instead of the usual amount when set (Feeders: 60 and 120 whatever the hero's stats).
+   */
+  readonly breakable?: { readonly by: 'any' | 'melee' | 'heavyMelee'; readonly light?: number; readonly heavy?: number };
+  /** False: physics builds no collider, so heroes pass through (Twig and Keepsake Nests). Default true. */
+  readonly solid?: boolean;
+  /** Bell Feeder: the chime lamp is lit this tick (the full-chime window, GDD §7.14). */
+  lit?: boolean;
 }
 
 export interface StructureEntity extends EntityBase {
@@ -305,21 +353,29 @@ export interface ProjectileEntity extends EntityBase {
 }
 
 /**
- * Pickups. Writer: sim/economy for pods; sim/world for runes, the Egg and the Ember.
+ * Pickups. Writer: sim/economy for pods; sim/world for everything else.
  * A pod's team is the dead unit's team: an enemy of that team secures it by shooting it, its own team denies it.
  * sim/combat reports bullets that pass through a pod as `projectile.impact` with target = the pod (bullets never stop).
- * The Ember is a valid heavy-melee target; sim/world claims it from the `melee` event.
+ * Pickups with `melee` set are claimed by a melee hit (D-EP-039: no Interact key); the rest by walking within reach.
  */
 export interface PickupInfo {
   readonly type: PickupType;
-  /** Runes: which rune (data id). Everything else: ''. */
+  /** Runes: which rune; crumbs: which crumb (data ids). Everything else: ''. */
   readonly variant: string;
-  /** Pods: Seed value. Others: 0. */
+  /** Pods and seed sprigs: Seed value, fixed at the drop. Others: 0 (the Egg's value is EggState.value). */
   readonly value: number;
   /** Tick at which it vanishes, or null for never. */
   readonly expiresAt: Tick | null;
   /** The Egg: hero carrying it, or null when on the ground. */
   carrier: EntityId | null;
+  /**
+   * Claimed by melee: 'any' (the Egg: light or heavy) or 'heavy' (runes, Embers). sim/combat includes the pickup in
+   * its melee hit test as a sphere of the entity's `radius` and reports it as `melee.target`; it takes no damage and
+   * doesn't stop the swing at heroes behind it. sim/world claims it from the event.
+   */
+  readonly melee?: 'any' | 'heavy';
+  /** Not claimable before this tick (the Egg lowering for 10 s, falling Embers, 1 s after an Egg drop). */
+  claimableAt?: Tick;
 }
 
 export interface PickupEntity extends EntityBase {
@@ -370,14 +426,43 @@ export interface TeamState {
   readonly team: PlayerTeam;
   /** Flex item slots unlocked for every hero on the team. Writer: sim/economy (from objective events). */
   flexSlots: number;
-  /** Tick until which the team holds the Phoenix Ember's buff (0 = none). Writer: sim/world. */
+  /** Tick until which the team holds the Phoenix Ember's buff (0 = none). Writer: sim/world. Stage 3 rule. */
   emberUntil: Tick;
+  /**
+   * Stage 4 (GDD §7.12): the Rekindle buff from claimed Embers, replacing `emberUntil`'s buff. Writer: sim/world (it
+   * grants charges and spends one on each `entity.died` with `revives`). sim/combat reads it to revive in place.
+   */
+  rekindle?: { until: Tick; charges: number };
+}
+
+/** The Golden Egg's state (GDD §7.11). Writer: sim/world. */
+export interface EggState {
+  /** The Egg pickup while it exists (lowering, on a perch, carried, dropped or rolling), else null. */
+  pickup: EntityId | null;
+  /** Index into MapData.eggPerches it spawned on; the other perch is the Hatching Stone. */
+  perch: number;
+  /** Unattended: the tick it starts (or started) rolling toward its Stone, else null. */
+  rollsAt: Tick | null;
+  /** The tick it starts cooling (45 s after its first pickup), else null. */
+  coolsAt: Tick | null;
+  /** Its value E now, after cooling (Seeds). Delivery is the moment the carrier enters the Stone's circle (D-EP-039). */
+  value: number;
 }
 
 /** Objective timers for the HUD and bots, on SimContext.objectives. Writer: sim/world. null = not scheduled. */
 export interface ObjectiveState {
   nextWaveAt: Tick | null;
   eggAt: Tick | null;
+  /** The earlier of the rune spots' next spawns (see `runeAt` for each spot). */
   runesAt: Tick | null;
   rocAt: Tick | null;
+  /** Per MapData.runeSpots index: next spawn tick, or null while a rune waits there. */
+  runeAt?: (Tick | null)[];
+  /** Per MapData.thickets index: next spawn tick, or null while the camp is up. */
+  campAt?: (Tick | null)[];
+  /** Per MapData.nests index: respawn tick, or null while the Nest stands. */
+  nestAt?: (Tick | null)[];
+  /** Per MapData.interactables index (Berries, Bell Feeders): respawn tick, or null while it is up. */
+  interactableAt?: (Tick | null)[];
+  egg?: EggState;
 }

@@ -16,6 +16,7 @@ import { ticks } from '../core/math';
 import { AIR, DASH, DEGREES_PER_HALF_TURN, DISPLACE } from '../data/movement';
 import type { Controller, Slam } from './controller';
 import type { UnitMover } from './units';
+import * as dmath from '../core/dmath';
 
 const LAUNCH = DISPLACE.launch;
 
@@ -32,7 +33,7 @@ export function registerEffects(ctx: CoreContext, ctrl: Controller, service: Phy
   };
   /** Horizontal unit vector of (x, z), or the facing `yaw` when it is zero. */
   const flat = (yaw: number, x: number, z: number): Vec3 => {
-    const len = Math.hypot(x, z);
+    const len = dmath.hypot(x, z);
     return len > 0 ? { x: x / len, y: 0, z: z / len } : lookDir(yaw, 0);
   };
 
@@ -49,12 +50,12 @@ export function registerEffects(ctx: CoreContext, ctrl: Controller, service: Phy
       dx = -dx;
       dz = -dz;
     }
-    const len = Math.hypot(dx, dz);
+    const len = dmath.hypot(dx, dz);
     if (len === 0) return null;
     const range = e.mode === 'pull' ? Math.min(distance, len) : distance;
-    const speed = Math.sqrt((range * AIR.gravity) / Math.sin(2 * LAUNCH));
-    const h = speed * Math.cos(LAUNCH);
-    return { x: (dx / len) * h, y: speed * Math.sin(LAUNCH), z: (dz / len) * h };
+    const speed = Math.sqrt((range * AIR.gravity) / dmath.sin(2 * LAUNCH));
+    const h = speed * dmath.cos(LAUNCH);
+    return { x: (dx / len) * h, y: speed * dmath.sin(LAUNCH), z: (dz / len) * h };
   };
 
   effects.handle('displace', 'physics', (e, target, cause) => {
@@ -105,8 +106,8 @@ export function registerEffects(ctx: CoreContext, ctrl: Controller, service: Phy
       dir = flat(mover.yaw, target.dir.x, target.dir.z);
       if (e.arcHeight === undefined) {
         const cap = e.maxPitchUpDeg === undefined ? DASH.aimMaxPitchUp : (e.maxPitchUpDeg * Math.PI) / DEGREES_PER_HALF_TURN;
-        const pitch = cap <= 0 ? 0 : Math.min(Math.atan2(target.dir.y, Math.hypot(target.dir.x, target.dir.z)), cap);
-        dir = { x: dir.x * Math.cos(pitch), y: Math.sin(pitch), z: dir.z * Math.cos(pitch) };
+        const pitch = cap <= 0 ? 0 : Math.min(dmath.atan2(target.dir.y, dmath.hypot(target.dir.x, target.dir.z)), cap);
+        dir = { x: dir.x * dmath.cos(pitch), y: dmath.sin(pitch), z: dir.z * dmath.cos(pitch) };
       }
     } else if (e.dir === 'move') {
       const m = h ? ctrl.moveDir(h) : target.dir;
@@ -115,7 +116,7 @@ export function registerEffects(ctx: CoreContext, ctrl: Controller, service: Phy
       // To the target entity (stopping at contact) or point; a target that is the mover itself means the point.
       const t = target.entity !== null && target.entity !== mover.id ? store.get(target.entity) : undefined;
       const goal = t?.pos ?? target.point;
-      const gap = Math.hypot(goal.x - mover.pos.x, goal.z - mover.pos.z) - (t ? t.radius + mover.radius : 0);
+      const gap = dmath.hypot(goal.x - mover.pos.x, goal.z - mover.pos.z) - (t ? t.radius + mover.radius : 0);
       distance = Math.min(distance, Math.max(0, gap));
       dir = flat(mover.yaw, goal.x - mover.pos.x, goal.z - mover.pos.z);
     }
@@ -168,7 +169,7 @@ export function registerEffects(ctx: CoreContext, ctrl: Controller, service: Phy
       const look = other?.pos ?? target.point;
       const dx = look.x - dest.x;
       const dz = look.z - dest.z;
-      if (dx !== 0 || dz !== 0) yaw = h.yaw = Math.atan2(dx, dz);
+      if (dx !== 0 || dz !== 0) yaw = h.yaw = dmath.atan2(dx, dz);
     }
     bus.emit(yaw === undefined ? { type: 'movement', hero: h.id, action: 'teleport' } : { type: 'movement', hero: h.id, action: 'teleport', yaw });
   });

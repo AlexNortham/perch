@@ -31,6 +31,7 @@ import type { Hitboxes } from './hitboxes';
 import type { Statuses } from './statuses';
 import { Melee } from './types';
 import type { HeroState } from './types';
+import * as dmath from '../core/dmath';
 
 const SECONDS_PER_MINUTE = 60;
 /** Summon → owner → … chains are short; this bounds the walk. */
@@ -226,7 +227,7 @@ export function createDamage(
     if (b.targetKinds && !b.targetKinds.includes(e.kind)) return false;
     if (b.maxDistance !== undefined || b.minDistance !== undefined) {
       const from = src?.pos ?? cause.origin;
-      const d = Math.hypot(e.pos.x - from.x, e.pos.y - from.y, e.pos.z - from.z);
+      const d = dmath.hypot(e.pos.x - from.x, e.pos.y - from.y, e.pos.z - from.z);
       if (b.maxDistance !== undefined && d > b.maxDistance) return false;
       if (b.minDistance !== undefined && d < b.minDistance) return false;
     }
@@ -409,7 +410,7 @@ export function createDamage(
     });
     if (depleted) ctx.bus.emit({ type: 'patron.depleted', structure: e.id });
     if (saved?.def.onLethal) {
-      const dir = { x: Math.sin(e.yaw), y: 0, z: Math.cos(e.yaw) };
+      const dir = { x: dmath.sin(e.yaw), y: 0, z: dmath.cos(e.yaw) };
       ctx.effects.applyAll(saved.def.onLethal, { entity: e.id, point: copy(e.pos), dir }, saved.cause);
     }
     // Lifesteal: a share of the post-step-7 damage (50% effective against non-heroes).
@@ -494,7 +495,7 @@ export function createDamage(
       if (fx.beakShot) {
         const hr = hb.head(e, headScratch);
         const p = target.point;
-        if (hr >= 0 && Math.hypot(p.x - headScratch.x, p.y - headScratch.y, p.z - headScratch.z) <= hr) {
+        if (hr >= 0 && dmath.hypot(p.x - headScratch.x, p.y - headScratch.y, p.z - headScratch.z) <= hr) {
           r.beak = Beak.Ability;
           r.beakMult = fx.beakShotMult ?? COMBAT.abilityBeakShotMult;
         }

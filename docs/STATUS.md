@@ -1668,3 +1668,41 @@ budget assumes about 410 prims per quarter.
 - Character Controller and Camera & Input: the §3.7 latch and dismount, and dropping saved Interact bindings.
 - QA: raise the `main.test.ts` prim ceiling from 1,500 to 3,000 with the W5 map.
 **Next:** W5 implementers build from §6–§7, §10 and §11; the Director reviews the M3 feel checklist at the gate.
+### W4.5 · Technical Architect · 19/11/2026
+**Branch:** `worktree-agent-a77a2ab351862e4e4` from `integrate/w5` fcf1de6, with `integrate/w5` 28350c5 (D-EP-038/039)
+merged in. Node 22.23.4 (V8 12.4), Edge 156.0.4314.50. Reconciled with the Director's final GDD on `integrate/w5`
+b2d96b4 (read, not merged).
+1. **Determinism, root cause (D-ARCH-021).** Not the input path, initial state, iteration order or Rapier: V8 itself.
+   ECMAScript leaves `Math.sin`, `cos`, `tan`, `atan2`, `asin`, `acos`, `exp`, `log`, `pow` and the rest to the
+   engine, and over 20,000 inputs each, Edge 156 and Node 22 disagree in the last bit on 3–18 % (`sqrt`, `hypot`
+   and `x ** 2` agree). The sim made 168 such calls. Fix: `src/sim/core/dmath.ts` ports fdlibm 5.3 and V8's hypot to
+   plain arithmetic; it equals Node 22's `Math` bit for bit on millions of inputs, so Node's results and hashes
+   didn't move. All 168 calls in 30 files across the owners' areas now use it (one mechanical commit, bd77f64, under
+   the brief's "fix it at its owner"); `dmath.test.ts` fails on any new banned call. **Proof:** the browser replay
+   now ends on tick 69,973 with the same hash as Node (`d662ba91ea093bbd` before item 4, `6f4b46610798dd0d` after).
+   New `e2e/determinism.spec.ts` + `e2e/hash-trace.ts` (QA's area, assigned by the brief) run the siege script and a
+   12-bot match in the Playwright runner and in the app's page and compare every tick's hash. With dmath pointed back
+   at `Math` they fail at tick 3 (siege, the W4 finding exactly) and by tick 1,800 (bots).
+2. **Wave 4 requests:** INTERFACES §13, 24 rows: 6 accepted, 2 modified, 16 satisfied, none rejected (castSlot, Audio's
+   occlusion via rooms, hero-select hooks and mute, `endOn`, zero-duration statuses, the W3 carry-overs).
+3. **Stage 4 contracts (INTERFACES §14, D-ARCH-023):** bots' command path confirmed; `ItemScores`, `RecommendedBuild`,
+   `BuildData` and `SimOptions.botShopping`; objective components, events and view fields for Thickets, Nests, Bell
+   Feeders, runes, the Egg, the Roc, Embers and Rekindle, keepsakes, Berries, Hides, Lookouts and Springs; the map
+   schema for buildings, storeys, rooms, openings, curtains, ladders, jungle zones, interactables, springs and nav
+   rooms; the Director's §10 primitives and 11 W4.5 requests (§14.5). All optional: the code compiles unchanged and
+   today's map loads.
+4. **No Interact (D-EP-039, D-ARCH-022):** deprecated, not deleted, because deleting breaks Physics, Input, UI and two
+   tests; deletion is the W5.5 round's. `updraftInReach` (service, Motor, HeroView) and `PickupInfo.melee` carry the
+   new rules. Saved bindings: once `'interact'` leaves `BindAction`, `sanitizeSettings` drops the saved code on the
+   next load, leaving every other binding; no storage bump (tested). The new `meleeDamageTaken` stat moves every hash
+   once, the same in Node and Edge, with gameplay unchanged (D-ARCH-024).
+5. **Follow-ups:** `docs/briefs/W5-contract-followups.md`, per owner for W5 and W6.
+**Verified:** `npm run check` on 730d42a: `PASS typecheck 6s · lint 4s · test 12s · perf 8s · sim 3s · e2e 100s ·
+check 133s`; 802 unit tests, 57 e2e. Siege proof (Node): Victory on tick 69,973, 0 deaths, 24 heart hits, hash
+`6f4b46610798dd0d`; `?scene=replay&seed=1` in Edge: tick 69,973, hash `6f4b46610798dd0d`. `npm run sim -- --seed 1
+--minutes 35 --bots 12` twice: `7c9595badc5a9dc4` both times (126,000 ticks, 14.8 s and 14.6 s, about 8,600
+ticks/s, so dmath costs nothing measurable). 3-minute check sim: `85a34be07d674f6e`. An earlier check run (before the
+traces were shortened) failed `match.spec.ts` once under load; it passed alone (44 s) and in the run above.
+**Notes for owners:** GDD §3.1 still lists "Inspect / upgrade abilities: Left Alt (tap)", which D-EP-038 replaces
+(Director). The determinism spec is QA's from now on (follow-ups).
+**Blocked:** nothing. **Interface requests:** none.

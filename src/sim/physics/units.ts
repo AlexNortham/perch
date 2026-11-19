@@ -12,13 +12,14 @@ import { copy } from '../core/math';
 import { TICK_SECONDS } from '../data/core';
 import { AIR, DISPLACE, GROUND } from '../data/movement';
 import type { Slam } from './controller';
+import * as dmath from '../core/dmath';
 
 const dt = TICK_SECONDS;
 const HALF = 0.5;
 const ARC = 4;
 const KEY = 'physics:displaced';
 const ROOTED = { conditions: ['rooted'] } as const;
-const WALKABLE_NY = Math.cos(GROUND.maxSlope);
+const WALKABLE_NY = dmath.cos(GROUND.maxSlope);
 
 interface Motion {
   /** Scripted dash: ticks done and total (n 0 for a flight), per-tick delta, arc height, effects on arrival. */
@@ -70,14 +71,14 @@ export function createUnitMover(ctx: CoreContext, service: PhysicsService): Unit
 
   /** Stops the horizontal part of `d` at a wall in front of the unit; slams if it was fast enough. */
   const wall = (u: UnitEntity, m: Motion, d: Vec3): boolean => {
-    const len = Math.hypot(d.x, d.z);
+    const len = dmath.hypot(d.x, d.z);
     if (len === 0) return false;
     const dir = { x: d.x / len, y: 0, z: d.z / len };
     const from = { x: u.pos.x, y: u.pos.y + Math.min(u.unit.height * HALF, GROUND.stepUp + u.radius), z: u.pos.z };
     const hit = service.raycast(from, dir, len + u.radius, LAYERS_SOLID);
     if (!hit || hit.normal.y >= WALKABLE_NY) return false;
     const k = Math.max(0, hit.distance - u.radius) / len;
-    const toward = (len / dt) * -(dir.x * hit.normal.x + dir.z * hit.normal.z) / (Math.hypot(hit.normal.x, hit.normal.z) || 1);
+    const toward = (len / dt) * -(dir.x * hit.normal.x + dir.z * hit.normal.z) / (dmath.hypot(hit.normal.x, hit.normal.z) || 1);
     d.x *= k;
     d.z *= k;
     const slam = m.slam;
@@ -147,7 +148,7 @@ export function createUnitMover(ctx: CoreContext, service: PhysicsService): Unit
       v.x = 0;
       v.y = 0;
       v.z = 0;
-      const len = Math.hypot(m.step.x, m.step.z) || 1;
+      const len = dmath.hypot(m.step.x, m.step.z) || 1;
       if (m.cause) ctx.effects.applyAll(m.onArrive, { entity: u.id, point: copy(u.pos), dir: { x: m.step.x / len, y: 0, z: m.step.z / len } }, m.cause);
       return;
     }

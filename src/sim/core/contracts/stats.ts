@@ -81,6 +81,8 @@ export const STAT_DEFAULTS = {
   songAmp: 0,
   /** Structure-rule multiplier on all damage taken (step 7; Brood Ward uses op 'mul'). */
   damageTaken: 1,
+  /** Incoming light and heavy melee damage bonus (step 5; Heartwood Bark −0.3). "+x% melee damage" is 'pct' on meleeDamage. */
+  meleeDamageTaken: 0,
   /** Fraction of Talon damage dealt (after step 7) healed back (step 9). */
   talonLifesteal: 0,
   /** Fraction of Song damage dealt (after step 7) healed back (step 9). */
@@ -125,6 +127,11 @@ export const CONDITIONS = [
   'undying',
   /** Carrying the Golden Egg: can't fire, cast, use items, parry or ride Updrafts, Chimneys or Vines. */
   'eggCarrier',
+  /**
+   * Wholly inside a Hide (GDD §7.15): enemies outside it can't see or target this hero, and it leaves their minimap.
+   * sim/world sets it and folds it into `seenBy`; true sight and the 2 s after dealing damage override it.
+   */
+  'hidden',
 ] as const;
 export type Condition = (typeof CONDITIONS)[number];
 

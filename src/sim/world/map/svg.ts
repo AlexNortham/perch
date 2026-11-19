@@ -6,6 +6,7 @@
  */
 import type { BlockoutPrim, MapData, MaterialTag, NavLinkKind, Vec3 } from '../../core/contracts';
 import { corners, primBottom, primTop } from './geometry';
+import * as dmath from '../../core/dmath';
 
 export interface MapSvgOptions {
   /** World rectangle to draw (default: the map bounds). */
@@ -105,7 +106,7 @@ export function mapSvg(map: MapData, opts: MapSvgOptions = {}): string {
       : `fill="${fill}" fill-opacity="0.45"`));
     if (p.shape === 'ramp') {
       // Arrow from the low edge toward the high edge.
-      const f = { x: Math.sin(p.yaw) * p.size.z * STYLE.rampArrow, y: 0, z: Math.cos(p.yaw) * p.size.z * STYLE.rampArrow };
+      const f = { x: dmath.sin(p.yaw) * p.size.z * STYLE.rampArrow, y: 0, z: dmath.cos(p.yaw) * p.size.z * STYLE.rampArrow };
       const a = { x: p.centre.x - f.x, y: 0, z: p.centre.z - f.z };
       const b = { x: p.centre.x + f.x, y: 0, z: p.centre.z + f.z };
       out.push(line(a, b, `stroke="#fff" stroke-width="${m(STYLE.line)}" marker-end="url(#up)"`));

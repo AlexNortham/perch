@@ -5,6 +5,7 @@ import type {
   EntityView,
   HeroEntity,
   HeroView,
+  ObjectiveState,
   PlayerTeam,
   SimContext,
   SimView,
@@ -51,10 +52,13 @@ function flagsOf(e: Entity): number {
     }
     case 'unit':
       if (e.unit.attacking) f |= ViewFlag.Attacking;
+      if (e.unit.asleep) f |= ViewFlag.Asleep;
+      if (e.unit.enraged) f |= ViewFlag.Enraged;
       break;
     case 'structure':
       if (e.structure.target !== null) f |= ViewFlag.Attacking;
       if (e.structure.weakPoint !== null) f |= ViewFlag.WeakPoint;
+      if (e.structure.lit) f |= ViewFlag.Lit;
       break;
     case 'pickup':
       if (e.pickup.carrier !== null) f |= ViewFlag.Carried;
@@ -82,6 +86,17 @@ function typeOf(e: Entity): string {
   }
 }
 
+/** A detached copy: the per-spot arrays and the Egg record are live in the context. */
+function objectivesView(o: ObjectiveState): ObjectiveState {
+  return {
+    ...o,
+    ...(o.runeAt && { runeAt: [...o.runeAt] }),
+    ...(o.campAt && { campAt: [...o.campAt] }),
+    ...(o.nestAt && { nestAt: [...o.nestAt] }),
+    ...(o.egg && { egg: { ...o.egg } }),
+  };
+}
+
 function statusView(st: StatusInstance): StatusView {
   return { id: st.def.id, name: st.def.name, negative: st.def.negative, stacks: st.stacks, expiresAt: st.expiresAt };
 }
@@ -103,6 +118,10 @@ function entityView(e: Entity): EntityView {
     shield: health ? health.talonShield + health.songShield + health.barrier : 0,
     flags: flagsOf(e),
     ...(e.kind === 'hero' && e.weapon.meleePose && { meleePose: e.weapon.meleePose }),
+    ...(e.kind === 'hero' && e.abilities.casting !== null && { castSlot: e.abilities.casting }),
+    ...(e.kind === 'pickup' && e.pickup.variant && { variant: e.pickup.variant }),
+    ...(e.kind === 'structure' && e.structure.variant && { variant: e.structure.variant }),
+    ...(e.kind === 'unit' && e.unit.camp != null && { camp: e.unit.camp }),
     mode: e.kind === 'hero' ? e.motor.mode : null,
     seenBy: e.seenBy,
     mapSeenBy: e.seenBy | (e.mapOnlySeenBy ?? 0),
@@ -137,6 +156,8 @@ function heroView(ctx: SimContext, h: HeroEntity, scores: TelemetryCollector): H
     stamina: h.motor.stamina,
     staminaMax: h.stats.final.stamina,
     dashJumpReady: h.motor.dashJumpReady ?? false,
+    ...(h.motor.updraftInReach != null && { updraftInReach: true }),
+    ...(h.keepsakes && { keepsakes: { count: h.keepsakes.count, totals: { ...h.keepsakes.totals } } }),
     respawnAt: h.health.respawnAt,
     talonShield: h.health.talonShield,
     songShield: h.health.songShield,
@@ -155,7 +176,8 @@ function teamView(ctx: SimContext, team: PlayerTeam, heroes: readonly HeroView[]
   const t = ctx.teams[team];
   let netWorth = 0;
   for (const h of heroes) if (h.team === team) netWorth += h.netWorth;
-  return { team, kills: scores.teamKills(team), netWorth, flexSlots: t.flexSlots, emberUntil: t.emberUntil };
+  return { team, kills: scores.teamKills(team), netWorth, flexSlots: t.flexSlots, emberUntil: t.emberUntil,
+    ...(t.rekindle && { rekindle: { ...t.rekindle } }) };
 }
 
 /** Snapshot the sim for the client. `heroIds` is the roster order. */
@@ -179,7 +201,7 @@ export function buildView(
     entities: ctx.store.all().map(entityView),
     heroes,
     teams: { dawn: teamView(ctx, 'dawn', heroes, scores), dusk: teamView(ctx, 'dusk', heroes, scores) },
-    objectives: { ...ctx.objectives },
+    objectives: objectivesView(ctx.objectives),
     over: winner !== null,
     winner,
   };

@@ -13,6 +13,7 @@ import {
   VINE_OFFSET,
 } from './data/traversal';
 import { corners, indexPrims, primBottom, primTop, standAt, surfacesAt, type PrimIndex } from './geometry';
+import * as dmath from '../../core/dmath';
 
 const TAU = Math.PI * 2;
 /** A surface counts as the same height within this. */
@@ -72,7 +73,7 @@ const climbLanding = (c: ClimbSpec): Vec3 => v(c.x + c.inX * CLIMB_LANDING, c.ro
 
 // --- Polylines -------------------------------------------------------------------------------------------------
 
-const flat = (a: Vec3, b: Vec3): number => Math.hypot(b.x - a.x, b.z - a.z);
+const flat = (a: Vec3, b: Vec3): number => dmath.hypot(b.x - a.x, b.z - a.z);
 
 /** Arc length along `path` of the point nearest to p (in XZ). */
 export function projectOnPath(path: readonly Vec3[], p: Vec3): number {
@@ -85,7 +86,7 @@ export function projectOnPath(path: readonly Vec3[], p: Vec3): number {
     if (!a || !b) continue;
     const len = flat(a, b);
     const t = len > 0 ? Math.min(1, Math.max(0, ((p.x - a.x) * (b.x - a.x) + (p.z - a.z) * (b.z - a.z)) / (len * len))) : 0;
-    const d = Math.hypot(a.x + (b.x - a.x) * t - p.x, a.z + (b.z - a.z) * t - p.z);
+    const d = dmath.hypot(a.x + (b.x - a.x) * t - p.x, a.z + (b.z - a.z) * t - p.z);
     if (d < best) {
       best = d;
       bestS = s + t * len;
@@ -169,7 +170,7 @@ export function deriveLedges(prims: readonly BlockoutPrim[], index: PrimIndex): 
       if (len < LEDGE_MIN_LENGTH) return;
       const mx = (a.x + b.x) / 2;
       const mz = (a.z + b.z) / 2;
-      const inLen = Math.hypot(p.centre.x - mx, p.centre.z - mz);
+      const inLen = dmath.hypot(p.centre.x - mx, p.centre.z - mz);
       const out = v((p.centre.x - mx) / inLen, 0, (p.centre.z - mz) / inLen);
       const inset = LEDGE_INSET / len;
       const ok = [inset, 1 / 2, 1 - inset].every((t) =>
@@ -208,7 +209,7 @@ interface Profile {
 function groundProfile(index: PrimIndex, a: Vec3, b: Vec3): Profile {
   const dx = b.x - a.x;
   const dz = b.z - a.z;
-  const dist = Math.hypot(dx, dz);
+  const dist = dmath.hypot(dx, dz);
   const n = Math.max(1, Math.ceil(dist / NAV.sampleStep));
   const samples: number[][] = [];
   for (let k = 0; k <= n; k++) samples.push(surfacesAt(index, a.x + (dx * k) / n, a.z + (dz * k) / n));
@@ -284,8 +285,8 @@ function candidates(input: NavInput): Vec3[] {
       continue;
     }
     if (p.shape === 'ramp') {
-      const fx = Math.sin(p.yaw) * (p.size.z / 2 + NAV.rampEndOffset);
-      const fz = Math.cos(p.yaw) * (p.size.z / 2 + NAV.rampEndOffset);
+      const fx = dmath.sin(p.yaw) * (p.size.z / 2 + NAV.rampEndOffset);
+      const fz = dmath.cos(p.yaw) * (p.size.z / 2 + NAV.rampEndOffset);
       out.push(v(p.centre.x + fx, top, p.centre.z + fz), v(p.centre.x - fx, primBottom(p), p.centre.z - fz));
       // Long ramps also get a node halfway up, or their ends would be too far apart to link.
       if (p.size.z + NAV.rampEndOffset * 2 > NAV.linkRadius / 2) out.push(v(p.centre.x, p.centre.y, p.centre.z));
@@ -294,7 +295,7 @@ function candidates(input: NavInput): Vec3[] {
     if (p.size.y < NAV.buildingMinHeight) continue;
     if (Math.min(p.size.x, p.size.z) < NAV.wallMaxThickness) {
       // A wall or hedge: one node past each end (so yard entrances get a node).
-      const along = p.size.x > p.size.z ? v(Math.cos(p.yaw), 0, -Math.sin(p.yaw)) : v(Math.sin(p.yaw), 0, Math.cos(p.yaw));
+      const along = p.size.x > p.size.z ? v(dmath.cos(p.yaw), 0, -dmath.sin(p.yaw)) : v(dmath.sin(p.yaw), 0, dmath.cos(p.yaw));
       const reach = Math.max(p.size.x, p.size.z) / 2 + NAV.wallEndOffset;
       for (const k of [-1, 1]) out.push(v(p.centre.x + along.x * reach * k, primBottom(p), p.centre.z + along.z * reach * k));
       continue;
@@ -309,7 +310,7 @@ function nearest(nodes: readonly Vec3[], p: Vec3): number {
   let best = -1;
   let bestD = ATTACH_DIST;
   nodes.forEach((n, i) => {
-    const d = Math.hypot(n.x - p.x, n.y - p.y, n.z - p.z);
+    const d = dmath.hypot(n.x - p.x, n.y - p.y, n.z - p.z);
     if (d < bestD) {
       bestD = d;
       best = i;

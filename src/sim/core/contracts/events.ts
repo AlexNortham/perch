@@ -211,6 +211,12 @@ export interface EntityDiedEvent {
   readonly beakShot?: boolean;
   readonly via: EffectVia;
   readonly pos: Vec3;
+  /**
+   * Hero victims: its flock's Rekindle will revive it in place (GDD §7.12). Combat sets it when TeamState.rekindle
+   * has a charge and this hero hasn't revived under it; world spends the charge on this event; economy pays no
+   * bounty and telemetry counts no kill. On-kill item and ability effects still trigger.
+   */
+  readonly revives?: boolean;
 }
 
 /** Emitter: sim/combat. Consumers: sim/physics (re-seat the controller), client, sim/ai. */
@@ -218,6 +224,8 @@ export interface HeroRespawnedEvent {
   readonly type: 'hero.respawned';
   readonly hero: EntityId;
   readonly pos: Vec3;
+  /** Revived where it fell by Rekindle (GDD §7.12), not at the Home Roost. */
+  readonly revived?: boolean;
 }
 
 export type MovementAction =
@@ -391,15 +399,60 @@ export interface StructureAttackEvent {
   readonly impactAt: Tick;
 }
 
+/**
+ * A Thicket creature's or the Roc's attack (GDD §§7.8, 7.12), emitted when its wind-up starts so the client can
+ * telegraph it and bots can dodge. Damage still arrives through the pipeline at `impactAt`. Emitter: sim/world.
+ * Consumers: client (VFX, audio), sim/ai.
+ */
+export interface UnitAttackEvent {
+  readonly type: 'unit.attack';
+  readonly unit: EntityId;
+  /** bite (all biters), dashBite (weasel), lash and spit (toad), slam (badger), rake, flap, shriek (Roc). */
+  readonly attack: 'bite' | 'dashBite' | 'lash' | 'spit' | 'slam' | 'rake' | 'flap' | 'shriek';
+  readonly origin: Vec3;
+  readonly point: Vec3;
+  readonly impactAt: Tick;
+}
+
+/**
+ * A dormant camp creature or the Roc woke, went back to sleep (leash reset), or the Roc enraged (the map-wide roar).
+ * Emitter: sim/world. Consumers: client, sim/ai.
+ */
+export interface UnitStateEvent {
+  readonly type: 'unit.state';
+  readonly unit: EntityId;
+  readonly state: 'awake' | 'asleep' | 'enraged';
+}
+
 export type ObjectiveAction =
+  /** Starts lowering from the canopy (not claimable until EggState/PickupInfo.claimableAt). */
   | 'eggSpawned'
+  /** Picked up by a melee hit (D-EP-039). */
   | 'eggTaken'
   | 'eggDropped'
+  /** Unattended: starts rolling toward its Hatching Stone. */
+  | 'eggRolling'
+  /** Cooled to nothing and cracked. */
+  | 'eggSpoiled'
+  /** `value` is E after cooling and the comeback factor; economy hatches the golden pods from it. */
   | 'eggDelivered'
+  /** The Roc wakes (20:00, then each respawn). */
   | 'rocSpawned'
+  /** One Ember landed at `pos` (three per Roc kill). */
+  | 'emberDropped'
+  /** `hero` claimed one by heavy melee. */
   | 'emberClaimed'
   | 'runeSpawned'
-  | 'runeTaken';
+  /** Claimed by heavy melee; `variant` is the rune. */
+  | 'runeTaken'
+  /** A Thicket camp (`camp`) spawned or respawned its creatures. */
+  | 'campSpawned'
+  /** Its last creature died; `hero` landed the blow. */
+  | 'campCleared'
+  /** `hero` gained `value` keepsakes; `variant` is the last one's stat. */
+  | 'keepsakeGained'
+  /** A Berry was eaten by `hero`. */
+  | 'berryEaten';
 
 /**
  * Emitter: sim/world. Consumers: sim/economy (Egg payout), sim/ai, telemetry, client (announcer, minimap).
@@ -415,6 +468,12 @@ export interface ObjectiveEvent {
   readonly pickup: EntityId | null;
   readonly pickupType: PickupType | null;
   readonly pos: Vec3;
+  /** Camp actions: index into MapData.thickets. */
+  readonly camp?: number;
+  /** Runes: the rune id. Keepsakes: the stat. */
+  readonly variant?: string;
+  /** eggDelivered: the Egg's value E in Seeds. keepsakeGained: how many. */
+  readonly value?: number;
 }
 
 /** Emitter: core (from PlayerCommand.ping). Consumers: client (minimap, audio), sim/ai. */
@@ -459,6 +518,8 @@ export type SimEvent =
   | PatronDepletedEvent
   | StructureAttackEvent
   | StructureStateEvent
+  | UnitAttackEvent
+  | UnitStateEvent
   | ObjectiveEvent
   | PingEvent;
 

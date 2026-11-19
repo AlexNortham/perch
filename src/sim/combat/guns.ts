@@ -28,6 +28,7 @@ import type { CastFilter, Hit, Hitboxes } from './hitboxes';
 import type { Statuses } from './statuses';
 import { Melee } from './types';
 import type { HeroState, ModRec } from './types';
+import * as dmath from '../core/dmath';
 
 const HALF_TURN_DEG = 180;
 const DEG = Math.PI / HALF_TURN_DEG;
@@ -189,7 +190,7 @@ export function createGuns(
       const e = ctx.store.get(id);
       if (!e || (e.kind !== 'hero' && e.kind !== 'unit') || e.team === s.hero.team || e.removed) continue;
       if (e.health.dead || e.stats.conditions.has('intangible')) continue;
-      if (Math.hypot(e.pos.x - p.x, e.pos.z - p.z) <= radius + e.radius) out.push(id);
+      if (dmath.hypot(e.pos.x - p.x, e.pos.z - p.z) <= radius + e.radius) out.push(id);
     }
     return out;
   };
@@ -241,7 +242,7 @@ export function createGuns(
           for (const id of enemiesNear(s, last.pos, COMBAT.bounce.radius, chain)) {
             const c = ctx.store.get(id);
             if (!c || visited.includes(id)) continue;
-            const dd = Math.hypot(c.pos.x - last.pos.x, c.pos.z - last.pos.z);
+            const dd = dmath.hypot(c.pos.x - last.pos.x, c.pos.z - last.pos.z);
             if (dd < bestD) {
               bestD = dd;
               best = c;
@@ -334,7 +335,7 @@ export function createGuns(
     dir.x = target.x - muzzle.x;
     dir.y = target.y - muzzle.y;
     dir.z = target.z - muzzle.z;
-    const len = Math.hypot(dir.x, dir.y, dir.z);
+    const len = dmath.hypot(dir.x, dir.y, dir.z);
     if (len > EPS) {
       dir.x /= len;
       dir.y /= len;
@@ -377,7 +378,7 @@ export function createGuns(
         team: h.team,
         pos: copy(muzzle),
         vel: { x: pellet.x * speed, y: pellet.y * speed, z: pellet.z * speed },
-        yaw: Math.atan2(pellet.x, pellet.z),
+        yaw: dmath.atan2(pellet.x, pellet.z),
         radius,
         projectile: { owner: h.id, source: 'weapon', ability: null, expiresAt: now + Math.ceil((w.range / speed) * TICK_RATE) + 1 },
       });
@@ -455,7 +456,7 @@ export function createGuns(
       const tx = c.pos.x - e.pos.x;
       const ty = c.pos.y + c.radius - e.pos.y;
       const tz = c.pos.z - e.pos.z;
-      const dist = Math.hypot(tx, ty, tz);
+      const dist = dmath.hypot(tx, ty, tz);
       len = p.speed / TICK_RATE;
       if (dist <= len + EPS) {
         len = dist;
@@ -468,7 +469,7 @@ export function createGuns(
       }
     } else {
       if (fx && fx.gravity !== 0) e.vel.y -= fx.gravity / TICK_RATE;
-      const v = Math.hypot(e.vel.x, e.vel.y, e.vel.z);
+      const v = dmath.hypot(e.vel.x, e.vel.y, e.vel.z);
       len = v / TICK_RATE;
       if (v > EPS) {
         p.dir.x = e.vel.x / v;
@@ -504,7 +505,7 @@ export function createGuns(
       e.vel.x = p.dir.x * p.speed;
       e.vel.y = p.dir.y * p.speed;
       e.vel.z = p.dir.z * p.speed;
-      e.yaw = Math.atan2(p.dir.x, p.dir.z);
+      e.yaw = dmath.atan2(p.dir.x, p.dir.z);
     }
     if (stop >= 0) return end(p, o);
     if (wh) {
@@ -603,7 +604,7 @@ export function createGuns(
       const speed = ctx.effects.magnitude(fx.speed, cause);
       const range = ctx.effects.magnitude(fx.range, cause);
       const d = target.dir;
-      const dl = Math.hypot(d.x, d.y, d.z);
+      const dl = dmath.hypot(d.x, d.y, d.z);
       if (!(speed > 0) || !(range > 0) || dl < EPS) return;
       const ux = d.x / dl;
       const uy = d.y / dl;
@@ -614,7 +615,7 @@ export function createGuns(
         team: cause.team,
         pos: copy(cause.origin),
         vel: { x: ux * speed, y: uy * speed, z: uz * speed },
-        yaw: Math.atan2(ux, uz),
+        yaw: dmath.atan2(ux, uz),
         radius: fx.radius,
         projectile: {
           owner: cause.source,
