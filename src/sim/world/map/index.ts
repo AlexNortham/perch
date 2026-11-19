@@ -2,10 +2,12 @@
 // 'arena' is the flat test map and stays simple.
 import type { MapData, MapId, TeamAnchor } from '../../core/contracts';
 import { TEAM_SIZE } from '../../data/core';
-import { buildMap } from './build';
+import { buildWorld } from './build';
 import { MAIN_SPEC } from './data/main';
+import type { MapDressing } from './dressing';
 
 export { mapSvg } from './svg';
+export type * from './dressing';
 
 const EMPTY_NAV = { nodes: [], links: [] };
 
@@ -49,10 +51,18 @@ export const ARENA: MapData = {
 };
 
 // ponytail: one memoised immutable build per process (~tens of ms); every sim shares it read-only.
-let main: MapData | undefined;
+let main: ReturnType<typeof buildWorld> | undefined;
+const EMPTY_DRESSING: MapDressing = { buildings: [], props: [] };
 
 export function loadMap(id: MapId): MapData {
   if (id === 'arena') return ARENA;
-  main ??= buildMap(MAIN_SPEC);
-  return main;
+  main ??= buildWorld(MAIN_SPEC);
+  return main.map;
+}
+
+/** The dressing descriptor (D-EP-047): `buildings` is parallel to loadMap(id).buildings. */
+export function loadDressing(id: MapId): MapDressing {
+  if (id === 'arena') return EMPTY_DRESSING;
+  main ??= buildWorld(MAIN_SPEC);
+  return main.dressing;
 }

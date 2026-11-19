@@ -4,7 +4,7 @@
  *
  * True top-down view (D-ARCH-008): north (+z, Dusk) is up and east (+x) is on the LEFT.
  */
-import type { BlockoutPrim, MapData, MaterialTag, NavLinkKind, Vec3 } from '../../core/contracts';
+import type { BlockoutPrim, BoxVolume, MapData, MaterialTag, NavLinkKind, Vec3 } from '../../core/contracts';
 import { corners, primBottom, primTop } from './geometry';
 import * as dmath from '../../core/dmath';
 
@@ -17,6 +17,8 @@ export interface MapSvgOptions {
   readonly nav?: boolean;
   /** Draw text labels (default true). */
   readonly labels?: boolean;
+  /** Draw building outlines, rooms below and above ground, openings and interactables (default true). */
+  readonly interiors?: boolean;
 }
 
 /** Presentation constants. Sizes are in metres (multiplied by the scale). */
@@ -62,6 +64,25 @@ const LINK: Record<NavLinkKind, string> = {
 const TEAM: Record<string, string> = { dawn: '#f5a623', dusk: '#6b6bff', neutral: '#dddddd' };
 
 const STRUCTURE_LABEL: Record<string, string> = { hawk: 'Hawk', heron: 'Heron', warden: 'W', shrine: 'Shrine', patron: 'Patron' };
+
+/** Interiors overlay: outlines, openings by kind, rooms below ground, interactables. */
+const INTERIOR = {
+  outline: '#f4efe2', outlineOpacity: 0.85, enterable: 0.5, solidFill: 0.1, below: '#ff9f40', hide: '#9fd18b',
+  opening: { door: '#2bff6a', arch: '#2bff6a', balcony: '#2bff6a', window: '#40c8ff', leap: '#ffe14d', hatch: '#ff9f40', skylight: '#ff9f40', grate: '#ff9f40' },
+  curtain: '#1f6b2a', interact: { feeder: '#ffd27a', lookout: '#b0b0ff', berry: '#ff4a6a' }, spring: '#c48bff',
+  tick: 0.6, mark: 0.9, berry: 0.5, hideFill: 0.35, belowFill: 0.12,
+} as const;
+
+/** The four xz corners of a box volume, in order. */
+function volumeCorners(b: BoxVolume): Vec3[] {
+  const c = dmath.cos(b.yaw);
+  const s = dmath.sin(b.yaw);
+  const hx = b.size.x / 2;
+  const hz = b.size.z / 2;
+  return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([i = 0, k = 0]) => ({
+    x: b.centre.x + i * hx * c + k * hz * s, y: b.centre.y, z: b.centre.z - i * hx * s + k * hz * c,
+  }));
+}
 
 /** The colour lightened toward white with height. */
 function shade(hex: string, y: number): string {
@@ -135,10 +156,35 @@ export function mapSvg(map: MapData, opts: MapSvgOptions = {}): string {
     out.push(`<polyline points="${pts(u.points)}" fill="none" stroke="#40e0ff" stroke-width="${m(STYLE.thick)}" stroke-opacity="0.8"/>`);
     for (const st of u.stations) out.push(circle(st, STYLE.station, `fill="none" stroke="#40e0ff" stroke-width="${m(STYLE.medium)}"`));
   }
+  if (opts.interiors ?? true) {
+    const rooms = map.rooms ?? [];
+    (map.buildings ?? []).forEach((b, i) => {
+      const enterable = rooms.some((r) => r.building === i);
+      out.push(`<polygon points="${pts(volumeCorners(b.footprint))}" fill="${INTERIOR.outline}" fill-opacity="${enterable ? 0 : INTERIOR.solidFill}" stroke="${INTERIOR.outline}" stroke-opacity="${enterable ? INTERIOR.outlineOpacity : INTERIOR.enterable}" stroke-width="${m(enterable ? STYLE.medium : STYLE.thin)}"/>`);
+    });
+    // Rooms below ground (cellars, undercrofts, the Cellar Run) dashed; Hides tinted.
+    for (const r of rooms) {
+      const below = r.volume.centre.y < 0;
+      if (!below && r.tag !== 'hide') continue;
+      const colour = r.tag === 'hide' ? INTERIOR.hide : INTERIOR.below;
+      out.push(`<polygon points="${pts(volumeCorners(r.volume))}" fill="${colour}" fill-opacity="${r.tag === 'hide' ? INTERIOR.hideFill : INTERIOR.belowFill}" stroke="${colour}" stroke-dasharray="${m(STYLE.dash / 2)}" stroke-width="${m(STYLE.line)}"/>`);
+    }
+    for (const o of map.openings ?? []) {
+      // A tick across the gap, along the wall.
+      const along = { x: dmath.cos(o.yaw) * (o.width / 2), y: 0, z: -dmath.sin(o.yaw) * (o.width / 2) };
+      const a = { x: o.centre.x - along.x, y: 0, z: o.centre.z - along.z };
+      const b = { x: o.centre.x + along.x, y: 0, z: o.centre.z + along.z };
+      out.push(line(a, b, `stroke="${o.curtain ? INTERIOR.curtain : INTERIOR.opening[o.kind]}" stroke-width="${m(INTERIOR.tick)}"`));
+    }
+    for (const s of map.springs ?? []) out.push(line(s.pad, s.land, `stroke="${INTERIOR.spring}" stroke-width="${m(STYLE.line)}" stroke-dasharray="${m(STYLE.dash / 2)}"`));
+    for (const it of map.interactables ?? []) {
+      out.push(circle(it.pos, it.kind === 'berry' ? INTERIOR.berry : INTERIOR.mark, `fill="${INTERIOR.interact[it.kind]}" stroke="#000" stroke-width="${m(STYLE.thin)}"`));
+    }
+  }
   for (const c of map.climbs) {
     out.push(c.kind === 'chimney'
       ? circle(c.bottom, STYLE.chimney, `fill="#ff6a00" fill-opacity="0.7" stroke="#fff" stroke-width="${m(STYLE.thin)}"`)
-      : circle(c.bottom, STYLE.vine, `fill="#2bff6a" stroke="#000" stroke-width="${m(STYLE.thin)}"`));
+      : circle(c.bottom, STYLE.vine, `fill="${c.kind === 'ladder' ? '#d9b26b' : '#2bff6a'}" stroke="#000" stroke-width="${m(STYLE.thin)}"`));
   }
 
   const label = (p: Vec3, text: string, color: string) => {
