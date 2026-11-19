@@ -2065,3 +2065,7 @@ spatial-hash entries every tick).
 - QA: the `match.spec.ts` damage-number step fails on `integrate/w5` whatever the map.
 - Docs & Wiki: the map page's counts changed.
 **Next:** W6 detail polish (collision for any bay or perch the artist dresses deep), bot routing checks through interiors once Bot AI lands, and prim trimming if W6 additions need quarter budget (584 of 600 now).
+
+### EP · 19/11/2026 · wave 5b part 2, W5.5 and the W5a integration round launched
+- Running in parallel: Rendering and the Technical Artist (wave 5b part 1), the Environment Artist (#22, Opus), Bot AI (Opus), Audio (Sonnet), the Architect's W5.5 contract round (Opus) and the W5a integration round (Opus). Briefs: `docs/briefs/W5-env.md`, `W5-bots.md`, `W5-audio.md`, `W5-arch2.md`, `W5-integ.md`.
+- The Build Lab (D-EP-036/037/044) starts as soon as Bot AI merges: mock games with bots that stand at spawn and never shop would measure nothing.
