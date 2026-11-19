@@ -1855,7 +1855,7 @@ Stage 5 gaps (G05, G11, G12, G14, G17, G21, G24–G29) feed the Stage 5 style gu
   (`aria-disabled` when blocked) with one shared hover card: description, every tier, the next tier's AP cost and the
   unspent AP, or why not ("Fully upgraded", "Unlocks at level 6"). Releasing locks again in the key's own event. 1-4 held
   with the key upgrade through the ordinary `upgrade` command. The tap-to-open panel is deleted. Pointer route per browser
-  (probe `out/probe/probe.mjs`, 300 ms and 7 s holds): **Edge 156 real cursor, re-locks on release; Firefox 159 real cursor,
+  (probe `tools/pointer-lock-probe.mjs`, 300 ms and 7 s holds): **Edge 156 real cursor, re-locks on release; Firefox 159 real cursor,
   re-locks on release**. Chrome is not installed here and shares Edge's engine, so it takes the real-cursor route too
   (D-UI-006). No game-drawn cursor was needed.
 - **Always-on scoreboard (D-EP-041, G01):** `topbar.ts` is the bar (region `Scoreboard`; `[data-portrait]` with `data-side`,

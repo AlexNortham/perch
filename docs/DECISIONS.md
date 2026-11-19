@@ -1635,7 +1635,7 @@ pacing and mechanics, with no names, art or map layout copied.
 ### D-UI-006 · 19/11/2026 — Hold to upgrade uses the real cursor, and keys keep working
 **Decision:** holding the upgrade key calls `exitPointerLock()` and releasing it requests the lock again in the key's own
 event. Input stays enabled: movement and abilities keep working, look and mouse buttons wait because they need the lock.
-Measured with Playwright (300 ms and 7 s holds, script `out/probe/probe.mjs`): Edge 156 and Firefox 159 both re-lock
+Measured with Playwright (300 ms and 7 s holds, script `tools/pointer-lock-probe.mjs`): Edge 156 and Firefox 159 both re-lock
 at once with no click and no gesture limit; Chrome is not installed on this machine and runs the same engine as Edge.
 No game-drawn cursor exists. A lock lost on purpose is not a pause; Esc during the hold pauses as usual.
 **Why:** the real cursor gives native hover, focus and accessibility for free, and the re-lock works in every browser tried.
