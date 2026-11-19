@@ -841,3 +841,21 @@ readable charged melee and reference-based movement to M2. Update the old GDD as
 dash-jump cost, sprint, slides and wall movement to match the agreed controls. Keep PERCH's map and original kits.
 **Why:** the player experienced intermittent tab closure and could not access expected actions in the released
 M1 preview. The linked guide supplies observable movement combinations and stamina costs to check in play.
+
+### D-QA-006 · 19/11/2026 — Test M1 input with a production preview and real history entries
+
+**Decision:** diagnose keyboard liveness with isolated Firefox and Edge content input, and check side-button
+navigation using trusted Chromium CDP events with real browser history in both directions. Keep expected-red
+fix checks gated until integrated. Use an advancing sim tick and the Sliding flag to verify the post-fix run.
+
+**Why:** content liveness, browser-native history, browser-chrome shortcuts and WebGL loss have separate
+observations. A synthetic side-button event can verify the action path. A history check needs trusted input.
+
+### D-QA-007 · 19/11/2026 — Measure the gun centre separately from the displayed pellet fan
+
+**Decision:** test the simulation's fired direction in the open and against real Rapier geometry, then check the
+actual VFX mapping for an open ray on a partially obstructed shotgun blast. Cover both shoulders and use
+Kingfisher as the single-shot control.
+
+**Why:** the M1 mapper displays only hit rays once a pellet strikes something. A shallow downward Albatross shot
+can have a correct centre while all visible rays point towards the ground.
