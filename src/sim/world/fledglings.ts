@@ -41,6 +41,8 @@ import { aimHeight } from './vision';
 const SECONDS_PER_MINUTE = 60;
 const EPS = 1e-6;
 const VS_STRUCTURES: readonly DamageBonus[] = [{ mult: WAVES.vsStructures, targetKinds: ['structure'] }];
+/** GDD §15.2 35:00 lever: a second target-kind bonus, so step 4 adds it (×1.75 in all, §5.2). */
+const LATE_VS_STRUCTURES: readonly DamageBonus[] = [...VS_STRUCTURES, { mult: DEFENCE.ward.lateFledglingMult, targetKinds: ['structure'] }];
 const SHOT_AFFECTS = { teams: 'enemies', kinds: ['hero', 'unit', 'structure'] } as const;
 /** Target priorities (GDD §7.1), lower wins; NONE when there is no target. */
 const NONE = 9;
@@ -230,7 +232,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
 
   function attackOf(type: FledglingType, scale: number, late: boolean): Effect {
     const def = FLEDGLINGS[type];
-    const bonus = late ? [{ mult: WAVES.vsStructures * DEFENCE.ward.lateFledglingMult, targetKinds: ['structure'] as const }] : VS_STRUCTURES;
+    const bonus = late ? LATE_VS_STRUCTURES : VS_STRUCTURES;
     const hit: DamageEffect = { kind: 'damage', amount: def.damage * scale, type: 'talon', bonus };
     return def.projectileSpeed === 0 ? hit : { kind: 'projectile', speed: def.projectileSpeed, radius: AI.shotRadius,
       range: def.range + AI.shotRangePad, gravity: 0, pierce: 'none', affects: SHOT_AFFECTS, onHit: [hit] };
