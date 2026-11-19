@@ -1194,3 +1194,14 @@ animation state) by QA and the EP. The Stage 3 fix is done by the Technical Arti
 work that missed it (D-EP-019 escalation).
 **Why:** the user saw guns floating beside the birds instead of being held, and asked that nothing like it happens
 again.
+
+### D-ART-003 · 19/11/2026 — One skinned mesh per bird; the gun leads and the wings follow
+**Decision:** each bird is one SkinnedMesh with rigid weights over 16 bones (body, head, tail, halo, two-segment wings
+ending in a hand, two-segment legs with a foot, gun and fore-end). This replaces D-ART-001's eight meshes per hero.
+Every frame the rig places the gun first. While aiming, moving, jumping or falling, it sits at the sim's
+`muzzlePoint`, aimed with the look pitch. Recoil, reload, melee and casts move it about its main grip. Two-bone IK then
+solves both wings onto the gun's grip sockets and the legs onto the ground. Only free-wing casts release the support
+wing; the gun is never slung or detached. `tests/anim/attachment.test.ts` and the pose sheets
+(`npx tsx tests/anim/posesheets.ts`) hold the rig to D-EP-035.
+**Why:** joints bend without extra draw calls (a hero is one draw call per pass instead of eight). The hands are on
+the grips by construction, and tracers start at the gun the bird holds.
