@@ -426,8 +426,13 @@ export function createThickets(ctx: SimContext, granary: Granary): Thickets {
           }
           continue;
         }
-        const leash = T.leashM + T.chaseM;
-        if (now - c.lastHurt >= ticks(T.calmS) || c.creatures.some((x) => flatDistSq(x.e.pos, c.anchor.pos) > leash * leash)) {
+        // Past the leash and 3 m more, or 6 s without damage while dragged past the leash or with no hero in sight to
+        // fight, the camp walks home (D-OBJ-012). A hero fighting it inside the leash keeps it fighting.
+        const chase = T.leashM + T.chaseM;
+        const far = c.creatures.some((x) => flatDistSq(x.e.pos, c.anchor.pos) > T.leashM ** 2);
+        const engaged = c.creatures.some((x) => x.sees && x.target !== null && !x.target.health.dead);
+        if (c.creatures.some((x) => flatDistSq(x.e.pos, c.anchor.pos) > chase * chase) ||
+            (now - c.lastHurt >= ticks(T.calmS) && (far || !engaged))) {
           goHome(c);
           continue;
         }

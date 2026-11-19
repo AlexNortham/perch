@@ -34,7 +34,6 @@ interface Impact {
 interface Ember {
   readonly e: PickupEntity;
   readonly landAt: Tick;
-  readonly floorY: number;
   landed: boolean;
 }
 
@@ -228,11 +227,11 @@ export function createRoc(ctx: SimContext, keepsakes: Keepsakes): Roc {
     if (killer?.kind === 'hero') {
       for (const h of ctx.store.list('hero')) if (h.team === killer.team) keepsakes.grant(h, ROC.reward.keepsakes);
     }
+    // Each lies on its landing spot from the start; the client drops it from the sky until `claimableAt` (D-OBJ-010).
     for (const spot of EMBERS.spots) {
-      const floorY = home.y + spot.y + EMBERS.radius;
-      const e = spawnPickup(ctx, 'ember', { x: home.x + spot.x, y: floorY + EMBERS.fallFromM, z: home.z + spot.z }, EMBERS.radius,
+      const e = spawnPickup(ctx, 'ember', { x: home.x + spot.x, y: home.y + spot.y + EMBERS.radius, z: home.z + spot.z }, EMBERS.radius,
         { melee: 'heavy', claimableAt: now + ticks(EMBERS.fallS), expiresAt: now + ticks(EMBERS.fallS + EMBERS.burnS) });
-      embers.push({ e, landAt: now + ticks(EMBERS.fallS), floorY, landed: false });
+      embers.push({ e, landAt: now + ticks(EMBERS.fallS), landed: false });
     }
   });
 
@@ -260,12 +259,9 @@ export function createRoc(ctx: SimContext, keepsakes: Keepsakes): Roc {
             ctx.store.despawn(m.e.id);
             continue;
           }
-          if (!m.landed) {
-            m.e.pos.y = m.floorY + EMBERS.fallFromM * Math.max(0, (m.landAt - now) / ticks(EMBERS.fallS));
-            if (now >= m.landAt) {
-              m.landed = true;
-              ctx.bus.emit({ type: 'objective', action: 'emberDropped', hero: null, team: 'neutral', pickup: m.e.id, pickupType: 'ember', pos: { ...m.e.pos } });
-            }
+          if (!m.landed && now >= m.landAt) {
+            m.landed = true;
+            ctx.bus.emit({ type: 'objective', action: 'emberDropped', hero: null, team: 'neutral', pickup: m.e.id, pickupType: 'ember', pos: { ...m.e.pos } });
           }
           embers[k++] = m;
         }

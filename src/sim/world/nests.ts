@@ -27,6 +27,8 @@ const RUN_THROUGH_DAMAGE = 1_000;
 const DROP_LINK_M = 1.5;
 /** A hero this far above or below a Nest's base can run through it. */
 const RUN_THROUGH_DY = { below: 1, above: 1.5 };
+/** Contact slack: a hero brushing the Nest (or stopped by a collider at its skin) still counts as passing through. */
+const RUN_THROUGH_MARGIN = 0.25;
 
 /** A Granary: a Bell Feeder and a Rat camp that return together, once both are down (GDD §§7.8, 7.14). */
 export interface Granary {
@@ -217,12 +219,12 @@ export function createNests(ctx: SimContext, keepsakes: Keepsakes, granary: Gran
     breaking.clear();
     for (const h of ctx.store.list('hero')) {
       if (h.health.dead || h.vel.x * h.vel.x + h.vel.z * h.vel.z < NEST_RULES.breakSpeed ** 2) continue;
-      ctx.spatial.query(h.pos, h.radius + NESTS.twig.radius, near);
+      ctx.spatial.query(h.pos, h.radius + NESTS.twig.radius + RUN_THROUGH_MARGIN, near);
       for (const id of near) {
         const n = nestOf.get(id);
         if (!n?.e || n.e.health.dead || NESTS[n.variant].solid || breaking.has(id)) continue;
         const dy = h.pos.y - n.e.pos.y;
-        const reach = h.radius + n.e.radius;
+        const reach = h.radius + n.e.radius + RUN_THROUGH_MARGIN;
         if (dy < -RUN_THROUGH_DY.below || dy > RUN_THROUGH_DY.above || flatDistSq(h.pos, n.e.pos) > reach * reach) continue;
         breaking.add(id);
         ctx.effects.apply({ kind: 'damage', amount: RUN_THROUGH_DAMAGE, type: 'talon' }, targetOf(n.e), worldCause(h.id, h.team, h.pos, 'objective'));

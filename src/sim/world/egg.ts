@@ -164,8 +164,8 @@ export function createEgg(ctx: SimContext, keepsakes: Keepsakes): Egg {
     spawned++;
     const perch = perches[state.perch]!.pos;
     landAt = now + ticks(EGG.lowerS);
-    egg = spawnPickup(ctx, 'egg', { x: perch.x, y: perch.y + EGG.radius + EGG.lowerFromM, z: perch.z }, EGG.radius,
-      { melee: 'any', claimableAt: landAt });
+    // It sits on the perch from the start; the client lowers it from the canopy until `claimableAt` (D-OBJ-010).
+    egg = spawnPickup(ctx, 'egg', { x: perch.x, y: perch.y + EGG.radius, z: perch.z }, EGG.radius, { melee: 'any', claimableAt: landAt });
     touched = false;
     roll = null;
     full = EGG.value.base + EGG.value.perMinute * Math.floor(landAt / MINUTE_TICKS);
@@ -339,11 +339,7 @@ export function createEgg(ctx: SimContext, keepsakes: Keepsakes): Egg {
           return;
         }
       }
-      if (now < landAt) {
-        const perch = perches[state.perch]!.pos;
-        egg.pos.y = perch.y + EGG.radius + EGG.lowerFromM * ((landAt - now) / ticks(EGG.lowerS));
-        return;
-      }
+      if (now < landAt) return;
       const h = carrier;
       if (h) {
         if (h.stats.conditions.has('stunned')) return drop(h.pos);

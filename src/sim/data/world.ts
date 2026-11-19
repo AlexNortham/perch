@@ -215,7 +215,7 @@ export const THICKETS = {
   leashM: 18,
   /** A creature may chase this far past the leash while it still sees its target. */
   chaseM: 3,
-  /** Without the camp taking damage this long, it walks home. */
+  /** Without the camp taking damage this long while dragged past the leash or with no hero in sight, it walks home. */
   calmS: 6,
   /** Home and idle with no hero near, the camp sleeps this long later. */
   sleepS: 5,
@@ -307,7 +307,7 @@ export const EGG = {
   firstS: 10 * MINUTE,
   everyS: 5 * MINUTE,
   lowerS: 10,
-  /** Lowered from this far above its perch (assumed). */
+  /** Presentation: the client lowers it from this far above its perch until claimableAt (assumed; the sim keeps it on the perch). */
   lowerFromM: 12,
   radius: 0.5,
   dropLockoutS: 1,
@@ -358,6 +358,7 @@ export const ROC = {
 export const EMBERS = {
   spots: [{ x: 10, y: 0, z: 0 }, { x: -5, y: 0, z: 8.66 }, { x: -5, y: 0, z: -8.66 }],
   fallS: 6,
+  /** Presentation: the client drops each from this high until claimableAt (the sim keeps it on its spot). */
   fallFromM: 9,
   burnS: 60,
   radius: 0.5,
