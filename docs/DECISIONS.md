@@ -1303,3 +1303,24 @@ same 24-card picker without returning to the main menu. Choosing a playable bird
 their current spot, with a fresh 32 practice AP and the dummies reset. UI/HUD and the app shell implement it in wave
 5, and it is a Stage 4 gate item.
 **Why:** the user's instruction: the practice range should have a swap character option.
+
+### D-EP-041 · 19/11/2026 — The scoreboard is an always-on top bar, with no keybind
+**Decision:** the Tab scoreboard and its binding are removed. The HUD's top bar becomes an always-visible scoreboard,
+following the user's reference layout (a screenshot of the reference game's HUD, described here; nothing from it is
+copied):
+- **Centre:** the match timer, flanked by each flock's total Seeds (Dawn amber on the left, Dusk violet-blue on the
+  right).
+- **Portraits:** six per side, own flock on the left and the enemy flock on the right. Each is a circular portrait of
+  the bird rendered from its own in-game model, framed in team colour, with a slim vertical health bar beside it and
+  its Seeds total beneath.
+- **Dead and unseen birds:** a dead bird's portrait darkens with a red respawn countdown over it; enemies that the
+  local flock can't currently see are dimmed (vision rules).
+- **Kill feed:** on the left (killer → victim, with small portraits), with callouts such as "First Blood" and kill
+  streaks.
+- **Objective status:** Patron health and phase, and tower state, move to a compact strip under the portraits and
+  onto the minimap.
+- **Ownership:** UI/HUD builds it; Rendering renders the portraits from the models at match start (so the offline
+  single-file build works); Input and Options drop the Tab binding; the wiki updates automatically. A Stage 4 gate
+  item.
+**Why:** the user's instruction: the scoreboard should be at the top like the reference image, with no keybind to show
+it.

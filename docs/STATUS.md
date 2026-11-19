@@ -183,6 +183,9 @@ Gate M3:
   delivery is automatic, and nothing else needs an interact binding (D-EP-039)
 - [ ] Practice Hub has a Swap bird option (pause menu and on-screen button) that opens the bird picker without
   leaving the hub and respawns you as the new bird with fresh practice AP (D-EP-040)
+- [ ] Always-on top scoreboard bar replaces the Tab scoreboard (no keybind): timer and flock Seed totals in the
+  centre, six portraits per side with health bars, Seeds, respawn countdowns and vision dimming; kill feed with
+  callouts; objective status in a strip below and on the minimap (D-EP-041)
 - [ ] Build Lab: at least 1,000 headless matches, then more until the scores converge (D-EP-037); every hero has a recommended build (early, mid and late core
   plus situational picks) in the shop and the wiki; bots buy varied but synergistic builds, measured over 20 matches
   (no two of a hero's builds near-identical; synergy above a random baseline) (D-EP-036)
