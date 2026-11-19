@@ -841,3 +841,14 @@ readable charged melee and reference-based movement to M2. Update the old GDD as
 dash-jump cost, sprint, slides and wall movement to match the agreed controls. Keep PERCH's map and original kits.
 **Why:** the player experienced intermittent tab closure and could not access expected actions in the released
 M1 preview. The linked guide supplies observable movement combinations and stamina costs to check in play.
+
+### D-DIR-001 · 19/11/2026 — Traversal chains, browser controls and combat cues
+**Decision:** adopt the linked reference's movement sequence and costs in GDD §3. PERCH sets its own
+dash-jump window (0.10–0.30 s), wall impulse and fatigue curve, down-dash timing and velocity, and slide
+and mantle speeds. Keep Shift and WASD, set crouch to C and move item slot 3 to N. Migrate old defaults as
+a pair, preserve custom choices and resolve collisions with a browser-safe free key. Bind ordinary and side
+mouse buttons with explicit swaps. Show light release, heavy commitment, lunge, hit and recovery, and both
+parry outcomes.
+**Why:** the new default supports the full traversal chain in a normal Firefox tab. Timing and impact cues let
+players learn the controls by watching and listening. Run GDD §3.10, check the stamina and timing thresholds
+and exercise mouse press, hold and release for the M2 gate. [Movement reference](https://deadlock.wiki/Movement)

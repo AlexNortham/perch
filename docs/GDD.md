@@ -94,10 +94,10 @@ the first minute and still has decisions to make at minute 35.
 | **Kit** | A hero's gun plus four abilities. |
 | **Item slot** | Holds one item. 12 base slots. |
 | **Flex slot** | An extra item slot unlocked for the whole flock by objectives (4 in total). |
-| **Active** | An item with a castable effect, bound to Z / X / C / V. |
-| **Stamina pip** | One charge of stamina. Dashes spend pips; pips regenerate over time. |
+| **Active** | An item with a castable effect, bound to Z / X / N / V. |
+| **Stamina pip** | One charge of stamina. Traversal can spend whole or half pips; stamina regenerates over time. |
 | **Dash** | Short burst of speed on Shift; costs one pip. |
-| **Dash-jump** | Jumping during a dash for a long, low leap. |
+| **Dash-jump** | Jumping during the ground dash timing window for a long, low leap at the cost of a second pip. |
 | **Slide** | Crouching while running: a fast, low slide that carries momentum. |
 | **Mantle** | Automatic pull-up onto a ledge within reach. |
 | **Updraft** | A rideable wind current strung above each lane, base to base (zipline). Boost and dismount at will. |
@@ -128,13 +128,13 @@ the first minute and still has decisions to make at minute 35.
 | Aim (zoom) | RMB (hold) | FOV ×0.8 (Owl ×0.5), spread ×0.75; no movement penalty. Cancels a `point` ability's placement. |
 | Reload | R | §5.6. |
 | Jump | Space | Also dismounts an Updraft or Vine. |
-| Crouch / slide | Left Ctrl (hold) | Slides when moving fast enough (§3.5). Toggle option in settings. |
-| Dash | Left Shift | Costs one stamina pip. Boosts on an Updraft. |
-| Melee | Q | Tap: light. Hold 0.35 s: heavy. |
+| Crouch / slide | C (hold) | Slides when moving fast enough or downhill (§3.5). Double-tap in the air to down-dash. Toggle option in settings. |
+| Dash | Left Shift | Costs one stamina pip on the ground or in the air. Boosts on an Updraft. |
+| Melee | Q | Release before 0.35 s for light. At 0.35 s of continuous hold, commits heavy. |
 | Parry | F | §5.8. |
 | Abilities 1–4 | 1, 2, 3, 4 | Slot 4 is the ultimate. |
 | Upgrade ability 1–4 | Alt + 1–4 | Spends AP on the next tier. |
-| Item actives | Z, X, C, V | Bound to the first four active items in slot order (rebindable per slot). |
+| Item actives | Z, X, N, V | Bound to the first four active items in slot order (rebindable per slot). |
 | Interact | E | Pick up the Golden Egg, deliver, mount an Updraft at a station. |
 | Shoulder swap | G | §4.2. |
 | Shop (Magpie's Hoard) | B | Opens only in a shop zone; elsewhere shows the read-only shop. |
@@ -143,12 +143,15 @@ the first minute and still has decisions to make at minute 35.
 | Big map | M (hold) | Full-screen minimap. |
 | Pause / menu | Esc | Single-player: pauses the simulation. |
 
+In a normal browser tab, W + C and W + Left Shift + C are safe default chords for forward crouch/slide and
+dash-slide. Left Ctrl with W can close the tab. See §12.9 for legacy saves, binding conflicts and mouse buttons.
+
 ### 3.2 Ground movement
 
 | Parameter | Value |
 |---|---|
 | Run speed | 7.0 m/s (per hero 6.6–7.6, §9) in every direction |
-| Sprint | After 4 s out of combat (§5.13): +2.0 m/s, ramping in over 0.5 s; lost instantly on entering combat |
+| Sprint | After 5 s without aiming or a combat action (§5.13): +2.0 m/s, ramping in over 0.5 s while running. Aim or a combat action drops the bonus immediately and restarts eligibility; the 5 s count starts again on releasing aim. |
 | Ground acceleration | 50 m/s² (full speed in ~0.14 s) |
 | Ground deceleration | 40 m/s² with no input |
 | Step-up height | 0.45 m (stairs and kerbs need no jump) |
@@ -165,42 +168,51 @@ the first minute and still has decisions to make at minute 35.
 | Coyote time | 0.1 s after leaving a ledge |
 | Jump buffer | 0.1 s before landing |
 | Air control | Acceleration 15 m/s² (30% of ground) toward the input direction; horizontal speed above run speed is kept, never added to by air control |
-| Double jump | None in the base kit |
+| Air jump | Press Jump again while airborne: 1 pip, once per airtime. Set vertical velocity to +8.94 m/s and keep horizontal velocity. |
+| Wall jump | Press Jump while airborne in contact with a near-vertical solid wall or within 0.1 s of leaving it. Push away at 6 m/s and carry the along-wall component of horizontal velocity. First push is free; later pushes in the same airtime cost 0.5 pip each. |
+| Wall fatigue | At full strength, a wall jump sets vertical velocity to +7 m/s. Each wall jump and each airborne heavy-melee commitment starts 1.25 s of fatigue. While fatigued, the next wall jump launches between +3.5 and +7 m/s, recovering linearly over that interval. |
+| Jump priority | A ledge pull-up or traversal dismount takes precedence in its context. Otherwise resolve dash-jump, ground/coyote jump, wall jump, then air jump. A wall jump with insufficient stamina leaves the air jump available under its own cost. Buffer a fresh Jump press for landing only when no jump can start immediately. |
 
 ### 3.4 Stamina, dash and dash-jump
 
 | Parameter | Value |
 |---|---|
 | Stamina pips | 3 (Secretarybird, Swift, Hummingbird: 4; items can add more) |
-| Pip regeneration | One pip every 5.0 s, one at a time, also while airborne **(assumed)** |
-| Dash input | Shift: direction from WASD (forward when no key is held), relative to the camera's yaw |
+| Pip regeneration | Refill 1 pip per 5.0 s of missing stamina, including in the air; display whole and half pips. Spending during a refill preserves its progress. |
+| Dash input | Press Dash in the camera-yaw direction of the movement keys at that moment (forward with no movement input). |
 | Ground dash | 5.5 m over 0.2 s (27.5 m/s), exits at run speed + 1 m/s; costs 1 pip |
-| Air dash | 4.5 m over 0.2 s, horizontal only, removes vertical velocity at start; costs 1 pip; max 1 air dash per airtime **(assumed)** |
-| Dash lockout | 0.4 s between dashes |
-| Dash-jump | Jump during a ground dash or within 0.15 s after it: launch at 13 m/s horizontal (in the dash direction) and 7 m/s vertical (~1.0 m apex, ~8–9 m leap). No extra pip. |
-| Dash FOV kick | §4.3 |
-| Rules | No dash while rooted, grounded or stunned. The Egg carrier **can** dash. |
+| Air dash | 4.5 m over 0.2 s, clears vertical velocity on start. Costs 1 pip, once per airtime. |
+| Dash lockout | 0.4 s from the start of the last ground or air dash. |
+| Dash-jump | Press Jump 0.10–0.30 s after starting a ground dash, while still grounded or in ground coyote time. Costs 1 more pip (2 total). Launch at 13 m/s in the dash direction and +7 m/s up (~1.0 m apex, ~7.3 m airborne on level ground). A jump outside the window or with insufficient stamina uses normal jump rules. |
+| Down-dash | Two fresh crouch presses at most 0.25 s apart during the same airtime set vertical velocity to −18 m/s and carry horizontal momentum to landing. Costs 0.5 pip, once per airtime. |
+| Resets | Landing resets air jump, air dash, down-dash, wall-jump count and wall fatigue. Per-airtime limits and pending jump/crouch inputs also reset on respawn. Dash lockout still applies on landing. |
+| Casts | Check normal cast conditions during a dash. A permitted cast closes dash-jump eligibility; the ability's movement rules govern any interruption. |
+| Feedback | Dash FOV kick (§4.3) and wing whoosh. Show the dash-jump window at the crosshair while eligible and able to pay, with a distinct launch cue on success. Air and wall jumps show a flap or push pose; a down-dash shows a tuck and a landing cue. |
+| Status | Root, Grounded or Stun blocks dashes and jumps. The Egg carrier can dash. |
+
+Traversal reference: [Deadlock Wiki movement guide](https://deadlock.wiki/Movement).
 
 ### 3.5 Slide
 
 | Parameter | Value |
 |---|---|
-| Trigger | Press crouch while on the ground with horizontal speed ≥ 5.0 m/s |
-| Start | Speed + 2.0 m/s (max 10 m/s) in the current movement direction |
+| Trigger | Hold crouch, or enable it in toggle mode, at ≥ 5.0 m/s on the ground or moving downhill on a walkable slope steeper than 8°. Also checks on landing and mantle exit. |
+| Start | Carry entry momentum in its current direction, including a dash landing. The +2.0 m/s start boost applies up to 10 m/s without reducing an already-faster entry; sliding costs no stamina. |
 | Decay | Friction slows the slide to crouch-walk speed over 1.0 s on flat ground |
 | Slopes | Downhill slopes steeper than 8° add gravity along the slope; the slide lasts while on that slope (max 16 m/s) |
-| Steering | ±45° per second of turn from the mouse |
+| Steering and exit | Mouse steers up to ±45° per second. Releasing crouch (or toggling it off) ends the slide and returns to normal ground acceleration; walls clip the blocked velocity component. |
 | Boost cooldown | The +2.0 m/s start boost is available again 1.0 s after a slide ends |
-| Slide-jump | Jumping during a slide keeps the slide's speed |
+| Slide-jump | Jumping during a slide keeps its horizontal speed. Holding crouch through landing can chain the slide, subject to the boost cooldown. |
 | Shooting | Allowed; spread unchanged |
 
 ### 3.6 Mantle
 
-- Automatic when the hero moves or is airborne facing a ledge whose top is 0.6–2.4 m above the feet, with room to
-  stand on top (capsule fits), within 0.8 m ahead. Below 0.6 m the step-up or a jump handles it.
-- Duration 0.35 s; the hero ends standing on the ledge with 50% of the previous horizontal speed.
+- Hold Jump while approaching and facing a ledge within 0.8 m ahead, with room for the standing capsule on top.
+  Measure the 0.6–2.4 m rise from the ground at approach. Lower rises use the step-up or a jump.
+- Duration 0.35 s. Stand on top with 50% of entry horizontal speed, or slide on top with entry momentum if
+  crouch is active and slide conditions are met. The usual slide boost cooldown applies.
 - No shooting, abilities or reload progress during a mantle; it can't be cancelled.
-- Mantling is blocked while rooted, stunned or carrying the Egg.
+- Mantling is blocked while rooted, grounded, stunned or carrying the Egg.
 
 ### 3.7 Updrafts (lane ziplines)
 
@@ -237,6 +249,16 @@ the first minute and still has decisions to make at minute 35.
   displacement speed toward the wall.
 - Unstoppable heroes ignore displacement. There is no mass or knockback resistance stat.
 - Displacement cancels channels, mantles and Updraft rides.
+
+### 3.10 Hedgerow traversal run
+
+Start at the Dawn Hedgerow gate. Follow the lane past the Heron, taking the side of the lane around its column.
+Enter the middle of the lane between the Heron and the Hawk, dash forward, then press Jump as the timing cue
+appears. Hold crouch before landing to carry speed into a slide. Turn toward the east 1.2 m hedge at
+x = −92…−88, z = −49…−47.5, then hold Jump into its face to mantle. Keep crouch held to carry a fast
+approach onto the top. Continue to the station 6 m gateward of the Hawk, face the bridge, press Interact to
+mount, press Dash to boost over the Hawk and press Jump to dismount. Observe the stamina spent on the
+dash-jump, the retained landing speed and the unobstructed pass above the tower.
 
 ---
 
@@ -303,11 +325,16 @@ the first minute and still has decisions to make at minute 35.
 - Colour option: white (default), green, yellow, cyan; outline always on.
 - Reload progress shows as a thin ring around the dot; an ability's `point` placement shows its ground marker
   instead of moving the crosshair.
+- A blue arc marks the affordable dash-jump window (§3.4). A filled sweep shows melee charge to commitment,
+  followed by a heavy swing and recovery cue. Parry shows its active window and then its success or whiff (§5.8).
 
 ### 4.7 Mouse
 
 - Sensitivity 1.0 = 0.06° per mouse count; slider 0.1–5.0. Separate aim (RMB) multiplier, default 1.0.
 - Raw pointer-lock deltas; no acceleration or smoothing. Invert-Y option.
+- Melee and parry accept standard and side mouse buttons through Settings → Controls (§12.9). While playing
+  under lock, a bound side button acts on press and release without navigating the browser. LMB and RMB can be
+  assigned with the same conflict handling as keyboard bindings.
 
 ---
 
@@ -386,22 +413,24 @@ Each hero has one gun (§9 lists every value). Common rules:
 
 | | Light melee | Heavy melee |
 |---|---|---|
-| Input | Tap Q (released before 0.35 s) | Hold Q for 0.35 s, release or wait to swing |
-| Timing | Hit at 0.25 s, total 0.55 s | Windup 0.6 s from press, hit, recovery 0.4 s |
-| Reach | Sweep 2.8 m ahead, 1.2 m radius | Lunges 3.5 m forward on release, then sweeps 2.8 m |
+| Input | Press Melee and release before 0.35 s | Hold Melee for 0.35 s. The attack commits at the threshold and finishes if released after commitment. |
+| Timing | Hit 0.25 s after release, finish 0.55 s after release | Windup starts on press; lunge starts on commitment, hit at 0.60 s from press, then 0.40 s recovery |
+| Reach | Sweep 2.8 m ahead, 1.2 m radius | Lunges up to 3.5 m in the aim direction, clipped by solid geometry, then sweeps 2.8 m |
 | Damage (Talon) | 50 + 3 per level | 115 + 6 per level |
-| Extra | — | Knockback 3 m. Can be parried. Claims the Phoenix Ember. |
+| Extra | Can be parried. | Knockback 3 m. Can be parried. Claims the Phoenix Ember. |
+| Feedback | Quick sweep pose and air swish, with hit feedback on contact. | Draw-back pose and crosshair charge, distinct lunge and swing cue, hit or miss followed by a visible recovery. |
 | Notes | Cancels reload. Can't beak-shot. Gun damage % does not apply to melee. Both hit Nests, fledglings and structures (structures take 50% melee damage). |
 
 ### 5.8 Parry
 
-- **Input:** F. The parry window opens 0.05 s after the press and lasts 0.6 s.
+- **Input:** press Parry (F by default). The parry window opens 0.05 s after the press and lasts 0.6 s.
 - **Success:** an enemy hero's light or heavy melee that lands in the window from within the parrier's front 180°
   deals no damage; the attacker is stunned for 2.0 s; the parrier's parry cooldown resets to 0. Parry does not
   block bullets or abilities. Parrying neutrals' attacks does nothing.
 - **Whiff:** if nothing is parried, the parrier can't fire or melee for 0.4 s after the window closes, and parry
   goes on a 5 s cooldown.
-- Feedback: a bright "clink" and a white radial flash on success; a dull whoosh on a whiff.
+- Feedback: show the guarding pose and active window. On success, play a bright "clink" and a white radial
+  flash. On whiff, play a dull whoosh and show the recovery and 5 s cooldown.
 
 ### 5.9 Statuses
 
@@ -472,7 +501,8 @@ durations are reduced by the target's **status resist** (stacks multiplicatively
 ### 5.13 Combat state
 
 A hero is **in combat** for 4 s after dealing or taking hero damage, firing a gun, or casting a damaging ability.
-Sprint (§3) and "out of combat" item effects (8 s rule where stated) depend on it.
+Sprint uses the same combat actions with the 5 s delay in §3.2. "Out of combat" item effects use the 8 s
+rule where stated.
 
 ---
 
@@ -1766,6 +1796,12 @@ structures destroyed, Eggs delivered, Ember claims. Header: match time and seed.
 
 Settings save to localStorage and apply immediately.
 
+On first load of a legacy save, migrate its old default crouch (Left Ctrl) and slot-3 item key (C) to C and N.
+Resolve those two defaults together so they cannot collide. Preserve explicitly customised bindings. If a
+custom action occupies a destination key, keep it and assign the migrating action an unused browser-safe
+key, shown in Controls. Warn when a custom binding can form a reserved browser chord. Capture mouse buttons
+while the control is listening, including side buttons, with the same explicit swap handling and persistence.
+
 ### 12.10 Pause (Esc)
 
 Resume · Settings · How to play · Concede (from 15:00, confirm) · Main menu (confirm). Pausing stops the
@@ -2031,8 +2067,9 @@ An item fails if it can't be shown with a screenshot, a test or a telemetry numb
 
 - [ ] Walk 7.0 m/s reaches full speed in ≤ 0.15 s and stops in ≤ 0.2 s; strafing feels the same as forward.
 - [ ] Jump apex 1.6 m ± 0.05; dash covers 5.5 m in 0.2 s with a visible +6° FOV kick; 3 pips regenerate at 5 s each.
-- [ ] Dash-jump clears an 8 m gap; slide from a run reaches 9 m/s and decays in ~1 s; slopes extend slides.
-- [ ] Mantle triggers on a 2.2 m ledge from a jump and never on a 2.6 m one; takes 0.35 s.
+- [ ] Dash-jump carries about 7.3 m while airborne; slide from a run reaches 9 m/s and decays in ~1 s; slopes
+      extend slides.
+- [ ] Hold Jump into a 2.2 m ledge to mantle in 0.35 s; a 2.6 m rise in the same approach never mantles.
 - [ ] Updraft: mount at a station, ride at 11 m/s, boost to 18 m/s, shoot while riding, Space dismount arcs up.
 - [ ] Chimney lifts to a roof; Vine climbs at 4.5 m/s.
 - [ ] Camera: shoulder swap in 0.15 s; pull-in against a wall with no clipping; crosshair shots land where the
@@ -2048,6 +2085,13 @@ An item fails if it can't be shown with a screenshot, a test or a telemetry numb
 
 ### M2 — The loop
 
+- [ ] Run §3.10 by hand and sustain normal-tab movement in Firefox with forward, crouch, dash, jump and
+      item keys. Capture the cue at both dash-jump window edges, the two-pip total, retained slide entry
+      speed and the slope and mantle transitions. Verify old defaults migrate and custom binds persist.
+- [ ] Measure the air jump, air dash and down-dash costs and once-per-airtime resets, first and repeat wall
+      jumps including fatigue and recovery, and sprint loss and return after aim or combat.
+- [ ] Rebind Melee and Parry to ordinary and side mouse buttons under pointer lock. Show a light release,
+      heavy commitment, lunge, impact and recovery, then parry success and whiff with their distinct cues.
 - [ ] Seed payouts match §8 for last hit, secure, deny, hero kill (with an assist), structures and passive income.
 - [ ] Level thresholds match §8.5; AP and the level-6 ultimate unlock work; upgrade tiers change numbers.
 - [ ] Shop: buy, upgrade with component discount, sell 50% / 100% within 20 s, only in shop zones.
