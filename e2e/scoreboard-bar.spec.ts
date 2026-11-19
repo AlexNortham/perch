@@ -89,6 +89,7 @@ test.describe('top scoreboard (D-EP-041)', () => {
 
   test('a dead bird\'s portrait is darkened with a red respawn countdown that runs down', async ({ page }) => {
     await match(page);
+    await expect(portraits(page), 'the bar has its portraits').toHaveCount(PER_SIDE * 2);
     const dead = portraits(page).and(page.locator('[data-dead="true"]'));
     await expect(dead.first(), 'in a 6v6 bot match someone dies within two minutes').toBeVisible({ timeout: DEATH_WAIT_MS });
     const first = dead.first();
