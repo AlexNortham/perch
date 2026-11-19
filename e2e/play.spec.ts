@@ -7,13 +7,10 @@ const RUN_MS = 1000;
 const DASH_MS = 150;
 const MIN_RUN_M = 3;
 
-interface Hook {
-  hero: { pos: { x: number; y: number; z: number }; shotsFired: number } | null;
-}
-declare global {
-  interface Window {
-    __perch?: Hook & { ready: boolean };
-  }
+/** window.__perch.hero (src/client/app): the local hero's position and shots fired. */
+interface HeroHook {
+  pos: { x: number; y: number; z: number };
+  shotsFired: number;
 }
 
 test.use({ viewport: { width: 1280, height: 720 } });
@@ -31,7 +28,7 @@ test('lane: lock the pointer, hold W, dash and fire', async ({ page }) => {
   await page.mouse.click(640, 360);
   await page.waitForFunction('document.pointerLockElement !== null');
 
-  const start = await page.evaluate(() => window.__perch?.hero);
+  const start = await page.evaluate<HeroHook | null>('window.__perch.hero');
   expect(start, 'the local hero is on the page hook').not.toBeNull();
   expect(start?.shotsFired).toBe(0);
 
@@ -45,7 +42,7 @@ test('lane: lock the pointer, hold W, dash and fire', async ({ page }) => {
   await page.mouse.up();
   await page.keyboard.up('KeyW');
 
-  const end = await page.evaluate(() => window.__perch?.hero);
+  const end = await page.evaluate<HeroHook | null>('window.__perch.hero');
   const moved = Math.hypot((end?.pos.x ?? 0) - (start?.pos.x ?? 0), (end?.pos.z ?? 0) - (start?.pos.z ?? 0));
   expect(moved, 'metres run').toBeGreaterThan(MIN_RUN_M);
   expect(end?.shotsFired, 'shots fired').toBeGreaterThan(0);

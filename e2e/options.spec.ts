@@ -8,12 +8,6 @@ const JUMP_MIN_RISE_M = 0.5;
 const SETTLE_MS = 600;
 const JUMP_MS = 400;
 
-declare global {
-  interface Window {
-    __perch?: { ready: boolean; hero: { pos: { y: number } } | null };
-  }
-}
-
 test.use({ viewport: { width: 1280, height: 720 } });
 
 const keyButton = (page: Page, action: string) => page.locator(`button.pu-key[data-action="${action}"]`);
@@ -29,7 +23,7 @@ async function rebind(page: Page, action: string, key: string): Promise<void> {
   await page.keyboard.press(key);
 }
 
-const heroY = (page: Page) => page.evaluate(() => window.__perch?.hero?.pos.y ?? 0);
+const heroY = (page: Page) => page.evaluate<number>('window.__perch.hero?.pos.y ?? 0');
 
 test('menu Options: rebind, swap on conflict, cancel, and the choice survives a reload', async ({ page }) => {
   await open(page, '/');
