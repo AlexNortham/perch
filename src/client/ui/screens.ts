@@ -22,13 +22,11 @@ const screen = (cls: string, ...children: HTMLElement[]): HTMLElement => {
   return s;
 };
 
-export const menuScreen = (actions: AppActions): HTMLElement =>
-  screen(
-    'pu-menu',
-    make('h1', 'pu-title', 'PERCH'),
-    make('p', 'pu-sub', 'Two flocks. One city in the forest.'),
-    button('Play', actions.play),
-  );
+export const menuScreen = (actions: AppActions, openOptions: () => void): HTMLElement => {
+  const row = make('div', 'pu-btnrow');
+  row.append(button('Play', actions.play), button('Options', openOptions));
+  return screen('pu-menu', make('h1', 'pu-title', 'PERCH'), make('p', 'pu-sub', 'Two flocks. One city in the forest.'), row);
+};
 
 /** All 24 heroes; only `implemented` ones can be picked (D-ARCH-013). */
 export function heroSelectScreen(actions: AppActions, seed: number): HTMLElement {
@@ -52,11 +50,12 @@ export function heroSelectScreen(actions: AppActions, seed: number): HTMLElement
   return screen('pu-select', make('h2', 'pu-h2', 'Choose your bird'), grid, button('Back', actions.toMenu, 'pu-btn pu-quiet'));
 }
 
-export const pauseScreen = (actions: AppActions): HTMLElement =>
+export const pauseScreen = (actions: AppActions, openOptions: () => void): HTMLElement =>
   screen(
     'pu-pause',
     make('h2', 'pu-h2', 'Paused'),
     button('Resume', actions.resume),
+    button('Options', openOptions),
     button('Quit to menu', actions.toMenu, 'pu-btn pu-quiet'),
   );
 

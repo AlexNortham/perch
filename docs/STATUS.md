@@ -722,3 +722,17 @@ add a `Meleeing` ViewFlag or pass this step's events to pose. Rendering — invi
 for now invisible enemies are hidden and allies shown normally. Rendering — structures, Patrons, pickups, projectiles
 and other units still use the box.
 **Next:** hero LODs (budget met at LOD0 only), per-hero cast poses, the 40 m silhouette line-up (M3), structures.
+
+### W3 · UI/HUD Engineer · Options and key rebinding · 19/11/2026
+**Done:** Options screen from the main menu and the pause menu (Back returns to where it was opened). Controls: all 28
+`DEFAULT_BINDINGS` actions with readable key names, click then press a key or mouse button, Esc cancels, a key in use
+swaps the two actions (status line says so), Reset per action and Reset all. Also sensitivity, FOV, quality, and master,
+music and effects volume. Each change calls `AppActions.saveSettings` at once. `src/client/ui/bindings.ts` (pure
+helpers; the input module has no `rebind()` so the swap lives here), `options.ts`, tests in `bindings.test.ts`.
+**Verified:** Playwright one-off (`out/ui-options.ts`, not committed): menu → Options → rebind Jump to J → swap Dash with
+J → reset → Esc cancels → sensitivity 2.5 and quality High → reload → all persisted → rebind Pause to P → `?scene=lane`:
+P pauses (live through the app) → Options from pause → Back returns to pause. All 10 checks pass. Jump itself cannot be
+checked: the input module is still a stub that only reads the pause key.
+**Interface requests (app side):** none blocking; `app.ts` already applies saved settings to input, camera, audio and
+renderer, and persists the whole `Settings`. Input must read `bindings` for every action once it lands. Aim
+sensitivity, invert Y and crouch toggle exist in the store but have no UI yet.

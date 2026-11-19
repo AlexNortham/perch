@@ -755,3 +755,9 @@ one InstancedMesh per type and team (capacity 256), animated by whole-body matri
 copied into the models: sizes come from `HEROES[id].def.body`.
 **Why:** about 8 draw calls per hero and 4 for any number of chicks, no per-frame allocation, and the models follow
 the data when hero engineers change a body plan.
+
+### D-UI-002 · 19/11/2026 — Options apply and save on change; swap logic lives in the UI
+**Decision:** every Options change calls `AppActions.saveSettings` immediately (no Apply button); rebinding to a key in
+use swaps the two actions, implemented in `src/client/ui/bindings.ts`. Capture listens on window in the capture phase and
+stops propagation so Esc and the pause key do not reach the app while capturing.
+**Why:** immediate feedback with nothing to forget to apply; input has no `rebind()` to reuse.

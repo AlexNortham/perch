@@ -85,3 +85,29 @@ export const STYLES = `
 .pu-ammo.low{color:#ff6a5a}
 @keyframes pu-pulse{50%{opacity:.6}}
 `;
+
+export const OPTIONS_STYLES = `
+.pu-opts{display:flex;gap:36px;align-items:flex-start;max-height:74vh;padding:20px 26px;background:${PANEL_BG};border-radius:6px;text-shadow:none}
+.pu-col{display:flex;flex-direction:column;gap:8px;width:440px}
+.pu-opts .pu-col:first-child{max-height:calc(74vh - 40px);overflow-y:auto;padding-right:10px}
+.pu-h3{margin:8px 0 2px;font-size:18px;letter-spacing:.06em;color:${TEAM_CSS.dawn}}
+.pu-h3:first-child{margin-top:0}
+.pu-binds{display:flex;flex-direction:column;gap:4px}
+.pu-bind{display:flex;align-items:center;gap:8px}
+.pu-bind-name{flex:1;font-size:15px}
+.pu-key{min-width:130px;font:inherit;font-size:14px;font-weight:600;padding:5px 10px;border:1px solid rgba(255,255,255,.35);border-radius:4px;background:rgba(255,255,255,.08);color:${TEXT};cursor:pointer}
+.pu-key:hover,.pu-key:focus-visible{border-color:${TEXT};outline:none}
+.pu-key.cap{border-color:${BEAK_CSS};color:${BEAK_CSS};animation:pu-pulse 1s ease-in-out infinite}
+.pu-reset{font:inherit;font-size:12px;padding:4px 8px;border:1px solid rgba(255,255,255,.25);border-radius:4px;background:none;color:${TEXT_DIM};cursor:pointer}
+.pu-reset:disabled{opacity:.25;cursor:default}
+.pu-status{min-height:40px;position:sticky;top:0;background:rgba(12,14,18,.95);font-size:14px;color:${TEXT_DIM}}
+.pu-status.swap{color:${BEAK_CSS}}
+.pu-opt{display:flex;align-items:center;gap:12px;font-size:15px}
+.pu-opt-name{width:150px}
+.pu-opt input[type=range]{flex:1;accent-color:${TEAM_CSS.dawn}}
+.pu-val{width:52px;text-align:right;font-variant-numeric:tabular-nums}
+.pu-seg{display:flex;gap:6px}
+.pu-seg .pu-btn{padding:5px 14px;font-size:14px}
+.pu-btnrow{display:flex;gap:16px}
+.pu-btn.on{background:${TEAM_CSS.dawn};color:#1a1204;border-color:${TEAM_CSS.dawn}}
+`;
