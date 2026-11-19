@@ -1088,3 +1088,11 @@ to the first beak-shot pellet of the pull only. Guns and melee test cover agains
 bodies and hearts stay selectable. `weapon.traces` lists every hitscan pellet end, hits and misses. Phase-one Patron
 damage floors at 1 HP once and emits `patron.depleted`. A practice dummy resets 4 s after its last change.
 **Why:** later item changes or a reload can't alter rounds in flight, and Rendering draws the real pellet fan.
+
+### D-EP-031 · 19/11/2026 — A generated game wiki, kept current at every gate
+**Decision:** add a Docs & Wiki role (#21) that owns `tools/wiki/**`, the committed site in `wiki/**` and
+`tests/wiki/**`. The wiki is generated from the game's own data (heroes, abilities, items, numbers, map) plus the GDD
+for planned content and PLAYABLE.md for patch notes. Every stage gate now includes "wiki regenerated and reviewed",
+and a coverage test fails if a feature in the data has no wiki entry.
+**Why:** the user asked for a full HTML game wiki that is updated whenever features are added. Generating it from the
+data is the only way it can't drift.

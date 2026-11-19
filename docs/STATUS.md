@@ -49,7 +49,9 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
     only `main` after a stage gate. Agents never add remotes, push, publish or upload. Commits use the repo-local
     identity `Alex Northam <alexanderjnortham@gmail.com>`, never the machine's global work address (D-EP-025).
     Installing packages from the npm registry is fine.
-11. **Launchable at every gate.** A milestone closes only when `npm start` opens the menu and that stage's new
+11. **Launchable at every gate, with a current wiki.** The EP also regenerates the wiki (`npm run wiki`, D-EP-031) and
+    reviews it.
+    **Launchable at every gate.** A milestone closes only when `npm start` opens the menu and that stage's new
     features are reachable from it (before the menus are finished, from a listed `?scene=` URL), and the EP has added
     the stage's section to [PLAYABLE.md](../PLAYABLE.md): how to launch, what you can do, what isn't in yet
     (D-EP-017).
@@ -81,6 +83,7 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
 | `src/client/audio/**` | Audio (18) |
 | all of `src/sim/data/**` from W7, `docs/BALANCE.md`, `tools/balance/**` | Balance & Data (19) |
 | `tests/**`, `e2e/**` | QA, Performance & Review (20) |
+| `tools/wiki/**`, `wiki/**`, `tests/wiki/**` | Docs & Wiki (21) |
 | `src/**/*.test.ts` next to code | the owner of that code |
 
 W1 exceptions: the Architect creates a compiling stub entry module in every area so the composition roots never
