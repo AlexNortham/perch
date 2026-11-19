@@ -152,16 +152,23 @@ Gate M2:
 
 ### M3 — Full 6v6
 
-- **W5**: Bot AI · Objectives (Golden Egg, Roc and Phoenix Ember, Thickets, Nests, Feather runes) · Economy & Items
+- **W4.5** (between waves): Game Director design pass on map detail, enterable buildings and what to do inside them,
+  the jungle and breakable Nests, using deadlock.wiki as the mechanics reference only (D-EP-033) · Technical
+  Architect contract round
+- **W5**: Level Designer (a far more detailed map: enterable buildings with interiors, stairs, upper floors and rooftop
+  access; jungle; Nests) · Bot AI · Objectives (Golden Egg, Roc and Phoenix Ember, Thickets, Nests, Feather runes,
+  interior activities) · Economy & Items
   (48+ items, about 10 actives) · Hero Engineer A, batch A3 (peacock, vulture, swift, hummingbird) · Hero Engineer B,
   batch B2 (cassowary, toucan, woodpecker, nightjar) · Technical Artist (A3 and B2 birds) · QA
-- **W6**: Level Designer (verticality pass, bot navigation) · Hero Engineer B, batch B3 (frigatebird, cockatoo, swan,
+- **W6**: Level Designer (detail polish and bot navigation through interiors) · Hero Engineer B, batch B3 (frigatebird, cockatoo, swan,
   kiwi) · Technical Artist (B3 birds) · Bot AI (build lists and tuning for all 24) · Hero polish (fixes from earlier
   reviews) · QA (20 seeded headless matches, soak)
 
 Gate M3:
 - [ ] All 24 heroes and 48+ items
 - [ ] Golden Egg, Roc/Ember, Thickets and runes work
+- [ ] Detailed map: enterable buildings with interiors and things to do in them, a jungle with Thicket camps, and
+  breakable Nests (boxes) throughout (D-EP-033); still 60 FPS on the budget scenes
 - [ ] 11 bots finish 20 seeded headless matches with zero crashes
 - [ ] Launchable: a 1 + 11 bots match with any of the 24 heroes starts from the menu; PLAYABLE.md "Stage 4 (M3)" written
 

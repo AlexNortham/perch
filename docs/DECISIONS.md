@@ -1160,3 +1160,20 @@ sign-off onwards, integration merges happen in a separate worktree, so the main 
 `npm start` there always runs the latest stable stage. After each gate the EP starts the next stage without waiting.
 **Why:** the user's instruction: carry on with the following stages, but only push to main when a stage is complete,
 so they can test stable releases.
+
+### D-EP-033 · 19/11/2026 — A detailed map with enterable buildings, jungle and boxes in Stage 4
+**Decision:** Stage 4 adds a map-detail push.
+- Before wave 5, the Game Director designs building interiors and what players do inside them (breakable Nests,
+  Thicket camps, interior shops, rooftop and balcony routes, and the other in-building interactables the reference
+  game has), plus the jungle. The Director uses deadlock.wiki (https://deadlock.wiki/) as the reference for how those
+  features work.
+- In wave 5 the Level Designer rebuilds Old Mossmarket in far more detail: enterable buildings with doors, stairs,
+  upper floors, windows and roof access, more street and jungle detail, and nav through interiors.
+- Objectives fills the interiors and the jungle with activities. The Technical Artist and Rendering keep it within
+  the FPS and draw-call budgets.
+- The Stage 4 gate gains "Detailed map: enterable buildings with interiors and things to do in them, a jungle with
+  Thicket camps, and breakable Nests (boxes) throughout".
+- The reference is for mechanics only (D-EP-002): layouts, names, art and all wording stay PERCH originals, and
+  nothing is copied from the wiki into the game or into PERCH's own wiki.
+**Why:** the user's instruction: make the map more detailed, make buildings enterable with things to do in them,
+include the jungle and boxes, and use the reference game's wiki for building features.
