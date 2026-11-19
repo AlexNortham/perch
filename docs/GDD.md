@@ -99,7 +99,7 @@ the first minute and still has decisions to make at minute 35.
 | **Dash** | Short burst of speed on Shift; costs one pip. |
 | **Dash-jump** | Jumping during the ground dash timing window for a long, low leap at the cost of a second pip. |
 | **Slide** | Crouching while running: a fast, low slide that carries momentum. |
-| **Mantle** | Automatic pull-up onto a ledge within reach. |
+| **Mantle** | Pull-up onto a ledge within reach while holding Jump. |
 | **Updraft** | A rideable wind current strung above each lane, base to base (zipline). Boost and dismount at will. |
 | **Updraft station** | A marked mount point on an Updraft (gates, near Herons and Hawks, and centre). |
 | **Chimney** | A vertical warm-air shaft that lifts you to a rooftop. |
@@ -125,7 +125,7 @@ the first minute and still has decisions to make at minute 35.
 | Move | W A S D | Full speed in every direction. |
 | Look | Mouse | Pointer lock while playing. |
 | Fire | LMB | Hold for automatic fire. |
-| Aim (zoom) | RMB (hold) | FOV ×0.8 (Owl ×0.5), spread ×0.75; no movement penalty. Cancels a `point` ability's placement. |
+| Aim (zoom) | RMB (hold) | FOV ×0.8 (Owl ×0.5), spread ×0.75; drops sprint and preserves base run speed. Cancels a `point` ability's placement. |
 | Reload | R | §5.6. |
 | Jump | Space | Also dismounts an Updraft or Vine. |
 | Crouch / slide | C (hold) | Slides when moving fast enough or downhill (§3.5). Double-tap in the air to down-dash. Toggle option in settings. |
@@ -170,7 +170,7 @@ dash-slide. Left Ctrl with W can close the tab. See §12.9 for legacy saves, bin
 | Jump buffer | 0.1 s before landing |
 | Air control | Acceleration 15 m/s² (30% of ground) toward the input direction; horizontal speed above run speed is kept, never added to by air control |
 | Air jump | Press Jump again while airborne: 1 pip, once per airtime. Set vertical velocity to +8.94 m/s and keep horizontal velocity. |
-| Wall jump | Press Jump while airborne in contact with a near-vertical solid wall or within 0.1 s of leaving it. Push away at 6 m/s and carry the along-wall component of horizontal velocity. First push is free; later pushes in the same airtime cost 0.5 pip each. |
+| Wall jump | Press Jump while airborne in contact with a near-vertical solid wall or within 0.1 s of leaving it. Push away at 6 m/s and carry the along-wall component of horizontal velocity. First push is free; later pushes in the same airtime cost 0.5 pip each. A heavy lunge can bring the hero into wall-jump range before landing. |
 | Wall fatigue | At full strength, a wall jump sets vertical velocity to +7 m/s. Each wall jump and each airborne heavy-melee commitment starts 1.25 s of fatigue. While fatigued, the next wall jump launches between +3.5 and +7 m/s, recovering linearly over that interval. |
 | Jump priority | A ledge pull-up or traversal dismount takes precedence in its context. Otherwise resolve dash-jump, ground/coyote jump, wall jump, then air jump. A wall jump with insufficient stamina leaves the air jump available under its own cost. Buffer a fresh Jump press for landing only when no jump can start immediately. |
 
@@ -618,7 +618,7 @@ Each side lane bends toward its base after its Heron (§6.2), creating a "corner
 - Between the lanes on each half: city blocks of 2–4 buildings separated by 5–8 m alleys, small squares and
   wooded yards. Two jungle zones per half (west and east of Riverbank).
 - **Rooftops and balconies:** at least 40% of jungle buildings have walkable roofs reached by Chimney, Vine or
-  balcony stairs. Rooftops connect with rope bridges or gaps ≤ 6 m (a dash-jump clears 8 m).
+  balcony stairs. Rooftops connect with rope bridges or gaps ≤ 6 m (a level dash-jump travels about 7.3 m in the air).
 - **Chimneys:** 6 per half, at least one within 25 m of every tier-2 and tier-3 Thicket and of each Hawk. Rise
   8–14 m.
 - **Vines:** 10 per half on walls and big trees, 5–12 m tall, at least one on every lane's Hawk-side building
@@ -940,7 +940,7 @@ chime.
 - 12 base slots; any item category in any slot. Each item can be owned once.
 - 4 flex slots, unlocked for the whole flock: slot 1 at its first enemy Hawk destroyed, slot 2 at its second,
   slot 3 at its first enemy Heron, slot 4 at its first enemy Shrine. Unlocks are permanent.
-- The first four **active** items, in slot order, are bound to Z, X, C, V.
+- The first four **active** items, in slot order, are bound to Z, X, N, V.
 
 ### 8.8 Shop rules (the Magpie's Hoard)
 
@@ -1833,8 +1833,6 @@ simulation (single-player).
   worth over time, with markers for structures, Eggs, Roc and Ember), **Items** (each hero's purchase timeline).
 - Buttons: **Play again** (same setup, new seed), **Main menu**.
 
----
-
 ### 12.12 Practice Hub
 
 Open **Practice Hub** from the main menu and lock in an available hero. A fresh session unlocks all four
@@ -1846,6 +1844,8 @@ The enemy starts at full health and the ally at 40%.
 
 Practice uses the usual controls, aim, abilities and upgrade panel. Pause and choose Main menu to leave.
 Play starts with fresh match progression and the usual ultimate unlock.
+
+---
 
 ## 13. Audio direction
 

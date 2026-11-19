@@ -842,7 +842,7 @@ dash-jump cost, sprint, slides and wall movement to match the agreed controls. K
 **Why:** the player experienced intermittent tab closure and could not access expected actions in the released
 M1 preview. The linked guide supplies observable movement combinations and stamina costs to check in play.
 
-### D-DIR-001 · 19/11/2026 — Traversal chains, browser controls and combat cues
+### D-DIR-007 · 19/11/2026 — Traversal chains, browser controls and combat cues
 **Decision:** adopt the linked reference's movement sequence and costs in GDD §3. PERCH sets its own
 dash-jump window (0.10–0.30 s), wall impulse and fatigue curve, down-dash timing and velocity, and slide
 and mantle speeds. Keep Shift and WASD, set crouch to C and move item slot 3 to N. Migrate old defaults as
@@ -853,7 +853,7 @@ parry outcomes.
 players learn the controls by watching and listening. Run GDD §3.10, check the stamina and timing thresholds
 and exercise mouse press, hold and release for the M2 gate. [Movement reference](https://deadlock.wiki/Movement)
 
-### D-DIR-002 · 19/11/2026 — Hawk and Heron clearance under the Updraft
+### D-DIR-008 · 19/11/2026 — Hawk and Heron clearance under the Updraft
 **Decision:** keep the §6.3 ground anchors and existing gateward 6 m station setbacks (D-LEVEL-003).
 Cap tower geometry and poses at 10 m above the lane, leaving 2 m below rider feet. The Hawk statue sits
 on an 8 m column. The Heron keeps its stilt legs, frame, stepping pose and bill beam. Keep ground-anchored
@@ -861,7 +861,7 @@ combat reach at 22 m for Hawk fire, 30 m for the Heron beam and 7 m for its stom
 **Why:** the lane retains its tower silhouettes and fight geometry. Verify clearance at normal and boost
 speed over both kinds of tower and check the existing range thresholds.
 
-### D-DIR-003 · 19/11/2026 — Practice Hub and ability inspection
+### D-DIR-009 · 19/11/2026 — Practice Hub and ability inspection
 **Decision:** Practice Hub begins at the menu, lets the player select an available hero, and offers repeatable
 damage and ally healing on labelled targets. Its four base abilities and 32 AP use the usual tier rules.
 Tap the inspect action to free the pointer for hover descriptions, focus and click-to-upgrade. Keep the
