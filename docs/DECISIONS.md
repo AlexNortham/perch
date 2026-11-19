@@ -1324,3 +1324,20 @@ copied):
   item.
 **Why:** the user's instruction: the scoreboard should be at the top like the reference image, with no keybind to show
 it.
+
+### D-EP-042 · 19/11/2026 — A production-quality art and VFX gate in Stage 5
+**Decision:** Stage 5 gets an explicit visual-quality bar, keeping the brief's code-built, no-external-assets rule.
+- **W6.5:** the Game Director and Technical Artist write a one-page style guide (shape language, colour, edge and
+  lighting treatment, eye, beak, feather and gun detail rules, effect readability).
+- **Models (W7, two Technical Artists):** a production-quality pass on all 24 birds, both Patrons, every structure,
+  fledglings and props. That means better-sculpted silhouettes (lathed and extruded forms rather than stacked
+  primitives), proper eyes, beaks and feather detail, distinct readable guns, a cast pose per ability, and hit and
+  death reactions.
+- **VFX (W7, two Rendering & VFX engineers):** a production-quality pass on all 96 abilities, the guns and impacts,
+  with particles, trails, glows and team-coloured impacts that read at a glance in a 6v6 fight.
+- **Gate:** every model and effect needs a before/after image set and an in-game clip scored against the style guide,
+  signed off by both QA and the Game Director, within the 60 FPS budget.
+- **Scope note:** this targets a polished, stylised look. Matching the reference game's hand-sculpted, textured
+  fidelity would need external or generated assets, which the brief rules out; that needs the user's say-so.
+**Why:** the user confirmed that models and abilities must look production-ready and professional, which no stage
+gated before.

@@ -193,8 +193,12 @@ Gate M3:
 
 ### M4 — Balance and polish
 
-- **W7**: Balance & Data (100+ headless matches per iteration) · Technical Artist (animation polish) · Rendering &
-  VFX (juice, post-fx, instancing and LOD, FPS) · Audio (polish, adaptive music) · UI/HUD (main menu, hero select,
+- **W6.5** (before W7): Game Director and Technical Artist write the **style guide**, a one-page target look for
+  models and effects that every art and VFX task in W7 is judged against (D-EP-042)
+- **W7**: Balance & Data (100+ headless matches per iteration) · Technical Artist ×2 (**production-quality model pass**
+  for all 24 birds, towers, Patrons, fledglings and props; per-ability cast poses; animation polish) · Rendering &
+  VFX ×2 (**production-quality VFX pass** for all 96 abilities, guns and impacts; juice, post-fx, instancing and LOD,
+  FPS) · Audio (polish, adaptive music) · UI/HUD (main menu, hero select,
   settings, pause, end-of-match stats) · QA (FPS budget, 30-minute soak, screenshot review) · Game Director (feel
   review)
 
@@ -203,6 +207,9 @@ Gate M4:
 - [ ] 60 FPS budget met with 12 heroes, ~150 fledglings and all structures
 - [ ] Menus, settings and end screen done
 - [ ] Juice: hitstop, shake, hit markers, kill confirms
+- [ ] Production-quality art (D-EP-042): every bird, structure, Patron and fledgling, and every ability effect, has a
+  before/after image set and an in-game clip scored against the style guide, signed off by QA and the Game Director;
+  still 60 FPS
 - [ ] Launchable: the polished game from the menu; PLAYABLE.md "Stage 5 (M4)" written
 
 ### M5 — Release candidate
