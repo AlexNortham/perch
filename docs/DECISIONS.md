@@ -640,3 +640,9 @@ silence ends channels, so a mode started by a channelled ability (Burrow) would 
 one written; hit markers and pod banners use `Element.animate` started from `damage.applied` and `pod.resolved`
 events for the local hero. View-to-display mapping lives in pure `display.ts`.
 **Why:** no per-frame allocation or layout thrash (D-EP-009 perf rules), and the mapping is unit-testable without a DOM.
+
+### D-UI-002 · 19/11/2026 — Options apply and save on change; swap logic lives in the UI
+**Decision:** every Options change calls `AppActions.saveSettings` immediately (no Apply button); rebinding to a key in
+use swaps the two actions, implemented in `src/client/ui/bindings.ts`. Capture listens on window in the capture phase and
+stops propagation so Esc and the pause key do not reach the app while capturing.
+**Why:** immediate feedback with nothing to forget to apply; input has no `rebind()` to reuse.

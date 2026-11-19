@@ -50,3 +50,8 @@ export const ARCHETYPE_LABEL: Readonly<Record<Archetype, string>> = {
 /** Hero select swatch: hue steps round the colour wheel by hero index (heroes carry no colour in data yet). */
 export const HERO_SWATCH_STEP_DEG = 15;
 export const HERO_SWATCH_SATURATION_LIGHTNESS = '60% 55%';
+
+/** Options sliders as [min, max, step]; they match the ranges the settings store clamps to (GDD §4.3, §4.7). */
+export const SENSITIVITY_RANGE = [0.1, 5, 0.05] as const;
+export const FOV_RANGE = [75, 110, 1] as const;
+export const QUALITIES = ['low', 'medium', 'high'] as const;
