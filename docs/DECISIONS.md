@@ -1152,3 +1152,10 @@ structure type or unit type, for broken links or anchors, missing alt text, exte
 screenshot whose hash moved because another role changed a model or an ability only produces a warning.
 **Why:** a merge by another role must not turn the gate red for something only `npm run wiki` (a browser run) can fix.
 The EP regenerates the wiki at each gate.
+
+### D-QA-009 · 19/11/2026 — Tables of numbers are data: lint exempts `src/client/**/data/**` and testkits
+**Decision:** `@typescript-eslint/no-magic-numbers` ignores `src/client/**/data/**` (mirroring D-BUILD-009's map-data
+exemption) and `**/testkit.ts`, `**/*.testkit.ts`. Sound recipes and music patterns live in `src/client/audio/data/`;
+logic stays under the rule. Ability fixtures shared with the perf test are `fixtures.testkit.ts`.
+**Why:** A recipe such as a gun's filter frequencies is authored tuning, like map coordinates, and naming each number
+would hide it. The exemption is narrow and path-based; no rule is disabled globally.

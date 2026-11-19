@@ -9,6 +9,7 @@ import { HERO_IDS } from '../src/sim/core/contracts';
 type Loose = ReturnType<typeof JSON.parse>;
 let bundleText = '';
 const SECONDS = 3;
+test.describe.configure({ mode: 'serial' }); // one browser at a time: concurrent headless offline renders occasionally stall
 
 test.beforeAll(async () => {
   const bundle = await build({
@@ -87,9 +88,8 @@ test.describe('generated signal', () => {
     expect(sigs.size).toBe(HERO_IDS.length);
   });
 
-  test('the event table makes sound: beak tick, pods, Molt, melee, parry, structures, objectives', async ({ page }) => {
-    await setup(page);
-    const evs = [
+  // One test per event: each renders its own 3 s clip, and under a parallel run they share the machine.
+  const evs = [
       `{ type: 'damage.applied', source: 1, sourceTeam: 'dawn', target: 2, targetKind: 'hero', amount: 9, absorbed: 0, beakShot: true, weakPoint: false, pos: { x: 4, y: 0, z: 0 } }`,
       `{ type: 'pod.resolved', pod: 9, by: 1, outcome: 'secured', pos: { x: 4, y: 0, z: 0 } }`,
       `{ type: 'pod.resolved', pod: 9, by: 1, outcome: 'denied', pos: { x: 4, y: 0, z: 0 } }`,
@@ -101,9 +101,13 @@ test.describe('generated signal', () => {
       `{ type: 'objective', action: 'eggSpawned', hero: null, team: 'neutral', pickup: null, pickupType: 'egg', pos: { x: 0, y: 0, z: 0 } }`,
       `{ type: 'objective', action: 'rocSpawned', hero: null, team: 'neutral', pickup: null, pickupType: null, pos: { x: 0, y: 0, z: 0 } }`,
       `{ type: 'ping', by: 1, team: 'dawn', kind: 'danger', pos: { x: 0, y: 0, z: 0 }, target: null }`,
-    ];
-    for (const e of evs) expect((await run(page, `a.onEvents([${e}], v);`)).rms, e).toBeGreaterThan(1e-5);
-  });
+  ];
+  for (const e of evs) {
+    test(`the event table makes sound: ${/type: '([\w.]+)'(?:.*(?:action|outcome|kind|attack|state): '(\w+)')?/.exec(e)?.slice(1).join(' ')}`, async ({ page }) => {
+      await setup(page);
+      expect((await run(page, `a.onEvents([${e}], v);`)).rms, e).toBeGreaterThan(1e-5);
+    });
+  }
 
   test('a structure under hero fire sounds the map-wide alarm at most once per 4 s', async ({ page }) => {
     await setup(page);
