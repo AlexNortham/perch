@@ -14,16 +14,17 @@ Read [W3-common.md](W3-common.md) first; its rules apply.
    a wall during displacement, bullet radius, missing-HP and execute magnitudes, summon end effects. Hero Engineer A is
    writing hooks meanwhile and will switch to your features after the merge, so make each feature's data shape clear
    in your report.
-2. Fix two defects from the wave 2 review:
+2. Fix the defect from the wave 2 review:
    - **Heroes never rest:** an idle hero on flat ground drifts about 1e-4 m in height every tick under Rapier. Idle
-     heroes must be exactly still (and the state hash stable while idle).
-   - **Beak shot behind a body hit:** a bullet must resolve at the first hitbox it meets along its path; the head only
-     counts if it is hit first.
+     heroes must be exactly still (and the state hash stable while idle). QA rated this medium: idle and standing-still
+     rules depend on it.
+   - (Not a defect: a bullet that passes through head and body counts as a beak shot. That is GDD §5.4's deliberate
+     rule, D-EP-020. Leave it.)
 3. Fix anything else in the follow-ups for these three systems, in priority order, as far as time allows; list what's
    left.
 
 ## Prove it
-- A co-located test for each implemented follow-up and for both defects.
+- A co-located test for each implemented follow-up and for the idle-drift fix.
 - QA's damage suite still passes (`npx vitest run tests/contracts/damage.test.ts`).
 - `npm run sim -- --seed 1 --minutes 3 --bots 12` twice gives the same hash; report ms per tick.
 - `npm run check` passes.

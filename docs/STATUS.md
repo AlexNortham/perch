@@ -9,10 +9,9 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
 
 - **Milestone:** M0 — Foundations
 - **Roster:** 24 heroes (D-EP-015), shipped in six batches of four from W3 to W6
-- **Wave:** W1 done (0afec69). W2 in progress in worktrees: Level Designer, Rendering & VFX, QA, Character
-  Controller, Combat, Ability Systems
-- **main:** 0afec69 — GDD, sim core and contracts, app shell, stubs, toolchain
-- **Last `npm run check`:** PASS on main at 0afec69 (5/5 steps, 12 s), run by the EP on 18/11/2026
+- **Stage 1 (M0) closed 19/11/2026.** W1 and W2 on main; QA gate APPROVE (W2 · QA gate entry). See PLAYABLE.md.
+- **Next:** W2.5 contract round (Architect), then W3 = Stage 2 "One bird in a lane" (briefs in docs/briefs/W3-*.md)
+- **Last `npm run check`:** PASS on integrate/w2 (5/5 steps, 71 s); sim 0.33 ms per tick at 6v6 (stub bots)
 
 ## How the studio works
 
@@ -92,11 +91,11 @@ tests ship with the code (D-EP-006). Each wave ends with a QA/Review gate on `in
   contract tests, e2e smoke, tests-first rules suites for W3 · Character Controller · Combat · Ability Systems
 
 Gate M0:
-- [ ] GDD, ARCHITECTURE and INTERFACES written
-- [ ] `npm start` opens a lit 3D blockout of the map
-- [ ] Headless sim runs (`npm run sim -- --seed 1 --minutes 3 --bots 12`)
-- [ ] `npm run check` passes
-- [ ] Launchable: `npm start` shows the lit map behind the menu; PLAYABLE.md "Stage 1 (M0)" written
+- [x] GDD, ARCHITECTURE and INTERFACES written
+- [x] `npm start` opens a lit 3D blockout of the map
+- [x] Headless sim runs (`npm run sim -- --seed 1 --minutes 3 --bots 12`)
+- [x] `npm run check` passes
+- [x] Launchable: `npm start` shows the lit map behind the menu; PLAYABLE.md "Stage 1 (M0)" written
 
 ### M1 — One bird in a lane
 

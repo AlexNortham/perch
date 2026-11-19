@@ -563,3 +563,23 @@ temporary integration engineer acting for the owners, limited to a listed set of
 owning system and no contract changes. QA's gate review then checks the result.
 **Why:** reopening four owners for four small cross-system fixes costs more than one focused agent, and the gate
 review still independently checks every change.
+
+### D-EP-019 · 19/11/2026 — Model per agent
+**Decision:** each agent's model is chosen by how hard its job is. Opus: contracts, core sim systems (physics, combat,
+abilities), bot AI, objectives rules, the economy and item framework, hard integration debugging. Sonnet: hero kits on
+the existing framework, procedural models, VFX, UI, audio, map passes, QA test writing and gate reviews, balance runs.
+Haiku: docs sync, small tooling and bookkeeping. A role steps up a tier if its output fails review.
+**Why:** the user asked to stretch the usage allowance after six Opus agents hit the 5-hour limit together.
+
+### D-EP-020 · 19/11/2026 — Beak shot through head and body stands
+**Decision:** a bullet whose path crosses both the head and the body counts as a beak shot, as GDD §5.4 states ("Head is
+tested before body"). Combat's behaviour is correct; the wave 2 integration note calling it a defect is withdrawn.
+**Why:** it is the Game Director's deliberate rule, and the Director has final say on fidelity.
+
+### D-EP-021 · 19/11/2026 — Wave 3 composition
+**Decision:** wave 3 adds two roles the plan didn't have there: UI/HUD (menu, hero select, a minimal HUD and pause,
+because Stage 2 must be playable from the menu) and a Systems follow-up engineer acting for Combat, Ability Systems and
+Character Controller (the accepted wave 2 contract follow-ups, the framework gaps Hero A's kits need, and the idle-drift
+defect). QA's test-first suites for wave 4 (structures, levels, AP, shop) move into the wave 3 gate review.
+**Why:** Stage 2's launchable gate needs UI; Hero A's kits need framework features that the original owners aren't
+scheduled to build; eight agents is the wave limit, so QA's in-wave slot moves to the gate.
