@@ -1710,3 +1710,24 @@ traces were shortened) failed `match.spec.ts` once under load; it passed alone (
 **Notes for owners:** GDD §3.1 still lists "Inspect / upgrade abilities: Left Alt (tap)", which D-EP-038 replaces
 (Director). The determinism spec is QA's from now on (follow-ups).
 **Blocked:** nothing. **Interface requests:** none.
+### Stage 4 · Feel reference · 19/11/2026
+**Done:** `docs/reference/feel-reference.md` on `worktree-agent-af63dad2692a4e4ec` (from `integrate/w5` 075e1d8). It
+covers the reference's HUD, camera, combat readability, map, pacing, targets for PERCH, the Stage 4 flags and a gap
+list of 30 items (5 High, 16 Medium, 9 Low; 18 for Stage 4) set beside the current build (D-EP-046, D-DIR-014). All
+wording is mine; no frames, art or names are in the repo.
+**How:** installed Edge through Playwright, consent answered "Reject all", ads skipped or waited out, and the page's
+video element seeked. No file was downloaded.
+- An automated browser only gets about 60 s of stream per page load, so each moment was opened as a timestamped link.
+  One-second bursts are limited to about 25 s, and whole-match overviews come from the seek-bar previews (about 6 s
+  apart).
+- The frames I looked at: five boards, 23 single frames and six bursts, all in `out/reference/` (git-ignored).
+- PERCH side: `out/perch-capture.ts` (lane walk, dash, Updraft ride and boost and lane clash at 1 frame/s, shop,
+  Practice Hub, siege replay), `npm run shots` map overview and top, and `out/perch-scan.ts`.
+**Findings for the EP:**
+- **Bots:** in the `match` scene the bots never leave spawn (0 hero damage in 40 simulated minutes), so no PERCH hero
+  fight can be compared yet (G22).
+- **Updraft:** riding and boosting fills up to 40 % of the screen with opaque white slabs (G16).
+- **Feed:** structure kills read "The world", and Brood Ward lines flood the feed (G08, G30).
+**Verified:** `npm ci --prefer-offline --no-audit --no-fund` (145 packages). The `npm run check` result is in the
+reply. No `src/` change.
+**Interface requests:** none. The gap owners are listed per gap, for the EP to route.

@@ -1503,3 +1503,21 @@ ready, and don't let them hold a stage up for days.
 It runs on the simulation track (D-EP-044) and merges when validated. `docs/BALANCE.md` records every change and the
 evidence behind it.
 **Why:** the user's instruction: balance things like health and damage as well.
+
+### D-DIR-014 · 19/11/2026 — Feel reference: gap list, Stage 4 flags and TTK windows (for D-EP-046)
+**Decision:** `docs/reference/feel-reference.md` is the studio's feel reference, gathered from frames of the five
+user-supplied matches and set beside the current build. It holds 30 numbered gaps (5 High, 16 Medium, 9 Low). Each
+names an owner, a fix with numbers and a stage. The 18 marked S4 are proposed for wave 5; the rest go to Stage 5. The
+EP routes them. Pending that routing, the Director proposes these targets:
+- HUD layout to the reference's: the D-EP-041 strip, an HP gauge beside the bird, abilities at the bottom centre, a
+  360 px minimap at the bottom right, ammo under the crosshair, kill feed on the left, objective bars only in context.
+- Camera: `shoulderUp` 0.35 → 0.15 m now; `boomMin` 2.6 → 3.2 m in Stage 5.
+- Economy: a 600-Seed starting purse.
+- Balance (D-EP-043, D-EP-045): gun-only time-to-kill windows per archetype matchup and stage of the match, an HP
+  growth curve of ×2 / ×4 starting HP at 10 / 40 minutes, respawn min(75, 6 + 1.75 × minutes), and a match length of
+  28–45 minutes.
+- Style guide (D-EP-042): value, footprint and effect-opacity limits.
+GDD §4.1, §8.1, §8.9, §12.4–§12.8 and §15 change in the next Director GDD pass, once the EP accepts.
+**Why:** D-EP-046 asks for PERCH to feel as close as possible to the reference. The frames show the reference's HUD,
+camera, density and pacing differ from PERCH in these specific, measurable ways. Each fix keeps D-EP-002: layout,
+pacing and mechanics, with no names, art or map layout copied.
