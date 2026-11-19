@@ -217,3 +217,25 @@ describe('tethers, channels, modes (Ability Systems 5–8)', () => {
     expect(eventsOf(t, 'ability').filter((e) => e.slot === 1).map((e) => e.stage)).toEqual(['start', 'land']);
   });
 });
+
+describe('W4 consumers (Ability Systems)', () => {
+  it('extraCount raises the summon cap so a second cast keeps the first', () => {
+    const { t, cause } = arena();
+    const s: SummonEffect = { kind: 'summon', summon: 'trap', health: 0, durationS: 6, maxCount: 1, extraCount: 1, behaviour: 'trap', effects: [] };
+    t.ctx.effects.apply(s, at(O), cause);
+    t.ctx.effects.apply(s, at({ x: 5, y: 0, z: 0 }), cause);
+    expect(t.ctx.store.list('unit').filter((u) => !u.removed)).toHaveLength(2);
+  });
+
+  it('a lasting area publishes its resolved dimensions and concealment on the entity', () => {
+    const { t, cause } = arena();
+    t.ctx.effects.apply(
+      { kind: 'area', shape: { kind: 'cylinder', radius: 4, height: 6 }, durationS: 3, attach: 'point', concealsAlliesOutside: true, affects: { teams: 'allies' }, effects: [] },
+      at(O),
+      cause,
+    );
+    const area = t.ctx.store.list('area')[0]?.area;
+    expect(area?.dimensions).toEqual({ kind: 'cylinder', radius: 4, half: 3 });
+    expect(area?.concealsAlliesOutside).toBe(true);
+  });
+});

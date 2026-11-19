@@ -37,7 +37,7 @@ import type {
   Tick,
   Vec3,
 } from '../core/contracts';
-import { aimRay, muzzlePoint } from '../core/aim';
+import { heroAimRay, muzzlePoint } from '../core/aim';
 import type { AimRay } from '../core/aim';
 import { canSee } from '../core/vision';
 import { addScaled, clamp, copy, dot, normalize, sub, ticks } from '../core/math';
@@ -248,7 +248,7 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
 
   const pickTarget = (hs: HeroState, r: ResolvedAbility, origin: Vec3): EffectTarget | null => {
     const h = hs.hero;
-    const ray = aimRay(h.pos, h.yaw, h.pitch, h.shoulder, hs.def.body, h.motor.crouching);
+    const ray = heroAimRay(h, hs.def.body);
     switch (r.def.targeting) {
       case 'self':
         return { entity: h.id, point: copy(h.pos), dir: ray.dir };
