@@ -68,9 +68,9 @@ export const MATCH_STYLES = `
 .pu-act .nm{position:absolute;left:4px;right:4px;bottom:2px;font-size:10px;color:${TEXT_DIM};white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pu-act .cd{position:absolute;right:5px;top:3px;font-size:15px;font-weight:800}
 .pu-pip i::after{content:'';position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(0,0,0,.45)}
-.pu-melee{position:absolute;left:50%;top:60%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;text-shadow:0 1px 3px #000}
+.pu-melee{position:absolute;left:50%;top:60%;transform:translateX(-50%);padding:4px 10px;background:${PANEL_BG};border-radius:6px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;text-shadow:0 1px 3px #000}
 .pu-melee .key{padding:1px 8px;border:1px solid ${TEXT};border-radius:4px;font-weight:800}
-.pu-melee .help{color:${TEXT_DIM}}
+.pu-melee .help{color:${TEXT};font-size:13px;font-weight:600}
 .pu-melee .bar{width:120px;height:6px;background:rgba(255,255,255,.18);border-radius:3px;overflow:hidden}
 .pu-melee .bar i{display:block;height:100%;width:0;background:${BEAK_CSS}}
 .pu-melee .st{height:16px;font-size:14px;letter-spacing:.1em}
@@ -79,7 +79,7 @@ export const MATCH_STYLES = `
 .pu-melee[data-mode=parry] .bar i{background:${ALLY_CSS}}
 .pu-melee[data-mode=parry] .st{color:${ALLY_CSS}}
 .pu-jumpcue{position:absolute;left:50%;top:54%;transform:translateX(-50%);padding:3px 12px;border:2px solid ${STAMINA_CSS};border-radius:14px;background:${PANEL_BG};color:${STAMINA_CSS};font-weight:800;font-size:14px;letter-spacing:.06em;animation:pu-pulse .5s ease-in-out infinite}
-.pu-upg{position:absolute;left:40px;top:90px;width:440px;padding:14px 16px;background:rgba(12,14,18,.92);border:1px solid rgba(255,255,255,.25);border-radius:6px;pointer-events:auto;text-shadow:none}
+.pu-upg{position:absolute;left:250px;top:110px;width:440px;padding:14px 16px;background:rgba(12,14,18,.92);border:1px solid rgba(255,255,255,.25);border-radius:6px;pointer-events:auto;text-shadow:none}
 .pu-upg[hidden],.pu-shop[hidden],.pu-score[hidden],.pu-wheel[hidden]{display:none}
 .pu-upg-head{display:flex;align-items:center;gap:12px}
 .pu-upg-head h3{margin:0;font-size:20px;flex:1}

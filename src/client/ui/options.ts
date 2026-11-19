@@ -49,7 +49,7 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
       list.append(row);
       const warn = warnings.find((w) => w.action === action);
       if (warn) {
-        const note = make('div', 'pu-bind-warn', `${warn.chords.join(', ')}: ${chordNote(canLockKeyboard())}`);
+        const note = make('div', 'pu-bind-warn', `${keyName(cur.bindings[action])} + ${warn.chords.map((c) => c.split(' + ')[1]).join(' / ')}: ${chordNote(canLockKeyboard())}`);
         note.dataset['warn'] = action;
         list.append(note);
       }
