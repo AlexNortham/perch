@@ -1,7 +1,7 @@
 /** Tab scoreboard (GDD §12.7): two flock tables from the roster plus event totals counted as the match runs. */
 import type { ItemDef, PlayerTeam, SimEvent, SimView } from '../../sim/core/contracts';
 import { HEROES } from '../../sim/heroes/registry';
-import { TEAM_CSS } from './constants';
+import { SCOREBOARD_REFRESH_TICKS, TEAM_CSS } from './constants';
 import { el } from './dom';
 import { clock, scoreRows } from './model';
 
@@ -63,7 +63,7 @@ export function createScoreboard(): Scoreboard {
     },
     update(view) {
       if (root.hidden) return;
-      const key = `${view.tick >> 4}`;
+      const key = `${Math.floor(view.tick / SCOREBOARD_REFRESH_TICKS)}`;
       if (key === sig) return;
       sig = key;
       header.textContent = `${clock(view.seconds)}   seed ${seed}`;

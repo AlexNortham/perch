@@ -5,7 +5,7 @@
 import { LANE_IDS, ViewFlag } from '../../sim/core/contracts';
 import type { EntityView, LaneId, PlayerTeam, SimView } from '../../sim/core/contracts';
 import { TICK_RATE } from '../../sim/data/core';
-import { TEAM_CSS } from './constants';
+import { OBJECTIVE_BANNER_LEAD_S, PERCENT, TEAM_CSS, TENTH } from './constants';
 import { el } from './dom';
 import { clock } from './model';
 
@@ -96,7 +96,7 @@ export function createTopBar(): TopBar {
         const own = p.team === mine;
         p.name.textContent = `${PATRON_NAME[p.team]}${own ? ' (yours)' : ''}`;
         const frac = e.maxHp > 0 ? Math.max(0, e.hp / e.maxHp) : 0;
-        p.fill.style.width = `${Math.round(frac * 1000) / 10}%`;
+        p.fill.style.width = `${Math.round(frac * PERCENT * TENTH) / TENTH}%`;
         p.state.textContent = `${Math.ceil(e.hp).toLocaleString('en-GB')} / ${Math.ceil(e.maxHp).toLocaleString('en-GB')}  ${patronState(e, view.tick)}`;
         p.box.setAttribute('aria-label', `${PATRON_NAME[p.team]} health`);
         p.box.setAttribute('aria-valuemin', '0');
@@ -115,11 +115,11 @@ export function createTopBar(): TopBar {
         const gated = (front.flags & ViewFlag.Invulnerable) !== 0;
         c.chip.classList.toggle('gated', gated);
         c.nm.textContent = `${LANE_LABEL[c.id]} ${STRUCTURE_LABEL[front.structure?.type ?? ''] ?? ''}${gated ? ' (gated)' : ''}${front.structure?.broodWard ? ' (ward)' : ''}`;
-        c.fill.style.width = `${Math.round((front.maxHp > 0 ? front.hp / front.maxHp : 0) * 1000) / 10}%`;
+        c.fill.style.width = `${Math.round((front.maxHp > 0 ? front.hp / front.maxHp : 0) * PERCENT * TENTH) / TENTH}%`;
       }
       const o = view.objectives;
       const timer = (label: string, at: number | null): string | null =>
-        at !== null && at > view.tick && at - view.tick <= 60 * TICK_RATE ? `${label} ${clock((at - view.tick) / TICK_RATE)}` : null;
+        at !== null && at > view.tick && at - view.tick <= OBJECTIVE_BANNER_LEAD_S * TICK_RATE ? `${label} ${clock((at - view.tick) / TICK_RATE)}` : null;
       const text = [timer('Egg in', o.eggAt), timer('Runes in', o.runesAt), timer('Roc in', o.rocAt)].filter(Boolean).join('   ');
       if (banners.textContent !== text) banners.textContent = text;
     },

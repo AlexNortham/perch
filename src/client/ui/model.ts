@@ -8,6 +8,7 @@ import {
   FULL_REFUND_FRACTION,
   GHOST_FADE_S,
   MAX_TIER,
+  SECONDS_PER_MINUTE,
   SELL_REFUND_FRACTION,
 } from './constants';
 
@@ -162,7 +163,7 @@ export function damageNumberStyle(e: { amount: number; absorbed: number; damageT
 /** M:SS */
 export function clock(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  return `${Math.floor(s / SECONDS_PER_MINUTE)}:${String(s % SECONDS_PER_MINUTE).padStart(2, '0')}`;
 }
 
 /** Practice dummies as the HUD labels them: ally or enemy of the local hero, by controller and team. */

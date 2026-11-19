@@ -3,7 +3,7 @@ import { HERO_IDS } from '../../sim/core/contracts';
 import type { HeroId, ItemDef, MatchTelemetry, PlayerTeam } from '../../sim/core/contracts';
 import { HEROES, heroSwatch } from '../../sim/heroes/registry';
 import type { AppActions, ScreenContext } from '../app/contracts';
-import { ARCHETYPE_LABEL, hex, TEAM_CSS } from './constants';
+import { ARCHETYPE_LABEL, GRAPH, hex, PERCENT, TEAM_CSS, ULTIMATE_SLOT } from './constants';
 import { AP_COSTS } from '../../sim/data/abilities';
 import { button, el } from './dom';
 import { clock } from './model';
@@ -34,7 +34,7 @@ function describeHero(box: HTMLElement, id: HeroId): void {
   el('gun', 'p', box, `${w.name}: ${w.pellets > 1 ? `${w.pellets} pellets, ` : ''}${w.fireRate} shots/s${mag ? `, ${mag} rounds` : ''}, ${w.hitscan ? 'hitscan' : 'projectile'}, range ${w.range} m`);
   def.abilities.forEach((a, i) => {
     const row = el('ab', 'div', box);
-    el('', 'b', row, `${i === 3 ? 'Ultimate' : `Ability ${i + 1}`}: ${a.name}`);
+    el('', 'b', row, `${i === ULTIMATE_SLOT ? 'Ultimate' : `Ability ${i + 1}`}: ${a.name}`);
     el('', 'p', row, a.description);
     const tiers = el('', 'ul', row);
     a.upgrades.forEach((u, t) => el('', 'li', tiers, `Tier ${t + 1} (${AP_COSTS[t] ?? '?'} AP): ${u.description}`));
@@ -87,7 +87,7 @@ const FLOCK: Readonly<Record<PlayerTeam, string>> = { dawn: 'Dawn Flock', dusk: 
 function netWorthGraph(t: MatchTelemetry): SVGElement {
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', '0 0 300 80');
+  svg.setAttribute('viewBox', `0 0 ${GRAPH.width} ${GRAPH.height}`);
   svg.setAttribute('class', 'pu-graph');
   svg.setAttribute('role', 'img');
   svg.setAttribute('aria-label', 'Flock net worth over time');
@@ -98,7 +98,7 @@ function netWorthGraph(t: MatchTelemetry): SVGElement {
     line.setAttribute('fill', 'none');
     line.setAttribute('stroke', TEAM_CSS[team]);
     line.setAttribute('stroke-width', '2');
-    line.setAttribute('points', c.map((v, i) => `${(i / Math.max(1, c.length - 1)) * 300},${80 - (v / max) * 76}`).join(' '));
+    line.setAttribute('points', c.map((v, i) => `${(i / Math.max(1, c.length - 1)) * GRAPH.width},${GRAPH.height - (v / max) * GRAPH.inner}`).join(' '));
     svg.append(line);
   }
   return svg;
@@ -131,7 +131,7 @@ export function endScreen(actions: AppActions, c: ScreenContext): HTMLElement {
         Math.round(h.healing).toLocaleString('en-GB'),
         `${h.lastHits}/${h.denies}`,
         String(h.podsSecured),
-        h.gunHits > 0 ? `${Math.round((h.beakShots / h.gunHits) * 100)}%` : '0%',
+        h.gunHits > 0 ? `${Math.round((h.beakShots / h.gunHits) * PERCENT)}%` : '0%',
         items,
       ])
         el('', 'td', tr, v);

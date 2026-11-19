@@ -1,4 +1,5 @@
 /** Small DOM helpers shared by the UI modules. */
+import { PERCENT, TENTH } from './constants';
 
 export const el = <K extends keyof HTMLElementTagNameMap = 'div'>(
   cls: string,
@@ -35,4 +36,4 @@ export const flag = (e: HTMLElement, cls: string): ((v: boolean) => void) => cel
 export const display = (e: HTMLElement): ((v: boolean) => void) => cell((v) => void (e.style.display = v ? '' : 'none'));
 export const attr = (e: HTMLElement, name: string): ((v: string) => void) => cell((v) => e.setAttribute(name, v));
 
-export const pct = (f: number): string => `${Math.round(Math.min(1, Math.max(0, f)) * 1000) / 10}%`;
+export const pct = (f: number): string => `${Math.round(Math.min(1, Math.max(0, f)) * PERCENT * TENTH) / TENTH}%`;

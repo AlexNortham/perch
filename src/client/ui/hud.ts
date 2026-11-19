@@ -7,7 +7,8 @@ import { COMBAT } from '../../sim/data/combat';
 import { TICK_RATE } from '../../sim/data/core';
 import { HEROES } from '../../sim/heroes/registry';
 import type { Bindings, Frame } from '../app/contracts';
-import { ALLY_CSS, ENEMY_CSS, HIT_MARKER, MAX_TIER, POD_BANNER_MS } from './constants';
+import { ABILITY_SLOTS, ALLY_CSS, CROSSHAIR_PARTS, ENEMY_CSS, HIT_MARKER, HIT_MARKER_POP, LOW_AMMO_FRACTION, MAX_TIER, PERCENT, POD_BANNER_MS, ULTIMATE_SLOT } from './constants';
+import { pct as pctOf } from './dom';
 import { cooldownText } from './display';
 import { dummies } from './model';
 import { abilityDisplay, ammoText, healthDisplay, hitKind, keyLabel, respawnSeconds, staminaPips } from './display';
@@ -52,7 +53,7 @@ export function createHud(): Hud {
 
   // Crosshair, hit marker, pod banner, death overlay.
   const cross = el('pu-cross', 'div', root);
-  for (let i = 0; i < 5; i++) el('', 'i', cross);
+  for (let i = 0; i < CROSSHAIR_PARTS; i++) el('', 'i', cross);
   const hit = el('pu-hit', 'div', cross);
   const banner = el('pu-banner', 'div', root);
   const dead = el('pu-dead', 'div', root);
@@ -74,8 +75,8 @@ export function createHud(): Hud {
   const seeds = el('pu-seeds', 'div', row);
 
   const abil = el('pu-abil', 'div', cluster);
-  const slots = [0, 1, 2, 3].map((i) => {
-    const s = el(i === 3 ? 'pu-slot ult' : 'pu-slot', 'div', abil);
+  const slots = Array.from({ length: ABILITY_SLOTS }, (_, n) => n).map((i) => {
+    const s = el(i === ULTIMATE_SLOT ? 'pu-slot ult' : 'pu-slot', 'div', abil);
     const name = el('nm', 'div', s);
     const key = el('key', 'div', s);
     const sweep = el('sweep', 'div', s);
@@ -108,7 +109,7 @@ export function createHud(): Hud {
 
   // Item actives (Z, X, N, V): the first four active items in slot order.
   const actsBox = el('pu-acts', 'div', cluster);
-  const acts = [0, 1, 2, 3].map(() => {
+  const acts = Array.from({ length: ABILITY_SLOTS }, (_, n) => n).map(() => {
     const s = el('pu-act', 'div', actsBox);
     const key = el('key', 'div', s);
     const name = el('nm', 'div', s);
@@ -157,8 +158,8 @@ export function createHud(): Hud {
   const setCluster = style(cluster, 'display');
 
   let pips: { fill: HTMLElement; set: (v: string) => void }[] = [];
-  const pct = (f: number): string => `${Math.round(f * 1000) / 10}%`;
-  const scale = (f: number): string => `scale(${Math.round(f * 100) / 100}, 1)`;
+  const pct = pctOf;
+  const scale = (f: number): string => `scale(${Math.round(f * PERCENT) / PERCENT}, 1)`;
   let keys: Bindings | null = null;
   let heroKey = '';
 
@@ -204,7 +205,7 @@ export function createHud(): Hud {
           hit.style.setProperty('--c', m.colour);
           hit.animate(
             [
-              { opacity: 1, transform: `scale(${m.scale * 1.25})` },
+              { opacity: 1, transform: `scale(${m.scale * HIT_MARKER_POP})` },
               { opacity: 0, transform: `scale(${m.scale})` },
             ],
             m.ms,
@@ -322,7 +323,7 @@ export function createHud(): Hud {
         s.setLocked(d.locked);
         s.setReady(d.ready);
         s.setUp(d.canUpgrade);
-        s.setSweep(`scaleY(${Math.round(d.sweep * 100) / 100})`);
+        s.setSweep(`scaleY(${Math.round(d.sweep * PERCENT) / PERCENT})`);
         s.setCd(d.cooldown);
         s.setCharges(d.charges);
         s.setTier(d.tier);
@@ -332,7 +333,7 @@ export function createHud(): Hud {
       setAmmo(ammoText(h));
       setReloading(reloading);
       setAmmoSub(reloading ? 'RELOADING' : h.ammo === 0 ? `PRESS ${keys ? keyLabel(keys.reload) : 'RELOAD'}` : '');
-      setLow(h.ammo <= Math.ceil(h.magazine * 0.2));
+      setLow(h.ammo <= Math.ceil(h.magazine * LOW_AMMO_FRACTION));
 
       const secs = respawnSeconds(h.respawnAt, curr.tick);
       setDead(secs === null ? 'none' : 'flex');

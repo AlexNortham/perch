@@ -2,7 +2,7 @@
 import type { AppActions, BindAction, Bindings, Quality, Settings } from '../app/contracts';
 import { DEFAULT_SETTINGS } from '../app/settings';
 import { ACTIONS, ACTION_LABELS, canLockKeyboard, capture, chordNote, chordWarnings, describeRebind, keyName, resetAction } from './bindings';
-import { FOV_RANGE, QUALITIES, SENSITIVITY_RANGE } from './constants';
+import { FOV_RANGE, PERCENT, QUALITIES, SENSITIVITY_RANGE, VOLUME_RANGE } from './constants';
 
 const make = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, content?: string): HTMLElementTagNameMap[K] => {
   const e = document.createElement(tag);
@@ -141,7 +141,7 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
     row.append(make('span', 'pu-opt-name', label), input, out);
     return row;
   };
-  const pct = (v: number): string => `${Math.round(v * 100)}%`;
+  const pct = (v: number): string => `${Math.round(v * PERCENT)}%`;
 
   const quality = make('div', 'pu-opt');
   quality.append(make('span', 'pu-opt-name', 'Graphics quality'));
@@ -159,7 +159,7 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
   quality.append(seg);
 
   const vol = (label: string, key: keyof Settings['volume']): HTMLElement =>
-    slider(label, `volume-${key}`, [0, 1, 0.01], () => cur.volume[key], (v) => ({ ...cur, volume: { ...cur.volume, [key]: v } }), pct);
+    slider(label, `volume-${key}`, VOLUME_RANGE, () => cur.volume[key], (v) => ({ ...cur, volume: { ...cur.volume, [key]: v } }), pct);
 
   const resetAll = make('button', 'pu-btn pu-quiet', 'Reset all controls');
   resetAll.type = 'button';

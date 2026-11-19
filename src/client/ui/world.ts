@@ -6,6 +6,9 @@ import {
   DAMAGE_NUMBER_RISE_M,
   DAMAGE_NUMBER_S,
   HEALTH_CSS,
+  HEAL_NUMBER_LIFT_M,
+  MIN_HEAL_SHOWN,
+  NUMBER_FONT_PX,
   NUMBER_CSS,
   PING_CSS,
   PING_LABEL,
@@ -61,7 +64,7 @@ export function createWorldLayer(actions: AppActions): WorldLayer {
     void view;
     const node = el('pu-num', 'div', root, String(Math.round(amount)));
     node.style.color = colour;
-    node.style.fontSize = `${Math.round(22 * scale)}px`;
+    node.style.fontSize = `${Math.round(NUMBER_FONT_PX * scale)}px`;
     floats.push({ node, pos, target, amount, age: 0 });
   };
 
@@ -88,9 +91,9 @@ export function createWorldLayer(actions: AppActions): WorldLayer {
         if (e.type === 'damage.applied' && showNumbers && me !== null && e.source === me && e.target !== me) {
           const s = damageNumberStyle(e, NUMBER_CSS);
           spawn(view, e.target, e.pos, e.amount, s.colour, s.scale);
-        } else if (e.type === 'heal.applied' && showNumbers && me !== null && (e.source === me || e.target === me) && e.amount >= 0.5) {
+        } else if (e.type === 'heal.applied' && showNumbers && me !== null && (e.source === me || e.target === me) && e.amount >= MIN_HEAL_SHOWN) {
           const t = view.entities.find((x) => x.id === e.target);
-          if (t) spawn(view, e.target, { x: t.pos.x, y: t.pos.y + 1.6, z: t.pos.z }, e.amount, HEALTH_CSS, 1);
+          if (t) spawn(view, e.target, { x: t.pos.x, y: t.pos.y + HEAL_NUMBER_LIFT_M, z: t.pos.z }, e.amount, HEALTH_CSS, 1);
         } else if (e.type === 'ping' && e.team === view.heroes.find((h) => h.id === me)?.team) {
           pings.push({ pos: e.pos, kind: e.kind, at: view.seconds });
         }

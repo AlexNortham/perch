@@ -2,11 +2,12 @@
  * Minimap and big map (GDD §12.5): one canvas painter, north-up with east at the left so Dawn's base is at the
  * bottom. Enemies follow the map-visibility bits (mapSeenBy), last-seen enemy heroes fade as ghosts, pings pulse.
  */
+import { ViewFlag } from '../../sim/core/contracts';
 import type { MapData, PlayerTeam, SimView } from '../../sim/core/contracts';
 import { loadMap } from '../../sim/world/map';
 import type { AppActions } from '../app/contracts';
 import { ALLY_TEAL, ENEMY_RED, LANE_COLOURS, NEUTRAL_COLOUR, TEAM_COLOURS } from '../app/palette';
-import { hex, PING_CSS, PING_S } from './constants';
+import { hex, MAP_ASPECT, MAP_STYLE, PING_CSS, PING_S } from './constants';
 import { el } from './dom';
 import { createGhosts, mapPoint, mapVisible, mapWorld } from './model';
 import type { PingMark } from './world';
@@ -55,7 +56,7 @@ export function createMapView(parent: HTMLElement, cls: string, size: () => { wi
       const team: PlayerTeam = me?.team ?? 'dawn';
       const map = mapOf(view.map);
       const b = map.bounds;
-      const k = width / 260;
+      const k = width / MAP_ASPECT.width;
       const P = (p: { x: number; y: number; z: number }) => mapPoint(p, b, width, height);
       ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = 'rgba(12,14,18,0.82)';
@@ -82,7 +83,7 @@ export function createMapView(parent: HTMLElement, cls: string, size: () => { wi
         ctx.fillStyle = fill;
         ctx.fill();
         if (ring) {
-          ctx.lineWidth = 1.5 * k;
+          ctx.lineWidth = MAP_STYLE.ring * k;
           ctx.strokeStyle = ring;
           ctx.stroke();
         }
@@ -95,38 +96,38 @@ export function createMapView(parent: HTMLElement, cls: string, size: () => { wi
         switch (e.kind) {
           case 'structure': {
             const q = P(e.pos);
-            const s = (e.type === 'patron' ? 7 : 4.5) * k;
+            const s = (e.type === 'patron' ? MAP_STYLE.patron : MAP_STYLE.structure) * k;
             ctx.fillStyle = teamCss(e.team);
             ctx.fillRect(q.x - s / 2, q.y - s / 2, s, s);
             if (e.maxHp > 0) {
               ctx.strokeStyle = ring ?? '#fff';
-              ctx.lineWidth = 1.5 * k;
+              ctx.lineWidth = MAP_STYLE.ring * k;
               ctx.beginPath();
-              ctx.arc(q.x, q.y, s * 0.85, -Math.PI / 2, -Math.PI / 2 + (e.hp / e.maxHp) * Math.PI * 2);
+              ctx.arc(q.x, q.y, s * MAP_STYLE.structureRing, -Math.PI / 2, -Math.PI / 2 + (e.hp / e.maxHp) * Math.PI * 2);
               ctx.stroke();
             }
             break;
           }
           case 'hero':
-            if ((e.flags & 0x1000) === 0) dot(e.pos, e.id === view.localHero ? 4.5 : 3.5, teamCss(e.team), ring);
+            if ((e.flags & ViewFlag.Dead) === 0) dot(e.pos, e.id === view.localHero ? MAP_STYLE.me : MAP_STYLE.hero, teamCss(e.team), ring);
             break;
           case 'unit':
-            dot(e.pos, e.type === 'roc' ? 5 : 1.6, teamCss(e.team));
+            dot(e.pos, e.type === 'roc' ? MAP_STYLE.roc : MAP_STYLE.unit, teamCss(e.team));
             break;
           case 'pickup':
-            if (e.type !== 'pod') dot(e.pos, 3, e.type === 'egg' ? '#ffe9a0' : e.type === 'ember' ? '#ff8a3d' : '#7fd6ff', '#000');
+            if (e.type !== 'pod') dot(e.pos, MAP_STYLE.pickup, e.type === 'egg' ? '#ffe9a0' : e.type === 'ember' ? '#ff8a3d' : '#7fd6ff', '#000');
             break;
           default:
             break;
         }
       }
-      for (const g of ghosts.update(view, team)) dot(g.pos, 3.5, hex(ENEMY_RED), '#000', g.alpha * 0.6);
+      for (const g of ghosts.update(view, team)) dot(g.pos, MAP_STYLE.ghost, hex(ENEMY_RED), '#000', g.alpha * MAP_STYLE.ghostAlpha);
       // Camera cone: the local hero's facing (yaw 0 faces +z, north).
       const meEnt = view.entities.find((e) => e.id === view.localHero);
       if (meEnt) {
         const q = P(meEnt.pos);
-        const reach = 22 * k;
-        const half = Math.PI / 5;
+        const reach = MAP_STYLE.coneReach * k;
+        const half = Math.PI / MAP_STYLE.coneHalfDivisor;
         // Forward is (sin yaw, cos yaw) in (x, z); on the map x is mirrored and z is up.
         const a = Math.atan2(-Math.cos(meEnt.yaw), -Math.sin(meEnt.yaw));
         ctx.fillStyle = 'rgba(255,255,255,0.18)';
@@ -144,7 +145,7 @@ export function createMapView(parent: HTMLElement, cls: string, size: () => { wi
         ctx.lineWidth = 2 * k;
         ctx.globalAlpha = 1 - age;
         ctx.beginPath();
-        ctx.arc(q.x, q.y, (4 + ((age * 12) % 8) * 1.5) * k, 0, Math.PI * 2);
+        ctx.arc(q.x, q.y, (MAP_STYLE.pingBase + ((age * MAP_STYLE.pingWave) % MAP_STYLE.pingWrap) * MAP_STYLE.pingGrow) * k, 0, Math.PI * 2);
         ctx.stroke();
         ctx.globalAlpha = 1;
       }

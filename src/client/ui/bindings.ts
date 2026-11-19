@@ -1,6 +1,7 @@
 /** Pure key-binding helpers for the Options screen: readable names, capture, swap on conflict, reset. */
 import type { BindAction, Bindings } from '../app/contracts';
 import { rebind as swapBindings } from '../app/bindings';
+import { DIGIT_PREFIX, KEY_PREFIX } from './constants';
 
 /** Player-facing action names, in the order the Controls list shows them. */
 export const ACTION_LABELS: Readonly<Record<BindAction, string>> = {
@@ -56,8 +57,8 @@ export function keyName(code: string): string {
   if (mouse) return MOUSE_NAMES[Number(mouse[1])] ?? `Mouse ${Number(mouse[1]) + 1}`;
   const named = NAMED[code];
   if (named) return named;
-  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
-  if (code.startsWith('Digit')) return code.slice(5);
+  if (/^Key[A-Z]$/.test(code)) return code.slice(KEY_PREFIX.length);
+  if (code.startsWith(DIGIT_PREFIX)) return code.slice(DIGIT_PREFIX.length);
   return code.replace(/([a-z\d])([A-Z])/g, '$1 $2');
 }
 

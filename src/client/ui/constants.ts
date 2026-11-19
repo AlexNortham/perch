@@ -2,7 +2,58 @@
 import type { Archetype, PlayerTeam } from '../../sim/core/contracts';
 import { ALLY_TEAL, DAWN_COLOURS, DUSK_COLOURS, ENEMY_RED } from '../app/palette';
 
-export const hex = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;
+const HEX_RADIX = 16;
+const HEX_DIGITS = 6;
+export const hex = (c: number): string => `#${c.toString(HEX_RADIX).padStart(HEX_DIGITS, '0')}`;
+
+/** Number formatting and layout constants shared by the UI modules. */
+export const KEY_PREFIX = 'Key';
+export const DIGIT_PREFIX = 'Digit';
+export const PERCENT = 100;
+export const TENTH = 10;
+export const SECONDS_PER_MINUTE = 60;
+export const ABILITY_SLOTS = 4;
+export const ULTIMATE_SLOT = 3;
+export const CROSSHAIR_PARTS = 5;
+/** Hit marker pop-in scale and the ammo share that counts as low. */
+export const HIT_MARKER_POP = 1.25;
+export const LOW_AMMO_FRACTION = 0.2;
+/** The map's width and height in metres (GDD §6.1: 260 x 300), for the big map's aspect ratio. */
+export const MAP_ASPECT = { width: 260, height: 300 } as const;
+export const BIG_MAP_FALLBACK_PX = 600;
+/** Scoreboard rebuild interval in ticks, and the objective timers' lead time (s). */
+export const SCOREBOARD_REFRESH_TICKS = 16;
+export const OBJECTIVE_BANNER_LEAD_S = 60;
+/** Floating number font size (px), the smallest heal worth a number and how far above a target a heal shows (m). */
+export const NUMBER_FONT_PX = 22;
+export const MIN_HEAL_SHOWN = 0.5;
+export const HEAL_NUMBER_LIFT_M = 1.6;
+/** Net worth graph on the end screen (SVG user units). */
+export const GRAPH = { width: 300, height: 80, inner: 76 } as const;
+/** Minimap drawing sizes in units of a 260 px wide map; they scale with the canvas. */
+export const MAP_STYLE = {
+  ring: 1.5,
+  patron: 7,
+  structure: 4.5,
+  structureRing: 0.85,
+  me: 4.5,
+  hero: 3.5,
+  unit: 1.6,
+  roc: 5,
+  pickup: 3,
+  ghost: 3.5,
+  ghostAlpha: 0.6,
+  coneReach: 22,
+  coneHalfDivisor: 5,
+  pingBase: 4,
+  pingWave: 12,
+  pingWrap: 8,
+  pingGrow: 1.5,
+} as const;
+const SENS = { min: 0.1, max: 5, step: 0.05 } as const;
+const FOV = { min: 75, max: 110, step: 1 } as const;
+const VOLUME_STEP = 0.01;
+export const VOLUME_RANGE = [0, 1, VOLUME_STEP] as const;
 
 export const TEAM_CSS: Readonly<Record<PlayerTeam, string>> = { dawn: hex(DAWN_COLOURS.primary), dusk: hex(DUSK_COLOURS.primary) };
 export const ENEMY_CSS = hex(ENEMY_RED);
@@ -80,6 +131,6 @@ export const HERO_SWATCH_STEP_DEG = 15;
 export const HERO_SWATCH_SATURATION_LIGHTNESS = '60% 55%';
 
 /** Options sliders as [min, max, step]; they match the ranges the settings store clamps to (GDD §4.3, §4.7). */
-export const SENSITIVITY_RANGE = [0.1, 5, 0.05] as const;
-export const FOV_RANGE = [75, 110, 1] as const;
+export const SENSITIVITY_RANGE = [SENS.min, SENS.max, SENS.step] as const;
+export const FOV_RANGE = [FOV.min, FOV.max, FOV.step] as const;
 export const QUALITIES = ['low', 'medium', 'high'] as const;

@@ -5,7 +5,7 @@
  */
 import type { PingKind } from '../../sim/core/contracts';
 import type { AppActions, Frame, Screen, ScreenContext, Settings, Ui } from '../app/contracts';
-import { BIG_MAP_SCREEN_SHARE, MINIMAP_SIZE, PING_CSS, PING_LABEL, WHEEL_PINGS } from './constants';
+import { BIG_MAP_FALLBACK_PX, BIG_MAP_SCREEN_SHARE, MAP_ASPECT, MINIMAP_SIZE, PING_CSS, PING_LABEL, WHEEL_PINGS } from './constants';
 import { button, el } from './dom';
 import { createFeed } from './feed';
 import { createHud } from './hud';
@@ -34,8 +34,8 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
   const shop = createShop(actions);
   const mini = createMapView(hud.root, 'pu-minimap', () => MINIMAP_SIZE, actions);
   const bigSize = (): { width: number; height: number } => {
-    const height = Math.round(host.clientHeight * BIG_MAP_SCREEN_SHARE) || 600;
-    return { width: Math.round((height * 260) / 300), height };
+    const height = Math.round(host.clientHeight * BIG_MAP_SCREEN_SHARE) || BIG_MAP_FALLBACK_PX;
+    return { width: Math.round((height * MAP_ASPECT.width) / MAP_ASPECT.height), height };
   };
   const big = createMapView(el('pu-bigmap-box', 'div', hud.root), 'pu-bigmap', bigSize, actions);
   const bigBox = big.canvas.parentElement ?? hud.root;
