@@ -1588,3 +1588,15 @@ Practice Hub, where the sim allows it after 15:00.
 Edge (`ab8a354ac8f9a12a`) from tick 3, although both reach Victory on the same tick (69,973). This breaks the rule that
 Node and the browser hash identically. It does not block Stage 3 (no feature yet relies on cross-environment replays),
 but it must be root-caused before the Stage 4 Build Lab relies on headless results.
+
+### W4 · QA re-review · 19/11/2026
+**Verdict: APPROVE `integrate/w4c` (36399f4).** Node 22, Edge, clean `npm ci`. Nothing under `src/`, `tests/`, `e2e/`, `tools/`, `wiki/` changed.
+- `npm run check`, three consecutive runs, all 6/6 green, e2e 55 passed each time:
+  1. `PASS typecheck 6s · lint 5s · test 14s · perf 10s · sim 3s · e2e 100s · check 138s`
+  2. `PASS typecheck 6s · lint 4s · test 11s · perf 8s · sim 2s · e2e 103s · check 134s`
+  3. `PASS typecheck 7s · lint 4s · test 11s · perf 8s · sim 2s · e2e 99s · check 131s`
+- Result screen, real input in Edge (`e2e/result.spec.ts`, screenshots viewed): pause menu, Concede locked before 15:00, then armed, confirmed, Defeat ("Dusk Flock wins", 15:00, Albatross row, graph); `?scene=replay&seed=1` reaches Victory ("Dawn Flock wins", 19:26, Owl 26,639 structure damage, graph).
+- Hawk retarget: scratch edit disabling the aggressor rank in `structures.ts` (reverted, nothing committed) fails 4 siege tests (dawn and dusk, both new retarget cases and the hold/interrupt case); 16/16 pass without it.
+- Upgrade panel: `upgrades-hover-2.png` shows exactly one description card; the m2 hover assertion passed in all three runs.
+- Spot-check, no regressions: 12 pickable birds (m2 e2e), Practice Hub (m2/keys e2e), pose sheet `pose-melee` looks right, wiki home renders with no page errors or failed requests.
+- Note, not a gate box: the Node/browser replay-hash difference is logged by the EP as a W4.5 item.
