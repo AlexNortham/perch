@@ -1,6 +1,6 @@
 import { aimRay, pivotHeight } from '../../sim/core/aim';
 import { ViewFlag } from '../../sim/core/contracts';
-import type { EntityId, HeroId, Ping, Sim, SimConfig, SimView, SightLine, Vec3 } from '../../sim/core/contracts';
+import type { EntityId, HeroId, Ping, Sim, SimConfig, SimView, SightLine, Vec3, EventOf, WeaponState } from '../../sim/core/contracts';
 import { CAMERA, TICK_RATE } from '../../sim/data/core';
 import { HEROES } from '../../sim/heroes/registry';
 import { createSim } from '../../sim/index';
@@ -24,7 +24,7 @@ declare global {
      * Set once the requested scene has rendered READY_FRAMES frames; the screenshot harness waits on it. `hero` is a
      * read-only test hook for e2e: the local hero's position and how many shots it has fired (null with no hero).
      */
-    __perch?: { ready: boolean; scene: SceneName; hero: { pos: Vec3; shotsFired: number } | null };
+    __perch?: { ready: boolean; scene: SceneName; hero: { pos: Vec3; tick: number; flags: number; shotsFired: number; meleePose: NonNullable<WeaponState['meleePose']> | null; lastMelee: EventOf<'melee'> | null; lastParry: EventOf<'parry'> | null } | null };
   }
 }
 
@@ -64,6 +64,8 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   let screen: Screen = 'menu';
   let session: Session;
   let shotsFired = 0;
+  let lastMelee: EventOf<'melee'> | null = null;
+  let lastParry: EventOf<'parry'> | null = null;
   let mode: 'siege' | 'practice' = req.scene === 'practice' ? 'practice' : 'siege';
   let pose: CameraPose | null = null;
   let sight: SightLine | undefined;
@@ -148,17 +150,44 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     actions.capturePointer(false);
     if (panel && panel !== 'pause') ui.onUiAction(panel, false);
   }
-  // Input is disabled while a cursor panel is open; let its bound key close it.
-  document.addEventListener('keydown', (event) => {
-    const binding = openPanel === 'shop' ? 'shop' : openPanel === 'upgrades' ? 'upgradeModifier' : null;
-    if (!event.repeat && binding && event.code === settings.bindings[binding]) {
-      event.preventDefault(); event.stopImmediatePropagation(); closePanel();
+  // Suppressing gameplay leaves the cursor available for cards. Keep the panel's own bound keys active.
+  let inspecting = false, inspectionChord = false;
+  function panelKey(code: string, down: boolean, event: Event): void {
+    if (openPanel === 'shop' && down && code === settings.bindings.shop) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closePanel();
+      return;
     }
-  }, true);
+    if (openPanel !== 'upgrades') return;
+    if (code === settings.bindings.upgradeModifier) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (down) { inspecting = true; inspectionChord = false; }
+      else if (inspecting) {
+        inspecting = false;
+        if (!inspectionChord) closePanel();
+      }
+    } else if (down && inspecting) {
+      const keys = [settings.bindings.ability1, settings.bindings.ability2, settings.bindings.ability3, settings.bindings.ability4];
+      const slot = keys.indexOf(code);
+      if (slot >= 0) {
+        inspectionChord = true;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        actions.submit({ upgrade: slot });
+      }
+    }
+  }
+  document.addEventListener('keydown', (e) => { if (!e.repeat) panelKey(e.code, true, e); }, true);
+  document.addEventListener('keyup', (e) => panelKey(e.code, false, e), true);
+  document.addEventListener('mousedown', (e) => panelKey('Mouse' + e.button, true, e), true);
+  document.addEventListener('mouseup', (e) => panelKey('Mouse' + e.button, false, e), true);
   session = await startSession(firstConfig, req.cam, req.t);
 
   function show(next: Screen): void {
     openPanel = null;
+    inspecting = false;
     pointerReleased = false;
     screen = next;
     input.setEnabled(next === 'match' && session.hero !== null);
@@ -181,6 +210,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     step.reset();
     intents.length = 0;
     shotsFired = 0;
+    lastMelee = lastParry = null;
     pose = null;
     sight = undefined;
     concedeNext = false;
@@ -215,7 +245,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     },
     get hero() {
       const local = session.hero === null ? undefined : entityById(session.curr, session.hero);
-      return local ? { pos: local.pos, shotsFired } : null;
+      return local ? { pos: local.pos, tick: session.curr.tick, flags: local.flags, shotsFired, meleePose: local.meleePose ?? null, lastMelee, lastParry } : null;
     },
   };
   let last = performance.now();
@@ -240,6 +270,8 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
           const me = entityById(s.curr, e.hero);
           if (me) input.setLook({ yaw: me.yaw, pitch: me.pitch });
         }
+        if (e.type === 'melee' && e.attacker === s.hero) lastMelee = e;
+        if (e.type === 'parry' && e.hero === s.hero) lastParry = e;
         if (e.type === 'weapon.fired' && e.shooter === s.hero) shotsFired++;
       }
       vfx.onEvents(events, s.curr);

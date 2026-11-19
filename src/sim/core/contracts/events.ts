@@ -67,6 +67,14 @@ export interface WeaponFiredEvent {
   readonly dir: Vec3;
 }
 
+export interface HitscanTracesEvent {
+  /** Resolved rays for this trigger pull, in pellet order. Even misses have their true range endpoint. */
+  readonly type: 'weapon.traces';
+  readonly shooter: EntityId;
+  readonly muzzle: Vec3;
+  readonly ends: readonly Vec3[];
+}
+
 /** Emitter: sim/combat. Consumers: client (animation, audio). `done` false = started, true = finished. */
 export interface WeaponReloadEvent {
   readonly type: 'weapon.reload';
@@ -424,6 +432,7 @@ export type SimEvent =
   | MatchEndedEvent
   | EntitySpawnedEvent
   | EntityDespawnedEvent
+  | HitscanTracesEvent
   | WeaponFiredEvent
   | WeaponReloadEvent
   | ProjectileImpactEvent

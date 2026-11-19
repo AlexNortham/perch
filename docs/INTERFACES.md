@@ -230,7 +230,7 @@ Defined in [`src/client/app/contracts.ts`](../src/client/app/contracts.ts); src/
 
 `Frame` = `{ prev, curr: SimView, alpha, dt }`; interpolate with `app/loop.ts interpolate(frame, entityView)`.
 
-**Play → practice match** (D-ARCH-013). Menu → Play (`AppActions.play`) → hero select → `AppActions.startMatch(setup)`.
+**Historical Stage 2 practice route** (D-ARCH-013, replaced by §12.1). Menu → Play (`AppActions.play`) → hero select → `AppActions.startMatch(setup)`.
 Hero select lists all 24 heroes from `HEROES` (src/sim/heroes/registry.ts) and lets the player pick only those whose
 module has `implemented: true`. `app/router.ts matchConfig(setup)` builds the sim config: 'main', fledgling waves on
 all three lanes, the human on `setup.team` ('dawn' for practice) with the chosen hero, and `setup.bots` bot heroes
@@ -358,3 +358,60 @@ Also landed in this round, from QA's review of wave 1 (no request needed): comma
 out-of-range look and axes, bad upgrade slots, pings at non-finite points) and latched without per-tick allocation
 (D-ARCH-011); seeds use all 53 bits (D-ARCH-012); the spatial hash reuses its arrays; the store rebuilds only the
 changed kind's list; telemetry counts beak shots among gun hits on heroes only, so beak-shot % is a true ratio.
+
+## 12. Wave 3 requests and the M2 contract freeze (19/11/2026)
+
+The W3 integration log establishes what shipped. Each numbered row records a W3 request or gate follow-up. A means accepted, M means accepted with a different implementation, S means satisfied on the baseline. Owner handoffs and verification routes are in [W4 contract follow-ups](briefs/W4-contract-followups.md).
+
+| # | Producer → consumer | Request and disposition |
+|---|---|---|
+| 1 | Hero data → UI/Art | A. Use `heroSwatch(id)` from the registry, reading kit colour or the four existing model colours. |
+| 2 | App → Input | S. Local respawn look adopted in 7bd3ace. Keep teleport yaw and verify after death. |
+| 3 | Input/App → core and UI | M. 7bd3ace wired ground taps. App now resolves contextual visible entities, ground and max range. Map/wheel use the same normal ping command. |
+| 4 | Core → Camera/Input | A. Aiming flag and effective HeroView.aimZoom, including Owl. |
+| 5 | Camera/Render → player | M. Renderer already receives CameraPose with each frame. Measure distance to the interpolated local hero for sub-metre fade. |
+| 6 | Abilities → core → VFX | A. AreaInfo.dimensions contains exact numeric collision geometry; owner/ability are projected with it. |
+| 7 | Economy → core → VFX | A. EntityView.expiresAt copies the actual pickup expiry, including after fast-forward. |
+| 8 | Combat → core → VFX | A. EntityView.projectile copies owner, source, ability and expiry. |
+| 9 | Combat → core → VFX | A. EntityView.statuses for units, plus the existing hero status list. |
+| 10 | Combat → VFX/audio | A. Gun event carries hitscan. New weapon.traces carries the real endpoint of each instantaneous pellet including misses. |
+| 11 | Kit data → Physics | A. DashEffect.maxPitchUpDeg expresses Plunge's upward cap and flat aim dashes. |
+| 12 | Combat → Economy | S. Real pod radius 0.25 m and camera convergence landed b24bce7, always-on pod suite. |
+| 13 | Abilities → Physics/Hero A | S. Target equal to caster resolves to cast point; Tempest Dive fallback removed in 5bbeac2. |
+| 14 | Hero A → Physics | S. Pitched aim dashes, and Wing Slam/Spear Bill flat arcs, already merged. Row 11 supplies author control. |
+| 15 | Physics → Hero A | S. Displacement now stops after 6 m, verified in controller tests and updated Shrike assertion. |
+| 16 | Hero A → Abilities | S. Gale Shield hook updates position/yaw and zones.endSummon reads current facing. Wall/end, pin and vanish duplicate fallbacks removed in 5bbeac2. |
+| 17 | Combat → Art/UI | M. Timed charge, light, heavy and parry poses plus Meleeing flag. A single bit could not distinguish heavy preparation from impact. |
+| 18 | World → Rendering/Art | A. Existing team/Invisible and world visibility bits distinguish hidden enemies and allied ghosts. |
+| 19 | World/core → Art/Rendering | A. Structure model and phase/ward/weak-point snapshot, standard model dispatch for other kinds. |
+| 20 | Settings/Input → UI | S. d522c02 applied all saved controls and swapped conflicts. New shared binding route and safe default migration below. |
+| 21 | UI → settings | A. UI can expose aim sensitivity, invert Y and crouch toggle through existing Settings. |
+| 22 | Combat/kit → World | A. trueSightRadius stat in metres; set strongest radius with op max alongside the condition. |
+| 23 | World → UI/AI/Render | A. World writes extra mapOnlySeenBy bits. Core projects mapSeenBy as the union. Use canSeeOnMap for map, canSee for world. |
+| 24 | Physics → World | M. Optional caller-owned out argument to existing moveCharacter. Return the same result/position when supplied. |
+| 25 | Rendering/VFX → each other | A. Public app/palette, app/render-host, app/drawn. Both ends migrate together; no render ↔ vfx imports. |
+| 26 | Input/UI → settings | A. Public app/bindings owns default codes and conflict swap; options and input share it. |
+| 27 | App/registry → client | A. app/loop exposes entityById/interpolate, sim/heroes/registry exposes immutable kit definitions, app/settings imports shared bindings. World may read immutable movement constants for unit motion. |
+| 28 | Input → app and UI | A. Single pause edge per intentional press/lost lock, including shop and inspect return. Baseline 100 ms dedupe needs browser verification. |
+| 29 | Rendering/UI/Abilities/Economy/Input → QA | A. Baseline lint counts 57/24/34/2/1. Move coefficients to owner constants; classify ability fixtures as test data. No global suppression. |
+| 30 | Economy/QA → player | A. Verify manual pod secure/deny with 0.25 m pods, 1.4 s ripe window and a real loaded lane. |
+| 31 | World/Physics/Combat → QA | A. Profile warm spawn spikes separately (W3 worst 5.9 ms, mean 0.234 ms); serial elapsed-time checks already landed D-EP-022. |
+| 32 | Hero A → QA | A. Runtime Echo Double T2/T3 and Gale Shield blocking should use actual casts after merge. |
+| 33 | QA → EP | A. Browser proof for measured dash displacement, menu pick/lane and Updraft. |
+| 34 | Rendering/Build/QA → EP | A. Reproducible representative draw-call ceiling and worst-tick recording with warmup separated, see W3 gate scenarios. |
+| 35 | QA → Objectives/Economy | A. Gated structures, levels/AP and shop suites before implementation, always-on at integration. |
+| 36 | EP → player | S. Stage 2 PLAYABLE.md and status handoff landed before baseline 6df745e. Revise both for Stage 3 at gate. |
+| 37 | Combat → Abilities/Hero A | S. Combat already calls magnitude on targetHpBelow, missingHpPct and executeBelow; frozen declarations now accept Magnitude (D-ARCH-015). |
+| 38 | Core/Input → UI/audio | A. Menu/pause/end and live settings continue through app. Actual synth, reset and user-gesture evidence land with Audio. |
+
+38 grouped dispositions: 25 accepted, 4 modified, 9 satisfied, 0 rejected. W3's superseded pod-suite helper and duplicate swaps were fixed in e9617a8 and d522c02. Unimplemented later-stage LODs, hitstop, post-processing and the remainder of the roster stay on the existing milestone plan.
+
+### 12.1 Play, Practice Hub and UI commands
+
+Play and `?scene=lane` run one chosen Dawn hero on main, three-lane waves, structures on, neutral objectives off and the normal level-6 ultimate. Sandbox remains free-cast on the arena. Standard headless main matches may spawn both bases; isolated wave fixtures opt in to structures. World reads resolved structures, spawns anchors on match.started, and emits match.ended exactly once on phase-two death. Combat emits patron.depleted on phase-one lethal damage and keeps the entity alive. World gates the transition immediately, restores the phase-two health bar via Combat and publishes the weak-point sphere.
+
+UI calls actions.play('practice') for the Hub and actions.startMatch after selecting a hero. The app builds two stationary hero targets with controller dummy, one wounded ally and one full-health enemy. HeroInfo.training identifies each target's reset position and health. Combat resets targets after use; ordinary guns, melee, allied healing, ability targeting and HP snapshots work through the same systems. Practice starts with four available slots and 32 AP. Quitting discards the entire session.
+
+Shop, upgrade inspect and ping-wheel activations release pointer capture while simulation continues. UI submits buy/sell/upgrade/ping through actions.submit; the app consumes one per tick in order. Escape closes the active panel. UI can call actions.capturePointer(false) after its own close button. Input distinguishes a tap of upgradeModifier (inspect) from a modifier chord (upgrade only). AbilityDef and AbilityUpgrade already carry descriptions; HeroView slots publish nextUpgradeCost, null at maximum. ScreenContext includes catalogue, mode and seed. Map pings and world damage labels use actions.project with the actual displayed camera. Audio and VFX get reset on session change.
+
+Human commands may carry the finite, copied centre ray of the displayed player camera. Combat and Ability Systems call heroAimRay so interpolation, shoulder blend, crouch and pull-in agree with the last frame; bots/headless retain deterministic rig reconstruction. Hits originate at the physical muzzle with ordinary cover/occlusion. See [W4 contract follow-ups](briefs/W4-contract-followups.md) for the regression cases.

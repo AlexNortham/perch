@@ -130,7 +130,7 @@ export interface RosterSlot {
 export interface SimOptions {
   /** Fledgling waves. Default: on for 'main', off for 'arena'. Honoured by sim/world. */
   readonly waves?: boolean;
-  /** Both bases, towers and Home Roost; enable explicitly in the playable match. */
+  /** Both bases, towers and Home Roost; on for standard main-map matches and off for isolated wave/arena fixtures. */
   readonly structures?: boolean;
   /** Menu Practice Hub, distinct from the test sandbox. Enables resettable training targets. */
   readonly practiceHub?: boolean;

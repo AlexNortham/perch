@@ -834,3 +834,15 @@ The three categories each have a component upgrade. Quick Preen upgrades to a us
 can be upgraded twice. Present the four GDD tiers in the shop and offer only implemented items for purchase.
 **Why:** sixteen distinct items let players fill all twelve base slots and all four earned flex slots. This slice
 also exercises the transaction rules and the stat, trigger, active and cooldown systems on their real player paths.
+
+### D-ARCH-017 · 19/11/2026 — The siege, practice and test fixtures use different match configurations
+**Decision:** use one matchConfig for Play and the lane router. Enable the three lanes and both bases, one Dawn human, no hostile heroes or neutrals and real progression. At phase-one lethal damage Combat keeps the Patron alive and announces patron.depleted. World starts the gated transition on the same entity. Final phase-two death ends the match. Practice Hub instead creates two real hero targets, gives the human four abilities and 32 practice AP, and discards the sim on exit. The existing test sandbox remains independently configurable.
+**Why:** the UI, headless rules and browser evidence can drive the same ordinary commands. The stable Patron id keeps colliders, target selection, HP and bounty lifetime coherent.
+
+### D-ARCH-018 · 19/11/2026 — The app owns overlay input, shared presentation routes and sight
+**Decision:** UI intents join the ordinary command queue. Interactive overlays release capture and the sim keeps running. Hero and item definitions reach their consumers through the registry and screen catalogue. Snapshots carry resolved visual geometry, view masks and action poses. The client can supply the last displayed, bounded sight line for human aim. Combat owns the physical muzzle ray and actual pellet endpoints.
+**Why:** a player can inspect an ability, trade, ping or shoot while the rules and camera have one reproducible interpretation. Shared app modules remove the renderer/VFX and UI/input import cycles.
+
+### D-ARCH-019 · 19/11/2026 — Safe browser bindings and visible movement/melee states
+**Decision:** migrate settings v1 to v2, reserve user-customised codes, then assign available safe defaults for crouch and item 3. New profiles use C and N respectively. Expose fractional stamina, the actual eligible dash-jump window, distinct air/wall jumps, down dash and mantle glide, and charge/light/heavy/parry poses. A rebound upgrade modifier opens inspect on a solo tap; a chord spends once.
+**Why:** the former default permitted native browser close-tab shortcuts during sliding. The new view states let HUD, Art, Audio and QA distinguish intent, windup, impact, available stamina and the real timing window. Heavy charge and browser history failures require separate real-input tests.

@@ -193,7 +193,7 @@ export interface OwnedItem {
 }
 
 /**
- * Items. Writer: sim/items. Slots are counted per category; flex slots come from TeamState.flexSlots.
+ * Items. Writer: sim/items. Twelve base slots accept any category. Extra slots come from TeamState.flexSlots.
  */
 export interface Inventory {
   /** Current own shop index in MapData.shops, null outside. Writer: items. */

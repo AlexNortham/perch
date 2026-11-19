@@ -7,6 +7,7 @@
 /** Menu Practice Hub target placement, wound fraction and spendable practice points. */
 export const TRAINING_TARGET = { ahead: 9, side: 3, alliedHpFraction: 0.4, practiceAp: 32 } as const;
 export const DEFAULT_AIM_ZOOM = 0.8;
+export const OWL_AIM_ZOOM = 0.5;
 /** Fixed simulation rate. */
 export const TICK_RATE = 60;
 /** Length of one tick in seconds. */

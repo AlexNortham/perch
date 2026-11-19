@@ -250,3 +250,11 @@ Per D-EP-006 and D-EP-010:
   for a new kind; never implement another owner's effect kind locally.
 - **Vision cost.** The §11.1 rule needs line-of-sight raycasts; sim/world should test only hero-to-hero pairs within
   40 m and stagger checks across ticks if needed (`seenBy` may lag by a few ticks, never more than 0.25 s).
+
+## 12. Stage 3 match and presentation ownership
+
+Play and the lane router share matchConfig. The Practice Hub builds a separate arena roster and fresh sim; the test sandbox remains available. Training targets are real heroes with dummy controllers. Core establishes initial identity, placement and practice health/AP. Combat owns subsequent health, target resets and ordinary respawn behaviour.
+
+Client modules read detached snapshots. UI queues one buy/sell/upgrade/ping through AppActions.submit for the next sim tick. Shop, upgrades and the ping wheel release the cursor while the clock continues. Renderer, VFX, input and UI consume shared app bindings/palette/host/drawing policy. Core projects a per-team map visibility mask, actual resolved area dimensions, structure phase/body/weak point, item refund window and zone from the owners' components. Item definitions are static and delivered once per screen via the catalogue. See INTERFACES §12 and W4-contract-followups.md for the producers.
+
+The app includes the last displayed player crosshair line in human commands. The sim validates the finite, bounded origin and uses its physical muzzle for actual wall and entity impacts. Headless commands and bots use the deterministic geometric camera model. A shot's pellet endpoints, hit status and applied damage are distinct facts. Combat supplies all three so visible rays, hit markers and audio match misses, partial hits and cover.

@@ -6,7 +6,7 @@ import type { CameraPreset, MatchSetup, Quality } from './contracts';
 
 /**
  * The `?scene=` router for repeatable screenshots and quick starts:
- *   scene   menu (default) | blockout | sandbox | lane (the practice match Play starts) | match (1 + 11 bots)
+ *   scene   menu (default) | blockout | sandbox | practice (hub) | lane (Play) | match (1 + 11 bots)
  *   seed    integer match seed (default 1)
  *   hero    hero id for the human (default shrike)
  *   cam     camera preset (CAMERA_PRESETS); default 'overview' for menu and blockout, 'player' otherwise

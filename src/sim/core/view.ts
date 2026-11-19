@@ -13,7 +13,7 @@ import type {
   StatusView,
 } from './contracts';
 import { AP_COSTS } from '../data/abilities';
-import { DEFAULT_AIM_ZOOM } from '../data/core';
+import { DEFAULT_AIM_ZOOM, OWL_AIM_ZOOM } from '../data/core';
 import { copy } from './math';
 import type { TelemetryCollector } from './telemetry';
 
@@ -143,7 +143,7 @@ function heroView(ctx: SimContext, h: HeroEntity, scores: TelemetryCollector): H
     barrier: h.health.barrier,
     shoulder: h.shoulder,
     shopZone: h.inventory.shopZone ?? null,
-    aimZoom: ctx.heroes[h.hero.heroId].def.weapon.aimZoom ?? DEFAULT_AIM_ZOOM,
+    aimZoom: ctx.heroes[h.hero.heroId].def.weapon.aimZoom ?? (h.hero.heroId === 'owl' ? OWL_AIM_ZOOM : DEFAULT_AIM_ZOOM),
     abilities: h.abilities.slots.map((slot) => ({ ...slot, nextUpgradeCost: AP_COSTS[slot.tier] ?? null })),
     items: h.inventory.items.map((item) => ({ ...item })),
     actives: [...h.inventory.actives],
