@@ -206,6 +206,13 @@ export const BURSTS = {
     { shape: 'ring', count: 1, speed: 0, spread: 0, s0: 0.2, s1: 1.8, life: 0.25, colour: 0xbfeaff },
     { shape: 'box', count: 5, speed: 7, spread: 1, s0: 0.05, s1: 0.01, len: 0.4, life: 0.2, colour: 0xe8f8ff },
   ],
+  whiff: [{ shape: 'box', count: 2, speed: 0, spread: 0.3, s0: 0.04, s1: 0.01, len: 1.2, life: 0.1, colour: 0xdddddd, tint: true, scatter: 0.2 }],
+  parryStart: [{ shape: 'ring', count: 1, speed: 0, spread: 0, s0: 0.1, s1: 1, life: 0.15, colour: 0x9fd0e8 }],
+  parryWhiff: [{ shape: 'ring', count: 1, speed: 0, spread: 0, s0: 0.8, s1: 0.2, life: 0.2, colour: 0x707880 }],
+  structureBlast: [
+    { shape: 'ring', count: 1, speed: 0, spread: 0, s0: 0.5, s1: 6, life: 0.4, colour: 0xffffff, tint: true },
+    { shape: 'sphere', count: 10, speed: 5, spread: 1, s0: 0.3, s1: 0.9, life: 0.5, colour: 0xffe9a0, gravity: 2 },
+  ],
   /** Axis = the direction of travel; the streak trails behind. */
   dash: [
     { shape: 'box', count: 6, speed: 0, spread: 0.1, s0: 0.09, s1: 0.02, len: 2.6, life: 0.24, colour: 0xdff6ff, scatter: 0.55 },
