@@ -4,11 +4,9 @@
 //   PERCH_PENDING=1 npx playwright test e2e/hero-select-layout.spec.ts --workers=1
 import { expect, test, type Page } from '@playwright/test';
 import { open, VIEWPORT, READY_TIMEOUT_MS } from './game';
-import { isPending, PENDING_REASON } from './pending';
 
 test.use({ viewport: VIEWPORT });
 test.setTimeout(READY_TIMEOUT_MS * 3);
-test.skip(isPending, PENDING_REASON);
 
 const CARD_COUNT = 24;
 /** Zero tolerance: "no card's bounding box moves by even 1 px". Sub-pixel float noise from one layout pass is not a shift. */

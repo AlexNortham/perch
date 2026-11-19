@@ -5,11 +5,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { DEFAULT_BINDINGS } from '../src/client/app/bindings';
 import { open, READY_TIMEOUT_MS } from './game';
-import { isPending, PENDING_REASON } from './pending';
 
 test.use({ viewport: { width: 1280, height: 720 }, actionTimeout: 8_000 });
 test.setTimeout(READY_TIMEOUT_MS * 2);
-test.skip(isPending, PENDING_REASON);
 
 const STORAGE_KEY = 'perch.settings.v3';
 const keyButtons = (page: Page) => page.locator('button.pu-key[data-action]');
@@ -58,7 +56,8 @@ test.describe('no Interact (D-EP-039)', () => {
     expect(Object.keys(loaded), 'no Interact row').not.toContain('interact');
     expect(loaded['jump'], 'the player\'s Jump choice survives').toBe('J');
     expect(loaded['melee'], 'the player\'s Melee choice survives').toBe('T');
-    const keep = Object.keys(baseline).filter((a) => a !== 'jump' && a !== 'melee');
+    // Crouch is left out: this saved profile names C itself, a choice a profile keeps, while a fresh profile gets Left Ctrl where keyboard lock exists (D-EP-030).
+    const keep = Object.keys(baseline).filter((a) => a !== 'jump' && a !== 'melee' && a !== 'crouch');
     for (const action of keep) expect(loaded[action], `${action} is untouched`).toBe(baseline[action]);
     expect(Object.keys(loaded).sort(), 'the same rows as a fresh profile').toEqual(Object.keys(baseline).sort());
     await context.close();

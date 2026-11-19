@@ -1,13 +1,7 @@
 /** The UI stylesheet, injected once. Classes are prefixed `pu-`. Values come from constants.ts. */
 import {
-  BARRIER_CSS,
   BEAK_CSS,
-  HEALTH_CSS,
   PANEL_BG,
-  SEEDS_CSS,
-  SONG_CSS,
-  STAMINA_CSS,
-  TALON_CSS,
   TEAM_CSS,
   TEXT,
   TEXT_DIM,
@@ -52,39 +46,6 @@ export const STYLES = `
 .pu-dead{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:rgba(80,10,10,.28);text-shadow:0 2px 6px rgba(0,0,0,.9)}
 .pu-dead small{font-size:22px;letter-spacing:.1em;color:${TEXT_DIM}}
 .pu-dead b{font-size:96px;line-height:1}
-.pu-cluster{position:absolute;left:28px;bottom:28px;width:460px;display:flex;flex-direction:column;gap:8px;padding:12px 14px;background:${PANEL_BG};border-radius:6px}
-.pu-bar{position:relative;height:22px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden;display:flex}
-.pu-bar>div{height:100%;flex:none;width:0}
-.pu-bar span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;text-shadow:0 1px 2px #000}
-.pu-hp{background:${HEALTH_CSS}}.pu-talon{background:${TALON_CSS}}.pu-song{background:${SONG_CSS}}.pu-barrier{background:${BARRIER_CSS}}
-.pu-row{display:flex;align-items:center;gap:14px;font-size:16px}
-.pu-pips{display:flex;gap:5px}
-.pu-pip{width:16px;height:16px;border-radius:50%;border:2px solid ${STAMINA_CSS};overflow:hidden;position:relative}
-.pu-pip i{position:absolute;inset:0;background:${STAMINA_CSS};transform-origin:left;transform:scaleX(0)}
-.pu-ap{font-weight:700;color:${BEAK_CSS};display:none}
-.pu-ap.on{display:block;animation:pu-pulse 1s ease-in-out infinite}
-.pu-seeds{margin-left:auto;font-weight:700;color:${SEEDS_CSS}}
-.pu-abil{display:flex;align-items:flex-end;gap:8px}
-.pu-slot{position:relative;width:72px;height:72px;border:2px solid rgba(255,255,255,.55);border-radius:6px;background:rgba(30,34,42,.9);overflow:hidden}
-.pu-slot.ult{border-color:${SEEDS_CSS}}
-.pu-slot.lock{opacity:.45;border-style:dashed}
-.pu-slot.rdy{border-color:#fff}
-.pu-slot.up{box-shadow:0 0 0 2px ${BEAK_CSS},0 0 12px ${BEAK_CSS};animation:pu-pulse 1s ease-in-out infinite}
-.pu-slot .nm{position:absolute;left:3px;right:3px;bottom:12px;font-size:11px;line-height:1.1;text-align:center;color:${TEXT_DIM};overflow:hidden;max-height:25px}
-.pu-slot .key{position:absolute;left:4px;top:3px;font-size:13px;font-weight:700}
-.pu-slot .sweep{position:absolute;inset:0;background:rgba(0,0,0,.62);transform-origin:bottom;transform:scaleY(0)}
-.pu-slot .cd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;text-shadow:0 1px 3px #000}
-.pu-slot .ch{position:absolute;right:4px;top:3px;font-size:14px;font-weight:800;color:${BEAK_CSS}}
-.pu-slot .lk{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:12px;font-weight:700;letter-spacing:.08em}
-.pu-slot.lock .nm{display:none}
-.pu-slot.lock .lk{display:flex}
-.pu-slot .tiers{position:absolute;left:0;right:0;bottom:3px;display:flex;justify-content:center;gap:3px}
-.pu-slot .tiers i{width:10px;height:4px;border-radius:1px;background:rgba(255,255,255,.25)}
-.pu-slot .tiers i.on{background:${BEAK_CSS}}
-.pu-ammo{margin-left:auto;white-space:nowrap;text-align:right;font-size:34px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
-.pu-ammo small{display:block;font-size:13px;font-weight:700;letter-spacing:.1em;color:${TEXT_DIM};margin-top:4px;height:15px}
-.pu-ammo.rl small{color:${BEAK_CSS}}
-.pu-ammo.low{color:#ff6a5a}
 @keyframes pu-pulse{50%{opacity:.6}}
 `;
 

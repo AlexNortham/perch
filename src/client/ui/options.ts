@@ -98,7 +98,7 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
       if (code.startsWith('Mouse')) drainMouse();
       if (r) applyRebind(action, r);
       else {
-        status.textContent = 'Cancelled.';
+        status.textContent = code === 'Tab' ? 'Tab cannot be bound. Cancelled.' : 'Cancelled.';
         renderBinds();
       }
     };
@@ -172,6 +172,19 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
     status.classList.remove('swap');
     renderBinds();
   });
+  const muteToggle = make('button', 'pu-btn pu-quiet', '');
+  muteToggle.type = 'button';
+  muteToggle.dataset['mute'] = '1';
+  const showMute = (): void => {
+    muteToggle.textContent = cur.mute === true ? 'Sound muted (click to unmute)' : 'Mute all sound';
+    muteToggle.setAttribute('aria-pressed', String(cur.mute === true));
+    muteToggle.classList.toggle('on', cur.mute === true);
+  };
+  muteToggle.addEventListener('click', () => {
+    save({ ...cur, mute: cur.mute !== true });
+    showMute();
+  });
+  showMute();
   const back = make('button', 'pu-btn pu-quiet', 'Back');
   back.type = 'button';
   back.addEventListener('click', () => {
@@ -192,6 +205,7 @@ export function optionsScreen(initial: Settings, actions: AppActions, onBack: ()
     vol('Master', 'master'),
     vol('Music', 'music'),
     vol('Effects', 'sfx'),
+    muteToggle,
   );
   const panel = make('div', 'pu-opts');
   panel.append(controls, general);

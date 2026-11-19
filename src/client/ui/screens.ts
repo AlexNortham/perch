@@ -5,9 +5,12 @@ import { HEROES, heroSwatch } from '../../sim/heroes/registry';
 import type { AppActions, ScreenContext } from '../app/contracts';
 import { ARCHETYPE_LABEL, GRAPH, hex, PERCENT, TEAM_CSS, ULTIMATE_SLOT } from './constants';
 import { AP_COSTS } from '../../sim/data/abilities';
-import { CONCEDE_AFTER_SECONDS } from '../../sim/data/core';
+import { CONCEDE_AFTER_SECONDS, TEAM_SIZE } from '../../sim/data/core';
 import { button, el } from './dom';
 import { clock } from './model';
+
+/** Play is the full 6v6: the player and eleven bots (M3). */
+const FULL_MATCH_BOTS = TEAM_SIZE * 2 - 1;
 
 const screen = (cls: string, ...children: Element[]): HTMLElement => {
   const s = el(`pu-screen ${cls}`);
@@ -43,7 +46,7 @@ function describeHero(box: HTMLElement, id: HeroId): void {
 }
 
 /** All 24 heroes; only `implemented` ones can be picked (D-ARCH-013). Hover or focus shows the kit. */
-export function heroSelectScreen(actions: AppActions, seed: number, mode: 'siege' | 'practice'): HTMLElement {
+export function heroSelectScreen(actions: AppActions, seed: number, mode: 'siege' | 'practice', swap = false): HTMLElement {
   const grid = el('pu-grid');
   const detail = el('pu-hero-detail');
   detail.setAttribute('aria-live', 'polite');
@@ -55,12 +58,15 @@ export function heroSelectScreen(actions: AppActions, seed: number, mode: 'siege
     card.style.setProperty('--sw', hex(heroSwatch(id)));
     card.dataset['hero'] = id;
     card.append(el('', 'b', undefined, def.name), el('', 'span', undefined, ARCHETYPE_LABEL[def.archetype]));
-    const show = (): void => describeHero(detail, id);
+    const show = (): void => {
+      describeHero(detail, id);
+      actions.previewHero?.(id);
+    };
     card.addEventListener('mouseenter', show);
     card.addEventListener('focus', show);
     if (implemented === true) {
       card.append(el('', 'em', undefined, 'Pick'));
-      card.addEventListener('click', () => actions.startMatch({ hero: id, team: 'dawn', difficulty: 'normal', seed }));
+      card.addEventListener('click', () => actions.startMatch({ hero: id, team: 'dawn', difficulty: 'normal', seed, ...(mode === 'siege' && { bots: FULL_MATCH_BOTS }) }));
     } else {
       card.append(el('', 'em', undefined, 'Coming soon'));
       card.setAttribute('aria-disabled', 'true');
@@ -68,14 +74,14 @@ export function heroSelectScreen(actions: AppActions, seed: number, mode: 'siege
     }
   });
   const title = el('pu-h2', 'h2', undefined, 'Choose your bird');
-  const sub = el('pu-sub', 'p', undefined, mode === 'practice' ? 'Practice Hub: all abilities unlocked, 32 AP, two target dummies' : 'Play: Old Mossmarket, Dawn Flock');
+  const sub = el('pu-sub', 'p', undefined, swap ? 'Swap bird: you respawn where you stand with 32 AP and the dummies reset' : mode === 'practice' ? 'Practice Hub: all abilities unlocked, 32 AP, two target dummies' : 'Play: Old Mossmarket, Dawn Flock');
   const body = el('pu-select-body');
   body.append(grid, detail);
-  return screen('pu-select', title, sub, body, button('Back', actions.toMenu, 'pu-btn pu-quiet'));
+  return screen('pu-select', title, sub, body, swap ? button('Back to the hub', actions.resume, 'pu-btn pu-quiet') : button('Back', actions.toMenu, 'pu-btn pu-quiet'));
 }
 
 /** GDD §12.10: Concede is open from 15:00 and asks for a second click; before then it is disabled with the reason. */
-export function pauseScreen(actions: AppActions, openOptions: () => void, seconds: number): HTMLElement {
+export function pauseScreen(actions: AppActions, openOptions: () => void, seconds: number, mode: 'siege' | 'practice' = 'siege'): HTMLElement {
   const open = seconds >= CONCEDE_AFTER_SECONDS;
   const concede = button('Concede', () => {
     if (concede.dataset['armed']) actions.concede();
@@ -93,6 +99,7 @@ export function pauseScreen(actions: AppActions, openOptions: () => void, second
     'pu-pause',
     el('pu-h2', 'h2', undefined, 'Paused'),
     button('Resume', actions.resume),
+    ...(mode === 'practice' ? [button('Swap bird', actions.swapBird)] : []),
     button('Options', openOptions),
     concede,
     note,

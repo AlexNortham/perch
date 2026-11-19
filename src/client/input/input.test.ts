@@ -155,7 +155,6 @@ describe('axes, buttons and mouse', () => {
       ['KeyN', Button.Item3],
       ['KeyV', Button.Item4],
       ['KeyG', Button.ShoulderSwap],
-      ['KeyE', Button.Interact],
     ];
     for (const [code, bit] of expected) {
       key('keydown', code);
@@ -212,19 +211,40 @@ describe('axes, buttons and mouse', () => {
     expect(input.sample().held & Button.Crouch).toBe(0);
   });
 
-  it('reports a solo modifier on release, while a chord submits one upgrade and leaves the panel closed', () => {
-    const { input, key, ui } = rig();
+  it('holding the upgrade key frees the pointer, ignores look and buttons, and locks again on release (D-EP-038)', () => {
+    const { input, key, ui, doc, move, mouse } = rig();
     key('keydown', 'AltLeft');
-    expect(ui).toEqual([]);
-    key('keyup', 'AltLeft');
     expect(ui).toEqual([['upgrades', true]]);
+    expect(doc.pointerLockElement, 'the cursor is free while held').toBeNull();
+    expect(ui, 'freeing the pointer is not a pause').toEqual([['upgrades', true]]);
+    move(100, 100);
+    mouse('mousedown', 0);
+    expect(input.look).toEqual({ yaw: 0, pitch: 0 });
+    expect(input.sample().held).toBe(0);
+    key('keyup', 'AltLeft');
+    expect(ui).toEqual([['upgrades', true], ['upgrades', false]]);
+    expect(doc.pointerLockElement, 'locked again with no click').not.toBeNull();
+  });
+
+  it('a tap of the upgrade key opens nothing and leaves the pointer locked; Alt plus 1-4 submits one upgrade', () => {
+    const { input, key, doc } = rig();
+    key('keydown', 'AltLeft');
+    key('keyup', 'AltLeft');
+    expect(doc.pointerLockElement).not.toBeNull();
     key('keydown', 'AltLeft');
     key('keydown', 'Digit3');
     key('keyup', 'AltLeft');
     key('keyup', 'Digit3');
-    expect(ui).toHaveLength(1);
     expect(input.sample()).toMatchObject({ upgrade: 2, held: 0, pressed: 0 });
     expect(input.sample().upgrade).toBeNull();
+  });
+
+  it('pausing during the hold ends it without locking the pointer', () => {
+    const { input, key, ui, doc } = rig();
+    key('keydown', 'AltLeft');
+    input.setEnabled(false);
+    expect(ui.at(-1)).toEqual(['upgrades', false]);
+    expect(doc.pointerLockElement).toBeNull();
   });
 
   it('scales mouse look with the active hero zoom only while aiming', () => {
@@ -297,18 +317,15 @@ describe('enable, pause and UI actions', () => {
     expect(ui).toHaveLength(1);
   });
 
-  it('shop, scoreboard and big map report down and up; disabling releases everything', () => {
+  it('shop and big map report down and up; disabling releases everything', () => {
     const { input, key, ui } = rig();
-    key('keydown', 'Tab');
     key('keydown', 'KeyB');
     key('keyup', 'KeyB');
     key('keydown', 'KeyW');
     input.setEnabled(false);
     expect(ui).toEqual([
-      ['scoreboard', true],
       ['shop', true],
       ['shop', false],
-      ['scoreboard', false],
     ]);
     expect(input.sample()).toMatchObject({ forward: 0, held: 0, pressed: 0 });
   });

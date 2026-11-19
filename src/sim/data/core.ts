@@ -50,7 +50,7 @@ export const CAMERA = {
   boomMax: 4.0,
   /** Shoulder offset applied at the pivot: right (left after a swap) and up. */
   shoulderRight: 0.75,
-  shoulderUp: 0.35,
+  shoulderUp: 0.15,
   /** Look pitch limits (positive looks up). */
   pitchMin: -80 * DEG,
   pitchMax: 80 * DEG,
