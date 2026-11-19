@@ -42,4 +42,3 @@ export function rebind(bindings: Bindings, action: BindAction, code: string): Bi
   next[action] = code;
   return next;
 }
-
