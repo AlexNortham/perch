@@ -216,16 +216,15 @@ test('ordinary Play starts siege progression with zero AP and a locked ultimate'
   await expect(panel).toBeVisible();
 });
 
-test('Play picker exposes all twelve M2 heroes across A1, A2 and B1', async ({ page }) => {
+test('Play picker exposes every implemented hero (the M2 twelve and any later batches)', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: 'Play', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Choose your bird' })).toBeVisible();
-  await expect(page.locator('.pu-card:enabled'), 'there are twelve selectable M2 hero cards').toHaveCount(12);
-  for (const id of [
-    'shrike', 'albatross', 'kingfisher', 'lyrebird',
-    'hornbill', 'flamingo', 'penguin', 'puffin',
-    'owl', 'pelican', 'secretarybird', 'starling',
-  ] as const) {
+  // Derived from the registry so new hero batches never break this test (EP, Stage 4).
+  const implemented = (Object.keys(HEROES) as (keyof typeof HEROES)[]).filter((id) => HEROES[id].implemented === true);
+  expect(implemented.length, 'at least the twelve M2 heroes are implemented').toBeGreaterThanOrEqual(12);
+  await expect(page.locator('.pu-card:enabled'), 'one selectable card per implemented hero').toHaveCount(implemented.length);
+  for (const id of implemented) {
     await expect(page.getByRole('button', { name: new RegExp(`^${HEROES[id].def.name}\\b`) })).toBeEnabled();
   }
 });
