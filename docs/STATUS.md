@@ -49,8 +49,9 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
     only `main` after a stage gate. Agents never add remotes, push, publish or upload. Commits use the repo-local
     identity `Alex Northam <alexanderjnortham@gmail.com>`, never the machine's global work address (D-EP-025).
     Installing packages from the npm registry is fine.
-11. **Launchable at every gate, with a current wiki.** The EP also regenerates the wiki (`npm run wiki`, D-EP-031) and
-    reviews it.
+11. **Launchable at every gate, with a current wiki and a pose-sheet review.** The EP regenerates the wiki
+    (`npm run wiki`, D-EP-031) and reviews it, and QA and the EP look at a pose sheet of every playable bird in every
+    animation state: guns held, feet planted, nothing floating (D-EP-035).
     **Launchable at every gate.** A milestone closes only when `npm start` opens the menu and that stage's new
     features are reachable from it (before the menus are finished, from a listed `?scene=` URL), and the EP has added
     the stage's section to [PLAYABLE.md](../PLAYABLE.md): how to launch, what you can do, what isn't in yet
@@ -143,6 +144,8 @@ Gate M2:
 - [ ] Seeds, levels, AP and the shop work
 - [ ] All structures and the 2-phase Patron work, so a match can be won by hand
 - [ ] HUD, minimap and audio done
+- [ ] Animation bar (D-EP-035): every playable bird holds its gun in every state; attachment tests pass; pose
+  sheets reviewed
 - [ ] Launchable: a full match against the structures can be started from the menu; PLAYABLE.md "Stage 3 (M2)"
   written
 - [ ] Firefox traversal remains playable during a sustained run; safe movement keys, side-mouse melee/parry,
