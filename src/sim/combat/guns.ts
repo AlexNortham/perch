@@ -5,7 +5,7 @@
  */
 import { COMBAT } from '../data/combat';
 import { CAMERA, TICK_RATE } from '../data/core';
-import { Button, LAYERS_SOLID } from '../core/contracts';
+import { Button, Layer, LAYERS_SOLID } from '../core/contracts';
 import type {
   EffectCause,
   EffectTarget,
@@ -19,10 +19,10 @@ import type {
   Vec3,
   WeaponModEffect,
 } from '../core/contracts';
-import { aimRay, lookDir, muzzlePoint } from '../core/aim';
+import { heroAimRay, lookDir, muzzlePoint } from '../core/aim';
 import { copy, ticks } from '../core/math';
 import { Beak, isDamageable } from './damage';
-import type { Damage } from './damage';
+import type { Damage, GunShot } from './damage';
 import { falloff, spreadDir } from './geometry';
 import type { CastFilter, Hit, Hitboxes } from './hitboxes';
 import type { Statuses } from './statuses';
@@ -53,6 +53,8 @@ interface Proj {
   falloffStart: number;
   falloffEnd: number;
   pierce: number;
+  shot: GunShot | null;
+  mods: readonly ModRec[];
   /** Targets hit, the pass (out = 0, back = 1) of their last hit, and how often. */
   readonly hitIds: EntityId[];
   readonly hitPass: number[];
@@ -192,28 +194,35 @@ export function createGuns(
   };
 
   /** One bullet hit on an entity: impact, damage request, weapon mods. `dist` is muzzle-to-hit. */
-  const bulletHit = (s: HeroState, hit: Hit, o: Vec3, d: Vec3, dist: number, dmg: number, fs: number, fe: number): void => {
+  const bulletHit = (s: HeroState, hit: Hit, o: Vec3, d: Vec3, dist: number, dmg: number, fs: number, fe: number, shot: GunShot, mods: readonly ModRec[], cause: EffectCause): void => {
     const e = ctx.store.get(hit.id);
     if (!e) return;
     const point = along(o, d, hit.t, at);
-    impact(s.gunCause, point, neg(d), hit.id, hit.head);
+    impact(cause, point, neg(d), hit.id, hit.head);
     if (e.kind === 'pickup') return;
     let noFalloff = false;
-    for (const m of s.mods) if (m.mod.ignoreFalloff && applies(m, e)) noFalloff = true;
+    let bonus = dist <= COMBAT.closeGunRange ? shot.closeDamage : 0;
+    for (const m of mods) {
+      if (!applies(m, e)) continue;
+      if (m.mod.ignoreFalloff) noFalloff = true;
+      bonus += m.mod.gunDamage ?? 0;
+    }
     const f = noFalloff ? 1 : falloff(dist, fs, fe, COMBAT.falloffFloor);
-    const r = damage.request(e.id, s.gunCause, 'talon', dmg, point);
+    const r = damage.request(e.id, cause, 'talon', dmg, point);
+    r.gunBonus = bonus;
+    r.shot = shot;
     r.falloff = f;
     r.weak = hit.weak;
     if (hit.head) {
       r.beak = Beak.Gun;
       r.beakMult = s.def.weapon.beakShotMult ?? COMBAT.beakShotMult;
     }
-    for (const m of s.mods) {
+    for (const m of mods) {
       if (!applies(m, e)) continue;
       const mod = m.mod;
       const target = mod.onBulletHit || mod.everyNth ? { entity: e.id, point: copy(point), dir: copy(d) } : null;
-      if (mod.onBulletHit && target) ctx.effects.applyAll(mod.onBulletHit, target, s.gunCause);
-      if (mod.everyNth && target && ++m.hits % mod.everyNth.n === 0) ctx.effects.applyAll(mod.everyNth.effects, target, s.gunCause);
+      if (mod.onBulletHit && target) ctx.effects.applyAll(mod.onBulletHit, target, cause);
+      if (mod.everyNth && target && ++m.hits % mod.everyNth.n === 0) ctx.effects.applyAll(mod.everyNth.effects, target, cause);
       if (mod.splash) {
         for (const id of enemiesNear(s, point, mod.splash.radius, chain)) {
           const other = ctx.store.get(id);
@@ -257,6 +266,9 @@ export function createGuns(
     fe: number,
     p: Proj | null,
     pierce: { left: number },
+    shot: GunShot,
+    mods: readonly ModRec[],
+    cause: EffectCause,
   ): number => {
     for (const hit of hits) {
       if (p) {
@@ -264,7 +276,7 @@ export function createGuns(
         p.hitIds.push(hit.id);
       }
       const isPod = ctx.store.get(hit.id)?.kind === 'pickup';
-      bulletHit(s, hit, o, d, travelled + hit.t, dmg, fs, fe);
+      bulletHit(s, hit, o, d, travelled + hit.t, dmg, fs, fe, shot, mods, cause);
       if (isPod) continue;
       if (pierce.left <= 0) return hit.t;
       pierce.left--;
@@ -278,12 +290,12 @@ export function createGuns(
     return n;
   };
 
-  const aimPoint = (s: HeroState, crouch: boolean): Vec3 => {
+  const aimPoint = (s: HeroState): Vec3 => {
     const h = s.hero;
-    const ray = aimRay(h.pos, h.yaw, h.pitch, h.shoulder, s.def.body, crouch);
+    const ray = heroAimRay(h, s.def.body);
     const len = (s.def.weapon.aimRange ?? CAMERA.aimRange) - ray.start;
     along(ray.origin, ray.dir, ray.start, from);
-    const wh = ctx.physics.raycast(from, ray.dir, len, LAYERS_SOLID);
+    const wh = ctx.physics.raycast(from, ray.dir, len, Layer.World);
     aimFilter.team = h.team;
     aimFilter.ignore = h.id;
     const hits = hb.cast(from, ray.dir, wh ? wh.distance : len, 0, aimFilter);
@@ -320,7 +332,7 @@ export function createGuns(
     damage.inCombat(h);
     statuses.endOnAttack(h);
     const crouch = h.motor.crouching || h.motor.sliding;
-    const target = aimPoint(s, crouch);
+    const target = aimPoint(s);
     const muzzle = muzzlePoint(h.pos, h.yaw, s.def.body, crouch);
     dir.x = target.x - muzzle.x;
     dir.y = target.y - muzzle.y;
@@ -331,10 +343,11 @@ export function createGuns(
       dir.y /= len;
       dir.z /= len;
     } else Object.assign(dir, lookDir(h.yaw, h.pitch));
-    ctx.bus.emit({ type: 'weapon.fired', shooter: h.id, muzzle: copy(muzzle), dir: copy(dir) });
-    const cause = s.gunCause;
-    cause.origin = muzzle;
-    cause.songPower = st.songPower;
+    ctx.bus.emit({ type: 'weapon.fired', shooter: h.id, muzzle: copy(muzzle), dir: copy(dir), hitscan: w.hitscan });
+    const cause = { ...s.gunCause, origin: muzzle, songPower: st.songPower };
+    const shot: GunShot = { beakFlat: st.beakShotFlat, closeDamage: st.closeGunDamage };
+    const mods = s.mods.slice();
+    const ends: Vec3[] = [];
     const half =
       w.spreadDeg *
       DEG *
@@ -350,9 +363,10 @@ export function createGuns(
     for (let i = 0; i < w.pellets; i++) {
       spreadDir(dir, half, rng, pellet);
       if (w.hitscan) {
-        const wh = ctx.physics.raycast(muzzle, pellet, w.range, LAYERS_SOLID);
+        const wh = ctx.physics.raycast(muzzle, pellet, w.range, Layer.World);
         const hits = hb.cast(muzzle, pellet, wh ? wh.distance : w.range, 0, shotFilter);
-        const stop = bulletSegment(s, muzzle, pellet, hits, 0, dmg, fs, fe, null, { left: pierce });
+        const stop = bulletSegment(s, muzzle, pellet, hits, 0, dmg, fs, fe, null, { left: pierce }, shot, mods, cause);
+        ends.push(copy(along(muzzle, pellet, stop >= 0 ? stop : (wh?.distance ?? w.range), at)));
         if (stop < 0 && wh) impact(cause, wh.point, copy(wh.normal), null, false);
         continue;
       }
@@ -382,11 +396,14 @@ export function createGuns(
           falloffStart: fs,
           falloffEnd: fe,
           pierce,
+          shot,
+          mods,
         },
         pellet,
         shotFilter,
       );
     }
+    if (w.hitscan) ctx.bus.emit({ type: 'weapon.traces', shooter: h.id, muzzle: copy(muzzle), ends });
     // Shot-limited mods (Heavy Rounds) count this shot; one used up ends now, before the next shot this tick.
     if (s.mods.length > 0) {
       let k = 0;
@@ -467,13 +484,13 @@ export function createGuns(
       }
     }
     const o = e.pos;
-    const wh = len > 0 ? ctx.physics.raycast(o, p.dir, len, LAYERS_SOLID) : null;
+    const wh = len > 0 ? ctx.physics.raycast(o, p.dir, len, p.gun ? Layer.World : LAYERS_SOLID) : null;
     const seg = wh ? wh.distance : len;
     const hits = hb.cast(o, p.dir, seg, p.radius, p.filter);
     let stop = -1;
-    if (p.gun) {
+    if (p.gun && p.shot) {
       const pierce = { left: p.pierce };
-      stop = bulletSegment(p.gun, o, p.dir, hits, p.travelled, p.damage, p.falloffStart, p.falloffEnd, p, pierce);
+      stop = bulletSegment(p.gun, o, p.dir, hits, p.travelled, p.damage, p.falloffStart, p.falloffEnd, p, pierce, p.shot, p.mods, p.cause);
       p.pierce = pierce.left;
     } else if (fx) {
       for (const hit of hits) {
@@ -570,8 +587,9 @@ export function createGuns(
       const s = target.entity === null ? undefined : heroes.get(target.entity);
       if (!s || s.hero.health.dead) return;
       const h = s.hero;
-      if (fx.reload) {
-        h.weapon.ammo = magazine(h);
+      if (fx.reload || fx.reloadFraction !== undefined) {
+        const cap = magazine(h);
+        h.weapon.ammo = fx.reload ? cap : Math.min(cap, h.weapon.ammo + Math.ceil(cap * Math.max(0, fx.reloadFraction ?? 0)));
         if (h.weapon.reloading) finishReload(s);
       }
       const dur = ctx.effects.magnitude(fx.durationS, cause);
@@ -630,6 +648,8 @@ export function createGuns(
           falloffStart: 0,
           falloffEnd: 0,
           pierce: 0,
+          shot: null,
+          mods: [],
         },
         { x: ux, y: uy, z: uz },
         f,

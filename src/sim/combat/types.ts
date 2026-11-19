@@ -48,4 +48,5 @@ export interface HeroState {
   level: number;
   /** Level-up heal not yet applied because max HP had not grown yet (applied by the next statuses phase). */
   levelHeal: number;
+  trainingResetAt: number | null;
 }

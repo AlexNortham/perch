@@ -12,6 +12,8 @@ export const COMBAT = {
   abilityBeakShotMult: 1.5,
   /** GDD §5.5: damage beyond falloff end. */
   falloffFloor: 0.25,
+  closeGunRange: 15,
+  trainingResetS: 4,
   /** GDD §5.6: projectile gun bullets' collision radius. */
   gunProjectileRadius: 0.06,
   /** GDD §5.6: spread multipliers while airborne and while aiming (RMB). */

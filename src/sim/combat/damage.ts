@@ -20,6 +20,7 @@ import type {
   ShieldEffect,
   SimContext,
   StatusInstance,
+  StructureEntity,
   StructureType,
   UnitEntity,
   UnitType,
@@ -38,6 +39,11 @@ const MAX_OWNER_HOPS = 3;
 /** Which beak-shot rule a hit uses (GDD §5.4). */
 export const Beak = { None: 0, Gun: 1, Ability: 2 } as const;
 
+export interface GunShot {
+  beakFlat: number;
+  readonly closeDamage: number;
+}
+
 /** One queued hit. Pooled: valid until the damage phase resolves it. */
 export interface Req {
   target: EntityId;
@@ -50,6 +56,8 @@ export interface Req {
   beak: (typeof Beak)[keyof typeof Beak];
   /** The gun's beak multiplier (before the attacker's bonus). */
   beakMult: number;
+  gunBonus: number;
+  shot: GunShot | null;
   /** A gun hit on the Patron's weak point. */
   weak: boolean;
   /** Conditional bonuses, missing-HP part and execute, for `damage` effects. */
@@ -117,6 +125,7 @@ export function createDamage(
   const reqs: Req[] = [];
   let count = 0;
   const shields: ShieldRec[] = [];
+  const depletedPatrons = new WeakSet<StructureEntity>();
   const hots: HealOverTime[] = [];
   /** Hero victim → enemy hero → last tick it damaged the victim. */
   const damagers = new Map<EntityId, Map<EntityId, number>>();
@@ -159,6 +168,7 @@ export function createDamage(
     const applied = Math.min(amt, st.maxHealth - e.health.hp);
     if (!(applied > 0)) return 0;
     e.health.hp += applied;
+    noteTrainingActivity(e);
     ctx.bus.emit({ type: 'heal.applied', source: cause?.source ?? null, target: e.id, amount: applied });
     if (cause) supported(cause, e);
     return applied;
@@ -244,16 +254,17 @@ export function createDamage(
   const victimType = (e: Damageable): HeroId | UnitType | StructureType =>
     e.kind === 'hero' ? e.hero.heroId : e.kind === 'unit' ? e.unit.type : e.structure.type;
 
-  const die = (e: Damageable, cause: EffectCause, credit: EntityId | null): void => {
+  const die = (e: Damageable, cause: EffectCause, credit: EntityId | null, beakShot: boolean): void => {
     const now = ctx.clock.tick;
     const assisters = e.kind === 'hero' ? assistsFor(e, credit) : [];
     e.health.hp = 0;
     if (e.kind === 'hero') {
       e.health.dead = true;
       const ember = ctx.teams[e.team].emberUntil > now;
-      e.health.respawnAt = now + ticks(respawnSeconds(ctx.clock.seconds, ember));
+      e.health.respawnAt = now + ticks(e.hero.training ? COMBAT.trainingResetS : respawnSeconds(ctx.clock.seconds, ember));
       e.weapon.reloading = false;
       e.weapon.firing = false;
+      delete e.weapon.meleePose;
       const s = heroes.get(e.id);
       if (s) {
         s.melee = Melee.Idle;
@@ -278,6 +289,7 @@ export function createDamage(
       creditHero: credit,
       assisters,
       via: cause.via,
+      beakShot,
       pos: copy(e.pos),
     });
     statuses.clear(e);
@@ -295,6 +307,12 @@ export function createDamage(
     if (isDamageable(e)) shieldTotals(e);
   };
 
+  const noteTrainingActivity = (e: Damageable): void => {
+    if (e.kind !== 'hero' || !e.hero.training) return;
+    const s = heroes.get(e.id);
+    if (s) s.trainingResetAt = ctx.clock.tick + ticks(COMBAT.trainingResetS);
+  };
+
   const resolveOne = (r: Req): void => {
     const e = ctx.store.get(r.target);
     if (!isDamageable(e) || e.removed || e.health.dead) return;
@@ -307,6 +325,8 @@ export function createDamage(
     const talon = r.type === 'talon';
     const fx = r.effect;
     const max = st.maxHealth;
+    const firstPhase = e.kind === 'structure' && e.structure.type === 'patron' && e.structure.phase === 1;
+    if (firstPhase && depletedPatrons.has(e)) return;
 
     // 1. Base (+ % of missing hp).
     let dmg = r.base;
@@ -315,11 +335,11 @@ export function createDamage(
     // 2. Falloff.
     dmg *= r.falloff;
     // 3. Beak shot (head hitbox only, so never on units or structures).
-    if (r.beak === Beak.Gun) dmg = dmg * (r.beakMult + (ss?.beakShotBonus ?? 0)) + (ss?.beakShotFlat ?? 0);
+    if (r.beak === Beak.Gun) dmg = dmg * (r.beakMult + (ss?.beakShotBonus ?? 0)) + (r.shot?.beakFlat ?? 0);
     else if (r.beak === Beak.Ability) dmg *= r.beakMult;
     // 4. Outgoing bonuses: additive within the step, applied once.
     let out = 0;
-    if (ss && via === 'weapon') out += ss.gunDamage;
+    if (via === 'weapon') out += (ss?.gunDamage ?? 0) + r.gunBonus;
     if (ss && !talon) out += ss.songDamage;
     if (fx?.bonus) for (const b of fx.bonus) if (bonusHolds(b, e, src, r.cause)) out += b.mult - 1;
     dmg *= 1 + out;
@@ -335,16 +355,22 @@ export function createDamage(
       if (via === 'area' || via === 'status') dmg = 0;
       else if (via === 'melee') dmg *= COMBAT.structureMeleeMult;
       else if (!talon) dmg *= COMBAT.structureSongMult;
-      if (r.weak) dmg *= COMBAT.weakPointMult;
+      if (via === 'weapon' && r.weak) dmg *= COMBAT.weakPointMult;
     }
     if (!(dmg > 0)) return;
+    if (r.beak === Beak.Gun && r.shot) r.shot.beakFlat = 0;
     // 8. Shields.
     const absorbed = drainShields(e, r.type, dmg);
     // 9. Health: undying floors at 1, an onLethal status saves the holder.
     let hp = e.health.hp - (dmg - absorbed);
     let lethal = hp <= 0 || (fx?.executeBelow !== undefined && hp < ctx.effects.magnitude(fx.executeBelow, r.cause) * max);
     let saved: StatusInstance | null = null;
-    if (lethal && cond.has('undying')) {
+    const depleted = firstPhase && lethal;
+    if (depleted) {
+      depletedPatrons.add(e);
+      hp = 1;
+      lethal = false;
+    } else if (lethal && cond.has('undying')) {
       hp = Math.max(hp, 1);
       lethal = false;
     } else if (lethal && (saved = statuses.takeLethal(e))) {
@@ -352,6 +378,7 @@ export function createDamage(
       lethal = false;
     }
     e.health.hp = lethal ? 0 : hp;
+    if (dmg > absorbed) noteTrainingActivity(e);
 
     const credit = creditOf(r.cause.source);
     const creditHero = credit === null ? undefined : ctx.store.getKind(credit, 'hero');
@@ -375,11 +402,12 @@ export function createDamage(
       ability: r.cause.ability,
       item: r.cause.item,
       beakShot: r.beak !== Beak.None,
-      weakPoint: r.weak,
+      weakPoint: via === 'weapon' && r.weak,
       proc: r.cause.proc,
       lethal,
       pos: copy(r.point),
     });
+    if (depleted) ctx.bus.emit({ type: 'patron.depleted', structure: e.id });
     if (saved?.def.onLethal) {
       const dir = { x: Math.sin(e.yaw), y: 0, z: Math.cos(e.yaw) };
       ctx.effects.applyAll(saved.def.onLethal, { entity: e.id, point: copy(e.pos), dir }, saved.cause);
@@ -389,7 +417,7 @@ export function createDamage(
       const ls = talon ? ss.talonLifesteal : ss.songLifesteal;
       if (ls > 0) heal(src, ls * dmg * (e.kind === 'hero' ? 1 : COMBAT.lifestealNonHeroMult), r.cause);
     }
-    if (lethal) die(e, r.cause, credit);
+    if (lethal) die(e, r.cause, credit, r.beak !== Beak.None);
   };
 
   const respawn = (s: HeroState): void => {
@@ -397,7 +425,8 @@ export function createDamage(
     const now = ctx.clock.tick;
     h.health.dead = false;
     h.health.respawnAt = null;
-    h.health.hp = h.stats.final.maxHealth;
+    h.health.hp = h.hero.training?.hp ?? h.stats.final.maxHealth;
+    s.trainingResetAt = null;
     h.weapon.ammo = Math.round(h.stats.final.magazine);
     h.weapon.reloading = false;
     h.pos.x = s.spawn.pos.x;
@@ -424,7 +453,7 @@ export function createDamage(
   const request = (target: EntityId, cause: EffectCause, type: DamageType, base: number, point: Vec3): Req => {
     let r = reqs[count];
     if (!r) {
-      r = { target, cause, type, base, falloff: 1, beak: Beak.None, beakMult: 1, weak: false, effect: null, point: copy(point) };
+      r = { target, cause, type, base, falloff: 1, beak: Beak.None, beakMult: 1, gunBonus: 0, shot: null, weak: false, effect: null, point: copy(point) };
       reqs.push(r);
     } else {
       r.target = target;
@@ -434,6 +463,8 @@ export function createDamage(
       r.falloff = 1;
       r.beak = Beak.None;
       r.beakMult = 1;
+      r.gunBonus = 0;
+      r.shot = null;
       r.weak = false;
       r.effect = null;
       r.point.x = point.x;
@@ -447,7 +478,7 @@ export function createDamage(
   const regen = (list: readonly (HeroEntity | UnitEntity)[]): void => {
     for (const e of list) {
       const st = e.stats.final;
-      if (e.health.dead || st.healthRegen <= 0 || e.health.hp >= st.maxHealth) continue;
+      if (e.health.dead || (e.kind === 'hero' && e.hero.training) || st.healthRegen <= 0 || e.health.hp >= st.maxHealth) continue;
       const gain = (st.healthRegen / TICK_RATE) * (1 - Math.min(1, st.healReduction));
       e.health.hp = Math.min(st.maxHealth, e.health.hp + gain);
     }
@@ -559,6 +590,13 @@ export function createDamage(
         s.levelHeal = 0;
         const h = s.hero.health;
         if (h.dead && h.respawnAt !== null && now >= h.respawnAt) respawn(s);
+        const training = s.hero.hero.training;
+        if (!h.dead && training && s.trainingResetAt !== null && now >= s.trainingResetAt) {
+          const target = { entity: s.hero.id, point: training.pos, dir: { x: 0, y: 0, z: 1 } };
+          ctx.effects.apply({ kind: 'teleport', to: 'point', face: 'keep' }, target, { ...s.meleeCause, origin: target.point });
+          h.hp = training.hp;
+          s.trainingResetAt = null;
+        }
       }
       // Regeneration (heal reduction applies to it; structures don't regenerate, GDD §7).
       regen(ctx.store.list('hero'));

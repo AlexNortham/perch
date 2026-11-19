@@ -68,6 +68,7 @@ export const createCombatSystem: SystemFactory = (ctx: SimContext) => {
       lockout: 0,
       level: h.progress.level,
       levelHeal: 0,
+      trainingResetAt: null,
     });
   });
   ctx.bus.on('entity.despawned', (ev) => {
@@ -81,6 +82,7 @@ export const createCombatSystem: SystemFactory = (ctx: SimContext) => {
     const s = ev.stage === 'start' ? heroes.get(ev.caster) : undefined;
     if (!s) return;
     guns.cancelReload(s);
+    damage.inCombat(s.hero);
     statuses.endOnAttack(s.hero);
   });
   ctx.bus.on('hero.level', (ev) => damage.levelUp(ev.hero, ev.level));
@@ -157,6 +159,7 @@ export const createCombatSystem: SystemFactory = (ctx: SimContext) => {
         h.num(s.parryReady);
         h.num(s.lockout);
         h.num(s.level);
+        h.num(s.trainingResetAt ?? -1);
         h.num(s.mods.length);
       }
       statuses.hash(h);
