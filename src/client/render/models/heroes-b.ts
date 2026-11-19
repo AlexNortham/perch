@@ -6,7 +6,7 @@
  */
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
-import { assemble, dims, eyes, gun, headShell, leg, wing } from './bird';
+import { assemble, dims, eyes, headShell } from './bird';
 import type { BirdBuild } from './bird';
 import { PLUMAGE, PLUMAGE_NEW as C } from './constants';
 import { Parts } from './parts';
@@ -15,15 +15,12 @@ type Build = (plan: BodyPlan, team: TeamColours) => BirdBuild;
 type V3 = [number, number, number];
 
 /** A pivot table for the common layout: parts hang where the body's shoulders, hips and rump are. */
-const pivots = (o: { hc: number; sy: number; legLen: number; R: number; legX: number; tailY: number; tailZ: number }) => ({
-  body: [0, 0, 0] as V3,
-  head: [0, o.hc, 0] as V3,
+const pivots = (o: { sy: number; legLen: number; R: number; legX: number; tailY: number; tailZ: number }) => ({
   wingL: [o.R * 0.95, o.sy, 0] as V3,
   wingR: [-o.R * 0.95, o.sy, 0] as V3,
   legL: [o.legX, o.legLen, 0] as V3,
   legR: [-o.legX, o.legLen, 0] as V3,
   tail: [0, o.tailY, o.tailZ] as V3,
-  gun: [0, 0, 0] as V3,
 });
 
 /** Owl: round barrel body, no neck, flat facial disc, two ear tufts, huge orange eyes, a rifle as tall as itself. */
@@ -47,25 +44,21 @@ const owl: Build = (plan, team) => {
     head.ell(PLUMAGE.eye, [hr * 0.15, hr * 0.15, hr * 0.1], [s * hr * 0.45, hr * 0.15, hr * 1.17]);
   }
   const tail = new Parts().box(C.owlTawny, [R * 0.5, H * 0.02, H * 0.16], [0, 0, -H * 0.08]);
-  return assemble(
-    plan,
-    {
-      body, head,
-      wingL: wing(1, C.owlTawny, H * 0.4, R * 1.2, R * 0.12, team.primary),
-      wingR: wing(-1, C.owlTawny, H * 0.4, R * 1.2, R * 0.12, team.primary),
-      legL: leg(C.owlCream, legLen, H * 0.03, R * 0.4),
-      legR: leg(C.owlCream, legLen, H * 0.03, R * 0.4),
-      tail,
-      gun: gun({ length: H * 0.85, thick: 0.06, scope: true }),
-    },
-    pivots({ hc, sy: cy + ry * 0.5, legLen, R, legX: R * 0.4, tailY: cy - ry * 0.2, tailZ: -R * 1.0 }),
-    { sway: 0, castTail: -0.3, wingRest: 0.08 },
-  );
+  return assemble(plan, {
+    body, head, tail,
+    wing: { hex: C.owlTawny, len: H * 0.4, chord: R * 1.2, thick: R * 0.12, trim: team.primary },
+    leg: { hex: C.owlCream, len: legLen, thick: H * 0.03, foot: R * 0.4 },
+    gun: { length: H * 0.7, thick: 0.06, scope: true, main: 0.5, support: 0.22 },
+    pivot: pivots({ sy: cy + ry * 0.5, legLen, R, legX: R * 0.4, tailY: cy - ry * 0.2, tailZ: -R * 1.0 }),
+    // Hush, Night Eyes, Silent Wing, Moonlit Mark.
+    casts: ['aim', 'raise', 'leap', 'aim'],
+    sway: 0, castTail: -0.3,
+  });
 };
 
 /** Pelican: bottom-heavy pear, long bill with a sagging pouch that swings with the head, a gatling at the hip. */
 const pelican: Build = (plan, team) => {
-  const { H, R, hc, hr, top } = dims(plan);
+  const { H, R, hr, top } = dims(plan);
   const legLen = H * 0.1;
   const y0 = legLen * 0.9;
   const span = top - y0;
@@ -79,25 +72,23 @@ const pelican: Build = (plan, team) => {
     .ell(C.pelicanPouch, [hr * 0.7, hr * 1.1, hr * 1.9], [0, -hr * 1.0, hr * 2.2], [0.12, 0, 0]);
   eyes(head, hr, 0.2, 0.6);
   const tail = new Parts().box(C.pelicanEdge, [R * 0.5, H * 0.02, H * 0.14], [0, 0, -H * 0.06]);
-  return assemble(
-    plan,
-    {
-      body, head,
-      wingL: wing(1, C.pelicanWhite, H * 0.4, R * 1.1, R * 0.12, C.pelicanEdge, 0.8),
-      wingR: wing(-1, C.pelicanWhite, H * 0.4, R * 1.1, R * 0.12, C.pelicanEdge, 0.8),
-      legL: leg(C.pelicanPouch, legLen, H * 0.025, R * 0.4),
-      legR: leg(C.pelicanPouch, legLen, H * 0.025, R * 0.4),
-      tail,
-      gun: gun({ length: 0.6, thick: 0.05, barrels: 3, bell: 0.07 }),
-    },
-    pivots({ hc, sy: top - span * 0.25, legLen, R, legX: R * 0.45, tailY: y0 + span * 0.4, tailZ: -R * 1.0 }),
-    { sway: 0.1, castTail: -0.3, wingRest: 0.06 },
-  );
+  return assemble(plan, {
+    body, head, tail,
+    wing: { hex: C.pelicanWhite, len: H * 0.4, chord: R * 1.1, thick: R * 0.12, trim: C.pelicanEdge },
+    leg: { hex: C.pelicanPouch, len: legLen, thick: H * 0.025, foot: R * 0.4 },
+    gun: { length: 0.6, thick: 0.05, barrels: 3, bell: 0.07 },
+    pivot: pivots({ sy: top - span * 0.25, legLen, R, legX: R * 0.45, tailY: y0 + span * 0.4, tailZ: -R * 1.0 }),
+    // Gulp, Feeding Frenzy, Belly Flop, Bottomless Pouch.
+    casts: ['throw', 'raise', 'leap', 'aim'],
+    sway: 0.1, castTail: -0.3,
+    // The muzzle sits inside the belly (interface request): turn the stock out so the gatling clears the flank.
+    toe: 0.27,
+  });
 };
 
 /** Secretarybird: stilt legs (60% of height) in black breeches, small grey body, bare orange face, a quill crown. */
 const secretarybird: Build = (plan, team) => {
-  const { H, R, hc, hr, top } = dims(plan);
+  const { H, R, hr, top } = dims(plan);
   const legLen = H * 0.6;
   const y0 = legLen * 0.95;
   const cy = (y0 + top) / 2;
@@ -115,20 +106,19 @@ const secretarybird: Build = (plan, team) => {
     }
   }
   const thin = H * 0.012;
-  const stilt = (): Parts => leg(C.secFace, legLen, thin, R * 0.5).ell(C.secBlack, [thin * 4, legLen * 0.2, thin * 4], [0, -legLen * 0.15, 0]);
   const tail = new Parts().box(C.secBlack, [R * 0.5, H * 0.012, H * 0.3], [0, 0, -H * 0.15]).box(C.secGrey, [R * 0.5, H * 0.014, H * 0.04], [0, 0, -H * 0.28]);
-  return assemble(
-    plan,
-    {
-      body, head,
-      wingL: wing(1, C.secGrey, ry * 2.2, R * 1.2, R * 0.1, C.secBlack, 0.75),
-      wingR: wing(-1, C.secGrey, ry * 2.2, R * 1.2, R * 0.1, C.secBlack, 0.75),
-      legL: stilt(), legR: stilt(), tail,
-      gun: gun({ length: 0.4, thick: 0.045, barrels: 2 }),
-    },
-    pivots({ hc, sy: cy + ry * 0.6, legLen, R, legX: R * 0.4, tailY: cy, tailZ: -R * 1.2 }),
-    { sway: 0.05, castTail: -0.5, wingRest: 0.05 },
-  );
+  return assemble(plan, {
+    body, head, tail,
+    wing: { hex: C.secGrey, len: ry * 2.2, chord: R * 1.2, thick: R * 0.1, trim: C.secBlack },
+    // Stilts in black breeches.
+    leg: { hex: C.secFace, len: legLen, thick: thin, foot: R * 0.5, thigh: C.secBlack, thighThick: thin * 4 },
+    gun: { length: 0.4, thick: 0.045, barrels: 2, main: 0.72, support: 0.3 },
+    pivot: pivots({ sy: cy + ry * 0.6, legLen, R, legX: R * 0.4, tailY: cy, tailZ: -R * 1.2 }),
+    // Stomp Kick, Long Stride, Snake Stamp, Viper Dance.
+    casts: ['stomp', 'leap', 'leap', 'stomp'],
+    sway: 0.05, castTail: -0.5,
+    toe: 0.14,
+  });
 };
 
 /** Starling: small and spiky, ruffled shoulders, a square tail, and a halo of eight tiny starlings at head height. */
@@ -159,20 +149,16 @@ const starling: Build = (plan, team) => {
     const yaw: V3 = [0, a + Math.PI / 2, 0];
     halo.ell(C.starPurple, [0.05, 0.05, 0.1], at, yaw, [5, 4]).box(C.starGreen, [0.2, 0.012, 0.06], at, yaw).cone(C.starSpeck, 0.02, 0.05, [at[0] + Math.sin(a + Math.PI / 2) * 0.09, at[1], at[2] + Math.cos(a + Math.PI / 2) * 0.09], yaw);
   }
-  return assemble(
-    plan,
-    {
-      body, head,
-      wingL: wing(1, C.starBlack, H * 0.4, R * 1.1, R * 0.1, team.primary),
-      wingR: wing(-1, C.starBlack, H * 0.4, R * 1.1, R * 0.1, team.primary),
-      legL: leg(PLUMAGE.leg, legLen, H * 0.02, R * 0.4),
-      legR: leg(PLUMAGE.leg, legLen, H * 0.02, R * 0.4),
-      tail,
-      gun: gun({ length: 0.4, thick: 0.05 }),
-    },
-    pivots({ hc, sy: cy + ry * 0.55, legLen, R, legX: R * 0.4, tailY: cy, tailZ: -R * 1.2 }),
-    { sway: 0, castTail: -0.5, wingRest: 0.05, halo: halo.build() },
-  );
+  return assemble(plan, {
+    body, head, tail, halo,
+    wing: { hex: C.starBlack, len: H * 0.4, chord: R * 1.1, thick: R * 0.1, trim: team.primary },
+    leg: { hex: PLUMAGE.leg, len: legLen, thick: H * 0.02, foot: R * 0.4 },
+    gun: { length: 0.4, thick: 0.05, main: 0.72, support: 0.3 },
+    pivot: pivots({ sy: cy + ry * 0.55, legLen, R, legX: R * 0.4, tailY: cy, tailZ: -R * 1.2 }),
+    // Murmuration, Mob, Scatter, Black Sun.
+    casts: ['throw', 'throw', 'leap', 'raise'],
+    sway: 0, castTail: -0.5,
+  });
 };
 
 /** Hornbill: heavy chest, huge down-curved yellow bill under a tall red casque, long banded tail. */
@@ -193,20 +179,16 @@ const hornbill: Build = (plan, team) => {
   eyes(head, hr, 0.1, 0.55);
   const tail = new Parts().box(C.hornBlack, [R * 0.7, H * 0.02, H * 0.5], [0, 0, -H * 0.25]);
   for (const z of [0.12, 0.3, 0.48]) tail.box(C.hornWhite, [R * 0.74, H * 0.024, H * 0.045], [0, 0, -H * z]);
-  return assemble(
-    plan,
-    {
-      body, head,
-      wingL: wing(1, C.hornBlack, H * 0.42, R * 1.2, R * 0.12, C.hornWhite, 0.8),
-      wingR: wing(-1, C.hornBlack, H * 0.42, R * 1.2, R * 0.12, C.hornWhite, 0.8),
-      legL: leg(PLUMAGE.leg, legLen, H * 0.025, R * 0.4),
-      legR: leg(PLUMAGE.leg, legLen, H * 0.025, R * 0.4),
-      tail,
-      gun: gun({ length: 0.65, thick: 0.06 }),
-    },
-    pivots({ hc, sy: cy + ry * 0.55, legLen, R, legX: R * 0.4, tailY: cy, tailZ: -R * 1.2 }),
-    { sway: 0, castTail: -0.5, wingRest: 0.05 },
-  );
+  return assemble(plan, {
+    body, head, tail,
+    wing: { hex: C.hornBlack, len: H * 0.42, chord: R * 1.2, thick: R * 0.12, trim: C.hornWhite },
+    leg: { hex: PLUMAGE.leg, len: legLen, thick: H * 0.025, foot: R * 0.4 },
+    gun: { length: 0.65, thick: 0.06 },
+    pivot: pivots({ sy: cy + ry * 0.55, legLen, R, legX: R * 0.4, tailY: cy, tailZ: -R * 1.2 }),
+    // Heavy Rounds, Mud Seal, Bounding Hop, Marked Prey.
+    casts: ['aim', 'raise', 'leap', 'aim'],
+    sway: 0, castTail: -0.5,
+  });
 };
 
 /** Flamingo: pink stick figure, very long legs, small oval body, an S-curved neck and a sharply bent black-tipped bill. */
@@ -230,25 +212,21 @@ const flamingo: Build = (plan, team) => {
   eyes(head, hr, 0.2, 0.6);
   const thin = H * 0.009;
   const tail = new Parts().ell(C.flamingoCoral, [R * 0.4, H * 0.01, H * 0.07], [0, 0, -H * 0.04]);
-  return assemble(
-    plan,
-    {
-      body, head,
-      wingL: wing(1, C.flamingoCoral, ry * 2.2, R * 1.2, R * 0.08, team.primary, 0.8),
-      wingR: wing(-1, C.flamingoCoral, ry * 2.2, R * 1.2, R * 0.08, team.primary, 0.8),
-      legL: leg(C.flamingoCoral, legLen, thin, R * 0.5),
-      legR: leg(C.flamingoCoral, legLen, thin, R * 0.5),
-      tail,
-      gun: gun({ length: 0.5, thick: 0.045 }),
-    },
-    pivots({ hc, sy: cy + ry * 0.3, legLen, R, legX: R * 0.35, tailY: cy, tailZ: -R * 1.6 }),
-    { sway: 0, castTail: -0.5, wingRest: 0.05, idleLeg: 1 },
-  );
+  return assemble(plan, {
+    body, head, tail,
+    wing: { hex: C.flamingoCoral, len: ry * 2.2, chord: R * 1.2, thick: R * 0.08, trim: team.primary },
+    leg: { hex: C.flamingoCoral, len: legLen, thick: thin, foot: R * 0.5, thighThick: thin * 2 },
+    gun: { length: 0.5, thick: 0.045 },
+    pivot: pivots({ sy: cy + ry * 0.3, legLen, R, legX: R * 0.35, tailY: cy, tailZ: -R * 1.6 }),
+    // Pink Pool, Poise, Flock Dance, Tide Turn.
+    casts: ['sweep', 'throw', 'stomp', 'raise'],
+    sway: 0, castTail: -0.5, idleLeg: 1,
+  });
 };
 
 /** Penguin: black-and-white bowling pin with flippers held out, yellow ear patches and throat, short legs. */
 const penguin: Build = (plan, team) => {
-  const { H, R, hc, hr, top } = dims(plan);
+  const { H, R, hr, top } = dims(plan);
   const legLen = H * 0.07;
   const y0 = legLen * 0.9;
   const span = top - y0;
@@ -264,19 +242,18 @@ const penguin: Build = (plan, team) => {
     .cone(PLUMAGE.shrikeBill, hr * 0.35, hr * 1.1, [0, -hr * 0.1, hr * 0.85]);
   eyes(head, hr, 0.2, 0.6);
   const tail = new Parts().cone(C.penguinBlack, R * 0.3, H * 0.12, [0, 0, 0], [0.4, Math.PI, 0]);
-  const flipper = (s: 1 | -1): Parts => wing(s, C.penguinBlack, H * 0.34, R * 0.9, R * 0.1, C.penguinWhite, 0.8);
-  return assemble(
-    plan,
-    {
-      body, head, wingL: flipper(1), wingR: flipper(-1),
-      legL: leg(C.penguinGold, legLen, H * 0.04, R * 0.55),
-      legR: leg(C.penguinGold, legLen, H * 0.04, R * 0.55),
-      tail,
-      gun: gun({ length: 0.45, thick: 0.055 }),
-    },
-    pivots({ hc, sy: y0 + span * 0.62, legLen, R, legX: R * 0.4, tailY: y0 + span * 0.25, tailZ: -R * 0.9 }),
-    { sway: 0.15, castTail: -0.3, wingRest: 1.1 },
-  );
+  return assemble(plan, {
+    body, head, tail,
+    // Flippers.
+    wing: { hex: C.penguinBlack, len: H * 0.34, chord: R * 0.9, thick: R * 0.1, trim: C.penguinWhite },
+    leg: { hex: C.penguinGold, len: legLen, thick: H * 0.04, foot: R * 0.55 },
+    gun: { length: 0.45, thick: 0.055 },
+    pivot: pivots({ sy: y0 + span * 0.62, legLen, R, legX: R * 0.4, tailY: y0 + span * 0.25, tailZ: -R * 0.9 }),
+    // Toboggan, Huddle, Ice Floe, Emperor's March.
+    casts: ['leap', 'raise', 'sweep', 'stomp'],
+    sway: 0.15, castTail: -0.3,
+    toe: 0.16,
+  });
 };
 
 /** Puffin: squat and chunky, a huge triangular bill striped blue-grey, yellow and orange, three silver fish. */
@@ -307,20 +284,16 @@ const puffin: Build = (plan, team) => {
     head.rod(C.puffinFish, [0, -hr * 0.4, z], [0, y - hr * 0.5, z], 0.008).ell(C.puffinFish, [0.02, hr * 0.55, 0.03], [0, y - hr * 0.55, z]);
   }
   const tail = new Parts().box(C.puffinBlack, [R * 0.6, H * 0.02, H * 0.14], [0, 0, -H * 0.07]);
-  return assemble(
-    plan,
-    {
-      body, head,
-      wingL: wing(1, C.puffinBlack, H * 0.4, R * 1.1, R * 0.12, team.primary),
-      wingR: wing(-1, C.puffinBlack, H * 0.4, R * 1.1, R * 0.12, team.primary),
-      legL: leg(C.puffinOrange, legLen, H * 0.035, R * 0.6),
-      legR: leg(C.puffinOrange, legLen, H * 0.035, R * 0.6),
-      tail,
-      gun: gun({ length: 0.5, thick: 0.06 }),
-    },
-    pivots({ hc, sy: cy + ry * 0.5, legLen, R, legX: R * 0.4, tailY: cy, tailZ: -R * 1.1 }),
-    { sway: 0.08, castTail: -0.4, wingRest: 0.06 },
-  );
+  return assemble(plan, {
+    body, head, tail,
+    wing: { hex: C.puffinBlack, len: H * 0.4, chord: R * 1.1, thick: R * 0.12, trim: team.primary },
+    leg: { hex: C.puffinOrange, len: legLen, thick: H * 0.035, foot: R * 0.6 },
+    gun: { length: 0.5, thick: 0.06 },
+    pivot: pivots({ sy: cy + ry * 0.5, legLen, R, legX: R * 0.4, tailY: cy, tailZ: -R * 1.1 }),
+    // Burrow Colony, Sea Spray, Fog Bank, Rogue Wave.
+    casts: ['throw', 'sweep', 'raise', 'throw'],
+    sway: 0.08, castTail: -0.4,
+  });
 };
 
 export const BIRD_BUILDS_B: Readonly<Record<string, Build>> = { owl, pelican, secretarybird, starling, hornbill, flamingo, penguin, puffin };

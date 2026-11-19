@@ -1412,3 +1412,40 @@ dropped; the `MAX_VOICES` cap refuses a farther voice and steals for a nearer on
 sfx and music buses follow the volume settings live. The e2e file runs serially (`describe.configure`) because
 concurrent headless offline renders stalled about 1 in 50 runs; 95 of 95 passed over 5 repeats.
 **Verification:** `npm run check`, all six steps PASS with parallel tests (typecheck, lint 0 warnings, test, perf, sim, e2e).
+### W4 · Animation quality fix · 19/11/2026
+**Branch:** `worktree-agent-a6e51f7e33802afbc` from `integrate/w4c` (d2c91fd); commits in `src/client/render/models/**`,
+`src/client/render/rigs/**` and `tests/anim/**` (acting for QA there), plus this entry and D-ART-003.
+**Done:** (1) Each bird is one skinned mesh (rigid weights) over 16 bones: body, head, tail, halo, two-segment wings
+ending in a hand, two-segment legs with a foot, and the gun with a sliding fore-end. (2) The gun leads. While aiming,
+moving, jumping or falling, the gun bone sits at the sim's `muzzlePoint` (crouch-scaled), aimed with the look pitch,
+whatever the body does. Two-bone IK puts the right wing on the pistol grip and the left wing on the fore-end. Recoil
+kicks once per shot at the hero's fire rate, just after the shot leaves. Reload rolls the gun out and racks the
+fore-end. Light melee swipes the barrel across, heavy raises it and smashes, charge holds it up as a club, and parry
+holds it across the chest. The wings follow the gun in every case. (3) Each kit has a cast pose per slot (raise, throw,
+sweep, stomp, leap, aim). Free-wing casts lower the gun to a one-winged carry, and the gun never leaves the rig.
+(4) Legs: grounded feet plant on the ground and step under the hips at the ground speed, within the legs' reach. The
+hips stay at standing height under any lean and centred over the feet, and a waddle rocks the body above them.
+Landing compresses the legs. Rising feet tuck and trail; falling feet reach for the ground. Legs go forward on a
+slide, limp when dead and scrabble on a climb. The Flamingo's idle and stomp casts lift one foot. (5) Wings fold
+against the flank with primaries trailing past the wrist; gun metal is lighter so it reads on dark plumage.
+(6) `modelState` gains aim, jump, fall, land, hit, cast1..cast4.
+**Verified:** `tests/anim/attachment.test.ts`, 52 tests: the 12 playable birds plus the generic one, 24 states each,
+sampled every 0.05 s over 1.6 s after settling. Measured worst cases: main grip 0.00 mm, fore-end 0.00 mm, aim muzzle
+0.00 mm from `muzzlePoint` (pitch -0.6 to 0.6, standing and crouched), planted foot 0.00 mm. The bars are 2, 3 and
+3 cm. Every mesh and bone descends from the root, and every vertex follows a rig bone. Pose sheets come from
+`npx tsx tests/anim/posesheets.ts` as `out/anim/<hero>.png` (24 states, three-quarter and side, the sim muzzle shown
+in red); I looked at all 12 plus the generic one, and at the hornbill in the practice hub (`out/anim/ingame-hornbill.png`).
+`npm run check` 6/6 PASS (e2e 33 passed). Draw-budget peaks: lane/low 17 (was 24, ceiling 32), lane/medium 26 (was
+41, ceiling 48), match/medium 36 (was 218, ceiling 248).
+**Limitations:** (a) The albatross, pelican, penguin and secretarybird muzzles sit inside or against their flank, so
+their stock is turned out 8 to 15 degrees (`toe` in the build) to clear the body; see the interface requests.
+(b) The view carries no cast slot, so in play every cast shows the fallback 'raise' pose. Per-slot poses show in the
+sheets and `modelState=castN`. Most casts are instant, so casts are mostly seen on windups and channels.
+(c) Above the step-rate cap (30 rad/s), short-legged birds' feet slip at full speed; the stance foot stays down.
+(d) Climb, mantle and Updraft keep both wings on the gun, so there is no flapping. (e) The Lyrebird's lyre dips into
+the ground when dead (unchanged). (f) The recoil cycles from the start of Firing at the base fire rate, because pose
+gets no shot events.
+**Interface requests:** Hero data (via the EP): `body.muzzle.right` for albatross 0.25 → 0.38, pelican 0.30 → 0.48,
+penguin 0.25 → 0.32, secretarybird 0.25 → 0.34 (forward and up unchanged), which puts each gun outside its flank.
+I then delete those four `toe:` lines. Architect: `EntityView.castSlot` (from `AbilityState.casting`), so the rig
+plays the per-slot cast pose in play (the parameter is already on `BirdRig.animate`).

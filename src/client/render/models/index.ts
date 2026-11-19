@@ -81,7 +81,7 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
   let hitboxes = opt.hitboxes;
 
   const heroRig = (id: HeroId, team: PlayerTeam): BirdRig => {
-    const plan = HEROES[id].def.body;
+    const { body: plan, weapon } = HEROES[id].def;
     const key = `${id}:${team}`;
     let build = builds.get(key);
     if (!build) {
@@ -89,7 +89,7 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
       build = make ? make(plan, TEAM_COLOURS[team]) : genericBuild(plan, TEAM_COLOURS[team], HERO_IDS.indexOf(id), HERO_IDS.length);
       builds.set(key, build);
     }
-    const rig = new BirdRig(build, plan, material);
+    const rig = new BirdRig(build, plan, material, weapon.fireRate);
     rig.name = id;
     rigs.add(rig);
     return rig;

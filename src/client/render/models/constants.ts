@@ -14,7 +14,7 @@ export const PLUMAGE = {
   eye: 0x0b0b0b,
   eyeGlint: 0xffffff,
   leg: 0x5a4a3a,
-  gunMetal: 0x3d4148,
+  gunMetal: 0x5f6570,
   gunWood: 0x7a5236,
   thorn: 0xc9b98a,
   shrikeBill: 0x2a2a2e,
@@ -72,27 +72,10 @@ export const RIG = {
   blend: 14,
   runSpeedRef: 6,
   sprintSpeed: 8.5,
-  stepBase: 5,
-  stepPerSpeed: 1.2,
-  legSwing: 0.95,
-  bobHeight: 0.035,
   idleBob: 0.008,
   idleRate: 2.2,
   runLean: 0.1,
   sprintLean: 0.22,
-  wingTuck: 0.04,
-  wingRun: 0.18,
-  wingAir: 1.0,
-  wingDash: 1.35,
-  wingGlide: 1.45,
-  wingCast: 1.25,
-  wingDead: 0.9,
-  wingUpdraft: 1.3,
-  wingClimb: 0.7,
-  flapUpdraft: 0.4,
-  flapFall: 0.3,
-  flapRate: 20,
-  flapAmp: 0.28,
   slidePitch: 1.25,
   slideDrop: 0.3,
   dashPitch: 0.95,
@@ -101,9 +84,6 @@ export const RIG = {
   climbRate: 11,
   updraftPitch: -0.25,
   recoilRate: 12,
-  recoilKick: 0.1,
-  recoilPitch: 0.16,
-  reloadDip: 0.8,
   castHeadUp: -0.35,
   castPulse: 0.05,
   stunRate: 9,
@@ -114,10 +94,7 @@ export const RIG = {
   deathRoll: 1.5,
   headLook: 0.6,
   runMax: 1.2,
-  climbRun: 0.9,
   stepMinRun: 0.05,
-  airTuck: 0.6,
-  slideTuck: 0.8,
   flightPitch: 0.65,
   deadClearance: 0.1,
   castRate: 12,
@@ -127,9 +104,6 @@ export const RIG = {
   tailIdleRate: 1.7,
   pitchLimit: 1.2,
   reloadHead: 0.25,
-  reloadDrop: 0.12,
-  reloadWobble: 0.1,
-  reloadWobbleRate: 14,
   recoilDecay: 20,
   headTilt: 0.08,
   headTiltRate: 0.9,
@@ -137,31 +111,143 @@ export const RIG = {
 } as const;
 
 /**
+ * The held gun (D-ART-003). The gun bone carries the muzzle; both wings are solved onto its grip sockets every frame.
+ * Rotations in radians about the main grip in the gun's own frame (x pitches the muzzle down, y swings it to the
+ * bird's left, z rolls it); translations as fractions of the hero's height in the body frame unless noted.
+ */
+export const HOLD = {
+  /** Barrel turned in toward the centre line so the stock clears the flank. */
+  toe: 0.06,
+  /** A wing is at least this many times the aim-pose distance from its shoulder to its grip (never fully straight). */
+  reach: 1.3,
+  /** Share of the wing in the arm segment (the rest is the forearm and hand). */
+  upperShare: 0.5,
+  /** Which way each wing's wrist bends (body frame): the trigger wing out, down and back; the support wing out, down and forward. */
+  poleMain: { x: -0.25, y: -1, z: -0.45 },
+  poleSupport: { x: 0.6, y: -1, z: 0.6 },
+  /** Shot: the gun kicks back along the barrel (m) and the muzzle climbs; the chest gives a little. */
+  recoilKick: 0.04,
+  /** The kick peaks this long after each shot (s) and settles over at most `kickSettle` s. */
+  kickRise: 0.03,
+  kickSettle: 0.18,
+  recoilClimb: 0.12,
+  recoilChest: -0.03,
+  /**
+   * Reload: the gun comes forward off the flank, rolls out, dips and turns in while the fore-end racks (rad/s).
+   * Pulls (reload, parry) are shares of the body radius sideways and forward, of the height upward.
+   */
+  reloadCant: 0.75,
+  reloadDip: 0.35,
+  reloadYaw: 0.15,
+  reloadPull: { x: 0.1, y: -0.03, z: 0.45 },
+  pumpRate: 9,
+  /** Casts that free the support wing: the gun drops to a one-winged low carry at the side. */
+  lowerDip: 0.95,
+  lowerDrop: 0.05,
+  /** Melee: the barrel swipes across (light), is raised and brought down (heavy), held up as a club (charge) or across the chest (parry). */
+  lightSwing: 0.9,
+  lightWind: -0.45,
+  /** The swipe carries the gun out in front of the chest (share of the body radius). */
+  lightReach: 1.1,
+  heavyRaise: -1.1,
+  heavySmash: 0.55,
+  heavyLift: 0.08,
+  chargeRaise: -0.9,
+  chargeLift: 0.07,
+  parryYaw: 1.25,
+  parryRaise: -0.2,
+  parryPull: { x: 0.35, y: 0.03, z: 1.2 },
+  /** A stunned bird lets the gun sag. */
+  stunDip: 0.35,
+} as const;
+
+/** Legs: two segments and a foot, solved onto the ground when grounded (D-ART-003). */
+export const LEG_IK = {
+  /** Ankle height above the sole, in leg thicknesses. */
+  ankle: 1.2,
+  /** Each segment as a share of the hip-to-ankle height, so the knee stays bent at rest. */
+  bend: 0.56,
+  /** Planted hips never rise above this share of the legs' full reach above the ankles. */
+  reach: 0.97,
+  /** Feet tucked under the body in the air, forward on a slide, trailing when dead (shares of leg reach: down, forward). */
+  tuck: { down: 0.5, fwd: -0.3 },
+  slide: { down: 0.5, fwd: 0.65 },
+  limp: { down: 0.85, fwd: -0.25 },
+  climb: { down: 0.55, fwd: 0.35 },
+  climbSwing: 0.25,
+  /** Flamingo one-leg idle: the lifted foot folds up under the body. */
+  fold: { down: 0.32, fwd: 0.12 },
+  /** Toes point down this far in the air (rad). */
+  curl: 0.7,
+} as const;
+
+/**
+ * Gait: feet plant on the ground and move back under the bird at the ground speed, so they do not slide, up to a
+ * stride the legs can reach (`stride` × hip-to-ankle height); above the step-rate cap, a fast bird's feet slip.
+ */
+export const GAIT = {
+  /** Share of the step cycle a foot is on the ground. */
+  duty: 0.5,
+  stride: 1.1,
+  /** Step-cycle rate limits (rad/s): one full cycle is a step with each foot. */
+  rateMin: 5,
+  rateMax: 30,
+  minSpeed: 0.2,
+  /** Swing-foot clearance and body bob on the run, as shares of hip-to-ankle height. */
+  lift: 0.35,
+  bob: 0.08,
+  /** Hips drop on the run (stride reach) and on landing (share of hip height); landing recovers over `landTime` s. */
+  runDrop: 0.08,
+  landDrop: 0.2,
+  landTime: 0.3,
+  /** Air time (s) before a touchdown counts as a landing. */
+  landAfter: 0.15,
+} as const;
+
+/**
+ * Cast poses (BirdBuild.casts, per ability slot). Free-wing gestures put the support wing at `gesture` of its reach
+ * in a body-frame direction from its shoulder; 'aim' and 'leap' keep both wings on the gun.
+ */
+export const CAST_POSE = {
+  /** The pose when the slot is unknown (EntityView carries no cast slot yet). */
+  fallback: 'raise',
+  gesture: 0.88,
+  raise: { x: 0.35, y: 0.9, z: 0.2 },
+  throw: { x: 0.05, y: 0.2, z: 1 },
+  sweep: { x: 1, y: 0.1, z: 0.3 },
+  stomp: { x: 0.9, y: 0.35, z: 0.05 },
+  wave: 0.35,
+  waveRate: 6,
+  /** Leap: deep crouch (share of hip height) and forward lean; aim: braced lean. */
+  leapDrop: 0.3,
+  leapLean: 0.35,
+  aimLean: 0.08,
+  /** Stomp: the right foot lifts (share of hip height) and stamps, cycling at this rate (rad/s). */
+  stompLift: 0.55,
+  stompRate: 7,
+  throwLean: 0.15,
+} as const;
+
+/**
  * Melee poses (WeaponState.meleePose). Timed from the moment the pose appears: a short windup pull-back, the lunge,
  * then recovery. `dur` seconds, `pitch` body lean at the lunge peak (rad), `reach` hip travel (fraction of height),
- * `wing` flare at the peak, `windup` the fraction of `dur` spent pulling back.
+ * `windup` the fraction of `dur` spent pulling back. What the gun does is in HOLD.
  */
 export const MELEE = {
-  light: { dur: 0.3, pitch: 0.55, reach: 0.14, wing: 1.1, windup: 0.22, back: 0.25 },
-  heavy: { dur: 0.65, pitch: 0.95, reach: 0.3, wing: 1.5, windup: 0.4, back: 0.6 },
-  /** Charging hold: lean back, wings raised, head drawn back. */
-  charge: { pitch: -0.45, wing: 1.45, head: -0.5, shake: 0.03, shakeRate: 38, drop: 0.06 },
-  /** Parry: wings thrown forward across the chest, body braced. */
-  parry: { wingFlare: 0.5, wingSwing: -1.35, pitch: -0.12, head: 0.35, hold: 0.9 },
-  /** Release back to neutral, 1/s. */
-  release: 10,
+  light: { dur: 0.3, pitch: 0.55, reach: 0.14, windup: 0.22, back: 0.25 },
+  heavy: { dur: 0.65, pitch: 0.95, reach: 0.3, windup: 0.4, back: 0.6 },
+  /** Charging hold: lean back, gun raised (HOLD), head drawn back, a trembling roll (`shake` rad at `shakeRate`). */
+  charge: { pitch: -0.45, head: -0.5, shake: 0.03, shakeRate: 38, drop: 0.06 },
+  /** Parry: gun across the chest (HOLD), body braced. */
+  parry: { pitch: -0.12, head: 0.35 },
   headThrust: 0.135,
   /** Lunge peak as a fraction of the lunge phase, and the windup pull-back fade. */
   peak: 0.3,
   backFade: 0.15,
-  minWeight: 0.01,
-  sweepBack: 0.5,
   pullBack: 0.3,
   headPull: 0.5,
-  /** Pouch and halo and one-leg idle. */
+  /** Starling's halo spin (rad/s). */
   haloRate: 2.4,
-  idleLegAngle: 1.3,
-  idleLegFold: 0.45,
 } as const;
 
 /** Fledglings (GDD §7.1). Geometry is built at the nominal radius; poses scale it to entity.radius. */

@@ -1,4 +1,4 @@
-import { Box3, Group, InstancedMesh, Mesh, Vector3 } from 'three';
+import { Bone, Box3, Group, InstancedMesh, Mesh, SkinnedMesh, Vector3 } from 'three';
 import type { Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 import { HERO_IDS, ViewFlag } from '../../../sim/core/contracts';
@@ -7,7 +7,7 @@ import { HEROES } from '../../../sim/heroes/registry';
 import type { Frame } from '../../app/contracts';
 import { BirdRig } from '../rigs/bird-rig';
 import { FledglingProxy } from '../rigs/fledgling-rig';
-import { PART_NAMES } from './bird';
+import type { BoneName } from './bird';
 import { STATES } from './debug';
 import { fledglingGeometry } from './fledgling';
 import { createModelKit } from './index';
@@ -19,7 +19,8 @@ const FOUR: readonly HeroId[] = [...OLD, 'owl', 'pelican', 'secretarybird', 'sta
 const HEAD_TOLERANCE = 0.02;
 const HERO_TRIANGLES = 1500;
 const FLEDGLING_TRIANGLES = 150;
-const HERO_DRAW_CALLS = 10;
+/** One skinned mesh per hero (D-ART-003). */
+const HERO_DRAW_CALLS = 1;
 const FLEDGLING_DRAW_CALLS = 10;
 
 const entity = (id: number, over: Partial<EntityView> = {}): EntityView => ({
@@ -32,16 +33,48 @@ const heroEntity = (id: HeroId, team: PlayerTeam = 'dawn'): EntityView => entity
 
 const slotOf = (m: Object3D): number => (m instanceof FledglingProxy ? m.slot : -2);
 
-function find(root: Object3D, name: string): Mesh {
-  const m = root.getObjectByName(name);
-  if (!(m instanceof Mesh)) throw new Error(`no mesh ${name}`);
-  return m;
+function find(root: Object3D, name: BoneName): Bone {
+  const b = root.getObjectByName(name);
+  if (!(b instanceof Bone)) throw new Error(`no bone ${name}`);
+  return b;
+}
+
+const rigOf = (model: Object3D): BirdRig => {
+  if (!(model instanceof BirdRig)) throw new Error('not a bird rig');
+  return model;
+};
+
+/** A part's vertices in its own bone's frame. */
+function partBox(rig: BirdRig, name: BoneName): Box3 {
+  const [first, count] = rig.build.ranges[name];
+  const pos = rig.build.geo.getAttribute('position');
+  const box = new Box3();
+  const v = new Vector3();
+  for (let i = first; i < first + count; i++) box.expandByPoint(v.fromBufferAttribute(pos, i));
+  return box;
+}
+
+/** Every vertex but the gun's where the rig puts it at rest (bones at bind), in the model frame. */
+function restBox(rig: BirdRig): Box3 {
+  rig.updateWorldMatrix(true, true);
+  const { geo } = rig.build;
+  const pos = geo.getAttribute('position');
+  const bone = geo.getAttribute('skinIndex');
+  const bones = rig.mesh.skeleton.bones;
+  const box = new Box3();
+  const v = new Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    const b = bones[bone.getX(i)];
+    if (!b || b.name === 'gun' || b.name === 'slide') continue;
+    box.expandByPoint(v.fromBufferAttribute(pos, i).applyMatrix4(b.matrixWorld));
+  }
+  return box;
 }
 
 describe('hero models', () => {
   const kit = createModelKit();
 
-  it('gives every one of the 24 heroes a model of at most 10 draw calls and 1500 triangles', () => {
+  it('gives every one of the 24 heroes a model of one draw call and at most 1500 triangles', () => {
     expect(HERO_IDS).toHaveLength(24);
     for (const id of HERO_IDS) {
       for (const team of ['dawn', 'dusk'] as const) {
@@ -49,8 +82,8 @@ describe('hero models', () => {
         expect(model).toBeInstanceOf(BirdRig);
         const meshes: Mesh[] = [];
         model.traverse((o) => o instanceof Mesh && meshes.push(o));
-        expect(meshes.length, id).toBeLessThanOrEqual(HERO_DRAW_CALLS);
-        expect(meshes.length, id).toBe(PART_NAMES.length + (id === 'starling' ? 1 : 0));
+        expect(meshes.length, id).toBe(HERO_DRAW_CALLS);
+        expect(meshes[0], id).toBeInstanceOf(SkinnedMesh);
         expect(meshes.reduce((n, m) => n + triangles(m.geometry), 0), id).toBeLessThanOrEqual(HERO_TRIANGLES);
       }
     }
@@ -64,8 +97,7 @@ describe('hero models', () => {
       model.position.set(3, 0.5, -2);
       model.rotation.y = 0.7;
       model.updateWorldMatrix(true, true);
-      const head = find(model, 'head');
-      const world = head.getWorldPosition(new Vector3());
+      const world = find(model, 'head').getWorldPosition(new Vector3());
       const c = plan.head.centre;
       const sy = Math.sin(0.7);
       const cy = Math.cos(0.7);
@@ -73,11 +105,10 @@ describe('hero models', () => {
       const want = new Vector3(3 + sy * c.forward - cy * c.right, 0.5 + c.up, -2 + cy * c.forward + sy * c.right);
       expect(world.distanceTo(want), id).toBeLessThan(HEAD_TOLERANCE);
       // The shell is at least as big as the hitbox sphere on every axis.
-      head.geometry.computeBoundingBox();
-      const box = head.geometry.boundingBox;
-      expect(box?.max.x, id).toBeGreaterThanOrEqual(plan.head.radius);
-      expect(box?.max.y, id).toBeGreaterThanOrEqual(plan.head.radius);
-      expect(box?.min.y, id).toBeLessThanOrEqual(-plan.head.radius);
+      const box = partBox(rigOf(model), 'head');
+      expect(box.max.x, id).toBeGreaterThanOrEqual(plan.head.radius);
+      expect(box.max.y, id).toBeGreaterThanOrEqual(plan.head.radius);
+      expect(box.min.y, id).toBeLessThanOrEqual(-plan.head.radius);
     }
   });
 
@@ -89,9 +120,7 @@ describe('hero models', () => {
       let top = 0;
       // Casques, crests and ear tufts rise above the hitbox on the eight new birds, so only their bodies are held to it.
       for (const n of (OLD.includes(id) ? ['body', 'head'] : ['body']) as ('body' | 'head')[]) {
-        const m = find(model, n);
-        m.geometry.computeBoundingBox();
-        top = Math.max(top, m.position.y + (m.geometry.boundingBox?.max.y ?? 0));
+        top = Math.max(top, find(model, n).position.y + partBox(rigOf(model), n).max.y);
       }
       // The head shell may rise a little above the hitbox top; a crest or lyre belongs to other parts.
       expect(top, id).toBeGreaterThanOrEqual(OLD.includes(id) ? plan.height - 0.3 : plan.head.centre.up - plan.head.radius - 0.15);
@@ -203,32 +232,29 @@ describe('new birds, melee and practice targets', () => {
       model.updateWorldMatrix(true, true);
       const gunPos = find(model, 'gun').getWorldPosition(new Vector3());
       expect(gunPos.distanceTo(new Vector3(-plan.muzzle.right, plan.muzzle.up, plan.muzzle.forward)), id).toBeLessThan(HEAD_TOLERANCE);
-      const box = new Box3();
-      model.traverse((o) => {
-        if (!(o instanceof Mesh) || o.name === 'gun') return;
-        o.geometry.computeBoundingBox();
-        if (o.geometry.boundingBox) box.union(o.geometry.boundingBox.clone().translate(o.position));
-      });
-      sizes.add(box.getSize(new Vector3()).toArray().map((v) => v.toFixed(2)).join(','));
+      sizes.add(restBox(rigOf(model)).getSize(new Vector3()).toArray().map((v) => v.toFixed(2)).join(','));
     }
     expect(sizes.size, 'no two of the twelve share a bounding box').toBe(FOUR.length);
   });
 
   it('poses light, heavy, charge and parry differently, then recovers', () => {
-    const rigOf = (pose?: EntityView['meleePose']): { lean: number; wing: number; z: number } => {
+    const poseOf = (pose?: EntityView['meleePose']): { lean: number; gunUp: number; across: number; z: number } => {
       const model = kit.create(heroOf('shrike'));
       const e = heroOf('shrike', pose ? { meleePose: pose } : {});
       for (let i = 0; i < 12; i++) kit.pose(model, e, frameOf([e]));
+      model.updateWorldMatrix(true, true);
       const rig = model.children[0]?.children[0];
-      return { lean: rig?.rotation.x ?? 0, wing: find(model, 'wingL').rotation.z, z: rig?.position.z ?? 0 };
+      const gun = find(model, 'gun');
+      const barrel = new Vector3(0, 0, 1).transformDirection(gun.matrixWorld);
+      return { lean: rig?.rotation.x ?? 0, gunUp: gun.getWorldPosition(new Vector3()).y, across: barrel.x, z: rig?.position.z ?? 0 };
     };
-    const idle = rigOf();
-    const charge = rigOf('charging');
-    const heavy = rigOf('heavy');
-    const parry = rigOf('parry');
+    const idle = poseOf();
+    const charge = poseOf('charging');
+    const heavy = poseOf('heavy');
+    const parry = poseOf('parry');
     expect(charge.lean, 'charge leans back').toBeLessThan(idle.lean);
-    expect(charge.wing, 'charge raises wings').toBeGreaterThan(idle.wing + 0.5);
-    expect(parry.wing, 'parry flares wings').toBeGreaterThan(idle.wing);
+    expect(charge.gunUp, 'charge raises the gun').toBeGreaterThan(idle.gunUp + 0.05);
+    expect(parry.across, 'parry turns the gun across the chest').toBeGreaterThan(idle.across + 0.5);
     expect(Math.abs(heavy.lean - idle.lean) + Math.abs(heavy.z), 'heavy swing moves').toBeGreaterThan(0.05);
     // Lunge, then recovery: a light swing's forward travel peaks and returns to rest once the pose clears.
     const model = kit.create(heroOf('shrike'));
@@ -247,15 +273,18 @@ describe('new birds, melee and practice targets', () => {
   it('gives the Starling a spinning halo of eight birds and the Flamingo a one-leg idle', () => {
     const star = kit.create(heroOf('starling'));
     const halo = star.getObjectByName('halo');
-    expect(halo).toBeInstanceOf(Mesh);
+    expect(halo).toBeInstanceOf(Bone);
+    expect(rigOf(star).build.ranges.halo[1], 'halo vertices').toBeGreaterThan(0);
     const e = heroOf('starling');
     kit.pose(star, e, { ...frameOf([e]), curr: view([e], 2) });
     expect(Math.abs(halo?.rotation.y ?? 0)).toBeGreaterThan(0);
     const fl = kit.create(heroOf('flamingo'));
     const f = heroOf('flamingo');
     for (let i = 0; i < 30; i++) kit.pose(fl, f, frameOf([f]));
-    expect(find(fl, 'legR').scale.y).toBeLessThan(0.7);
-    expect(find(fl, 'legL').scale.y).toBe(1);
+    fl.updateWorldMatrix(true, true);
+    const footY = (n: 'footL' | 'footR'): number => find(fl, n).getWorldPosition(new Vector3()).y;
+    expect(footY('footR'), 'right foot folded up').toBeGreaterThan(HEROES.flamingo.def.body.height * 0.2);
+    expect(footY('footL'), 'left foot on the ground').toBeLessThan(0.05);
   });
 
   it('marks Practice Hub dummies red (enemy) and teal (ally) on their hitboxes, and removes the mark for others', () => {
