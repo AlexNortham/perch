@@ -19,3 +19,11 @@ slide with browser-safe defaults, two real side-button rebinds carried through a
 and parry states, and a route linking the new reference-based movement mechanics. Distinguish a renderer crash,
 navigation and a native close shortcut when reporting tab liveness. Exercise the reported W/Shift/Space sequence
 in Firefox on the production build as well as the repo's Edge suite. Record the browser versions and soak length.
+
+From the real menu enter the Practice Hub as a support, shoot the opposing target, heal the wounded ally and
+repeat. Show the HP changes. In the hub and a match, use the bound upgrade action, verify that the pointer is
+free, hover or focus all four skills, click an affordable upgrade and confirm the single AP deduction and new
+tier. Check that locked clicks do nothing and closing returns aiming to the player.
+
+Check Albatross and a single-shot gun on a distant open sightline. Confirm both the hit pattern and tracers align
+with the centre reticle, then repeat beside cover and with genuine muzzle obstruction. Get screenshot evidence.

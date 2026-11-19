@@ -13,3 +13,9 @@ The player reported failed mouse rebinding and indistinct heavy melee. Fix Optio
 middle, secondary and side buttons through down/up/auxiliary navigation; keep conflict swaps and saved profiles.
 Make tap-versus-hold clear on the actual melee binding and show heavy charge, parry and the dash-jump window
 using the agreed live data. Verify both side buttons operate their rebound actions in play.
+
+Add a clearly visible Practice Hub menu choice and hero picker. In the hub identify the damage and healing
+dummies and show their live health and feedback. The upgrade control opens a non-pausing, cursor-free panel in
+the hub and live match. The player can browse all four abilities, hover or focus to see each real description,
+current tier and next upgrade, and click a valid upgrade. Show cost/unspent AP and a reason when locked or maxed.
+Provide a discoverable close action and restore playing input cleanly. Preserve rebound keyboard shortcuts.

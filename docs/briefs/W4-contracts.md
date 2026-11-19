@@ -20,3 +20,8 @@ precedent. Own the Architect paths in STATUS, W4-contract-followups.md and your 
    Contracts must support all eight specified kits and the M2 item slice (D-EP-026). Do not implement other owners' systems.
 
 Run the six-step check and two equal seed-1 3-minute hashes. Commit each coherent piece and report per W4-common.md.
+
+Player amendments D-EP-027 and D-EP-028 arrived during this round. Support movement/charge/defense cues,
+the non-pausing pointer-free upgrade panel and a menu-accessible Practice Hub. Reuse the existing descriptions
+on AbilityDef and its tiers. Distinguish hub targets from live opponents, clean up on return and keep earned AP
+in the structure match independent of the training budget.

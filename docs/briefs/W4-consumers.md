@@ -11,3 +11,7 @@ view and event rendering, allied ghost materials, light/heavy/parry cues, AP spe
 stat/event consumers. Migrate public app/renderer/VFX dependencies to the Architect's contract. Verify each
 effect observed by a player through the real subsystem. Keep interface requests and any later-stage polish
 explicit. Use the approved contracts as written.
+
+Review Albatross at a distant open sightline. Show straight tracers for actual hit and miss pellet paths from
+their real muzzle. Compare the visible shot centre with the reticle and actual ballistics. Cover the case where
+one off-centre pellet hits scenery and others continue through open air.

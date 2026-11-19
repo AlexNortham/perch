@@ -8,3 +8,9 @@ match result. Use real damage/events; honor the Combat and Economy seams. Ensure
 human can complete a siege using normal inputs. Coordinate tower footprint, the 12 m Updraft and art against GDD
 map anchors; preserve usable clearance through each tower. Profile wave spawns and fix the W3 worst-tick spike.
 Report warm spawn timings, overall tail and mean separately with scenario and seed. Exercise QA rules and deterministic replay.
+
+Honor the hub/training-mode contract: the two stationary targets are available from the player menu, an opposing
+dummy accepts normal damage and a friendly wounded dummy accepts normal support abilities and healing. Keep both
+repeatable, with visible health, no match-ending or bounty side effects and no accidental behavior changes in a
+structure match. Coordinate the Architect's bootstrap and Combat's existing team-targeting rules. Keep isolated
+training logic separate from the hot path for lane waves.

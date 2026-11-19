@@ -16,3 +16,9 @@ logs. Follow W4-common.md, tests/README.md and W4-contract-followups.md.
   Updraft and worst-tick follow-ups where the current baseline permits. A wall-clock test belongs in *.perf.test.ts.
 - Run the default check, inspect evidence, commit the suite and report its red/green counts. The EP lands this on
   main before W4 role worktrees are created. Gate review will require M2 rules to be always on.
+
+Add gated browser acceptance for Play versus Practice Hub, shooting the enemy dummy, healing the wounded ally
+with a real support cast, repeating each exercise and returning to a fresh structure match. Test opening the
+upgrade panel with its bound action, pointer release, all four descriptions on hover/focus, affordable and locked
+upgrades, exactly one AP transaction per click, closing the panel and resuming aim/fire. Coordinate the distinct
+Firefox control/stability repros with W4-preview-repro.md.

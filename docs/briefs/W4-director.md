@@ -15,3 +15,7 @@ binding x/z anchors, visible tower identity, combat reach and safe rider clearan
 choice to the EP early; Objectives and Art will use it. Do not alter unrelated design or introduce future stages.
 Make each design change a small committed piece with a D-DIR ID and an observable check. Run the standard
 six-step check in your own worktree. The EP merges the approved design into main before implementation.
+
+Amend §§12 and 16 for D-EP-028: distinct menu route into a Practice Hub, a damage and a healing dummy, live
+health, four unlocked base skills and a fresh 32-AP training budget. Describe the upgrade panel's mouse release,
+hover/focus descriptions, click to spend, close and return to play. The structure match retains its earned AP.

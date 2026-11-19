@@ -841,3 +841,11 @@ readable charged melee and reference-based movement to M2. Update the old GDD as
 dash-jump cost, sprint, slides and wall movement to match the agreed controls. Keep PERCH's map and original kits.
 **Why:** the player experienced intermittent tab closure and could not access expected actions in the released
 M1 preview. The linked guide supplies observable movement combinations and stamina costs to check in play.
+
+### D-EP-028 · 19/11/2026 — A repeatable Practice Hub and mouse-driven ability upgrades
+**Decision:** add a separate Practice Hub choice on the main menu. Pick a finished bird, damage an enemy target
+and heal a wounded ally using normal attacks and abilities. Each new hub session unlocks the four base skills and
+provides 32 practice AP. The bound upgrade action opens a cursor-friendly panel in both the hub and a match.
+Each skill shows its effect and next tier on hover or focus, and a click spends the displayed AP when affordable.
+**Why:** the player asked for an area to practise both roles and a way to read and upgrade abilities with the mouse.
+A fresh training budget lets the player compare tiers immediately while the lane match retains earned progression.

@@ -137,6 +137,10 @@ Gate M2:
 - [ ] HUD, minimap and audio done
 - [ ] Launchable: a full match against the structures can be started from the menu; PLAYABLE.md "Stage 3 (M2)"
   written
+- [ ] Firefox traversal remains playable during a sustained run; safe movement keys, side-mouse melee/parry,
+  charged melee feedback and reference-based movement are proven (D-EP-027)
+- [ ] The menu's Practice Hub has repeatable damage and healing dummies; opening upgrades releases the mouse,
+  shows ability descriptions on hover and allows an affordable upgrade by click (D-EP-028)
 
 ### M3 — Full 6v6
 

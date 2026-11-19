@@ -24,3 +24,8 @@ Rendering and Technical Art show animations; Audio supplies the sound. Coordinat
   and briefs only. Source: [movement reference](https://deadlock.wiki/Movement).
 - Prove the reports with real browser inputs plus deterministic controller/combat tests. Supply screenshots or
   a small frame sequence for movement, heavy melee and parry and a sustained preview replay. Run six-step check.
+
+Trace gun aim from the muzzle to the screen centre on an open distant sightline, particularly Albatross. Verify
+level and shallow-angle shots, both shoulders, crouch and camera pull-in. Actual shots follow straight lines to
+the chosen aim point with the gun's specified spread about that point. Adjacent or rear scenery must not attract
+shots. Check real muzzle obstruction separately. Give Rendering the authoritative shot paths for hits and misses.

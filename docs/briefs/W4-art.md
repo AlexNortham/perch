@@ -10,3 +10,6 @@ alignment and lifecycle; inspect and record real PNGs of birds, towers and both 
 
 Give the playable birds distinct and readable light melee, charged melee and parry poses on normal input. Inspect
 the windup, lunge and recovery in game alongside camera/UI/audio cues.
+
+In the Practice Hub make the enemy damage dummy and friendly healing dummy visually distinct and aimable.
+Align their visible shapes with the agreed target volumes.

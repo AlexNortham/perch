@@ -6,3 +6,5 @@ original gun, body plan, stats, four functional abilities with all tiers, identi
 flag. Exercise real runtime casts, per-hero passive/aim/charge/movement interactions and the ultimate. Capture and
 inspect picker or lane evidence. Coordinate Owl aim with the camera owner. Central registry, shared effects and
 model meshes have other owners.
+
+Write and verify all sixteen base ability descriptions and their tier effects for the live upgrade panel.
