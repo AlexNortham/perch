@@ -634,3 +634,40 @@ steps needs no duplicate fields and no code change at the widening.
 them.
 **Why:** mapping them to `disarmed` and `silenced` would show as those states on the HUD and in the view flags, and
 silence ends channels, so a mode started by a channelled ability (Burrow) would end its own channel.
+
+### D-OBJ-001 · 19/11/2026 — Fledglings march at 5 m/s along the lane, not in a straight line
+**Decision:** a fledgling in its lane advances its arc length along the lane polyline at the march speed every tick and
+moves sideways (2.5 m/s, assumed) toward its file or round a structure footprint; the step may run up to 1.2× the march
+speed while it sidesteps or turns a corner. Off the lane (after a chase) it heads for a point 3 m ahead on the path at
+the march speed. Moves go through `ctx.physics.moveCharacter` (the unit ground cache, walls ignored, D-CTRL-002).
+**Why:** GDD §7.1's arrival times (~22 s Riverbank, ~29 s side lanes) are along-lane distance ÷ 5 m/s, and waves must
+still meet at z = 0 when one side steps round its own Warden at the gate and the other doesn't.
+
+### D-OBJ-002 · 19/11/2026 — Footprints from the anchors; the W3 hold line
+**Decision:** fledglings step round every structure anchor within a lane's width (footprint radii in
+`src/sim/data/world.ts` `STRUCTURE_RADIUS`, which W4 uses as `StructureInfo.body.radius`; clearance = radius + 0.45 m
+unit + 0.3 m). Until structures exist, a fledgling holds 1 m short of the first enemy Warden's footprint on its lane,
+queued 1.5 m behind earlier holders in its file; a holder's death frees the queue only from the back.
+**Why:** the brief's "stop at the last structure anchor": the Wardens are the lane's last structures, and the first one
+reached keeps holders out of the enemy wave's spawn column (the side-lane Wardens straddle the gate).
+
+### D-OBJ-003 · 19/11/2026 — Vision cost and the visibility-status details
+**Decision:** heroes' `seenBy` is recomputed every tick, every other entity's every 6 ticks (by id, 0.1 s lag). Eyes are
+gathered once per tick into flat arrays; fledgling (20 m) and structure (30 m) eyes are distance checks; a hero eye
+(40 m) raycasts LAYERS_SOLID (ignoring the target's own collider) only when no cheaper eye already sees the entity.
+Invisible: seen within 8 m of any eye or inside an enemy true-sight holder's radius (30 m from data until the status
+carries one); revealed beats invisible (one bit per flock, so "minimap only" can't be expressed yet).
+**Why:** hero bits feed fledgling and bot targeting at once (QA's rules suite teleports heroes next to fledglings);
+units only need the ARCHITECTURE §11 0.25 s bound, and fledglings' 14 m aggro sits well inside their 20 m sight.
+
+### D-OBJ-004 · 19/11/2026 — Fledgling attack details the GDD leaves open
+**Decision:** ranges for rules 1, 2 and 4 are centre to centre; rule 3 and attack reach are to the target's surface.
+A target that dies, goes out of sight, turns intangible or leaves 18 m is dropped at once and a new one picked the same
+tick; a fledgling past the 18 m path leash picks nothing until it is back in its lane. Rule 2 counts damage to an
+allied hero by an enemy hero or by its summon. Slingers fire a combat `projectile` (30 m/s, can hit whichever enemy is in
+the way); Scrappers apply `damage` directly; both carry ×1.5 vs structures as a `DamageBonus` on structures. Scrappers
+approach a slot on an arc round the target (on their own gate's side, picked by id) and stop as soon as it is in reach.
+**Why:** one projectile path for every slinger shot gives VFX something to draw and pods see `via` correctly; the
+bonus keeps the structure multiplier in the pipeline where the 35:00 lever (W4) can add to it. Slots stop Scrappers of
+one file stacking on a single spot; chasing the slot after reaching the target made pairs circle and lanes pile up
+(482 fledglings at 35:00), so a guard test now holds a 10-minute match to three waves alive.

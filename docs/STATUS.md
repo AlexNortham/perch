@@ -548,3 +548,32 @@ config. `npm run shots -- --scene lane --hero kingfisher` → looked at: the pla
 to `Magnitude` once Combat reads them through `ctx.effects.magnitude` (D-ARCH-015).
 **Next:** wave 3 owners work through W3-contract-followups.md. Not done: unit tests for core/view.ts, vision.ts and
 math.ts (QA's review noted their absence; not in this brief).
+### W3 · Objectives · 19/11/2026
+**Done:** `src/sim/world/` replaces the stub: `fledglings.ts` (GDD §7.1 waves from 0:30 every 30 s with the 3+1 / 3+2 /
+4+2 bands, HP and damage +1.5%/min fixed at spawn, a two-file column 1.5 m apart with Scrappers in front at each gate,
+`wave.spawned`, `ObjectiveState.nextWaveAt`; marching along the lane tracks at 5 m/s through `moveCharacter`, stepping
+round structure footprints, honouring root, stun and slow; target rules 1–4 every 0.5 s staggered, sticky targets,
+18 m leash, 18 m path leash and walk-back; Scrapper melee `damage` and Slinger combat `projectile`, `via: 'unit'`, ×1.5
+vs structures; holding at the enemy Wardens until W4), `vision.ts` (the shared visibility service: §11.1 rule, reveal,
+invisibility within 8 m, true sight), `index.ts`; `src/sim/data/world.ts`. Tests: `world.test.ts` (footprints, hold
+queue, priority and stickiness, vision, lanes trade), `perf.test.ts`. D-OBJ-001…004.
+**Verified:** `npm run check` → PASS typecheck, lint, test, sim, e2e (31 s). `PERCH_PENDING=1 npx vitest run
+tests/rules/fledglings.test.ts` → 11 passed (11), the 20-minute composition test included (~2–5 s); no assertion
+disputed. Perf (`src/sim/world/perf.test.ts`): 166–168 fledglings marching and fighting add 0.116–0.163 ms per tick to
+the whole tick (world + physics moves + combat shots and damage, vision included). `npm run sim -- --seed 1 --minutes 35
+--bots 12` → 126,000 ticks, hash 5d2a71363be186e4, 4,253 ticks/s on a machine shared with seven agents (0.126 ms/tick
+for the same run in a quieter probe, same hash). Fledglings alive: 48 at 5:00, 52 at 10:00, 58 at 15:00, 63 at 20:00,
+70 at 25:00, 71 at 30:00, 69 at 35:00; 2,103 killed; lanes even (waves trade mid-lane, stub bots don't fight).
+Screenshots looked at: `npm run shots -- --scene lane --hero shrike --t 60` (player camera in the Dawn base, wave 2
+leaving the gate) and the same with `--param renderCam=-95,22,-26,-95,0,4` (out/shots/lane-hedgerow-60s.png): Dawn and
+Dusk fledglings meeting mid-Hedgerow, Scrappers in melee, a Slinger shot in flight.
+**Blocked:** nothing.
+**Interface requests:** Architect (+ Combat) — a radius on the true-sight status (magnitude or a stat): GDD gives 20–30 m
+per ability, world uses `VISION.trueSight` 30 m. Architect (W4, minimap) — `seenBy` has one bit per flock, so GDD §5.9
+"reveal shows an invisible hero on the minimap only" needs a second, minimap-only bit; until then revealed wins.
+Character Controller — `moveCharacter` allocates two objects per unit move (~300 per tick at 150 fledglings); an
+out-parameter variant would remove it (low priority, within budget).
+**Next:** W4 spawns structures at the anchors with `STRUCTURE_RADIUS` bodies; rule 3 then attacks them and the hold
+line becomes a fallback. The rule-2 `hurtAt` ledger in fledglings.ts is the Hawk rule's input too. Known limits: units
+ignore walls while chasing off the lane (D-CTRL-002); a holder's death leaves a gap in the queue. QA: the fledglings
+suite can go always-on (the 20-minute test runs in seconds).
