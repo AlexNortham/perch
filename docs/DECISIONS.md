@@ -634,3 +634,9 @@ steps needs no duplicate fields and no code change at the widening.
 them.
 **Why:** mapping them to `disarmed` and `silenced` would show as those states on the HUD and in the view flags, and
 silence ends channels, so a mode started by a channelled ability (Burrow) would end its own channel.
+
+### D-UI-001 · 19/11/2026 — HUD updates are change-gated cells, events drive transient effects
+**Decision:** the HUD builds its DOM once and writes each text, class or style only when its value differs from the last
+one written; hit markers and pod banners use `Element.animate` started from `damage.applied` and `pod.resolved`
+events for the local hero. View-to-display mapping lives in pure `display.ts`.
+**Why:** no per-frame allocation or layout thrash (D-EP-009 perf rules), and the mapping is unit-testable without a DOM.
