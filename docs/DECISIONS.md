@@ -1482,3 +1482,25 @@ deletion.
 references are in the W4.5 Architect STATUS entry.
 **Why:** a stat is how items express it everywhere else; a one-time hash move in a contract round is cheaper than a
 special case in the hash.
+### D-QA-011 · 19/11/2026 — "Near-identical" bot builds: Jaccard similarity on final item sets, threshold 0.85
+**Decision:** for D-EP-036's "no two builds of the same hero are near-identical" over 20 seeded matches,
+similarity(A, B) = |A ∩ B| / |A ∪ B| on the two bots' final item sets (same hero, same difficulty, 30,000 start Seeds,
+4 sim minutes), and two builds are near-identical at ≥ 0.85. The synergy check uses S(build) = the mean over its items
+of base[i] + Σ synergy[owned][i] from `BUILDS`, scored bots against `botShopping: { random: true }` bots in the same
+matches, and requires a gap of more than two standard errors.
+**Why:** sets ignore purchase order and sale timing; Jaccard is size-normalised. Identical builds score 1.0; two
+8-item builds differing by one item score 0.78 and a 12-item build with one swap 0.846, so 0.85 flags "the same
+build" and nothing looser. Tighter would reject a stochastic policy for ordinary overlap; looser would let
+temperature-collapsed bots pass.
+### D-QA-012 · 19/11/2026 — Pending browser specs skip through `e2e/pending.ts`
+**Decision:** Stage 4 browser specs call `test.skip(isPending, PENDING_REASON)` (from `e2e/pending.ts`) and run with
+`PERCH_PENDING=1 npx playwright test <spec> --workers=1`. At the wave gate QA deletes that line to make a spec
+always-on, as with the vitest suites. They also set `actionTimeout: 8_000`, so a missing control fails in seconds.
+**Why:** one switch for both runners, so `npm run check` stays green and the red is a single command away.
+### D-QA-013 · 19/11/2026 — Stage 4 rules suites run on the real `main` map through `tests/helpers/world.ts`
+**Decision:** objective suites build a sandbox on `'main'` with `neutrals: true`, step the real clock to the GDD time
+(`advanceTo`, about 1 s for 20 sim minutes) and use real melee, shots and walking (`lightMelee`, `heavyMelee`,
+`standBeside`). Direct `ctx` writes are limited to test setup: net worth, `TeamState.rekindle`, a spawned keepsake
+pickup, and `sandbox:` stat sources for conditions such as `eggCarrier` and `grounded`.
+**Why:** the rules live in world, combat, economy and physics together; a unit stub of one system would pass while
+the pipeline is broken.
