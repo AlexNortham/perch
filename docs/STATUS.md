@@ -1395,4 +1395,4 @@ The old file had no voice-allocation or settings-maths tests, so these are new f
 dropped; the `MAX_VOICES` cap refuses a farther voice and steals for a nearer one; `reset()` frees voices; master,
 sfx and music buses follow the volume settings live. The e2e file runs serially (`describe.configure`) because
 concurrent headless offline renders stalled about 1 in 50 runs; 95 of 95 passed over 5 repeats.
-**Verification:** `npm run check` (all six steps, parallel tests) — see the final line of the run in the EP report.
+**Verification:** `npm run check`, all six steps PASS with parallel tests (typecheck, lint 0 warnings, test, perf, sim, e2e).
