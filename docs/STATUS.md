@@ -181,6 +181,8 @@ Gate M3:
   pressing 1–4 unlocks or upgrades it, hover shows the next tier, release resumes aiming at once (D-EP-038)
 - [ ] No Interact key: Updrafts are mounted by holding Jump near the cable, the Golden Egg is picked up by melee,
   delivery is automatic, and nothing else needs an interact binding (D-EP-039)
+- [ ] Practice Hub has a Swap bird option (pause menu and on-screen button) that opens the bird picker without
+  leaving the hub and respawns you as the new bird with fresh practice AP (D-EP-040)
 - [ ] Build Lab: at least 1,000 headless matches, then more until the scores converge (D-EP-037); every hero has a recommended build (early, mid and late core
   plus situational picks) in the shop and the wiki; bots buy varied but synergistic builds, measured over 20 matches
   (no two of a hero's builds near-identical; synergy above a random baseline) (D-EP-036)

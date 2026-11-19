@@ -1296,3 +1296,10 @@ retires the command bit and migrates saved bindings, and Input, Physics, Objecti
 wave 5. It is a Stage 4 gate item; the Stage 3 release keeps E until then.
 **Why:** the user's instruction: there should be no interact key; the Egg is picked up by melee, and getting on a
 zipline is triggered by holding Jump near it.
+
+### D-EP-040 · 19/11/2026 — Swap bird in the Practice Hub
+**Decision:** the Practice Hub gets a Swap bird option, in its pause menu and as an on-screen button, that opens the
+same 24-card picker without returning to the main menu. Choosing a playable bird respawns the player as that bird at
+their current spot, with a fresh 32 practice AP and the dummies reset. UI/HUD and the app shell implement it in wave
+5, and it is a Stage 4 gate item.
+**Why:** the user's instruction: the practice range should have a swap character option.
