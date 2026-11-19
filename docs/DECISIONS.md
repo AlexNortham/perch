@@ -1268,3 +1268,20 @@ the match and the ordinary end screen shows Defeat. Disabled buttons keep their 
 border.
 **Why:** GDD asks for a confirm; a second click on the same button confirms without a modal or a native dialog,
 which would fight pointer lock and fullscreen.
+### D-ARCH-021 · 19/11/2026 — The sim's transcendental maths is its own (dmath); Node and Edge hash every tick alike
+**Decision:** the sim never calls `Math.sin`, `cos`, `tan`, `atan2`, `asin`, `acos`, `hypot` (or any other
+implementation-approximated function, or `**` beyond `x ** 2`). It calls `src/sim/core/dmath.ts`: Sun's fdlibm 5.3
+and V8's `Math.hypot` builtin, ported to plain `+ − × ÷` and `Math.sqrt`. In Node 22 they equal `Math` bit for bit
+(checked on millions of inputs per function), so every saved hash stays valid: the siege proof still ends on tick
+69,973 with `d662ba91ea093bbd`, now in Edge too. All 168 call sites in `src/sim` were switched in one mechanical
+commit across the owners' files (the brief's "fix it at its owner"; no logic changed). `dmath.test.ts` fails on any
+new banned call under `src/sim`. `e2e/determinism.spec.ts` (with `e2e/hash-trace.ts`, imported by both sides) runs
+the siege script and a seed-1 12-bot match in the Playwright runner and in the app's page, and compares the hash
+after every tick for the first 30 s and 15 s, then every 10 s to 5 and 2.5 minutes. Pointing dmath back at `Math`
+makes it fail at tick 3 (siege) and by tick 1,800 (bots).
+**Why:** the W4 replay split at tick 3. ECMAScript leaves these functions to the engine, and V8 has changed them:
+Edge 156 differs from Node 22 in the last bit on 3–18 % of inputs for every one of them (sqrt and `x ** 2` agree).
+Porting the same algorithm Node uses keeps old hashes and costs about 2× per call (≈ 25 ns), far inside the tick
+budget. Rapier is the same WASM on both sides and matched tick for tick, so the deterministic Rapier build
+(D-ARCH-007's fallback) is not needed. Large arguments (|x| > 2^19·π/2) skip Payne–Hanek reduction: still
+deterministic, less accurate, and the sim never gets there (marked `ponytail:` in dmath).

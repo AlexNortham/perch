@@ -111,7 +111,8 @@ Consequences worth knowing:
 ## 4. Determinism
 
 Same seed + same commands ⇒ the same `sim.hash()` after any number of ticks, in Node and in the browser on the same
-machine. The rules:
+machine. `e2e/determinism.spec.ts` holds us to it: the siege script and a 12-bot match run in Node and in Edge, and
+every tick's hash must match (D-ARCH-021). The rules:
 
 1. **No wall clock in the sim.** Time is `ctx.clock.tick` (and `seconds = tick / 60`). Durations in data are
    seconds; convert with `ticks(s)` from core/math.ts. The client's frame time never enters the sim.
@@ -125,15 +126,20 @@ machine. The rules:
    with a comparator that can tie on different elements.
 4. **No module-level mutable state.** Several sims run in one process (tests, the batch CLI). Keep private state in
    the closure your factory returns.
-5. **Floating point.** Plain IEEE arithmetic is identical everywhere. `Math.sin`/`cos`/`exp`/`pow` are identical in
-   V8 (Node, Chrome, Edge); Firefox may differ in the last bit, which only matters if a match is replayed across
-   engines (we don't). Accumulate in a fixed order; don't mix float32 and float64 for the same quantity.
+5. **Floating point.** `+ − × ÷`, `Math.sqrt`, `abs`, `floor`, `round`, `min`, `max`, `fround` and `imul` are exact
+   in IEEE-754 and identical in every engine. Everything the spec calls "implementation-approximated" is not:
+   `Math.sin`, `cos`, `tan`, `atan2`, `asin`, `acos`, `exp`, `log`, `pow`, `hypot` and `**` (except `x ** 2`) differ
+   in the last bit between V8 versions (Node 22 against Edge 156 on 3–18 % of inputs), let alone engines. The sim
+   uses `core/dmath.ts` instead (`import * as dmath`): fdlibm and V8's hypot ported to plain arithmetic, equal to
+   Node 22's `Math` bit for bit, so old hashes stay valid. `dmath.test.ts` fails on any banned call under `src/sim`;
+   a new function means porting it there first. Accumulate in a fixed order; don't mix float32 and float64 for the
+   same quantity.
 6. **Rapier.** No per-tick `world.step()`: nothing is dynamic, so nothing integrates (D-CTRL-001). Map prims and
    structures sit in a static world stepped only when a collider is added or removed; hero query capsules sit in a
    small second world stepped only when a query asks for heroes after they moved. Create and remove colliders in
    response to deterministic events (`entity.spawned` / `entity.despawned`, ascending id) and read results back into
-   components in id order. `@dimforge/rapier3d-compat` is deterministic on one machine, which is
-   what the gate needs (D-ARCH-007).
+   components in id order. `@dimforge/rapier3d-compat` runs the same WASM in Node and the browser and matched
+   tick for tick in the D-ARCH-021 test (D-ARCH-007).
 7. **What the hash covers:** the tick, every RNG stream's state, every live entity record with all its components
    (generic walk, object keys sorted, numbers by exact bits), team state, objective timers, core's ping history,
    and each system's `hash(h)` for private state. A system with private state that can diverge should implement
@@ -236,16 +242,18 @@ Per D-EP-006 and D-EP-010:
 |---|---|---|---|
 | Unit | `src/**/*.test.ts` next to the code | code owner | Core: RNG streams, bus order, store, spatial hash (vs brute force), hash, stat stacking, effect routing, aim maths, telemetry, createSim (determinism, rosters, latch, pings, concession), client loop, router, settings |
 | Rules suites (tests-first) | `tests/` | QA | Damage pipeline (GDD §5.2 step by step), economy (pods, deny, bounties, levels, shop), objectives (Brood Ward, gates, Patron phases, Egg, Roc). Drive them through `createSim` + `sim.ctx` + `ctx.effects` + events; don't reach into system closures. |
-| Determinism | `tests/` | QA | Two runs, same seed and command script → equal `hash()` at several ticks; different seeds differ |
+| Determinism | `tests/`, `e2e/determinism.spec.ts` | QA | Two runs, same seed and command script → equal `hash()` at several ticks; different seeds differ. Node against Edge: equal hash every tick (D-ARCH-021) |
 | Ability sandbox | `tests/` helper | QA, used by hero engineers | `createSim({ map: 'arena', options: { unlockAbilities: true, waves: false } })`, place a caster and targets, press an ability in a command, assert the effect |
 | Headless matches | `npm run sim` | Build, Balance, QA | 3-minute gate in `check.sh`; 20 seeded matches with zero crashes (M3); 100+ per balance iteration |
 | Browser | `e2e/`, `npm run shots` | QA, visual owners | Boot smoke test; a screenshot of every scene, looked at before reporting done |
 
 ## 11. Known risks
 
-- **Rapier cross-environment determinism.** The compat build is "locally deterministic". If QA's Node-vs-browser
-  hash check ever diverges in physics, switch to `@dimforge/rapier3d-deterministic-compat` (same API; needs an ADR
-  because it changes the BRIEF §1 stack).
+- **Rapier cross-environment determinism.** The compat build is "locally deterministic". If
+  `e2e/determinism.spec.ts` ever diverges in physics with no `Math` call to blame, switch to
+  `@dimforge/rapier3d-deterministic-compat` (same API; needs an ADR because it changes the BRIEF §1 stack).
+- **Firefox and other engines.** dmath makes the sim's own arithmetic engine-proof, so a Firefox run should match
+  too, but only Edge is in the test. Add a Firefox project to the determinism spec before relying on it.
 - **Effect vocabulary gaps.** If a kit can't be expressed, use a `hook` effect first and file an interface request
   for a new kind; never implement another owner's effect kind locally.
 - **Vision cost.** The §11.1 rule needs line-of-sight raycasts; sim/world should test only hero-to-hero pairs within
