@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { ViewFlag } from '../src/sim/core/contracts';
+import { crouchKey } from './game';
 
 const ready = (page: Page) =>
   page.waitForFunction('window.__perch?.ready === true', null, { timeout: 60_000 });
@@ -8,7 +9,6 @@ const binding = (page: Page, action: string) =>
   page.locator('button.pu-key[data-action="' + action + '"]');
 
 test.describe('M1 preview fixes', () => {
-  test.skip(process.env.PERCH_PENDING !== '1', 'Enable when the M1 preview fixes are integrated');
   test.use({ viewport: { width: 1280, height: 720 } });
 
   for (const legacy of [false, true]) {
@@ -24,11 +24,13 @@ test.describe('M1 preview fixes', () => {
       await page.goto('/');
       await ready(page);
       await page.getByRole('button', { name: 'Options' }).click();
+      // D-EP-030: crouch is Left Ctrl where fullscreen keyboard lock exists (Chrome, Edge), C elsewhere.
+      const locked = await page.evaluate(() => typeof (navigator as { keyboard?: { lock?: unknown } }).keyboard?.lock === 'function');
       for (const [action, label] of [
         ['forward', 'W'],
         ['dash', 'Left Shift'],
         ['jump', 'Space'],
-        ['crouch', 'C'],
+        ['crouch', locked ? 'Left Ctrl' : 'C'],
         ['item3', 'N'],
         ['reload', legacy ? 'J' : 'R'],
       ] as const) {
@@ -146,11 +148,12 @@ test.describe('M1 preview fixes', () => {
       }
     }
 
+    const crouch = await crouchKey(page);
     await page.keyboard.down('KeyW');
     await page.waitForTimeout(400);
-    await page.keyboard.down('KeyC');
+    await page.keyboard.down(crouch);
     await page.waitForFunction('Boolean(window.__perch.hero.flags & ' + ViewFlag.Sliding + ')');
-    await page.keyboard.up('KeyC');
+    await page.keyboard.up(crouch);
     await page.keyboard.up('KeyW');
 
     const firstTick = await page.evaluate<number>('window.__perch.hero.tick');
@@ -164,7 +167,7 @@ test.describe('M1 preview fixes', () => {
       await page.waitForTimeout(150);
       await page.keyboard.press('Space');
       await page.waitForTimeout(450);
-      await page.keyboard.press('KeyC', { delay: 250 });
+      await page.keyboard.press(crouch, { delay: 250 });
       await page.waitForTimeout(350);
       await page.keyboard.up(move);
     }

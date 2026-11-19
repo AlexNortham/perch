@@ -4,7 +4,7 @@ import { ViewFlag } from '../src/sim/core/contracts';
 import { CAMERA, TRAINING_TARGET } from '../src/sim/data/core';
 import { ECONOMY } from '../src/sim/data/economy';
 import { HEROES } from '../src/sim/heroes/registry';
-import { afterTicks, fire, hero, lockPointer, open, pickHero, READY_TIMEOUT_MS, VIEWPORT } from './game';
+import { afterTicks, aimAtDummy, crouchKey, fire, shot, hero, lockPointer, open, pickHero, READY_TIMEOUT_MS, VIEWPORT } from './game';
 
 const LYRE_ABILITIES = HEROES.lyrebird.def.abilities;
 const INSPECT = DEFAULT_BINDINGS.upgradeModifier;
@@ -20,9 +20,6 @@ const upgrade = (panel: Locator, ability: string) => panel.getByRole('button', {
 
 test.use({ viewport: VIEWPORT });
 test.setTimeout(READY_TIMEOUT_MS * 2);
-test.beforeEach(() => {
-  test.skip(process.env.PERCH_PENDING !== '1', 'W4 menu, dummy resets, upgrade panel and live siege progression');
-});
 
 async function strafeToDummy(page: Page, side: -1 | 1, spawnX: number): Promise<void> {
   // At Dawn's spawn we face +Z. The right-shoulder sightline is offset toward −X; strafe it onto the dummy.
@@ -47,7 +44,7 @@ async function hp(bar: Locator, attr: 'aria-valuenow' | 'aria-valuemax'): Promis
   return value === null ? NaN : Number(value);
 }
 
-test('Practice Hub from the menu: Lyrebird shoots and heals twice with a reset between trials', async ({ page }, info) => {
+test('Practice Hub from the menu: Lyrebird shoots and heals twice with a reset between trials', async ({ page }) => {
   await open(page);
   await pickHero(page, 'Practice Hub', 'Lyrebird');
   await expect(AP(page)).toHaveText('AP 32');
@@ -60,10 +57,12 @@ test('Practice Hub from the menu: Lyrebird shoots and heals twice with a reset b
   const enemy = page.getByRole('progressbar', { name: /Enemy dummy/i });
   const spawn = await hero(page);
   await lockPointer(page);
-  await page.keyboard.down('KeyC');
+  const crouch = await crouchKey(page);
+  await page.keyboard.down(crouch);
   try {
     await strafeToDummy(page, 1, spawn.pos.x);
     await expect(enemy, 'enemy dummy publishes a live HP bar').toBeVisible();
+    await aimAtDummy(page, 'enemy');
     const enemyMax = await hp(enemy, 'aria-valuemax');
     expect(enemyMax).toBeGreaterThan(0);
     for (const attempt of [1, 2]) {
@@ -81,6 +80,7 @@ test('Practice Hub from the menu: Lyrebird shoots and heals twice with a reset b
     }
     await strafeToDummy(page, -1, spawn.pos.x);
     await expect(ally, 'allied dummy publishes a live HP bar').toBeVisible();
+    await aimAtDummy(page, 'ally');
     const allyMax = await hp(ally, 'aria-valuemax');
     expect(allyMax).toBeGreaterThan(0);
     for (const attempt of [1, 2]) {
@@ -92,9 +92,9 @@ test('Practice Hub from the menu: Lyrebird shoots and heals twice with a reset b
         message: `real Mended Song raises allied HP in trial ${attempt}`, timeout: MAX_ACTION_TIMEOUT_MS,
       }).toBeGreaterThan(allyMax * TRAINING_TARGET.alliedHpFraction + 20);
     }
-    await page.screenshot({ path: info.outputPath('practice-heal.png') });
+    await shot(page, 'practice-heal');
   } finally {
-    await page.keyboard.up('KeyC');
+    await page.keyboard.up(crouch);
   }
 
   await page.keyboard.press('Escape');
@@ -109,7 +109,7 @@ test('Practice Hub from the menu: Lyrebird shoots and heals twice with a reset b
   await expect(page.getByRole('progressbar', { name: /dummy/i })).toHaveCount(0);
 });
 
-test('inspect upgrades: pointer release, descriptions, one AP transaction, quick chord and return to fire', async ({ page }, info) => {
+test('inspect upgrades: pointer release, descriptions, one AP transaction, quick chord and return to fire', async ({ page }) => {
   // Use the real practice route to isolate upgrades from the separately tested menu button.
   await open(page, '/?scene=practice&hero=lyrebird');
   await lockPointer(page);
@@ -147,7 +147,7 @@ test('inspect upgrades: pointer release, descriptions, one AP transaction, quick
   await expect(tier(page, 0), 'one click buys exactly one tier').toHaveCount(1);
   await expect(purchase).toContainText(/\b2\b/);
   expect((await hero(page)).shotsFired, 'panel clicks never shoot').toBe(before.shotsFired);
-  await page.screenshot({ path: info.outputPath('ability-upgrades.png') });
+  await shot(page, 'ability-upgrades');
 
   await page.keyboard.press('Escape');
   await expect(panel).toBeHidden();

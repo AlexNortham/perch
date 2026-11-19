@@ -43,6 +43,40 @@ export async function lockPointer(page: Page): Promise<void> {
   await page.waitForFunction('document.pointerLockElement !== null');
 }
 
+/** Evidence screenshots live under out/web (gitignored); returns the path written. */
+export async function shot(page: Page, name: string): Promise<string> {
+  const path = `out/web/${name}.png`;
+  await page.screenshot({ path });
+  return path;
+}
+
+/** The crouch key a fresh profile gets in this browser (D-EP-030): Left Ctrl where keyboard lock exists, C elsewhere. */
+export const crouchKey = (page: Page) =>
+  page.evaluate(() => (typeof (navigator as { keyboard?: { lock?: unknown } }).keyboard?.lock === 'function' ? 'ControlLeft' : 'KeyC'));
+
+const COUNTS_PER_PIXEL = 2.65; // 0.06 deg per count at sensitivity 1, 90 degree vertical FOV on a 720 px viewport
+const DUMMY_BODY_BELOW_LABEL_PX = 95;
+const AIM_TOLERANCE_PX = 8;
+const mousePos = new WeakMap<Page, { x: number; y: number }>();
+
+/** Turn with real mouse movement until the crosshair sits on a practice dummy's body (found by its world label). */
+export async function aimAtDummy(page: Page, which: 'enemy' | 'ally'): Promise<void> {
+  const label = page.locator(which === 'enemy' ? '.pu-dlabel.enemy' : '.pu-dlabel:not(.enemy)');
+  const at = mousePos.get(page) ?? { x: VIEWPORT.width / 2, y: VIEWPORT.height / 2 };
+  for (let i = 0; i < 10; i++) {
+    const box = await label.boundingBox();
+    expect(box, `${which} dummy label is on screen`).not.toBeNull();
+    const dx = box!.x + box!.width / 2 - VIEWPORT.width / 2;
+    const dy = box!.y + box!.height / 2 + DUMMY_BODY_BELOW_LABEL_PX - VIEWPORT.height / 2;
+    if (Math.abs(dx) < AIM_TOLERANCE_PX && Math.abs(dy) < AIM_TOLERANCE_PX) break;
+    at.x += dx * COUNTS_PER_PIXEL;
+    at.y += dy * COUNTS_PER_PIXEL;
+    await page.mouse.move(at.x, at.y);
+    await page.waitForTimeout(150);
+  }
+  mousePos.set(page, at);
+}
+
 export async function fire(page: Page): Promise<void> {
   const before = await hero(page);
   await page.mouse.down();
