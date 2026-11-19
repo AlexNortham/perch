@@ -14,6 +14,9 @@ export const MAX_QUERY_RADIUS = 1;
 /** Thin skin so surfaces a hero stands on don't count as overlapping the hero. */
 const SKIN = 0.05;
 
+/** Does the prim stop heroes? Solid prims do, except sight-only ones (ivy curtains, GDD §6.8). */
+export const blocksMovement = (p: BlockoutPrim): boolean => p.solid && p.blocks !== 'sight';
+
 export function primBottom(p: BlockoutPrim): number {
   return p.centre.y - (p.shape === 'cylinder' ? p.height : p.size.y) / 2;
 }
@@ -109,7 +112,7 @@ export function corners(p: Exclude<BlockoutPrim, { shape: 'cylinder' }>, grow = 
   }));
 }
 
-/** Uniform XZ grid over the solid prims. */
+/** Uniform XZ grid over the prims that block movement. */
 export interface PrimIndex {
   readonly near: (x: number, z: number) => readonly Solid[];
 }
@@ -117,7 +120,7 @@ export interface PrimIndex {
 const EMPTY: readonly Solid[] = [];
 
 export function indexPrims(prims: readonly BlockoutPrim[]): PrimIndex {
-  const solid = prims.filter((p) => p.solid);
+  const solid = prims.filter(blocksMovement);
   const pad = MAX_QUERY_RADIUS;
   const all = solid.map(footprintBounds).map((b) =>
     ({ minX: b.minX - pad, maxX: b.maxX + pad, minZ: b.minZ - pad, maxZ: b.maxZ + pad }));
