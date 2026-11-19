@@ -19,7 +19,7 @@ it('a unit killing a hero shares the bounty only with living enemies within 40 m
   expect(sb.hero(unpaid).progress.seeds).toBe(0);
 });
 
-it('real fixture structure deaths award both flock members, heal two crossed Molts and stop granting flex slots at four', async () => {
+it('real fixture structure deaths award both flock members, heal two crossed Molts and stop granting flex slots at four; a Patron pays nothing', async () => {
   const sb = await createSandbox({ heroes: ['shrike', { hero: 'kingfisher', team: 'dawn' }],
     options: { startSeeds: 50, unlockAbilities: false } });
   const [hero, ally] = sb.heroes as [EntityId, EntityId];
@@ -28,7 +28,7 @@ it('real fixture structure deaths award both flock members, heal two crossed Mol
   sb.apply({ kind: 'damage', type: 'talon', amount: 200 }, hero, sb.cause(source));
   sb.step();
   const wounded = h.health.hp;
-  for (const type of ['hawk', 'heron', 'hawk', 'hawk', 'warden', 'shrine', 'shrine'] as const) {
+  for (const type of ['hawk', 'heron', 'hawk', 'hawk', 'warden', 'shrine', 'shrine', 'patron'] as const) {
     const id = sb.dummy({ kind: 'structure', type, at, team: 'dusk', hp: 100 });
     sb.apply({ kind: 'damage', type: 'talon', amount: 1000 }, id, sb.cause(hero, { via: 'weapon' }));
     sb.step();
