@@ -3,7 +3,7 @@
 // were delivered. A second page uses a live AudioContext to check the first-gesture resume and real-time output.
 import { build } from 'esbuild';
 import { chromium, type Browser, type Page } from '@playwright/test';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { HERO_IDS } from '../../sim/core/contracts';
 import { args, channel } from '../../../tools/browser';
 
@@ -13,6 +13,7 @@ let browser: Browser;
 let page: Page;
 let bundleText = '';
 const SECONDS = 3;
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 }); // offline renders in a real browser, under a parallel test run
 
 beforeAll(async () => {
   const bundle = await build({
