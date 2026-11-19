@@ -889,3 +889,9 @@ still has only the "Next, Stage 2" teaser (line 33), no "Stage 2 (M1)" section (
 **Blocked:** nothing. Nothing under `src/`, `tests/` or `e2e/` was changed; my scratch scripts live in the session scratchpad and
 `out/qa/` (gitignored).
 **Next:** EP writes PLAYABLE.md and fast-forwards `main`; QA writes the wave 4 test-first suites first thing in wave 4.
+
+### W3.5 · Production support · 19/11/2026
+**Done:** Read-only cross-owner inventory sent to Architect and EP: D-EP-026 item effects and later-roster contract considerations; siege controls, observations and GDD §6.3 positions. `PlayerCommand` already carries buy, sell, upgrades and item buttons; `SimView` carries progress, inventory, structure health and winner, while the existing browser `window.__perch` exposes only ready, scene, hero position and shots fired. The Stage 2 items catalogue is not implemented yet.
+**Verified:** `npm ci --prefer-offline --no-audit --no-fund`; `npm run lint` ? 0 errors, 117 warnings. UI: bindings 2, constants 7, display 2, hud 11, options 2; Economy `index.ts` 1; input `constants.ts` 1; abilities `fixtures.ts` 34; VFX `bound.ts` 39, `fx.ts` 15, `mapping.ts` 3. W3 QA's total matches, but its Economy subtotal of 2 is 1. `npm run check` in Git Bash ? PASS typecheck, lint, test, perf, sim, e2e (85 s).
+**Blocked:** nothing. Source and tests were not edited. No screenshots or hand-play of W4 functionality: this is the Stage 2 baseline.
+**Interface requests:** Architect to confirm item effect coverage and public UI command routing before freeze; details sent directly. No contract changes proposed here.
