@@ -7,8 +7,11 @@ QA's cross-system suites (D-EP-010). Unit tests live next to their code (`src/**
 |---|---|
 | `determinism.test.ts` | Two 6v6 matches (seed 1, a scripted human that moves, jumps, fires, melees and casts, plus 11 bots) stepped in lockstep for 3 sim minutes: identical `hash()` every 10 s, identical event stream, telemetry and view. Seed 2 runs a minute without crashing and ends elsewhere. |
 | `contracts/damage.test.ts` | Always on (Combat, since the W2 gate). The GDD §5.2 pipeline step by step, resists and shred, beak shots, falloff, shields, structure rules, lifesteal, kill credit, assists, respawn. |
-| `rules/pods.test.ts` | Always on. GDD §8.2: instant share, pod rise, ripe window, secure, deny, wither, no-hero split. |
+| `rules/pods.test.ts` | Always on. GDD §8.2: instant share, pod rise, ripe window, secure, deny, wither, no-hero split, and real shots securing or denying at 18 m. |
 | `rules/fledglings.test.ts` | Always on. GDD §7.1: wave timing and composition, formation, marching, targeting rules 1–4, leash, attacks. One test runs 20 sim minutes. |
+| `rules/siege.test.ts` | W4 pending. GDD §§5.11, 7 and 15: structure gates, real targeting and damage, Updraft clearance, Brood Ward, and both Patron phases. |
+| `rules/market.test.ts` | W4 pending. GDD §8: real bounties, lifetime earnings, levels, AP, inventory, flex slots and shop transactions. |
+| `rules/practice.test.ts` | Fresh Practice AP and normal match progression always run. The ordinary weapon and support-cast target reset checks are W4 pending. |
 | `helpers/sandbox.ts` | The ability sandbox (below). |
 | `helpers/lanes.ts` | Lane polyline maths: progress from a gate, distance from the path, points along it. |
 
@@ -18,7 +21,7 @@ Suites written test-first (D-EP-006) are gated with `describe.runIf(process.env.
 skipped in `npm run check` until their system lands. Run one with:
 
 ```bash
-PERCH_PENDING=1 npx vitest run tests/rules/pods.test.ts
+PERCH_PENDING=1 npx vitest run tests/rules/{siege,market,practice}.test.ts
 ```
 
 Every assertion names the GDD section it checks. If you think an assertion misreads the GDD, say so in your Log entry
@@ -37,6 +40,7 @@ never act: a sandbox hero does only what the test says.
 | `place(id, at, yaw?)`, `dummy({ kind, type, team, at, hp })` | Put an entity somewhere (heroes also get a physics `teleport`); spawn a unit or structure target |
 | `move`, `look`, `aimAt(id, pointOrEntity, 'head' \| 'body')` | Axes and look; `aimAt` turns the hero so its crosshair ray passes exactly through the target |
 | `hold`, `release`, `press`, `fire(id, on)`, `cast(id, slot, target?)`, `upgrade(id, slot)` | Buttons (held until released, or pressed for one step); `cast` aims and presses ability slot 0–3 |
+| `trade(id, { buy })`, `trade(id, { sell })` | Submit one ordinary trade in the next command. |
 | `step(n)`, `stepUntil(done, maxTicks)` | Advance; `stepUntil` returns the ticks taken or `null` |
 | `events`, `eventsOf(type)`, `clearEvents()` | Every event since creation or the last clear |
 | `hero(id)`, `health(id)`, `statuses(id)`, `pointOf(id, part)`, `view` | Read state |
