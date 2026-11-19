@@ -98,7 +98,8 @@ export const MATCH_STYLES = `
 .pu-ubtn small{font-weight:600;font-size:11px}
 .pu-ubtn.off{background:rgba(255,255,255,.12);color:${TEXT_DIM};cursor:not-allowed}
 .pu-udesc{display:none;position:absolute;left:calc(100% + 14px);top:0;width:340px;padding:10px 12px;background:rgba(12,14,18,.96);border:1px solid ${TEXT_DIM};border-radius:6px;font-size:13px;line-height:1.35;z-index:3}
-.pu-urow:hover .pu-udesc,.pu-urow:focus-within .pu-udesc{display:block}
+/* One card at a time: the hovered row wins over the focused one. */
+.pu-urow:hover .pu-udesc,.pu-upg-rows:not(:has(.pu-urow:hover)) .pu-urow:focus-within .pu-udesc{display:block}
 .pu-udesc p{margin:0 0 6px}
 .pu-udesc ul{margin:0 0 6px;padding-left:16px}
 .pu-udesc li{color:${TEXT_DIM}}

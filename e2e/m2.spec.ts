@@ -127,6 +127,7 @@ test('inspect upgrades: pointer release, descriptions, one AP transaction, quick
     await card.hover();
     await expect(description, `${ability.name} description on hover`).toBeVisible();
     await expect(nextTier, `${ability.name} first-tier effect on hover`).toBeVisible();
+    await expect(panel.locator('.pu-udesc:visible'), 'one description card, even with another row focused').toHaveCount(1);
     await shot(page, `upgrades-hover-${n + 1}`);
     await page.mouse.move(0, 0);
     await card.focus();
