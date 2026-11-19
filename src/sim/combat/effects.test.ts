@@ -110,6 +110,27 @@ describe('weaponMod', () => {
     expect(me.weapon.ammo).toBe(12);
   });
 
+  it('reloadFraction adds part of a magazine, capped, and ends a reload in progress (Hop)', () => {
+    const { k, me } = fireWith({});
+    me.weapon.ammo = 2;
+    apply(k, me, { kind: 'weaponMod', durationS: 0, reloadFraction: 0.5 }, cause(me));
+    expect(me.weapon.ammo).toBe(8);
+    apply(k, me, { kind: 'weaponMod', durationS: 0, reloadFraction: 0.5 }, cause(me));
+    expect(me.weapon.ammo).toBe(12);
+    me.weapon.ammo = 1;
+    k.input(me, 0, Button.Reload);
+    k.step();
+    expect(me.weapon.reloading).toBe(true);
+    apply(k, me, { kind: 'weaponMod', durationS: 0, reloadFraction: 0.5 }, cause(me));
+    expect(me.weapon.ammo).toBe(7);
+    expect(me.weapon.reloading).toBe(false);
+  });
+
+  it('gunDamage adds to the step-four gun bonus, only against its status when it names one (Heavy Rounds, Marked Prey)', () => {
+    expect(fireWith({ gunDamage: 0.4 }).hits[0]?.amount).toBeCloseTo(22 * 1.4);
+    expect(fireWith({ gunDamage: 0.4, onlyVsStatus: 'stunned' }).hits[0]?.amount).toBeCloseTo(22);
+  });
+
   it('splash hits others near the impact for a fraction, without a beak shot', () => {
     let near = 0;
     const { hits } = fireWith({ splash: { radius: 1.5, fraction: 0.35 } }, 10, (k) => {

@@ -4,7 +4,7 @@
  * sphere cast of radiusM along the look direction from the camera pivot, reachM long; the nearest hitbox is struck.
  */
 import { COMBAT, STUN } from '../data/combat';
-import { Button } from '../core/contracts';
+import { Button, Layer } from '../core/contracts';
 import type { DashEffect, DisplaceEffect, EntityId, SimContext } from '../core/contracts';
 import { lookDir, pivotHeight } from '../core/aim';
 import { copy, ticks } from '../core/math';
@@ -57,12 +57,14 @@ export function createMelee(
     const h = s.hero;
     if (heavy) {
       s.melee = Melee.Heavy;
+      h.weapon.meleePose = 'heavy';
       s.meleeAt = s.meleeAt + ticks(M.heavyWindupS);
       s.meleeEnd = s.meleeAt + ticks(M.heavyRecoveryS);
       s.meleeCause.origin = copy(h.pos);
       ctx.effects.apply(LUNGE, { entity: h.id, point: copy(h.pos), dir: lookDir(h.yaw, h.pitch) }, s.meleeCause);
     } else {
       s.melee = Melee.Light;
+      h.weapon.meleePose = 'light';
       s.meleeAt = now + ticks(M.lightHitS);
       s.meleeEnd = now + ticks(M.lightTotalS);
     }
@@ -78,7 +80,8 @@ export function createMelee(
     f.team = h.team;
     f.ignore = h.id;
     f.ember = heavy;
-    const first = hb.cast(origin, dir, M.reachM, M.radiusM, f)[0];
+    const cover = ctx.physics.raycast(origin, dir, M.reachM, Layer.World);
+    const first = hb.cast(origin, dir, cover?.distance ?? M.reachM, M.radiusM, f)[0];
     const target = first ? ctx.store.get(first.id) : undefined;
     s.meleeCause.origin = copy(h.pos);
     if (!first || !target) {
@@ -93,6 +96,8 @@ export function createMelee(
         ps.parryOpen = -1;
         ps.parryClose = -1;
         ps.parryReady = now;
+        delete ps.hero.weapon.meleePose;
+        delete h.weapon.meleePose;
         ps.meleeCause.origin = copy(target.pos);
         statuses.apply(h, STUN, ps.meleeCause, P.stunS, 1, 1);
         ctx.bus.emit({ type: 'melee', attacker: h.id, heavy, target: target.id, parried: true });
@@ -114,17 +119,21 @@ export function createMelee(
       const now = ctx.clock.tick;
       const c = h.stats.conditions;
       const cmd = h.command;
+      if (c.has('stunned')) {
+        s.melee = Melee.Idle;
+        s.parryOpen = -1;
+        s.parryClose = -1;
+        delete h.weapon.meleePose;
+        return;
+      }
       if (s.parryClose >= 0 && now >= s.parryClose) {
         // Whiff: nothing parried in the window.
         s.lockout = s.parryClose + ticks(P.whiffLockoutS);
         s.parryReady = s.parryClose + ticks(P.cooldownS);
         s.parryOpen = -1;
         s.parryClose = -1;
+        delete h.weapon.meleePose;
         ctx.bus.emit({ type: 'parry', hero: h.id, outcome: 'whiff', attacker: null });
-      }
-      if (c.has('stunned')) {
-        s.melee = Melee.Idle;
-        return;
       }
       const idle = s.melee === Melee.Idle;
       if (
@@ -133,8 +142,11 @@ export function createMelee(
         s.parryClose < 0 &&
         now >= s.parryReady &&
         now >= s.lockout &&
-        !c.has('eggCarrier')
+        !c.has('eggCarrier') &&
+        h.motor.updraft === null && !h.motor.mantling
       ) {
+        h.weapon.meleePose = 'parry';
+        damage.inCombat(h);
         s.parryOpen = now + ticks(P.delayS);
         s.parryClose = s.parryOpen + ticks(P.windowS);
         guns.cancelReload(s);
@@ -142,7 +154,9 @@ export function createMelee(
         return;
       }
       if (idle) {
-        if ((cmd.pressed & Button.Melee) === 0 || now < s.lockout || s.parryClose >= 0) return;
+        if ((cmd.pressed & Button.Melee) === 0 || now < s.lockout || s.parryClose >= 0 || h.motor.mantling) return;
+        h.weapon.meleePose = 'charging';
+        damage.inCombat(h);
         s.melee = Melee.Charging;
         s.meleeAt = now;
         guns.cancelReload(s);
@@ -156,7 +170,10 @@ export function createMelee(
         s.meleeAt = -1;
         swing(s, s.melee === Melee.Heavy);
       }
-      if (now >= s.meleeEnd) s.melee = Melee.Idle;
+      if (now >= s.meleeEnd) {
+        s.melee = Melee.Idle;
+        delete h.weapon.meleePose;
+      }
     },
   };
 }

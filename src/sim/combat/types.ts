@@ -22,8 +22,8 @@ export interface HeroState {
   readonly def: HeroDef;
   /** Home Roost spawn anchor: the team's n-th spawn for its n-th roster hero (GDD §8.9). */
   readonly spawn: { readonly pos: Vec3; readonly yaw: number };
-  /** Reused causes for gun and melee hits; origin and songPower are refreshed per shot or swing. */
-  readonly gunCause: Mutable<EffectCause>;
+  /** Shot causes copy this template. Melee refreshes its origin before each swing. */
+  readonly gunCause: EffectCause;
   readonly meleeCause: Mutable<EffectCause>;
   /** Tick of the next allowed shot. */
   nextFire: number;
@@ -48,4 +48,5 @@ export interface HeroState {
   level: number;
   /** Level-up heal not yet applied because max HP had not grown yet (applied by the next statuses phase). */
   levelHeal: number;
+  trainingResetAt: number | null;
 }

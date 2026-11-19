@@ -1061,3 +1061,30 @@ pointer both reveal it and QA locators resolve one node. Panels never mutate the
 (1 s cap). pointerdown is never swallowed, because cancelling it suppresses mousedown. Reserved browser chords (Ctrl/Meta
 with W, T, N, Q, R, Tab) get a note matched to `navigator.keyboard.lock`, and are never blocked (D-EP-030).
 **Why:** side buttons navigate history on release and the trailing click re-armed capture.
+### D-CTRL-008 · 19/11/2026 — Traversal details the reference and the director leave open
+**Decision:** the dash-jump window counts from the tick a ground dash starts (ticks 6–18 at 60 Hz) and
+`Motor.dashJumpReady` is true only inside it while grounded or in coyote time with a pip to pay. A wall counts when
+its normal is within 0.25 of horizontal; the push replaces the into-wall component with 6 m/s outward and keeps the
+along-wall part. Down-dash needs two fresh crouch presses in one airtime (Input queues up to two per sample). Mantles
+need Jump held (walking into a ledge never mantles) and exit in a slide when crouch is held and slide speed is met
+(`mantleGlide`). Sprint returns 5 s after aim is released or combat ends. Jump ends a toboggan with a 1.2 m hop that
+keeps its speed. A rider who jumps or drops off a line can air-mount that line again only after being out of its
+1.5 m reach or landing.
+**Why:** each needed one deterministic reading. The last fixes a jump-off that fell back through the line's reach
+just after the 0.5 s remount delay and remounted. The Hedgerow run (GDD §3.10) is a test on the real map.
+
+### D-CAM-003 · 19/11/2026 — Fullscreen keyboard lock for Ctrl crouch (D-EP-030)
+**Decision:** where `navigator.keyboard.lock` exists, the play gesture that requests pointer lock also puts the
+document element in fullscreen (so the HUD overlay comes too) and locks every key. Pause, panels and menus release the
+lock and keep fullscreen, so Resume needs no new fullscreen and browser keys work in menus. Leaving the match calls
+`Input.exitFullscreen()`. `defaultBindings()` gives Left Ctrl crouch only where the lock exists. A free C still
+crouches while crouch sits on a Ctrl key, covering a refused fullscreen. Firefox keeps today's windowed C.
+**Why:** a normal tab can't stop Ctrl+W. Chromium delivers locked keys to a fullscreen page, and one Esc still pauses.
+
+### D-COMBAT-009 · 19/11/2026 — A trigger pull carries its own shot record
+**Decision:** each trigger pull snapshots damage, falloff, active weapon mods, Close Talons and the flat beak bonus.
+Travelling rounds keep that record. Close Talons uses muzzle-to-hit distance ≤ 15 m, and the flat beak bonus applies
+to the first beak-shot pellet of the pull only. Guns and melee test cover against `Layer.World`, so analytic structure
+bodies and hearts stay selectable. `weapon.traces` lists every hitscan pellet end, hits and misses. Phase-one Patron
+damage floors at 1 HP once and emits `patron.depleted`. A practice dummy resets 4 s after its last change.
+**Why:** later item changes or a reload can't alter rounds in flight, and Rendering draws the real pellet fan.

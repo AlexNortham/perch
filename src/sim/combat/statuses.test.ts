@@ -29,6 +29,23 @@ function setup() {
 }
 
 describe('statuses (GDD §5.9)', () => {
+  it('publishes and expires the strongest timed True Sight radius in metres', () => {
+    const { k, a } = setup();
+    const sight: StatusDef = {
+      ...TRUE_SIGHT, stacking: 'independent',
+      modifiers: { conditions: ['trueSight'], stats: [{ stat: 'trueSightRadius', op: 'max', value: 1 }] },
+    };
+    apply(k, a, { kind: 'applyStatus', status: sight, durationS: 2, magnitude: 20 }, cause(a));
+    apply(k, a, { kind: 'applyStatus', status: sight, durationS: 1, magnitude: 35 }, cause(a));
+    expect(a.stats.final.trueSightRadius).toBe(35);
+    expect(a.stats.conditions.has('trueSight')).toBe(true);
+    k.step(60);
+    expect(a.stats.final.trueSightRadius).toBe(20);
+    k.step(60);
+    expect(a.stats.final.trueSightRadius).toBe(0);
+    expect(a.stats.conditions.has('trueSight')).toBe(false);
+  });
+
   it('on/off statuses keep one instance: remaining = max(remaining, new); conditions go through ctx.stats', () => {
     const { k, a, v } = setup();
     apply(k, v, { kind: 'applyStatus', status: STUN, durationS: 1 }, cause(a));

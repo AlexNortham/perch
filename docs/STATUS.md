@@ -1210,3 +1210,40 @@ catalogue via `out/ui-harness.ts`), big map, pause, Options with chord note, end
 upgrades, shop, scoreboard and big map were opened by DOM for the screenshots. Catalogue and structures were empty on
 this base (economy and objectives not merged), so the shop and Patron strip were seen only with fakes or empty.
 `/Elder Raven/` shows once the Patron entity exists. Twelve selectable cards depends on hero engineers. No interface request.
+### W4 · Movement and melee (Controller, Camera & Input, Combat) · 19/11/2026
+**Done:** `w4/movement` continued from ChatGPT's four commits (WIP snapshot `67608e8` compiled and passed).
+Its work covered the D-DIR-007 traversal rules, `dashJumpReady`, sprint after aim, mantle-glide, the pointer-locked
+mouse and side-button capture, shared aim zoom, ping wheel and upgrade tap, `heroAimRay`, `weapon.traces`, shot
+records, the Patron phase-one floor, `meleePose`, training resets, `moveCharacter(out)` and `maxPitchUpDeg`.
+Claude added: D-EP-030 fullscreen keyboard lock and `defaultBindings()` (D-CAM-003); Jump ends a toboggan with a
+1.2 m hop; a jump-off no longer remounts its Updraft (D-CTRL-008); the GDD §3.10 Hedgerow run as a test on Old
+Mossmarket; tests for Close Talons ≤ 15 m, Whetstone once per mixed volley, `reloadFraction` and `gunDamage`;
+physics tests read hero dimensions instead of Owl's placeholder body (D-COMBAT-009 records the shot rules).
+Extra items: Economy's three (close damage, flat beak once, clamps on sale) and Hero A's four (`gunDamage`,
+`reloadFraction`, `maxPitchUpDeg`, toboggan Jump) all landed. `DASH.aimMaxPitchUp` stays as the default for
+aim dashes without the field.
+**Verified:** Git Bash `VITEST_MAX_WORKERS=1 npm run check` passed all six steps in 72 s: unit 545 passed and 32
+gated, perf 6/6, seed 1 10,800 ticks with hash `6de168429bc1d876`, e2e 15 passed and 9 skipped. Lint showed
+0 errors and 116 warnings, none in owned paths. The four Owl-sensitive physics tests failed with Hero B's real Owl
+body applied and passed after the fix; I reverted the Owl data and did not commit it. `PERCH_PENDING=1`:
+`tests/rules/practice.test.ts` passed in full. `preview-aim` passed 7 of 8; the tracer case waits on VFX
+mapping. `e2e/preview-regressions.spec.ts` (Edge) passed 4 of 5. The 45 s production replay on `npm run build`
+plus `vite preview` passed in Edge and Firefox. Evidence specs and output are in `out/movement/` (gitignored).
+`keyboard-lock.spec.ts` (Edge) logged `lock(all)`, fullscreen on HTML, pointer lock, W held + Ctrl → Sliding,
+Esc → `unlock` with fullscreen kept, and Resume → `lock(all)`. `frames.spec.ts` captured 12 Riverbank PNGs per
+browser under `frames/`, with logs: dash 20.6 m/s sampled, airborne dash-jump, 13.0 m/s into the slide,
+charging → heavy (Dashing) → impact → recovered → light, and parry start → whiff. I inspected the dash-jump,
+heavy-lunge and parry frames; the HUD shows half pips. One parallel e2e run failed `options.spec.ts` "a rebound
+Jump key jumps", a wall-clock 400 ms test; it passed 3/3 alone and in the final check.
+**Blocked:** nothing in owned paths. W + Ctrl in a real tab needs the manual check: Playwright keys can't trigger
+browser shortcuts. Pose visuals depend on Art and VFX.
+**Interface requests:** Architect: in `app/settings.ts`, set `DEFAULT_SETTINGS.bindings = defaultBindings()`
+(from `src/client/input`) and add a one-time v2→v3 step. In Chromium, when crouch is `KeyC`, item3 is `KeyN` and
+nothing uses `ControlLeft`, set crouch to `ControlLeft`. The v1 path should use `free(defaultBindings().crouch)`, and
+a v1 `ControlLeft` crouch stays when the lock exists. In `app.ts` `show()`, call `input.exitFullscreen()` for
+'menu', 'heroSelect' and 'end'. UI: the Options capture must also `preventDefault` the captured button's `mouseup`
+and `auxclick`. Edge's Mouse 4 capture still navigates back, the 1 failing pending preview case. VFX:
+`mapping.ts` should draw `weapon.traces` (pending `preview-aim` tracer case). Hero A: drop Penguin's Space-hop hook
+at the merge, because physics now hops. QA: after the settings change, the pending default-keys case expects
+"Left Ctrl" in Edge.
+**Next:** EP merge; Architect settings and `exitFullscreen` wiring; manual Ctrl check in Edge/Chrome.

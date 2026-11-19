@@ -8,6 +8,7 @@ import { HEROES } from '../heroes/registry';
 import { falloff, rayCapsule, rayCylinder, raySphere, spreadDir } from './geometry';
 import { createKit } from './testkit';
 import type { Kit } from './testkit';
+import { createSandbox } from '../../../tests/helpers/sandbox';
 
 const DEG = Math.PI / 180;
 const angle = (a: Vec3, b: Vec3): number =>
@@ -96,6 +97,14 @@ describe('hitboxes and beak shots', () => {
     expect(hits[0]?.amount).toBeCloseTo((22 * (1.65 + 0.2) + 10) * 1.5);
   });
 
+  it('Close Talons boosts a real gun hit only within 15 m', () => {
+    const closeTalons = (k: Kit, me: HeroEntity) => k.mod(me, 'items:closeTalons', [['closeGunDamage', 'add', 0.3]]);
+    // 10 m and 17 m are both inside the 18 m falloff start, so only the 15 m Close Talons range differs.
+    expect(shoot('hero', 10, 1.0, closeTalons).hits[0]?.amount).toBeCloseTo(22 * 1.3);
+    expect(shoot('hero', 17, 1.0, closeTalons).hits[0]?.amount).toBeCloseTo(22);
+    expect(shoot('hero', 10, 1.0).hits[0]?.amount).toBeCloseTo(22);
+  });
+
   it('crouching lowers the head hitbox', () => {
     const k = createKit();
     const me = k.hero('kingfisher', 'dawn', { x: 0, y: 0, z: 0 });
@@ -135,6 +144,46 @@ describe('falloff', () => {
 });
 
 describe('pellets and spread', () => {
+  it('publishes eight true endpoints including misses in a mixed Albatross volley', async () => {
+    const sb = await createSandbox({ heroes: [{ hero: 'albatross', at: { x: 0, y: 0, z: -10 } }] });
+    const me = sb.heroes[0]!;
+    sb.look(me, 0, -2.5 * DEG);
+    sb.fire(me);
+    sb.step();
+    const [fired] = sb.eventsOf('weapon.fired');
+    const [traces] = sb.eventsOf('weapon.traces');
+    if (!fired || !traces) throw new Error('missing shot');
+    expect(fired.hitscan).toBe(true);
+    expect(traces.muzzle).toEqual(fired.muzzle);
+    expect(traces.ends).toHaveLength(8);
+    const impacts = sb.eventsOf('projectile.impact');
+    expect(impacts.length).toBeGreaterThan(0);
+    expect(impacts.length).toBeLessThan(8);
+    for (const hit of impacts) {
+      expect(traces.ends.some((point) => Math.hypot(point.x - hit.pos.x, point.y - hit.pos.y, point.z - hit.pos.z) < 1e-5)).toBe(true);
+    }
+    const miss = traces.ends.find((point) =>
+      Math.abs(Math.hypot(point.x - fired.muzzle.x, point.y - fired.muzzle.y, point.z - fired.muzzle.z) - HEROES.albatross.def.weapon.range) < 1e-5);
+    expect(miss).toBeDefined();
+  });
+
+  it('Whetstone adds its flat damage once across a mixed shotgun volley', () => {
+    const run = (flat: number) => {
+      const k = createKit({ seed: 1 });
+      const me = k.hero('albatross', 'dawn', { x: 0, y: 0, z: 0 });
+      k.hero('albatross', 'dusk', { x: 0, y: 0, z: 2.5 }, Math.PI);
+      k.mod(me, 'items:whetstone', [['beakShotFlat', 'add', flat]]);
+      k.aimAt(me, { x: 0, y: 1.9, z: 2.5 }); // the bottom of the head: some pellets strike the body
+      k.input(me, Button.Fire);
+      k.step();
+      const hits = k.of('damage.applied');
+      expect(hits.filter((e) => e.beakShot).length, 'head pellets').toBeGreaterThan(1);
+      expect(hits.filter((e) => !e.beakShot).length, 'body pellets').toBeGreaterThan(0);
+      return hits.reduce((total, e) => total + e.amount, 0);
+    };
+    expect(run(35) - run(0)).toBeCloseTo(35);
+  });
+
   it('a shotgun fires 8 pellets inside its 5° cone, seeded', () => {
     const wall = { min: { x: -20, y: -5, z: 20 }, max: { x: 20, y: 20, z: 21 } };
     const run = (seed: number) => {
@@ -309,6 +358,25 @@ describe('projectile bullets', () => {
     expect(k.ctx.store.list('projectile')).toHaveLength(0);
   });
 
+  it('retains shot-limited conditional damage and no falloff on a travelling round', async () => {
+    const sb = await createSandbox({ heroes: [
+      { hero: 'shrike', at: { x: 0, y: 0, z: -29 } },
+      { hero: 'albatross', at: { x: 0, y: 0, z: 26 }, controller: 'dummy' },
+    ] });
+    const [me, target] = sb.heroes as [number, number];
+    const status = { id: 'mark', name: 'Marked', negative: true, durationS: 1, stacking: 'max', maxStacks: 1 } as const;
+    sb.apply({ kind: 'applyStatus', status }, target, sb.cause(me));
+    sb.apply({ kind: 'weaponMod', durationS: 1, shots: 1, ignoreFalloff: true, gunDamage: 0.5, onlyVsStatus: 'mark' }, me, sb.cause(me));
+    sb.aimAt(me, target);
+    sb.fire(me);
+    sb.step();
+    sb.fire(me, false);
+    expect(sb.eventsOf('damage.applied')).toHaveLength(0);
+    sb.step(30);
+    const hit = sb.eventsOf('damage.applied').find((e) => e.target === target);
+    expect(hit).toMatchObject({ via: 'weapon', amount: 21 });
+  });
+
   it('expire at max range', () => {
     const k = createKit();
     const me = k.hero('shrike', 'dawn', { x: 0, y: 0, z: 0 });
@@ -351,6 +419,28 @@ describe('what bullets pass and what stops them', () => {
 });
 
 describe('wired into createSim', () => {
+  it.each(['kingfisher', 'shrike'] as const)('%s hits an exposed phase-two heart through real physics', async (hero) => {
+    const sb = await createSandbox({ heroes: [{ hero, at: { x: 0, y: 0, z: -23 } }] });
+    const me = sb.heroes[0]!;
+    const id = sb.dummy({ kind: 'structure', type: 'patron', team: 'dusk', at: { x: 0, y: 0, z: 0 }, hp: 20_000, height: 11, radius: 8 });
+    const patron = sb.ctx.store.getKind(id, 'structure')!;
+    patron.structure.phase = 2;
+    const heart = { x: 0, y: 6, z: -8 };
+    patron.structure.weakPoint = { centre: heart, radius: 1 };
+    const fire = () => {
+      sb.aimAt(me, heart);
+      sb.fire(me);
+      sb.step(1);
+      sb.fire(me, false);
+      sb.step(30);
+      return sb.eventsOf('damage.applied').at(-1);
+    };
+    expect(fire()).toMatchObject({ target: id, weakPoint: true, beakShot: false });
+    sb.clearEvents();
+    sb.place(me, { x: 0, y: 0, z: 23 });
+    expect(fire()).toMatchObject({ target: id, weakPoint: false, beakShot: false });
+  });
+
   it('a hero shoots another in the arena through the real composition root', async () => {
     const sim = await createSim({
       seed: 5,

@@ -50,6 +50,38 @@ describe('damage pipeline (GDD §5.2)', () => {
     expect(v.health.hp).toBeCloseTo(720 - 30 + 2 / 60);
   });
 
+  it('depletes a phase-one Patron once even for simultaneous lethal hits, then allows phase-two death', () => {
+    const { k, a } = duel();
+    const patron = k.structure('dusk', 'patron', { x: 0, y: 0, z: 20 }, 15000, 8, 11);
+    hit(k, patron, 100_000, 'talon', cause(a, 'weapon'));
+    hit(k, patron, 100_000, 'talon', cause(a, 'weapon'));
+    k.step();
+    expect(k.of('patron.depleted')).toEqual([{ type: 'patron.depleted', structure: patron.id }]);
+    expect(k.of('damage.applied').map((e) => e.lethal)).toEqual([false]);
+    expect(k.of('entity.died')).toEqual([]);
+    expect(patron.health.hp).toBe(1);
+    expect(patron.removed).toBe(false);
+
+    patron.structure.phase = 2;
+    patron.health.hp = 100;
+    hit(k, patron, 200, 'talon', cause(a, 'weapon'));
+    k.step();
+    expect(k.of('entity.died').at(-1)).toMatchObject({ victim: patron.id, creditHero: a.id, via: 'weapon' });
+  });
+
+  it('clamps excess health and rounds when an item source is removed', () => {
+    const { k, a } = duel();
+    const hp = a.health.hp;
+    const ammo = a.weapon.ammo;
+    k.mod(a, 'items:purchase', [['maxHealth', 'add', 200], ['magazine', 'add', 4]]);
+    a.health.hp = a.stats.final.maxHealth;
+    a.weapon.ammo = a.stats.final.magazine;
+    k.ctx.stats.set(a.id, 'items:purchase', null);
+    k.step();
+    expect(a.health.hp).toBe(hp);
+    expect(a.weapon.ammo).toBe(ammo);
+  });
+
   it('step 1: adds the missing-hp part to the base', () => {
     const { k, a, v } = duel();
     v.health.hp = 360;

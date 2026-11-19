@@ -4,7 +4,8 @@
  * (moveSpeed, sprintSpeed, stamina, staminaRecharge) in each hero's data; everything shared lives here.
  */
 
-const DEG = Math.PI / 180;
+export const DEGREES_PER_HALF_TURN = 180;
+const DEG = Math.PI / DEGREES_PER_HALF_TURN;
 
 /** GDD §3.2. */
 export const GROUND = {
@@ -17,6 +18,7 @@ export const GROUND = {
   crouchSpeed: 3.5,
   /** Sprint ramps in over this long once out of combat (the bonus itself is the sprintSpeed stat). */
   sprintRampS: 0.5,
+  sprintDelayS: 5,
   /** GDD §5.9: slows never take ground speed below this. */
   minSlowedSpeed: 1.5,
   /** The controller keeps a grounded hero on the ground down steps and slopes up to this drop per tick. */
@@ -30,10 +32,14 @@ export const AIR = {
   jumpApex: 1.6,
   coyoteS: 0.1,
   jumpBufferS: 0.1,
+  jumpCost: 1,
+  wall: { graceS: 0.1, maxNormalY: 0.25, push: 6, launch: 7, minimumLaunch: 3.5, fatigueS: 1.25, repeatCost: 0.5 },
   /** Air control toward the input; never adds horizontal speed above run speed. */
   accel: 15,
   /** A 'land' movement event needs at least this much airtime (no event for kerbs). */
   landEventMinAirS: 0.1,
+  /** GDD §9 Toboggan: Jump ends the toboggan mode with a hop this high, keeping its horizontal speed. */
+  tobogganHopApex: 1.2,
 } as const;
 
 /** GDD §3.4. */
@@ -45,13 +51,15 @@ export const DASH = {
   exitBonus: 1,
   lockoutS: 0.4,
   cost: 1,
-  /** Dash-jump: jump during a ground dash or within this long after it. */
-  jumpWindowS: 0.15,
+  jumpWindowOpenS: 0.1,
+  jumpWindowCloseS: 0.3,
+  jumpCost: 1,
+  down: { tapWindowS: 0.25, speed: 18, cost: 0.5 },
   jumpHorizontal: 13,
   jumpVertical: 7,
   /**
    * Ability dashes along the aim (DashEffect dir 'aim' without arcHeight) follow the aim pitch up to this far upward,
-   * any angle down (GDD §9.3 Plunge: "pitch clamped to 30° up"). DashEffect has no clamp field (D-SYS-003).
+   * any angle down, unless the effect specifies its own cap.
    */
   aimMaxPitchUp: 30 * DEG,
 } as const;
@@ -75,6 +83,7 @@ export const MANTLE = {
   minHeight: 0.6,
   maxHeight: 2.4,
   durationS: 0.35,
+  reach: 0.8,
   exitSpeedFraction: 0.5,
   /** The ledge-top probe lands this far past the wall face. */
   probeIn: 0.1,

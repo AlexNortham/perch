@@ -49,6 +49,22 @@ describe('player camera = the sim aim ray', () => {
     }
   });
 
+  it('eases to the live hero aim zoom and restores the configured FOV on release', async () => {
+    const sb = await createSandbox({ heroes: ['owl'] });
+    const hero = sb.heroes[0]!;
+    const camera = createCamera(settings, () => fixture([]));
+    const pose = () => camera.update({ prev: sb.view, curr: sb.view, alpha: 1, dt: 0.06 }, 'owl', { yaw: 0, pitch: 0 }, 'player');
+    expect(pose().fovDeg).toBe(90);
+    sb.hold(hero, Button.Aim);
+    sb.step();
+    expect(pose().fovDeg).toBeCloseTo(67.5);
+    expect(pose().fovDeg).toBeCloseTo(45);
+    sb.release(hero, Button.Aim);
+    sb.step();
+    expect(pose().fovDeg).toBeCloseTo(67.5);
+    expect(pose().fovDeg).toBeCloseTo(90);
+  });
+
   it('eases the shoulder over 0.15 s', async () => {
     const { sb, hero, frame } = await setup();
     const cam = createCamera(settings);

@@ -13,7 +13,7 @@
 import type { CoreContext, DisplaceEffect, EffectCause, EffectTarget, EntityId, HeroEntity, PhysicsService, UnitEntity, Vec3 } from '../core/contracts';
 import { lookDir } from '../core/aim';
 import { ticks } from '../core/math';
-import { AIR, DASH, DISPLACE } from '../data/movement';
+import { AIR, DASH, DEGREES_PER_HALF_TURN, DISPLACE } from '../data/movement';
 import type { Controller, Slam } from './controller';
 import type { UnitMover } from './units';
 
@@ -104,8 +104,8 @@ export function registerEffects(ctx: CoreContext, ctrl: Controller, service: Phy
     if (e.dir === 'aim') {
       dir = flat(mover.yaw, target.dir.x, target.dir.z);
       if (e.arcHeight === undefined) {
-        // Follow the aim pitch, at most DASH.aimMaxPitchUp upward, any angle down (Plunge).
-        const pitch = Math.min(Math.atan2(target.dir.y, Math.hypot(target.dir.x, target.dir.z)), DASH.aimMaxPitchUp);
+        const cap = e.maxPitchUpDeg === undefined ? DASH.aimMaxPitchUp : (e.maxPitchUpDeg * Math.PI) / DEGREES_PER_HALF_TURN;
+        const pitch = cap <= 0 ? 0 : Math.min(Math.atan2(target.dir.y, Math.hypot(target.dir.x, target.dir.z)), cap);
         dir = { x: dir.x * Math.cos(pitch), y: Math.sin(pitch), z: dir.z * Math.cos(pitch) };
       }
     } else if (e.dir === 'move') {

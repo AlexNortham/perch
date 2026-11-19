@@ -68,6 +68,7 @@ export const createCombatSystem: SystemFactory = (ctx: SimContext) => {
       lockout: 0,
       level: h.progress.level,
       levelHeal: 0,
+      trainingResetAt: null,
     });
   });
   ctx.bus.on('entity.despawned', (ev) => {
@@ -81,9 +82,18 @@ export const createCombatSystem: SystemFactory = (ctx: SimContext) => {
     const s = ev.stage === 'start' ? heroes.get(ev.caster) : undefined;
     if (!s) return;
     guns.cancelReload(s);
+    damage.inCombat(s.hero);
     statuses.endOnAttack(s.hero);
   });
   ctx.bus.on('hero.level', (ev) => damage.levelUp(ev.hero, ev.level));
+  const clampResources = (ev: { readonly hero: EntityId }): void => {
+    const h = heroes.get(ev.hero)?.hero;
+    if (!h) return;
+    h.health.hp = Math.min(h.health.hp, h.stats.final.maxHealth);
+    h.weapon.ammo = Math.min(h.weapon.ammo, Math.round(h.stats.final.magazine));
+  };
+  ctx.bus.on('item.bought', clampResources);
+  ctx.bus.on('item.sold', clampResources);
 
   ctx.effects.handle('damage', 'combat', (fx, t, c) => damage.effect(fx, t, c, 1));
   ctx.effects.handle('heal', 'combat', (fx, t, c) => damage.healEffect(fx, t, c, 1));
@@ -157,6 +167,7 @@ export const createCombatSystem: SystemFactory = (ctx: SimContext) => {
         h.num(s.parryReady);
         h.num(s.lockout);
         h.num(s.level);
+        h.num(s.trainingResetAt ?? -1);
         h.num(s.mods.length);
       }
       statuses.hash(h);
