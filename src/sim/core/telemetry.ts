@@ -89,8 +89,11 @@ export function createTelemetry(
     if (!source) return;
     if (e.targetKind === 'hero') source.damageToHeroes += e.amount;
     if (e.targetKind === 'structure') source.damageToStructures += e.amount;
-    if (e.targetKind === 'hero' && e.via === 'weapon') source.gunHits++;
-    if (e.beakShot) source.beakShots++;
+    // Beak-shot % = beakShots / gunHits, so both count gun hits on heroes only (not decoys or Moonlit Mark).
+    if (e.targetKind === 'hero' && e.via === 'weapon') {
+      source.gunHits++;
+      if (e.beakShot) source.beakShots++;
+    }
   });
   bus.on('heal.applied', (e) => {
     const source = e.source === null ? undefined : scores.get(e.source);

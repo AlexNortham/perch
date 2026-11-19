@@ -36,7 +36,7 @@ import { clampPitch } from './core/aim';
 import { createEffectRouter } from './core/effects';
 import { createBus } from './core/events';
 import { createHasher } from './core/hash';
-import { copy, ticks, vec3 } from './core/math';
+import { clamp, copy, ticks, vec3 } from './core/math';
 import { createRng, createRngStreams } from './core/rng';
 import { createSpatialHash } from './core/spatial';
 import { createStatService } from './core/stats';
@@ -54,8 +54,45 @@ import { createWorldSystem } from './world';
 import { loadMap } from './world/map';
 
 const MAX_HEROES = TEAM_SIZE * 2;
-/** Command fields that mean "this tick only"; cleared when a command is not refreshed. */
-const NO_ONE_SHOTS = { pressed: 0, upgrade: null, buy: null, sell: null, ping: null, concede: false } as const;
+const TURN = Math.PI * 2;
+const ABILITY_SLOTS = 4;
+
+type LatchedCommand = { -readonly [K in keyof PlayerCommand]: PlayerCommand[K] };
+
+const finite = (v: number, fallback: number): number => (Number.isFinite(v) ? v : fallback);
+const isFiniteVec = (v: { x: number; y: number; z: number }): boolean =>
+  Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
+
+/**
+ * Copy `src` into the hero's latch with every field made safe (D-ARCH-011): axes finite and within ±1; look angles
+ * finite (else the previous ones are kept), yaw wrapped to ±π, pitch clamped; button bits integral; an upgrade slot
+ * outside 0–3 and a ping at a non-finite point dropped.
+ */
+function latchCommand(into: LatchedCommand, src: PlayerCommand): void {
+  const yaw = finite(src.yaw, into.yaw);
+  const up = src.upgrade;
+  into.right = clamp(finite(src.right, 0), -1, 1);
+  into.forward = clamp(finite(src.forward, 0), -1, 1);
+  into.yaw = Math.abs(yaw) > Math.PI ? yaw - TURN * Math.round(yaw / TURN) : yaw;
+  into.pitch = clampPitch(finite(src.pitch, into.pitch));
+  into.held = src.held | 0;
+  into.pressed = src.pressed | 0;
+  into.upgrade = typeof up === 'number' && Number.isInteger(up) && up >= 0 && up < ABILITY_SLOTS ? up : null;
+  into.buy = src.buy;
+  into.sell = src.sell;
+  into.ping = src.ping && isFiniteVec(src.ping.pos) ? src.ping : null;
+  into.concede = src.concede === true;
+}
+
+/** A hero with no fresh command repeats its last one with the one-shot fields cleared. */
+function clearOneShots(c: LatchedCommand): void {
+  c.pressed = 0;
+  c.upgrade = null;
+  c.buy = null;
+  c.sell = null;
+  c.ping = null;
+  c.concede = false;
+}
 
 function resolveConfig(c: SimConfig): ResolvedSimConfig {
   if (!Number.isSafeInteger(c.seed)) throw new Error(`createSim: seed must be an integer, got ${c.seed}`);
@@ -200,26 +237,38 @@ export async function createSim(config: SimConfig): Promise<Sim> {
   };
 
   /** Recent ping ticks per hero, for the rate limit. */
-  const pings = new Map<EntityId, Tick[]>(heroIds.map((id) => [id, []]));
+  const recentPings: Tick[][] = heroIds.map(() => []);
+  const pings = new Map<EntityId, Tick[]>(heroIds.map((id, i) => [id, recentPings[i] as Tick[]]));
   const pingWindow = ticks(PING_WINDOW_SECONDS);
+  /** Core's own command object per hero (the one spawnHero made); h.command points at it after every latch. */
+  const latched = heroes.map((h) => h.command as LatchedCommand);
+  const slotOf = new Map(heroIds.map((id, i) => [id, i]));
+  /** This step's external commands by hero slot (reused; null = none). */
+  const given: (PlayerCommand | null)[] = heroIds.map(() => null);
 
-  /** Core step after 'ai': commands latched, look and shoulder set, pings and concession handled. */
-  const latchCommands = (given: ReadonlyMap<EntityId, PlayerCommand>, before: readonly PlayerCommand[]): void => {
+  /**
+   * Core step after 'ai': a command passed to step() wins, else one a bot assigned to `h.command` this tick, else the
+   * last one repeats without its one-shot fields. Freshness is "h.command is not core's latch object", so a bot may
+   * reuse one command object of its own every tick. Then look and shoulder are set, pings and concession handled.
+   */
+  const latchCommands = (): void => {
     heroes.forEach((h, i) => {
-      const external = given.get(h.id);
-      if (external) h.command = external;
-      else if (h.command === before[i]) h.command = { ...h.command, ...NO_ONE_SHOTS };
-      const cmd = h.command;
+      const cmd = latched[i] as LatchedCommand;
+      const src = given[i] ?? (h.command !== cmd ? h.command : null);
+      given[i] = null;
+      if (src) latchCommand(cmd, src);
+      else clearOneShots(cmd);
+      h.command = cmd;
       h.yaw = cmd.yaw;
-      h.pitch = clampPitch(cmd.pitch);
+      h.pitch = cmd.pitch;
       if ((cmd.pressed & Button.ShoulderSwap) !== 0) h.shoulder = h.shoulder === 1 ? -1 : 1;
-      const recent = (pings.get(h.id) ?? []).filter((t) => clock.tick - t < pingWindow);
+      const recent = recentPings[i] as Tick[];
+      while (recent.length > 0 && clock.tick - (recent[0] as Tick) >= pingWindow) recent.shift();
       if (cmd.ping && recent.length < PING_LIMIT) {
         recent.push(clock.tick);
         const { kind, pos, target } = cmd.ping;
         bus.emit({ type: 'ping', by: h.id, team: h.team, kind, pos: copy(pos), target });
       }
-      pings.set(h.id, recent);
       if (cmd.concede && h.hero.controller === 'human' && clock.seconds >= CONCEDE_AFTER_SECONDS) {
         bus.emit({ type: 'match.ended', winner: h.team === 'dawn' ? 'dusk' : 'dawn', reason: 'concede' });
       }
@@ -246,9 +295,12 @@ export async function createSim(config: SimConfig): Promise<Sim> {
       view = null;
       clock.tick++;
       clock.seconds = clock.tick / TICK_RATE;
-      const before = heroes.map((h) => h.command);
+      for (const c of commands) {
+        const i = slotOf.get(c.hero);
+        if (i !== undefined) given[i] = c.command;
+      }
       runPhase('ai');
-      latchCommands(new Map(commands.map((c) => [c.hero, c.command])), before);
+      latchCommands();
       runPhase('movement');
       spatial.rebuild(store.all());
       for (const p of PHASES) if (p !== 'ai' && p !== 'movement') runPhase(p);

@@ -13,6 +13,13 @@ describe('rng', () => {
     expect(createRng(42, 'combat').next()).not.toBe(createRng(43, 'combat').next());
   });
 
+  it('uses every bit of a safe-integer seed', () => {
+    const first = (seed: number): number => createRng(seed, 'combat').next();
+    expect(first(1)).not.toBe(first(1 + 2 ** 32));
+    expect(first(5)).not.toBe(first(5 + 2 ** 52));
+    expect(first(-1)).not.toBe(first(2 ** 32 - 1));
+  });
+
   it('keeps streams independent of each other', () => {
     const quiet = createRngStreams(7);
     const busy = createRngStreams(7);

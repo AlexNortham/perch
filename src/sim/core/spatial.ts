@@ -8,6 +8,7 @@ export interface CoreSpatial extends SpatialIndex {
 /** Packs a cell's integer coordinates into one Map key. Valid for |cell| < 2^20 on each axis. */
 const KEY_STRIDE = 0x20_0000;
 const KEY_OFFSET = 0x10_0000;
+const ascending = (a: number, b: number): number => a - b;
 
 /**
  * Uniform grid on XZ. Each entity is inserted into every cell its sphere touches, so a query only checks the cells
@@ -16,11 +17,11 @@ const KEY_OFFSET = 0x10_0000;
 export function createSpatialHash(cellSize: number): CoreSpatial {
   const cells = new Map<number, number[]>();
   const used: number[][] = [];
-  let ids: EntityId[] = [];
-  let xs: number[] = [];
-  let ys: number[] = [];
-  let zs: number[] = [];
-  let rs: number[] = [];
+  const ids: EntityId[] = [];
+  const xs: number[] = [];
+  const ys: number[] = [];
+  const zs: number[] = [];
+  const rs: number[] = [];
   const seen = new Set<number>();
 
   const cellOf = (v: number): number => Math.floor(v / cellSize);
@@ -30,11 +31,11 @@ export function createSpatialHash(cellSize: number): CoreSpatial {
     rebuild(entities) {
       for (const list of used) list.length = 0;
       used.length = 0;
-      ids = [];
-      xs = [];
-      ys = [];
-      zs = [];
-      rs = [];
+      ids.length = 0;
+      xs.length = 0;
+      ys.length = 0;
+      zs.length = 0;
+      rs.length = 0;
       for (const e of entities) {
         const i = ids.length;
         ids.push(e.id);
@@ -82,7 +83,7 @@ export function createSpatialHash(cellSize: number): CoreSpatial {
           }
         }
       }
-      return out.sort((a, b) => a - b);
+      return out.sort(ascending);
     },
   };
 }

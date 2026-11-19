@@ -37,4 +37,19 @@ describe('entity store', () => {
       'entity.spawned',
     ]);
   });
+
+  it('keeps other kinds\' lists when one kind changes, and hands out snapshots', () => {
+    const store = createStore(() => undefined);
+    store.spawn(pod());
+    const pods = store.list('pickup');
+    store.spawn({ ...pod(), kind: 'area', area: { owner: null, ability: null, shape: 'sphere', expiresAt: 0 } } as never);
+    expect(store.list('pickup')).toBe(pods);
+    store.spawn(pod());
+    expect(pods.map((e) => e.id)).toEqual([1]);
+    expect(store.list('pickup').map((e) => e.id)).toEqual([1, 3]);
+    store.despawn(1);
+    store.flush();
+    expect(store.list('pickup').map((e) => e.id)).toEqual([3]);
+    expect(store.all().map((e) => e.id)).toEqual([2, 3]);
+  });
 });

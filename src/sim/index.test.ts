@@ -67,6 +67,42 @@ describe('createSim', () => {
     expect(sim.view.heroes[0]?.shoulder).toBe(-1);
   });
 
+  it('keeps presses from a command object reused every tick, and repeats no presses when not refreshed', async () => {
+    const sim = await createSim({ seed: 3, map: 'arena', roster: humanRoster(3, 'swan', { bots: 0 }) });
+    const id = sim.view.localHero as number;
+    const reused = { ...IDLE_COMMAND, pressed: Button.ShoulderSwap };
+    sim.step([{ hero: id, command: reused }]);
+    sim.step([{ hero: id, command: reused }]);
+    expect(sim.view.heroes[0]?.shoulder).toBe(1);
+    // A bot that assigns its own reused object during the ai phase is the same case as above: not core's latch.
+    const h = sim.ctx.store.getKind(id, 'hero');
+    if (!h) throw new Error('no hero');
+    h.command = reused;
+    sim.step();
+    expect(sim.view.heroes[0]?.shoulder).toBe(-1);
+    sim.step();
+    expect(h.command.pressed).toBe(0);
+    expect(sim.view.heroes[0]?.shoulder).toBe(-1);
+  });
+
+  it('sanitises commands: NaN and out-of-range look and axes never reach the sim', async () => {
+    const sim = await createSim({ seed: 3, map: 'arena', roster: humanRoster(3, 'swan', { bots: 0 }) });
+    const id = sim.view.localHero as number;
+    const h = sim.ctx.store.getKind(id, 'hero');
+    if (!h) throw new Error('no hero');
+    sim.step([{ hero: id, command: { ...IDLE_COMMAND, yaw: 0.5, pitch: 0.25 } }]);
+    const bad = { ...IDLE_COMMAND, yaw: Number.NaN, pitch: Infinity, right: 7, forward: Number.NaN, upgrade: 9 };
+    sim.step([{ hero: id, command: bad }]);
+    expect([h.yaw, h.pitch, h.command.right, h.command.forward, h.command.upgrade]).toEqual([0.5, 0.25, 1, 0, null]);
+    sim.step([{ hero: id, command: { ...IDLE_COMMAND, yaw: 4.5 * Math.PI, pitch: -9 } }]);
+    expect(h.yaw).toBeCloseTo(0.5 * Math.PI);
+    expect(h.pitch).toBeCloseTo((-80 * Math.PI) / 180);
+    const ping = { kind: 'danger' as const, pos: { x: Number.NaN, y: 0, z: 0 }, target: null };
+    sim.drainEvents();
+    sim.step([{ hero: id, command: { ...IDLE_COMMAND, ping } }]);
+    expect(sim.drainEvents().filter((e) => e.type === 'ping')).toEqual([]);
+  });
+
   it('gives the client a snapshot view and the last step\'s events', async () => {
     const sim = await createSim({ seed: 4, map: 'arena', roster: humanRoster(4, 'owl', { bots: 0 }) });
     expect(sim.drainEvents().map((e) => e.type)).toEqual(['entity.spawned', 'match.started']);
