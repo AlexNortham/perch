@@ -75,6 +75,8 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W4 siege objectives', () => {
       tower(sb, team, 'hawk', lane), tower(sb, team, 'heron', lane),
     ]);
     for (const [rider, i, next] of [[dawn, 0, 1], [dusk, -1, -2]] as const) {
+      // The live enemy towers shoot at the rider; it must survive to the far end so the ride tests clearance only.
+      sb.modify(rider, 'siege-ride', { conditions: ['invulnerable'] });
       const origin = line.stations.at(i)!;
       const toward = line.stations.at(next)!;
       sb.place(rider, origin, Math.atan2(toward.x - origin.x, toward.z - origin.z));
