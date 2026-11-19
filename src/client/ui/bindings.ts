@@ -1,5 +1,6 @@
 /** Pure key-binding helpers for the Options screen: readable names, capture, swap on conflict, reset. */
 import type { BindAction, Bindings } from '../app/contracts';
+import { rebind as swapBindings } from '../input';
 
 /** Player-facing action names, in the order the Controls list shows them. */
 export const ACTION_LABELS: Readonly<Record<BindAction, string>> = {
@@ -66,12 +67,10 @@ export interface RebindResult {
   readonly swapped: BindAction | null;
 }
 
-/** Give `action` the key; if another action holds it, that action takes this action's old key (a swap). */
+/** Give `action` the key; if another action holds it, that action takes this action's old key (the input module's swap). */
 export function rebind(bindings: Bindings, action: BindAction, code: string): RebindResult {
-  const other = ACTIONS.find((a) => a !== action && bindings[a] === code) ?? null;
-  const next: Record<BindAction, string> = { ...bindings, [action]: code };
-  if (other) next[other] = bindings[action];
-  return { bindings: next, swapped: other };
+  const next = swapBindings(bindings, action, code);
+  return { bindings: next, swapped: ACTIONS.find((a) => a !== action && next[a] !== bindings[a]) ?? null };
 }
 
 /** A captured key press: Esc cancels (null), anything else rebinds. */
