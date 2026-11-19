@@ -8,3 +8,7 @@ export const DEGREES_PER_COUNT = 0.06;
 export const PING_TAP_MS = 250;
 /** Chrome delivers pointerlockchange and the Esc keydown within this many ms of each other; count them once. */
 export const ESC_DEDUPE_MS = 100;
+/** D-EP-030: crouch default where fullscreen keyboard lock stops W + Ctrl closing the tab. */
+export const LOCKED_CROUCH = 'ControlLeft';
+/** D-ARCH-019: the browser-safe crouch key, which still crouches while crouch sits on a Ctrl key and C is free. */
+export const SAFE_CROUCH = 'KeyC';

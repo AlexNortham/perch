@@ -2,10 +2,31 @@ import { Button, IDLE_COMMAND } from '../../sim/core/contracts';
 import type { PlayerCommand, Ping } from '../../sim/core/contracts';
 import { clampPitch } from '../../sim/core/aim';
 import { DEFAULT_AIM_ZOOM } from '../../sim/data/core';
-import type { BindAction, InputController, Look, Settings, UiAction } from '../app/contracts';
-import { DEGREES_PER_COUNT, ESC_DEDUPE_MS, PING_TAP_MS, RADIANS_PER_DEGREE } from './constants';
+import { DEFAULT_BINDINGS } from '../app/bindings';
+import type { BindAction, Bindings, InputController, Look, Settings, UiAction } from '../app/contracts';
+import { DEGREES_PER_COUNT, ESC_DEDUPE_MS, LOCKED_CROUCH, PING_TAP_MS, RADIANS_PER_DEGREE, SAFE_CROUCH } from './constants';
 
 export { DEFAULT_BINDINGS, rebind } from '../app/bindings';
+
+/** Chromium's Keyboard Lock API (not in TypeScript's DOM lib; Firefox and Safari lack it). */
+interface KeyboardLock {
+  lock(codes?: readonly string[]): Promise<void>;
+  unlock(): void;
+}
+
+function keyboardOf(nav: Navigator | undefined): KeyboardLock | null {
+  const k = (nav as { keyboard?: Partial<KeyboardLock> } | undefined)?.keyboard;
+  return typeof k?.lock === 'function' && typeof k.unlock === 'function' ? (k as KeyboardLock) : null;
+}
+
+/**
+ * New-profile bindings for this browser (D-EP-030): crouch on Left Ctrl where fullscreen keyboard lock keeps
+ * W + Ctrl from closing the tab, C where it can't (Firefox, Safari).
+ */
+export function defaultBindings(nav: Navigator | undefined = globalThis.navigator): Bindings {
+  return keyboardOf(nav) ? { ...DEFAULT_BINDINGS, crouch: LOCKED_CROUCH } : DEFAULT_BINDINGS;
+}
+const CROUCH: readonly BindAction[] = ['crouch'];
 
 /** Actions that are a held `Button` bit, and the ability slot each of the four ability actions upgrades. */
 const BUTTONS: readonly (readonly [BindAction, number])[] = [
@@ -49,6 +70,8 @@ const UI_OF = new Map<BindAction, UiAction>([
  */
 export interface Input extends InputController {
   setPingResolver(resolve: (() => Ping | null) | null): void;
+  /** Leaving the match: release the keyboard lock and leave the fullscreen that play entered (D-EP-030). */
+  exitFullscreen(): void;
 }
 
 export function createInput(
@@ -78,6 +101,8 @@ export function createInput(
   const capturedAux = new Set<number>();
   let resolvePing: (() => Ping | null) | null = null;
   let lockLostAt = -Infinity;
+  const keyboard = keyboardOf(doc.defaultView?.navigator);
+  let keysLocked = false;
 
   const index = (): void => {
     codeMap = new Map();
@@ -90,9 +115,12 @@ export function createInput(
   index();
 
   const locked = (): boolean => doc.pointerLockElement !== null;
+  /** A free C keeps crouching while crouch is on a Ctrl key, for when the keyboard lock is unavailable or refused. */
+  const actionsOf = (code: string): readonly BindAction[] | undefined =>
+    codeMap.get(code) ?? (code === SAFE_CROUCH && cfg.bindings.crouch.startsWith('Control') ? CROUCH : undefined);
 
   function press(code: string, at: number): void {
-    for (const action of codeMap.get(code) ?? []) {
+    for (const action of actionsOf(code) ?? []) {
       if (action === 'pause') continue;
       if (down.has(action)) continue;
       down.add(action);
@@ -121,7 +149,7 @@ export function createInput(
   }
 
   function release(code: string, at: number): void {
-    for (const action of codeMap.get(code) ?? []) {
+    for (const action of actionsOf(code) ?? []) {
       if (!down.delete(action)) continue;
       spent.delete(action);
       if (action === 'ping' && pingTimer !== undefined) {
@@ -153,7 +181,7 @@ export function createInput(
     crouchPresses = 0;
   }
 
-  const bound = (code: string): boolean => codeMap.has(code);
+  const bound = (code: string): boolean => actionsOf(code) !== undefined;
 
   const onKeyDown = (ev: Event): void => {
     const e = ev as KeyboardEvent;
@@ -225,7 +253,35 @@ export function createInput(
     } catch {
       /* no gesture or no pointer lock here (tests): keys still work, mouse look waits for a lock */
     }
+    void lockKeys();
   }
+
+  /**
+   * D-EP-030: in the same gesture, go fullscreen and lock every key, so W + Ctrl (crouch) and other browser shortcuts
+   * reach the game. Esc still arrives once; holding it leaves fullscreen (a browser rule).
+   */
+  async function lockKeys(): Promise<void> {
+    if (!keyboard || keysLocked) return;
+    try {
+      if (!doc.fullscreenElement) await doc.documentElement.requestFullscreen({ navigationUI: 'hide' });
+      if (!enabled) return;
+      await keyboard.lock();
+      if (enabled) keysLocked = true;
+      else keyboard.unlock();
+    } catch {
+      /* fullscreen or the lock refused (no gesture, an iframe, the player): play on windowed with today's keys */
+    }
+  }
+
+  function unlockKeys(): void {
+    if (!keysLocked) return;
+    keysLocked = false;
+    keyboard?.unlock();
+  }
+
+  const onFullscreenChange = (): void => {
+    if (!doc.fullscreenElement) unlockKeys();
+  };
 
   doc.addEventListener('keydown', onKeyDown);
   doc.addEventListener('keyup', onKeyUp);
@@ -235,6 +291,7 @@ export function createInput(
   doc.addEventListener('pointerlockchange', onLockChange);
   doc.addEventListener('contextmenu', onContextMenu);
   doc.addEventListener('auxclick', onAuxClick);
+  doc.addEventListener('fullscreenchange', onFullscreenChange);
   target.addEventListener('mousedown', onClickToLock);
   doc.defaultView?.addEventListener('blur', onBlur);
 
@@ -278,7 +335,15 @@ export function createInput(
       enabled = next;
       releaseAll();
       if (next) lock();
-      else if (locked()) doc.exitPointerLock();
+      else {
+        // Pause, a panel or a menu: give the keys back but stay fullscreen; leaving the match calls exitFullscreen.
+        unlockKeys();
+        if (locked()) doc.exitPointerLock();
+      }
+    },
+    exitFullscreen() {
+      unlockKeys();
+      if (keyboard && doc.fullscreenElement) void doc.exitFullscreen().catch(() => undefined);
     },
     setSettings(s) {
       cfg = s;
@@ -299,6 +364,7 @@ export function createInput(
       doc.removeEventListener('pointerlockchange', onLockChange);
       doc.removeEventListener('contextmenu', onContextMenu);
       doc.removeEventListener('auxclick', onAuxClick);
+      doc.removeEventListener('fullscreenchange', onFullscreenChange);
       target.removeEventListener('mousedown', onClickToLock);
       doc.defaultView?.removeEventListener('blur', onBlur);
       clearTimeout(pingTimer);
