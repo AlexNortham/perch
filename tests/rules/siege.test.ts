@@ -80,8 +80,10 @@ describe('W4 siege objectives', () => {
       const origin = line.stations.at(i)!;
       const toward = line.stations.at(next)!;
       sb.place(rider, origin, Math.atan2(toward.x - origin.x, toward.z - origin.z));
-      sb.press(rider, Button.Interact);
+      // D-EP-039: no Interact key. Holding Jump past the 0.2 s latch threshold (GDD §3.7) mounts the Updraft.
+      sb.hold(rider, Button.Jump);
       sb.step(Math.ceil(0.3 * TICK_RATE) + 1);
+      sb.release(rider, Button.Jump);
       expect(sb.hero(rider).motor.updraft).not.toBeNull();
       sb.press(rider, Button.Dash);
       const crossed = new Set<EntityId>();
