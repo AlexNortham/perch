@@ -60,7 +60,7 @@ function buildsOf(result: Awaited<ReturnType<typeof play>>, team: PlayerTeam, sc
 }
 
 async function scoresOf(): Promise<Readonly<Partial<Record<HeroId, ItemScores>>>> {
-  const path = '../../src/sim/data/builds';
+  const path = new URL('../../src/sim/data/builds.ts', import.meta.url).href;
   const mod = (await import(/* @vite-ignore */ path)) as { BUILDS: { scores: Readonly<Partial<Record<HeroId, ItemScores>>> } };
   return mod.BUILDS.scores;
 }
@@ -170,7 +170,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 bot shopping (§11.4, D-EP
   });
 
   it('§14.1 the Build Lab hook: round 0 BUILDS has scores and a build for every hero, with phases at 600 s and 1,320 s', async () => {
-    const path = '../../src/sim/data/builds';
+    const path = new URL('../../src/sim/data/builds.ts', import.meta.url).href;
     const { BUILDS } = (await import(/* @vite-ignore */ path)) as { BUILDS: { round: number; phases: { midFromS: number; lateFromS: number }; scores: object; builds: Record<string, { early: unknown[]; mid: unknown[]; late: unknown[] }> } };
     expect(BUILDS.round).toBeGreaterThanOrEqual(0);
     expect(BUILDS.phases).toEqual({ midFromS: 600, lateFromS: 1320 });
