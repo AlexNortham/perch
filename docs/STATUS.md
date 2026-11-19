@@ -17,6 +17,10 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
   the W4 implementers start. The release gate is below and in GDD Â§16.
 - **Last `npm run check`:** PASS on integrate/w3 (6/6 steps incl. perf, 76 s; 5 runs in a row); sim 0.234 ms per tick
   mean over 35 minutes, deterministic (hash 52196bc3abdb2fe3)
+- **Stage 3 in progress.** W3.5 contracts and the Director's movement/Practice Hub amendment landed on local main.
+  The W4 test-first checkpoint is 1d9e431. Implementation is underway in separate role worktrees. M2 is open.
+- **Last verified checkpoint:** all six `npm run check` steps passed together on 1d9e431 in 194 s with one Vitest
+  worker. QA separately ran the pending rules enabled and recorded the expected failures before implementation.
 
 ## How the studio works
 
@@ -895,8 +899,8 @@ still has only the "Next, Stage 2" teaser (line 33), no "Stage 2 (M1)" section (
 `out/qa/` (gitignored).
 **Next:** EP writes PLAYABLE.md and fast-forwards `main`; QA writes the wave 4 test-first suites first thing in wave 4.
 
-### W3.5 · Production support · 19/11/2026
-**Done:** Read-only cross-owner inventory sent to Architect and EP: D-EP-026 item effects and later-roster contract considerations; siege controls, observations and GDD §6.3 positions. `PlayerCommand` already carries buy, sell, upgrades and item buttons; `SimView` carries progress, inventory, structure health and winner, while the existing browser `window.__perch` exposes only ready, scene, hero position and shots fired. The Stage 2 items catalogue is not implemented yet.
+### W3.5 Â· Production support Â· 19/11/2026
+**Done:** Read-only cross-owner inventory sent to Architect and EP: D-EP-026 item effects and later-roster contract considerations; siege controls, observations and GDD Â§6.3 positions. `PlayerCommand` already carries buy, sell, upgrades and item buttons; `SimView` carries progress, inventory, structure health and winner, while the existing browser `window.__perch` exposes only ready, scene, hero position and shots fired. The Stage 2 items catalogue is not implemented yet.
 **Verified:** `npm ci --prefer-offline --no-audit --no-fund`; `npm run lint` ? 0 errors, 117 warnings. UI: bindings 2, constants 7, display 2, hud 11, options 2; Economy `index.ts` 1; input `constants.ts` 1; abilities `fixtures.ts` 34; VFX `bound.ts` 39, `fx.ts` 15, `mapping.ts` 3. W3 QA's total matches, but its Economy subtotal of 2 is 1. `npm run check` in Git Bash ? PASS typecheck, lint, test, perf, sim, e2e (85 s).
 **Blocked:** nothing. Source and tests were not edited. No screenshots or hand-play of W4 functionality: this is the Stage 2 baseline.
 **Interface requests:** Architect to confirm item effect coverage and public UI command routing before freeze; details sent directly. No contract changes proposed here.
