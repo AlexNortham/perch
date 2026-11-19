@@ -943,3 +943,12 @@ Artist, Hero A (A2) and Hero B (B1) start fresh from main; Audio starts when a s
 merge because it touches every owner's files. Models follow D-EP-019. ChatGPT's worktrees under `~\.codex\` are left
 untouched.
 **Why:** the user asked Claude to pick development back up from ChatGPT; resuming its branches keeps its work.
+
+### D-EP-030 · 19/11/2026 — Ctrl to crouch/slide through fullscreen keyboard lock
+**Decision:** in browsers with the Keyboard Lock API (Chrome, Edge), entering play also enters fullscreen and locks the
+keyboard, so Ctrl+W and similar browser shortcuts reach the game. Ctrl is the default crouch/slide key there again; C
+stays the default where keyboard lock is unavailable (Firefox). Esc pauses; holding Esc exits fullscreen (browser rule).
+Options notes which reserved combinations only work in fullscreen in Chrome/Edge. This partly supersedes D-ARCH-019's
+move of crouch to C. The settings migration change in `src/client/app/settings.ts` lands in the W4 integration round.
+**Why:** the user wants to hold W and press Ctrl to slide without the tab closing. A normal tab can never block Ctrl+W;
+a fullscreen page in Chromium can.
