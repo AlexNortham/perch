@@ -1727,8 +1727,8 @@ catalogue, one stats test per item (64), the 16 Stage 4 items in play, all 15 ac
 Mantle. `bot-shopping` D-EP-036 (18 / 6): determinism, softmax sampling, similarity, synergy over the random baseline.
 **Browser specs** (`e2e/`): `hold-upgrade` D-EP-038 (32 / 7), `scoreboard-bar` D-EP-041 (32 / 6), `practice-swap`
 D-EP-040 (21 / 6), `hero-select-layout` (5 / 3 tests, 6 cases with both pickers), `no-interact` D-EP-039 (13 / 3).
-**Expected red** (`PERCH_PENDING=1`): rules suites 230 failed, 24 passed of 254 (the 24 are checks the Stage 3 build
-already meets: the 16 existing items' stats, tier costs, component chains, the tap and carrier controls). Every
+**Expected red** (`PERCH_PENDING=1`): rules suites 232 failed, 22 passed of 254 (the 22 are checks the Stage 3 build
+already meets: the stats of the 16 existing items, tier costs, component chains, the rune spots and two table-coverage checks). Every
 failure is a missing entity, event or field (no Egg, Roc, camps, rooms, builds module, bot purchases); none is an
 error in a suite. Browser: the layout-shift spec reproduces the user's bug (card 1 moves 3.55 px on hover or focus);
 hold-upgrade 6 of 7 fail, scoreboard 6 of 6, swap 5 of 6, no-interact 3 of 3 (the passes keep Stage 3 behaviour).
