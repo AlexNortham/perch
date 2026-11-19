@@ -43,6 +43,8 @@ const SHOT_AFFECTS = { teams: 'enemies', kinds: ['hero', 'unit', 'structure'] } 
 const NONE = 9;
 const RULE = { fledgling: 1, hurtHero: 2, structure: 3, hero: 4 } as const;
 const UNIT_RADIUS = Math.max(FLEDGLINGS.scrapper.radius, FLEDGLINGS.slinger.radius);
+/** A melee attacker this close to its slot stands still. */
+const SLOT_EPS = 0.01;
 
 export const isFledgling = (u: UnitEntity): boolean => u.unit.type === 'scrapper' || u.unit.type === 'slinger';
 
@@ -401,6 +403,22 @@ export function createFledglings(ctx: SimContext): Fledglings {
     moveBy(e, dest.x - e.pos.x, dest.z - e.pos.z, step * AI.catchUp);
   };
 
+  /**
+   * Melee attackers stand on an arc round the target on their own gate's side, at a slot picked by id, so several
+   * Scrappers on one target don't stack. Writes `dest`.
+   */
+  const slot = (f: Fledgling, t: Damageable): void => {
+    const tr = f.track;
+    let i = 0;
+    while (i < tr.len.length - 1 && f.at.s > (tr.cum[i] as number) + (tr.len[i] as number)) i++;
+    const a = (AI.meleeSlots[f.e.id % AI.meleeSlots.length] as number) * AI.meleeArc;
+    const bx = -(tr.dx[i] as number);
+    const bz = -(tr.dz[i] as number);
+    const d = t.radius + AI.meleeStandoff;
+    dest.x = t.pos.x + (bx * Math.cos(a) + bz * Math.sin(a)) * d;
+    dest.z = t.pos.z + (bz * Math.cos(a) - bx * Math.sin(a)) * d;
+  };
+
   const dropHolder = (f: Fledgling): void => {
     if (f.hold < 0) return;
     let next = 0;
@@ -426,9 +444,13 @@ export function createFledglings(ctx: SimContext): Fledglings {
         const st = e.stats.final;
         const step = Math.max(GROUND.minSlowedSpeed, st.moveSpeed * (1 - Math.min(1, st.slow))) * TICK_SECONDS;
         const t = f.target;
-        if (t && !t.removed && !t.health.dead) {
+        if (t && !t.removed && !t.health.dead && f.def.projectileSpeed > 0) {
           if (reach(f, t) <= f.def.range) stand(e);
           else moveBy(e, t.pos.x - e.pos.x, t.pos.z - e.pos.z, step);
+        } else if (t && !t.removed && !t.health.dead) {
+          slot(f, t);
+          if (Math.hypot(dest.x - e.pos.x, dest.z - e.pos.z) < SLOT_EPS) stand(e);
+          else moveBy(e, dest.x - e.pos.x, dest.z - e.pos.z, step);
         } else if (f.returning || f.at.off > f.track.lane.halfWidth) {
           pointAt(f.track, f.at.s + AI.returnLookahead, f.file, dest);
           moveBy(e, dest.x - e.pos.x, dest.z - e.pos.z, step);

@@ -4,6 +4,8 @@
  */
 import type { StructureType } from '../core/contracts';
 
+const DEG = Math.PI / 180;
+
 export type FledglingType = 'scrapper' | 'slinger';
 
 export interface FledglingDef {
@@ -60,6 +62,13 @@ export const FLEDGLING_AI = {
   returnLookahead: 3,
   /** Holding at the enemy base: this far short of the last structure's footprint (assumed). */
   holdStandoff: 1,
+  /**
+   * Scrappers on one target stand this far from its surface on its gate side, at an arc slot (centre, then alternate
+   * sides) picked by id, slots meleeArc apart, so they don't stack (assumed).
+   */
+  meleeStandoff: 2,
+  meleeArc: 35 * DEG,
+  meleeSlots: [0, 1, -1, 2, -2],
   retargetS: 0.5,
   /** Rule 1: nearest enemy fledgling within. */
   fledglingAggro: 14,
