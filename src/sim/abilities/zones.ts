@@ -10,7 +10,9 @@
  *   shape's edge. onEnter and onCross re-fire for one target at most once per intervalS.
  * - attach 'source' follows the cause's source, 'target' follows target.entity (ends when they die or go);
  *   'point' stays at target.point. `move` slides it along the horizontal target direction and, with `carry`,
- *   pushes what is inside along with it (a `displace` 'along' each tick).
+ *   launches what it reaches along with it: one `displace` 'along' per entity, of move.maxCarry or the area's travel
+ *   left if less. An 'along' arc that long flies at about the area's speed; physics adds pushes to the current
+ *   velocity, so a push every tick would stack (a 12 m cap became 27 m).
  * - Effects from areas carry the cause with via 'area' and origin at the area centre (structures ignore them).
  * Durations of areas, summons and tethers from abilities scale with the source's `abilityDuration`.
  */
@@ -114,8 +116,8 @@ interface AreaState {
   readonly interval: Tick;
   readonly kindKey: number;
   readonly carry: DisplaceEffect | null;
-  /** Entity → metres carried so far, for move.maxCarry. */
-  readonly carried: Map<EntityId, number>;
+  /** Entities the carry has already launched. */
+  readonly carried: Set<EntityId>;
   /** Has enter, exit, cross or carry behaviour, so membership is checked every tick. */
   readonly watch: boolean;
   nextTick: Tick;
@@ -233,9 +235,9 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       interval,
       kindKey,
       carry: effect.move?.carry
-        ? { kind: 'displace', mode: 'along', distance: effect.move.speed * TICK_SECONDS, ...(effect.move.onWall ? { onWall: effect.move.onWall } : {}) }
+        ? { kind: 'displace', mode: 'along', distance: effect.move.maxCarry ?? Infinity, ...(effect.move.onWall ? { onWall: effect.move.onWall } : {}) }
         : null,
-      carried: new Map(),
+      carried: new Set(),
       watch: !!(effect.onEnter?.length || effect.onExit?.length || effect.onCross?.length || effect.move?.carry),
       nextTick: clock.tick + interval,
       lastIn: new Map(),
@@ -302,13 +304,10 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       const was = a.lastIn.has(id);
       a.lastIn.set(id, tick);
       if (!was && e.onEnter && ready(id)) apply(e.onEnter, t, a.dir, cause);
-      if (a.carry) {
-        const cap = e.move?.maxCarry ?? Infinity;
-        const done = a.carried.get(id) ?? 0;
-        if (done < cap) {
-          a.carried.set(id, done + (a.carry.distance as number));
-          effects.apply(a.carry, at(t, a.dir), cause);
-        }
+      if (a.carry && e.move && !a.carried.has(id)) {
+        a.carried.add(id);
+        const distance = Math.min(a.carry.distance as number, e.move.speed * (a.expiresAt - tick) * TICK_SECONDS);
+        if (distance > 0) effects.apply({ ...a.carry, distance }, at(t, a.dir), cause);
       }
       if (due && e.effects.length) {
         const key = a.kindKey * AREA_KEY_STRIDE + id;

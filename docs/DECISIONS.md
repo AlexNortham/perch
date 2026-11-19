@@ -1088,3 +1088,12 @@ to the first beak-shot pellet of the pull only. Guns and melee test cover agains
 bodies and hearts stay selectable. `weapon.traces` lists every hitscan pellet end, hits and misses. Phase-one Patron
 damage floors at 1 HP once and emits `patron.depleted`. A practice dummy resets 4 s after its last change.
 **Why:** later item changes or a reload can't alter rounds in flight, and Rendering draws the real pellet fan.
+
+### D-ABIL-011 · 19/11/2026 — A moving area's carry is one launch per entity (W4 integration, for Abilities)
+**Decision:** a moving area with `move.carry` launches each entity once, on the first tick it is inside: a `displace`
+'along' of `move.maxCarry` metres, or the area's travel left if that is shorter (no maxCarry means the travel left).
+This replaces D-ABIL-010's per-tick push of speed × tick. A 12 m 'along' arc at g = 25 flies at 20.3 m/s, so Rogue
+Wave's target rides just inside the 20 m/s wave front and lands 12 m on.
+**Why:** physics adds each push to the hero's velocity, so 36 pushes of 0.33 m stacked to about 27 m and threw the hero
+out ahead of the wave, which then re-entered it and repeated onEnter's 160 Song. Units, whose pushes replace their
+velocity, barely moved. One launch meets GDD §9.12's "carried with it (up to 12 m)" for both.
