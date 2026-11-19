@@ -92,9 +92,12 @@ export interface Updraft {
   readonly stations: readonly Vec3[];
 }
 
-/** A vertical traversal (GDD §3.8): Chimneys (warm-air shafts, 1.5 m radius) and Vines (on walls and trees). */
+/**
+ * A vertical traversal (GDD §3.8): Chimneys (warm-air shafts, 1.5 m radius), Vines (on walls and trees) and Ladders
+ * (inside and on buildings; physics climbs them like Vines).
+ */
 export interface Climb {
-  readonly kind: 'chimney' | 'vine';
+  readonly kind: 'chimney' | 'vine' | 'ladder';
   readonly bottom: Vec3;
   readonly top: Vec3;
   /** Horizontal unit direction from the wall out (vines); (0,0,0) for chimneys. */
@@ -108,7 +111,10 @@ export interface Ledge {
   readonly out: Vec3;
 }
 
-/** Link types bots path over (GDD §6.7). */
+/**
+ * Link types bots path over (GDD §6.7). Stairs are ramps and use 'walk', as do doors; ladders use 'vine' (both are
+ * Climbs that physics treats alike).
+ */
 export type NavLinkKind = 'walk' | 'jump' | 'dashJump' | 'mantle' | 'chimney' | 'vine' | 'updraft' | 'drop';
 
 /** Navigation graph for bots. Links are one-way; add both for two-way. */
@@ -132,6 +138,99 @@ export interface ShopAnchor extends TeamAnchor {
 
 export interface ThicketAnchor extends Anchor {
   readonly tier: ThicketTier;
+  /** Indoor camps: index into MapData.buildings and the storey it sits on. Absent outdoors. */
+  readonly building?: number;
+  readonly storey?: number;
+}
+
+/** A Nest (breakable, GDD §7.9). Plain Anchors are fine: variant defaults to world data's first. */
+export interface NestAnchor extends Anchor {
+  /** GDD variant id; world data maps it to HP, contents and model. */
+  readonly variant?: string;
+  /** Inside a building: index into MapData.buildings and the storey. Absent outdoors. */
+  readonly building?: number;
+  readonly storey?: number;
+}
+
+// ---- Stage 4 detail (D-EP-033): buildings with interiors, the jungle and interactables. All optional, so maps
+// ---- without them load unchanged. Geometry stays in `prims` (walls, floors, stair ramps, roofs); these records
+// ---- say what the geometry means, for nav, bots, vision, audio, the minimap and world spawns.
+
+/** A box turned by yaw about its centre (`size` is the full extent), used for footprints and room volumes. */
+export interface BoxVolume {
+  readonly centre: Vec3;
+  readonly size: Vec3;
+  readonly yaw: number;
+}
+
+/** One floor of a building. Storey 0 is the ground floor; the roof is not a storey (Building.roof). */
+export interface Storey {
+  /** Walkable floor height (m). */
+  readonly floorY: number;
+  /** Clear height to the ceiling (m). */
+  readonly height: number;
+}
+
+/** A room: an interior volume on one storey. Vision rays still use the prims; rooms are for audio, bots and the map. */
+export interface Room {
+  /** Index into MapData.buildings. */
+  readonly building: number;
+  readonly storey: number;
+  readonly volume: BoxVolume;
+}
+
+/**
+ * A hole in a building's shell or between rooms. The prims leave the gap; this records what passes through it.
+ * `rooms` are the two sides as indices into MapData.rooms, −1 for outdoors.
+ */
+export interface Opening {
+  readonly kind: 'door' | 'window' | 'hatch' | 'arch' | 'balcony';
+  readonly rooms: readonly [number, number];
+  /** Centre of the gap. */
+  readonly centre: Vec3;
+  readonly width: number;
+  readonly height: number;
+  /** Facing of the gap's outward normal (radians), toward `rooms[1]`. */
+  readonly yaw: number;
+  /** A hero can walk or mantle through (doors, arches, balconies; windows only if mantle-sized). */
+  readonly passable: boolean;
+}
+
+/** A building (GDD §6 archetypes). Interiors are made of prims; this groups them. */
+export interface Building {
+  /** Stable name, unique on the map (e.g. 'hedgerow-belltower-dawn'). */
+  readonly id: string;
+  /** GDD archetype id (market hall, bell tower, …). Render and audio key their dressing on it. */
+  readonly archetype: string;
+  readonly footprint: BoxVolume;
+  readonly storeys: readonly Storey[];
+  /** Roof height; walkable roofs are reached by stairs, ladders, Vines or Chimneys. */
+  readonly roof: { readonly y: number; readonly walkable: boolean };
+  /** Where it stands: a LaneId (on that lane's edge), a JungleZone.id, or 'base'. */
+  readonly zone: string;
+}
+
+/** A jungle area between lanes on one half (GDD §6.5): an outline on the ground plane and its main paths. */
+export interface JungleZone {
+  /** Stable name (e.g. 'west-dawn'). */
+  readonly id: string;
+  /** The half it lies in; zones on z = 0 belong to neither and use 'neutral'. */
+  readonly half: Team;
+  /** Polygon on the xz plane (y ignored), counter-clockwise seen from above. */
+  readonly outline: readonly Vec3[];
+  /** Main walking routes through it, as polylines; flank routes included. */
+  readonly paths: readonly (readonly Vec3[])[];
+}
+
+/**
+ * Something in the world a hero interacts with that is neither a shop nor an objective with its own field (GDD
+ * §6/§7 Stage 4 list: e.g. a boon statue, a vantage point, a vent). sim/world spawns the ones that are entities.
+ */
+export interface InteractableAnchor extends Anchor {
+  /** GDD kind id; world data maps it to behaviour. */
+  readonly kind: string;
+  readonly building?: number;
+  readonly storey?: number;
 }
 
 /** Bot hints (GDD §6.7): safe spots behind towers and ambush spots near Thickets. */
@@ -161,7 +260,7 @@ export interface MapData {
   /** Every Hawk, Heron, Warden, Shrine and Patron. */
   readonly structures: readonly StructureAnchor[];
   readonly thickets: readonly ThicketAnchor[];
-  readonly nests: readonly Anchor[];
+  readonly nests: readonly NestAnchor[];
   /** Feather rune spots (mid-span on the rune bridges). */
   readonly runeSpots: readonly Anchor[];
   /** The two Egg Perches; the Egg spawns on one and the other is the Hatching Stone (GDD §7.11). */
@@ -169,4 +268,10 @@ export interface MapData {
   /** The Hollow (Roc pit); null on maps without it. */
   readonly hollow: { readonly centre: Vec3; readonly radius: number; readonly floorY: number } | null;
   readonly botSpots: readonly BotSpot[];
+  /** Stage 4 detail; absent on maps without interiors. Rooms and openings index into these arrays. */
+  readonly buildings?: readonly Building[];
+  readonly rooms?: readonly Room[];
+  readonly openings?: readonly Opening[];
+  readonly jungle?: readonly JungleZone[];
+  readonly interactables?: readonly InteractableAnchor[];
 }

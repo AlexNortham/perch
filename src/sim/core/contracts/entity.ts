@@ -249,6 +249,12 @@ export interface UnitInfo {
   target: EntityId | null;
   /** True on ticks the unit is attacking (animation). */
   attacking: boolean;
+  /** Thicket creatures: index into MapData.thickets of the camp it belongs to and leashes to (GDD §7.8). */
+  readonly camp?: number | null;
+  /** The Roc: asleep until damaged, and again after a reset (GDD §7.12). */
+  asleep?: boolean;
+  /** The Roc: below its enrage threshold (GDD §7.12). */
+  enraged?: boolean;
 }
 
 export interface UnitEntity extends EntityBase {
@@ -276,6 +282,10 @@ export interface StructureInfo {
   readonly body: { readonly radius: number; readonly height: number };
   /** Patron phase 2: the heart-feather weak point (GDD §7.7), world position; null otherwise. */
   weakPoint: { readonly centre: Vec3; readonly radius: number } | null;
+  /** Nests and other breakables: the GDD variant id (world data), for models and drops. Absent for towers. */
+  readonly variant?: string;
+  /** Breakables placed from a map anchor: index into MapData.nests (Nests) or MapData.interactables (others). */
+  readonly anchor?: number;
 }
 
 export interface StructureEntity extends EntityBase {
@@ -374,10 +384,30 @@ export interface TeamState {
   emberUntil: Tick;
 }
 
+/** The Golden Egg's state between spawns (GDD §7.11). Writer: sim/world. */
+export interface EggState {
+  /** The Egg pickup while it exists (on a perch, carried or dropped), else null. */
+  pickup: EntityId | null;
+  /** Index into MapData.eggPerches it spawned on; the other perch is the Hatching Stone. */
+  perch: number;
+  /** Dropped and untouched: the tick it returns to its perch, else null. */
+  returnsAt: Tick | null;
+  /** A delivery channel in progress ends at this tick, else null. */
+  deliverUntil: Tick | null;
+}
+
 /** Objective timers for the HUD and bots, on SimContext.objectives. Writer: sim/world. null = not scheduled. */
 export interface ObjectiveState {
   nextWaveAt: Tick | null;
   eggAt: Tick | null;
+  /** The earlier of the rune spots' next spawns (see `runeAt` for each spot). */
   runesAt: Tick | null;
   rocAt: Tick | null;
+  /** Per MapData.runeSpots index: next spawn tick, or null while a rune waits there. */
+  runeAt?: (Tick | null)[];
+  /** Per MapData.thickets index: next spawn tick, or null while the camp is up. */
+  campAt?: (Tick | null)[];
+  /** Per MapData.nests index: respawn tick, or null while the Nest stands. */
+  nestAt?: (Tick | null)[];
+  egg?: EggState;
 }

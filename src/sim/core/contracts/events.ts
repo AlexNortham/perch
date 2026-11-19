@@ -391,15 +391,48 @@ export interface StructureAttackEvent {
   readonly impactAt: Tick;
 }
 
+/**
+ * A Thicket creature's or the Roc's attack (GDD §§7.8, 7.12), emitted when its wind-up starts so the client can
+ * telegraph it and bots can dodge. Damage still arrives through the pipeline at `impactAt`. Emitter: sim/world.
+ * Consumers: client (VFX, audio), sim/ai.
+ */
+export interface UnitAttackEvent {
+  readonly type: 'unit.attack';
+  readonly unit: EntityId;
+  /** bite, dashBite (weasel), slam (badger), rake, flap, shriek (Roc). */
+  readonly attack: 'bite' | 'dashBite' | 'slam' | 'rake' | 'flap' | 'shriek';
+  readonly origin: Vec3;
+  readonly point: Vec3;
+  readonly impactAt: Tick;
+}
+
+/** The Roc woke (damaged while asleep), went back to sleep (reset) or enraged. Emitter: sim/world. Consumers: client, sim/ai. */
+export interface UnitStateEvent {
+  readonly type: 'unit.state';
+  readonly unit: EntityId;
+  readonly state: 'awake' | 'asleep' | 'enraged';
+}
+
 export type ObjectiveAction =
   | 'eggSpawned'
   | 'eggTaken'
   | 'eggDropped'
+  /** Untouched for its return time: back on its perch. */
+  | 'eggReturned'
   | 'eggDelivered'
   | 'rocSpawned'
+  /** The Roc died and the Ember appeared at `pos`. */
+  | 'emberDropped'
+  /** `hero` claimed it by heavy melee, or `hero` is null when it timed out to the Roc's killers. */
   | 'emberClaimed'
   | 'runeSpawned'
-  | 'runeTaken';
+  | 'runeTaken'
+  /** A Thicket camp (ObjectiveEvent.camp) spawned or respawned its creatures. */
+  | 'campSpawned'
+  /** Its last creature died; `hero` landed the blow. */
+  | 'campCleared'
+  /** A breakable interactable other than a Nest (MapData.interactables) was used or broken; `variant` names it. */
+  | 'interacted';
 
 /**
  * Emitter: sim/world. Consumers: sim/economy (Egg payout), sim/ai, telemetry, client (announcer, minimap).
@@ -415,6 +448,10 @@ export interface ObjectiveEvent {
   readonly pickup: EntityId | null;
   readonly pickupType: PickupType | null;
   readonly pos: Vec3;
+  /** Camp actions: index into MapData.thickets. */
+  readonly camp?: number;
+  /** Runes: the rune id. Interactables: the interactable kind. */
+  readonly variant?: string;
 }
 
 /** Emitter: core (from PlayerCommand.ping). Consumers: client (minimap, audio), sim/ai. */
@@ -459,6 +496,8 @@ export type SimEvent =
   | PatronDepletedEvent
   | StructureAttackEvent
   | StructureStateEvent
+  | UnitAttackEvent
+  | UnitStateEvent
   | ObjectiveEvent
   | PingEvent;
 

@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fovDeg: 90,
   bindings: DEFAULT_BINDINGS,
   volume: { master: 0.8, sfx: 1, music: 0.6 },
+  mute: false,
   quality: 'medium',
   damageNumbers: true,
 };
@@ -69,6 +70,7 @@ export function sanitizeSettings(raw: unknown): Settings {
       sfx: num(vol['sfx'], d.volume.sfx, 0, 1),
       music: num(vol['music'], d.volume.music, 0, 1),
     },
+    mute: typeof r['mute'] === 'boolean' ? r['mute'] : false,
     damageNumbers: typeof r['damageNumbers'] === 'boolean' ? r['damageNumbers'] : true,
     quality: QUALITIES.includes(r['quality'] as Quality) ? (r['quality'] as Quality) : d.quality,
   };

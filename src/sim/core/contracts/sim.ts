@@ -7,7 +7,7 @@ import type { EffectRouter } from './effects';
 import type { Entity, EntityInit, EntityKind, EntityOf, ObjectiveState, TeamState } from './entity';
 import type { EventOf, SimEvent, SimEventType } from './events';
 import type { HeroModule } from './heroes';
-import type { ItemDef } from './items';
+import type { ItemDef, ItemScores } from './items';
 import type { MapData, MapId } from './map';
 import type { PhysicsService } from './physics';
 import type { StatService } from './stats';
@@ -140,6 +140,22 @@ export interface SimOptions {
   readonly unlockAbilities?: boolean;
   /** Seeds each hero starts with; null uses economy data. Honoured by sim/economy. */
   readonly startSeeds?: number | null;
+  /**
+   * Per-flock bot shopping override for the Build Lab (D-EP-036/037): play round N's scores against round N−1's, or
+   * against random buying, in one seeded match. Absent: both flocks use src/sim/data/builds.ts at the difficulty's
+   * temperature. Honoured by sim/ai. Not for player-facing matches.
+   */
+  readonly botShopping?: Partial<Record<PlayerTeam, BotShopping>>;
+}
+
+/** How one flock's bots choose purchases (sim/ai). */
+export interface BotShopping {
+  /** Replaces the data's scores for the heroes listed; others keep the data's. */
+  readonly scores?: Readonly<Partial<Record<HeroId, ItemScores>>>;
+  /** Softmax temperature; replaces the difficulty's (0 = always the best-scoring item). */
+  readonly temperature?: number;
+  /** Uniform choice among affordable, buyable items: the random baseline. Ignores scores and temperature. */
+  readonly random?: boolean;
 }
 
 export interface SimConfig {
@@ -155,7 +171,8 @@ export interface ResolvedSimConfig {
   readonly seed: number;
   readonly map: MapId;
   readonly roster: readonly RosterSlot[];
-  readonly options: Required<Omit<SimOptions, 'structures' | 'practiceHub'>> & Pick<SimOptions, 'structures' | 'practiceHub'>;
+  readonly options: Required<Omit<SimOptions, 'structures' | 'practiceHub' | 'botShopping'>> &
+    Pick<SimOptions, 'structures' | 'practiceHub' | 'botShopping'>;
 }
 
 /** What every system receives. Everything a system may touch outside its own state is here. */

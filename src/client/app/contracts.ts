@@ -96,6 +96,8 @@ export interface Settings {
   readonly bindings: Bindings;
   /** 0..1 each. */
   readonly volume: { readonly master: number; readonly sfx: number; readonly music: number };
+  /** Silences all sound without losing the volume levels (Audio honours it). Default false. */
+  readonly mute?: boolean;
   readonly quality: Quality;
   /** Show floating damage/heal amounts. Defaults on for existing saves. */
   readonly damageNumbers?: boolean;
@@ -177,6 +179,10 @@ export interface AudioOut {
   resume(): void;
   setSettings(settings: Settings): void;
   dispose(): void;
+  /** The app shows a screen (menu music, hero-select state). Called on every screen change. */
+  onScreen?(screen: Screen): void;
+  /** Hero select: the player focused or picked this hero's card (its call). Routed from AppActions.previewHero. */
+  previewHero?(hero: HeroId): void;
 }
 
 /** The screens the app state machine shows. 'pause' overlays the match. */
@@ -218,6 +224,8 @@ export interface AppActions {
   concede(): void;
   /** Persist new settings and apply them everywhere. */
   saveSettings(settings: Settings): void;
+  /** Hero select: a card was focused or picked; audio plays that hero's call. */
+  previewHero?(hero: HeroId): void;
 }
 
 /** What a screen may show. */

@@ -82,7 +82,7 @@ export interface HealEffect {
 export interface ApplyStatusEffect {
   readonly kind: 'applyStatus';
   readonly status: StatusDef;
-  /** Overrides the status's own duration. */
+  /** Overrides the status's own duration. A resolved duration ≤ 0 applies nothing (tiers can switch a status on). */
   readonly durationS?: Magnitude;
   /** Graded statuses: scales the status's modifiers (e.g. 0.3 for a 30% slow). Default 1. */
   readonly magnitude?: Magnitude;
@@ -247,6 +247,11 @@ export interface MovementModeEffect {
   readonly onCollide?: readonly Effect[];
   /** Applied to the hero (at its position) when the mode ends. */
   readonly onEnd?: readonly Effect[];
+  /**
+   * Besides its duration, the mode ends when the hero lands and/or presses Jump. Absent keeps physics' per-mode
+   * default (glide ends on both, D-CTRL-009; toboggan on Jump, with its hop). Lets kits say it without a hook.
+   */
+  readonly endOn?: readonly ('land' | 'jump')[];
 }
 
 /** Attach the target to the source's socket for a while (Pelican's Gulp). Owner: sim/physics. */

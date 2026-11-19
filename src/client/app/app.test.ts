@@ -142,6 +142,9 @@ describe('settings store', () => {
     expect(s.volume).toEqual({ ...DEFAULT_SETTINGS.volume, music: 0.2 });
     expect(s.bindings.jump).toBe('KeyJ');
     expect(s.bindings.fire).toBe(DEFAULT_SETTINGS.bindings.fire);
+    expect(s.mute).toBe(false);
+    expect(sanitizeSettings({ mute: true }).mute).toBe(true);
+    expect(sanitizeSettings({ mute: 'yes' }).mute).toBe(false);
   });
 });
 

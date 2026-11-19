@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Button, HERO_IDS, IDLE_COMMAND } from './core/contracts';
+import { Button, HERO_IDS, IDLE_COMMAND, ViewFlag } from './core/contracts';
 import type { HeroCommand, Sim } from './core/contracts';
 import { allBotRoster, createSim, humanRoster } from './index';
 
@@ -122,6 +122,29 @@ describe('createSim', () => {
     expect(before.tick).toBe(0);
     expect(sim.view.tick).toBe(11);
     expect(sim.view).toBe(sim.view);
+  });
+
+  it('projects castSlot, variants, camps, the Roc flags and detached objective timers (W4.5)', async () => {
+    const sim = await createSim({ seed: 4, map: 'arena', roster: humanRoster(4, 'owl', { bots: 0 }) });
+    const h = sim.ctx.store.getKind(1, 'hero');
+    if (!h) throw new Error('no hero');
+    h.abilities.casting = 2;
+    const roc = sim.ctx.store.spawn({
+      kind: 'unit', team: 'neutral', pos: { x: 0, y: 0, z: 9 }, vel: { x: 0, y: 0, z: 0 }, yaw: 0, radius: 2,
+      unit: { type: 'roc', lane: null, height: 9, owner: null, summon: null, target: null, attacking: false, camp: 3, asleep: true, enraged: true },
+      health: { hp: 1, talonShield: 0, songShield: 0, barrier: 0, dead: false, respawnAt: null, inCombatUntil: 0 },
+      stats: sim.ctx.stats.create({}), statuses: [],
+    });
+    sim.ctx.objectives.campAt = [null, 600];
+    sim.step();
+    const v = sim.view;
+    const rocView = v.entities.find((e) => e.id === roc.id);
+    expect(v.entities.find((e) => e.id === 1)?.castSlot).toBe(2);
+    expect(rocView?.camp).toBe(3);
+    expect((rocView?.flags ?? 0) & (ViewFlag.Asleep | ViewFlag.Enraged)).toBe(ViewFlag.Asleep | ViewFlag.Enraged);
+    expect(v.objectives.campAt).toEqual([null, 600]);
+    sim.ctx.objectives.campAt[0] = 900;
+    expect(v.objectives.campAt).toEqual([null, 600]);
   });
 });
 
