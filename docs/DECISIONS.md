@@ -634,3 +634,13 @@ steps needs no duplicate fields and no code change at the widening.
 them.
 **Why:** mapping them to `disarmed` and `silenced` would show as those states on the HUD and in the view flags, and
 silence ends channels, so a mode started by a channelled ability (Burrow) would end its own channel.
+
+### D-CAM-001 · 19/11/2026 — Pull-in moves the camera along the aim ray; ramps are wedges
+**Decision:** collision pull-in shifts the camera along the aim ray's own direction by the amount the pivot-to-camera
+sphere cast is blocked, rather than along the pivot-to-camera line; ramps are tested as wedges, not boxes.
+**Why:** the crosshair then always points along the sim's aim ray. Ramp boxes would contain the hero standing on the slope.
+
+### D-CAM-002 · 19/11/2026 — Resume re-locks the pointer both ways
+**Decision:** `setEnabled(true)` requests the pointer lock (works when resume came from a click) and a click on the
+stage re-locks if the browser refused. Esc is reported once whether it arrives as a keydown, a lock loss or both.
+**Why:** Esc releases the lock, and a request without a user gesture is refused.
