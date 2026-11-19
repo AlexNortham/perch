@@ -59,6 +59,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Nests (§7.9)', { timeout:
 
   it('§7.9 solidity: Twig and Keepsake Nests never block movement; Woven Nests are solid, 1.2 m wide and 1.0 m tall', async () => {
     const { sb } = await standing();
+    expect(nests(sb, 'twig').length + nests(sb, 'keepsake').length + nests(sb, 'woven').length, 'the Nests exist').toBe(100);
     for (const n of [...nests(sb, 'twig'), ...nests(sb, 'keepsake')]) expect(n.structure.solid, n.structure.variant).toBe(false);
     for (const n of nests(sb, 'woven')) {
       expect(n.structure.solid).not.toBe(false);
@@ -122,6 +123,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Nests (§7.9)', { timeout:
   it('§7.9 Woven drops always: a seed sprig worth 48 + 3.6 per minute, plus a 25% crumb roll', async () => {
     const { sb, hero } = await standing();
     const all = nests(sb, 'woven');
+    expect(all, '16 Woven Nests stand').toHaveLength(16);
     for (const n of all) {
       standBeside(sb, hero, n.pos);
       heavyMelee(sb, hero);
