@@ -72,7 +72,11 @@ describe('wiki coverage', () => {
     const problems: string[] = [];
     for (const page of pages) {
       const html = read(page);
-      for (const m of html.matchAll(/<img\b[^>]*>/g)) if (!/\salt="[^"]+"/.test(m[0])) problems.push(`${page}: image without alt text`);
+      for (const m of html.matchAll(/<img\b[^>]*>/g)) {
+        if (!/\salt="[^"]+"/.test(m[0])) problems.push(`${page}: image without alt text`);
+        const src = /\ssrc="([^"]+)"/.exec(m[0])?.[1];
+        if (src && !/^(https?:|data:)/.test(src) && !existsSync(resolve(out, dirname(page), src))) problems.push(`${page}: image ${src} does not exist`);
+      }
       for (const m of html.matchAll(/\shref="([^"#]*)(?:#([^"]*))?"/g)) {
         const [, target = '', anchor] = m;
         if (/^(https?:|mailto:|data:)/.test(target)) continue;
