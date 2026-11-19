@@ -1750,3 +1750,17 @@ e2e 102s · check 141s`.
 **Notes:** the existing `siege.test.ts` and `controller.test.ts` still press Interact; the Physics owner moves them to
 held Jump with the latch. If a suite misreads the GDD, say so here rather than editing it (README rule). **Blocked:**
 nothing. **Interface requests:** none.
+
+### 2026-11-19 · Economy & Items engineer B (W5a, Song) · ECON
+**Done:** the 17 Song items not in the Stage 3 shop, as typed `ItemDef` data in `src/sim/data/items-song.ts`
+(`SONG_ITEMS`, spread into `ITEMS`), with Crescendo, Echo Chamber's repeat and Boundless Song's ultimate cooldown in
+`src/sim/items/song/index.ts` (called from `createItemSystem`) and six tests in `song.test.ts`. Engineer A also
+creates `items-song.ts`; the EP reconciles the two at the merge. Two one-line hooks touch A's files (`ITEMS` spread,
+`createSongItems(ctx)`).
+**Passing now:** every Song stats row, the catalogue-shape rows, Nettle Sting, Encore and Whirlwind Knot.
+**Waiting on A's engine (data is ready):** Warbler's Trill and Skylark Cadence (`TriggerDef.uses`), Blight Spores and
+Rookery Dirge (`currentHpPct`, `maxHpPct`, `ItemDef.aura`), Muting Whistle, Gloom Curse and Tangle Pod (unit and point
+targeting of actives: `affects`, range, aim point). `market.test.ts` pins the 16-item list and now fails.
+**D-ECON-B-001:** Crescendo and Echo Chamber add a second Song hit (20% and 25% of the first), so the target's resists
+apply to it again. **Interface requests (engineer A):** a combat-side outgoing multiplier for Crescendo, and a
+per-slot cooldown-reduction stat for Boundless Song if the helper's refund is not wanted.
