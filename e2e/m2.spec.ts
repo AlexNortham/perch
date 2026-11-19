@@ -10,6 +10,8 @@ const LYRE_ABILITIES = HEROES.lyrebird.def.abilities;
 const INSPECT = DEFAULT_BINDINGS.upgradeModifier;
 const TARGET_RESET_TIMEOUT_MS = 25_000;
 const MAX_ACTION_TIMEOUT_MS = 5_000;
+// Five ordinary Echo Lute hits exceed what the dummy's 2 HP/s passive regeneration could restore during the reset wait.
+const DAMAGE_FOR_RESET = 60;
 const AP = (page: Page) => page.locator('.pu-ap');
 const seeds = (page: Page) => page.locator('.pu-seeds');
 const tier = (page: Page, slot: number) => page.locator('.pu-slot').nth(slot).locator('.tiers .on');
@@ -68,10 +70,14 @@ test('Practice Hub from the menu: Lyrebird shoots and heals twice with a reset b
       await expect.poll(() => hp(enemy, 'aria-valuenow'), {
         message: `enemy dummy resets to full for trial ${attempt}`, timeout: TARGET_RESET_TIMEOUT_MS,
       }).toBe(enemyMax);
-      await fire(page);
-      await expect.poll(() => hp(enemy, 'aria-valuenow'), {
-        message: `ordinary weapon fire lowers enemy HP in trial ${attempt}`, timeout: MAX_ACTION_TIMEOUT_MS,
-      }).toBeLessThan(enemyMax);
+      await page.mouse.down();
+      try {
+        await expect.poll(() => hp(enemy, 'aria-valuenow'), {
+          message: `ordinary weapon fire lowers enemy HP in trial ${attempt}`, timeout: MAX_ACTION_TIMEOUT_MS,
+        }).toBeLessThan(enemyMax - DAMAGE_FOR_RESET);
+      } finally {
+        await page.mouse.up();
+      }
     }
     await strafeToDummy(page, -1, spawn.pos.x);
     await expect(ally, 'allied dummy publishes a live HP bar').toBeVisible();
@@ -117,11 +123,17 @@ test('inspect upgrades: pointer release, descriptions, one AP transaction, quick
   for (const ability of LYRE_ABILITIES) {
     const card = panel.getByRole('button', { name: new RegExp(ability.name, 'i') }).first();
     const description = panel.getByText(ability.description, { exact: false });
+    const nextTier = panel.getByText(ability.upgrades[0]!.description, { exact: false });
     await card.hover();
     await expect(description, `${ability.name} description on hover`).toBeVisible();
+    await expect(nextTier, `${ability.name} first-tier effect on hover`).toBeVisible();
     await page.mouse.move(0, 0);
     await card.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(card).toBeFocused();
     await expect(description, `${ability.name} description on keyboard focus`).toBeVisible();
+    await expect(nextTier, `${ability.name} first-tier effect on keyboard focus`).toBeVisible();
   }
 
   const mended = LYRE_ABILITIES[0]!.name;
