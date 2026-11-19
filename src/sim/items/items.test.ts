@@ -97,7 +97,7 @@ it('Flurry keeps its current cooldown across a sale, including an explicit item 
   expect(h.inventory.items[0]!.readyAt).toBe(0);
 });
 
-it.runIf(process.env.PERCH_PENDING === '1')('Close Talons boosts a real gun hit only within 15 m', async () => {
+it('Close Talons boosts a real gun hit only within 15 m', async () => {
   const { sb, buyer, foe, h, buy, lane } = await shop();
   buy('close-talons');
   for (const range of [8, 18]) {
@@ -112,7 +112,7 @@ it.runIf(process.env.PERCH_PENDING === '1')('Close Talons boosts a real gun hit 
   }
 });
 
-it.runIf(process.env.PERCH_PENDING === '1')('Whetstone adds its flat damage once across a mixed shotgun volley', async () => {
+it('Whetstone adds its flat damage once across a mixed shotgun volley', async () => {
   const { sb, buyer, foe, h, buy, lane } = await shop('albatross');
   buy('beak-whetstone');
   lane(2.5);

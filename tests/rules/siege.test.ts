@@ -50,7 +50,7 @@ function hitsFrom(sb: Sandbox, source: EntityId, target: EntityId) {
   return sb.eventsOf('damage.applied').filter((e) => e.source === source && e.target === target);
 }
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W4 siege objectives', () => {
+describe('W4 siege objectives', () => {
   it('§7 §§6.6/16: spawns both flocks from their anchors and keeps tower bodies at least 2 m under the rider', async () => {
     const { sb } = await siege();
     const actual = sb.ctx.store.list('structure');

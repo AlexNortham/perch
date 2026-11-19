@@ -1,7 +1,7 @@
 # tests/
 
 QA's cross-system suites (D-EP-010). Unit tests live next to their code (`src/**/*.test.ts`); browser tests are in
-`e2e/`. Everything here runs in `npm test` (and so in `npm run check`) except the pending suites.
+`e2e/`. Everything here runs in `npm test` (and so in `npm run check`).
 
 | Path | What |
 |---|---|
@@ -9,19 +9,19 @@ QA's cross-system suites (D-EP-010). Unit tests live next to their code (`src/**
 | `contracts/damage.test.ts` | Always on (Combat, since the W2 gate). The GDD §5.2 pipeline step by step, resists and shred, beak shots, falloff, shields, structure rules, lifesteal, kill credit, assists, respawn. |
 | `rules/pods.test.ts` | Always on. GDD §8.2: instant share, pod rise, ripe window, secure, deny, wither, no-hero split, and real shots securing or denying at 18 m. |
 | `rules/fledglings.test.ts` | Always on. GDD §7.1: wave timing and composition, formation, marching, targeting rules 1–4, leash, attacks. One test runs 20 sim minutes. |
-| `rules/siege.test.ts` | W4 pending. GDD §§5.11, 7 and 15: structure gates, real targeting and damage, Updraft clearance, Brood Ward, and both Patron phases. |
-| `rules/market.test.ts` | W4 pending. GDD §8: real bounties, lifetime earnings, levels, AP, inventory, flex slots and shop transactions. |
-| `rules/practice.test.ts` | Fresh Practice AP and normal match progression always run. The ordinary weapon and support-cast target reset checks are W4 pending. |
-| `helpers/sandbox.ts` | The ability sandbox (below). |
+| `rules/siege.test.ts` | Always on (since W4 integration). GDD §§5.11, 7 and 15: structure gates, real targeting and damage, Updraft clearance, Brood Ward, and both Patron phases. |
+| `rules/market.test.ts` | Always on (since W4 integration). GDD §8: real bounties, lifetime earnings, levels, AP, inventory, flex slots and shop transactions. |
+| `rules/practice.test.ts` | Always on (since W4 integration). Fresh Practice AP, normal match progression, and the ordinary weapon and support-cast target resets. || `helpers/sandbox.ts` | The ability sandbox (below). |
 | `helpers/lanes.ts` | Lane polyline maths: progress from a gate, distance from the path, points along it. |
 
 ## Pending suites
 
 Suites written test-first (D-EP-006) are gated with `describe.runIf(process.env.PERCH_PENDING === '1')`, so they are
-skipped in `npm run check` until their system lands. Run one with:
+skipped in `npm run check` until their system lands. None in `tests/` or `src/` is gated after W4 integration. Run a
+gated one with:
 
 ```bash
-PERCH_PENDING=1 npx vitest run tests/rules/{siege,market,practice}.test.ts
+PERCH_PENDING=1 npx vitest run tests/rules/<suite>.test.ts
 ```
 
 Every assertion names the GDD section it checks. If you think an assertion misreads the GDD, say so in your Log entry

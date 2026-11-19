@@ -34,8 +34,6 @@ function shoot(sb: Sandbox, me: EntityId, foe: EntityId): void {
   sb.fire(me, false);
   sb.step(2);
 }
-/** Assertions that wait for Combat's weaponMod.gunDamage (W4-contract-followups): run with PERCH_PENDING=1. */
-const PENDING = process.env.PERCH_PENDING === '1';
 const slot = (sb: Sandbox, me: EntityId, i: number) => sb.hero(me).abilities.slots[i];
 
 describe('Hornbill', () => {
@@ -99,10 +97,8 @@ describe('Hornbill', () => {
       sb.fire(me, false);
       const hits = gunHits(sb, me, foe);
       expect(hits.length).toBeGreaterThanOrEqual(7);
-      if (PENDING) {
-        expect(hits.slice(0, 6).every((h) => Math.abs(h.amount - 42) < 0.5)).toBe(true); // weaponMod.gunDamage: Combat W4
-        expect(hits[6]?.amount).toBeCloseTo(30, 1);
-      }
+      expect(hits.slice(0, 6).every((h) => Math.abs(h.amount - 42) < 0.5)).toBe(true); // weaponMod.gunDamage
+      expect(hits[6]?.amount).toBeCloseTo(30, 1);
       expect(applied).toHaveLength(6);
       expect(applied[0]).toBeCloseTo(1.5, 1);
       expect(slot(sb, me, 0)?.cooldownTicks).toBe(14 * TICK_RATE);
@@ -188,10 +184,10 @@ describe('Hornbill', () => {
       sb.step(2);
       expect(sb.statuses(foe)).toEqual(expect.arrayContaining(['hornbill.marked', 'reveal']));
       shoot(sb, me, foe);
-      // 35 m is past the 22 m falloff start; ignoreFalloff already works, weaponMod.gunDamage is Combat's W4 work.
+      // 35 m is past the 22 m falloff start: ignoreFalloff and weaponMod.gunDamage both apply.
       const marked = gunHits(sb, me, foe)[0]?.amount ?? 0;
       expect(marked).toBeGreaterThan(29.9);
-      if (PENDING) expect(marked).toBeCloseTo(42, 0);
+      expect(marked).toBeCloseTo(42, 0);
       expect(slot(sb, me, 3)?.cooldownTicks).toBe(90 * TICK_RATE);
     });
 

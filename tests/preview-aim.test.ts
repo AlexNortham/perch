@@ -59,7 +59,7 @@ describe('preview gun direction and tracer coverage', () => {
     expect(front.impacts.some(({ pos }) => Math.abs(pos.z - (-1)) < 0.01)).toBe(true);
   });
 
-  it.runIf(process.env.PERCH_PENDING === '1')('a few terrain hits do not hide the open aim of the whole shotgun blast', async () => {
+  it('a few terrain hits do not hide the open aim of the whole shotgun blast', async () => {
     const { fired, impacts, tracers } = await shot('albatross', { x: 0, y: 0, z: -10 }, -shallowPitch);
     expect(impacts.length, 'some pellets hit the ground').toBeGreaterThan(0);
     expect(impacts.length, 'some pellets miss').toBeLessThan(8);

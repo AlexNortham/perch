@@ -28,7 +28,7 @@ it('§12.12 Practice starts with four base skills and 32 AP, and a fresh siege h
   expect(fresh.abilities.slots.map((s) => s.unlocked)).toEqual([true, true, true, false]);
 });
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W4 Practice target reset', () => {
+describe('W4 Practice target reset', () => {
   it('§12.12 the enemy takes real weapon damage again after returning to its mark at full health', async () => {
     const sb = await practice();
     const [user, , enemy] = sb.heroes as [number, number, number];
