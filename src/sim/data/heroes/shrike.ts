@@ -49,7 +49,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'shrike.thornLarder',
     name: 'Thorn Larder',
-    description: 'Plant a hidden thorn trap. The first enemy hero near it is damaged, rooted and revealed.',
+    description: 'Plant a thorn trap (arms after 0.75 s, lasts 60 s, at most 4). The first enemy hero within 1.5 m takes 80 + 0.9 x SP Song damage, is rooted 1 s and revealed 4 s. Two charges.',
     targeting: 'point',
     range: 20,
     cooldownS: 14,
@@ -75,8 +75,8 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
       },
     ],
     upgrades: [
-      { description: '+1 charge', charges: 1 },
-      { description: 'Root 1.5 s', values: { root: 0.5 } },
+      { description: '+1 charge (3 charges)', charges: 1 },
+      { description: 'Root lasts 1.5 s', values: { root: 0.5 } },
       { description: 'Trigger bursts in a 4 m radius and hits every enemy hero in it', values: { burst: 2.5 } },
     ],
   },
@@ -84,7 +84,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'shrike.briarPatch',
     name: 'Briar Patch',
-    description: 'A thorny zone that damages and slows enemies inside.',
+    description: 'A 5 m zone for 6 s: enemies inside take 25 + 0.3 x SP Song damage a second and are slowed 30%.',
     targeting: 'point',
     range: 25,
     cooldownS: 18,
@@ -92,7 +92,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     values: { radius: 5 },
     effects: [zone('radius', 6, ENEMIES, [song(12.5, 0.15), apply(SLOW, 0.6, 0.3)])],
     upgrades: [
-      { description: '+1.5 m radius', values: { radius: 1.5 } },
+      { description: '+1.5 m radius (6.5 m)', values: { radius: 1.5 } },
       { description: '-4 s cooldown', cooldownS: -4 },
       // A tier that adds to a lasting zone appends a parallel zone of the same size (D-ABIL-006).
       { description: 'Enemies inside are grounded and take +15% Song damage', effects: [zone('radius', 6, ENEMIES, [apply(GROUNDED, 0.6), apply(SONG_AMP, 0.6, 0.15)])] },
@@ -102,7 +102,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'shrike.impalingBolt',
     name: 'Impaling Bolt',
-    description: 'A skillshot that knocks the first hero back; a wall pins and stuns them.',
+    description: 'A bolt (35 m): the first enemy hero hit takes 70 + 0.8 x SP Song damage and is knocked back 6 m. If they hit a wall they are pinned, stunned 1.25 s and take 40 + 0.4 x SP more.',
     targeting: 'direction',
     range: 35,
     cooldownS: 16,
@@ -111,7 +111,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     values: { damage: 70, pinStun: 1.25, singleRange: 35, pierceRange: 0 },
     effects: [boltProjectile('singleRange'), boltProjectile('pierceRange')],
     upgrades: [
-      { description: '+30 damage', values: { damage: 30 } },
+      { description: '+30 damage (100 + 0.8 x SP)', values: { damage: 30 } },
       { description: '-4 s cooldown', cooldownS: -4 },
       { description: 'Pierces all heroes; pin stun 2.0 s', values: { pinStun: 0.75, singleRange: -35, pierceRange: 35 } },
     ],
@@ -120,7 +120,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'shrike.butchersRing',
     name: "Butcher's Ring",
-    description: 'A ring of thorns that roots and damages heroes who cross it.',
+    description: 'After 0.8 s a ring of thorns (9 m radius) stands for 6 s. A hero crossing it takes 150 + 1.4 x SP Song damage and is rooted 1.25 s (once per 1.5 s). Enemies inside have 40% heal reduction. It does not block shots.',
     targeting: 'point',
     range: 25,
     cooldownS: 110,
@@ -146,7 +146,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
       },
     ],
     upgrades: [
-      { description: '+2 s duration', values: { duration: 2 } },
+      { description: '+2 s duration (8 s)', values: { duration: 2 } },
       { description: '-25 s cooldown', cooldownS: -25 },
       {
         description: 'Enemies inside also take 30 + 0.3 x SP Song damage per second',

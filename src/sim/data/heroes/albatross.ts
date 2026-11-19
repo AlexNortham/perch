@@ -56,7 +56,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'albatross.galeShield',
     name: 'Gale Shield',
-    description: 'A wind wall stands in front of you, turning with your aim, and blocks enemy shots until it breaks.',
+    description: 'A wind wall (6 x 3 m, 400 + 3 x SP HP) stands 2 m ahead for 4 s, turning with your aim, and blocks enemy shots until it breaks. You move 15% slower while it stands.',
     targeting: 'self',
     range: 0,
     cooldownS: 20,
@@ -83,7 +83,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
       },
     ],
     upgrades: [
-      { description: '+200 wall HP', values: { hp: 200 } },
+      { description: '+200 wall HP (600 + 3 x SP)', values: { hp: 200 } },
       { description: '-5 s cooldown', cooldownS: -5 },
       { description: 'When it expires or breaks the wall bursts forward 8 m, damaging and knocking back enemies', values: { burst: 8 } },
     ],
@@ -92,7 +92,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'albatross.wingSlam',
     name: 'Wing Slam',
-    description: 'Dash forward, knocking enemies you pass into the air.',
+    description: 'Dash 12 m in 0.35 s along your aim. Enemies you pass through take 75 + 0.7 x SP Song damage and are knocked up for 0.6 s.',
     targeting: 'direction',
     range: 12,
     cooldownS: 15,
@@ -105,13 +105,14 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
         durationS: 0.35,
         dir: 'aim',
         passThrough: true,
-        arcHeight: 0, // flat: an aim dash otherwise keeps the aim's pitch (D-SYS-003)
+        arcHeight: 0, // flat today (D-SYS-003); maxPitchUpDeg is the contract's cap (0 = flat) once Physics honours it
+        maxPitchUpDeg: 0,
         // 1.125 m up is 0.6 s in the air at 25 m/s² gravity.
         onHit: [song('damage', 0.7), { kind: 'displace', mode: 'up', distance: 1.125 }],
       },
     ],
     upgrades: [
-      { description: '+25 damage', values: { damage: 25 } },
+      { description: '+25 damage (100 + 0.7 x SP)', values: { damage: 25 } },
       { description: '-3 s cooldown', cooldownS: -3 },
       { description: '2 charges', charges: 1 },
     ],
@@ -120,7 +121,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'albatross.saltHide',
     name: 'Salt Hide',
-    description: 'For 6 s you resist Talon and Song damage and heal 10% of your max HP.',
+    description: 'For 6 s you have +30% Talon and Song resist and heal 10% of your max HP over the duration.',
     targeting: 'self',
     range: 0,
     cooldownS: 30,
@@ -129,7 +130,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     values: {},
     effects: [resist('albatross.saltHide', 'Salt Hide', 0.3, 6)],
     upgrades: [
-      { description: '+10% to both resists', effects: [resist('albatross.saltHide.t1', 'Salt Hide', 0.1, 6)] },
+      { description: '+10% to both resists (40%)', effects: [resist('albatross.saltHide.t1', 'Salt Hide', 0.1, 6)] },
       { description: '-8 s cooldown', cooldownS: -8 },
       {
         description: 'Unstoppable for the first 2 s; allies within 8 m get half the resists',
@@ -152,7 +153,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'albatross.tempestDive',
     name: 'Tempest Dive',
-    description: 'Leap to a point and slam down: damage, a stun and a pull toward the centre. Unstoppable in the air.',
+    description: 'Leap up to 30 m in 0.9 s (unstoppable in the air) and slam: enemies within 8 m take 180 + 1.5 x SP Song damage, are stunned 1.25 s and pulled 3 m toward the centre.',
     targeting: 'point',
     range: 30,
     cooldownS: 120,
@@ -160,9 +161,9 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     values: { radius: 8, stun: 1.25 },
     effects: [apply(UNSTOPPABLE, 0.9), TEMPEST_LEAP],
     upgrades: [
-      { description: '+2 m radius', values: { radius: 2 } },
-      { description: 'Stun +0.5 s', values: { stun: 0.5 } },
-      { description: '-35 s cooldown', cooldownS: -35 },
+      { description: '+2 m radius (10 m)', values: { radius: 2 } },
+      { description: 'Stun +0.5 s (1.75 s)', values: { stun: 0.5 } },
+      { description: '-35 s cooldown (85 s)', cooldownS: -35 },
     ],
   },
 ];

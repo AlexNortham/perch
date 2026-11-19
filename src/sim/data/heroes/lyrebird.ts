@@ -51,7 +51,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     channelS: 0,
     id: 'lyrebird.mendedSong',
     name: 'Mended Song',
-    description: 'Heal an ally (or yourself) at once and then over 4 s.',
+    description: 'Heal the ally in your sights (you if none) 100 + 1.0 x SP at once and 50 + 0.4 x SP more over 4 s. Two charges.',
     targeting: 'unit',
     affects: ALLY_HEROES,
     range: 30,
@@ -60,7 +60,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     values: { heal: 100 },
     effects: [{ kind: 'heal', amount: { of: 'heal', song: 1 } }, { kind: 'heal', amount: { of: 50, song: 0.4 }, overS: 4 }],
     upgrades: [
-      { description: '+40 instant heal', values: { heal: 40 } },
+      { description: '+40 instant heal (140 + 1.0 x SP)', values: { heal: 40 } },
       {
         description: 'Also +15% Talon resist for 4 s',
         effects: [{ kind: 'statMod', id: 'lyrebird.mended', name: 'Mended', stats: [{ stat: 'talonResist', op: 'add', value: 0.15 }], durationS: 4 }],
@@ -73,7 +73,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     channelS: 0,
     id: 'lyrebird.echoDouble',
     name: 'Echo Double',
-    description: 'A decoy of you runs along your aim and shoots the nearest enemy while you vanish for 2 s.',
+    description: 'A decoy of you (150 + SP HP) runs along your aim for 6 s and shoots the nearest enemy within 25 m (4.8 Talon a shot) while you are invisible for 2 s.',
     targeting: 'self',
     range: 0,
     cooldownS: 22,
@@ -97,7 +97,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
       apply(INVISIBILITY, 2),
     ],
     upgrades: [
-      { description: 'Decoy HP +150', values: { hp: 150 } },
+      { description: 'Decoy HP +150 (300 + SP)', values: { hp: 150 } },
       { description: '2 decoys, 15° either side of your aim', values: { decoys: 1 } },
       { description: 'Decoys burst on death or expiry: 4 m radius, 80 + 0.8 x SP Song damage, disarm 1.5 s', values: { burst: 4 } },
     ],
@@ -107,7 +107,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     channelS: 0,
     id: 'lyrebird.discord',
     name: 'Discord',
-    description: 'A burst at a point damages and disarms enemies.',
+    description: 'A burst within 25 m: enemies in 6 m take 70 + 0.7 x SP Song damage and are disarmed 1.5 s.',
     targeting: 'point',
     range: 25,
     cooldownS: 18,
@@ -115,8 +115,8 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     values: { radius: 6, disarm: 1.5 },
     effects: [burst('radius', ENEMIES, [song(70, 0.7), apply(DISARM, 'disarm')])],
     upgrades: [
-      { description: '+1.5 m radius', values: { radius: 1.5 } },
-      { description: 'Disarm +0.75 s', values: { disarm: 0.75 } },
+      { description: '+1.5 m radius (7.5 m)', values: { radius: 1.5 } },
+      { description: 'Disarm +0.75 s (2.25 s)', values: { disarm: 0.75 } },
       { description: 'Enemies hit take +20% damage from all sources for 4 s', effects: [burst('radius', ENEMIES, [apply(DAMAGE_AMP, 4, 0.2)])] },
     ],
   },
@@ -124,7 +124,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'lyrebird.grandChorus',
     name: 'Grand Chorus',
-    description: 'Channel a song: allies nearby heal and resist, enemies slow. You move slowly and cannot shoot.',
+    description: 'Channel for 5 s: every second allies within 14 m heal 45 + 0.4 x SP and get +20% Talon and Song resist, and enemies are slowed 20%. You move at 60% speed and cannot shoot.',
     targeting: 'self',
     range: 14,
     cooldownS: 120,
@@ -145,7 +145,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
       { kind: 'area', shape: { kind: 'sphere', radius: 'radius' }, durationS: 0, attach: 'source', affects: ENEMIES, effects: [apply(SLOW, 1.1, 0.2)] },
     ],
     upgrades: [
-      { description: '+4 m radius', values: { radius: 4 } },
+      { description: '+4 m radius (18 m)', values: { radius: 4 } },
       {
         description: 'Allies also get +15% fire rate',
         effects: [{ kind: 'area', shape: { kind: 'sphere', radius: 'radius' }, durationS: 5, attach: 'source', affects: ALLY_HEROES, effects: [CHORUS_RATE] }],

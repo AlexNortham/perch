@@ -69,7 +69,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'kingfisher.plunge',
     name: 'Plunge',
-    description: 'A diving dash strike. Stops on the first enemy hero it meets, then fires faster for 3 s.',
+    description: 'Dash 14 m in 0.3 s along your aim. It stops on the first enemy hero: 80 + 0.8 x SP Song damage, then +25% fire rate for 3 s. Two charges.',
     targeting: 'direction',
     range: 14,
     cooldownS: 12,
@@ -82,6 +82,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
         distance: 14,
         durationS: 0.3,
         dir: 'aim',
+        maxPitchUpDeg: 30, // a dive keeps its downward pitch; upward is capped as for any aim dash
         stopOnHit: true,
         onHit: [
           song('damage', 0.8),
@@ -94,14 +95,14 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     upgrades: [
       { description: '+30 damage', values: { damage: 30 } },
       { description: '-3 s cooldown', cooldownS: -3 },
-      { description: 'A hero hit is slowed 40% for 2 s and a charge is refunded', values: { slowS: 2, refund: 12 } },
+      { description: 'A hero hit is slowed 40% for 2 s and you get a charge back', values: { slowS: 2, refund: 12 } },
     ],
   },
   {
     ...base,
     id: GLINT_ID,
     name: 'Glint',
-    description: 'Turn invisible and quick. Leaving invisibility starts Ambush: +40% damage for 1.5 s.',
+    description: 'Invisible for 5 s with +25% move speed. Leaving invisibility (attacking, casting or timing out) starts Ambush: +40% damage on all hits for 1.5 s.',
     targeting: 'self',
     range: 0,
     cooldownS: 28,
@@ -118,17 +119,17 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'kingfisher.spearBill',
     name: 'Spear Bill',
-    description: 'Lunge and stab: bonus damage to wounded targets and a bleed.',
+    description: 'Lunge 5 m and stab: 110 + 1.0 x SP Song damage (+50% below 40% HP) and a bleed of 15 + 0.15 x SP Song damage a second for 4 s.',
     targeting: 'direction',
     range: 5,
     cooldownS: 10,
     charges: 1,
     // Two stabs, one on at a time: the 40% one, and from T2 the 50% one (the other drops to radius 0).
     values: { damage: 110, bleed: 4, radius40: 1, radius50: 0 },
-    effects: [{ kind: 'dash', distance: 5, durationS: 0.15, dir: 'aim', arcHeight: 0, onArrive: [stab('radius40', 0.4), stab('radius50', 0.5)] }],
+    effects: [{ kind: 'dash', distance: 5, durationS: 0.15, dir: 'aim', arcHeight: 0, maxPitchUpDeg: 0, onArrive: [stab('radius40', 0.4), stab('radius50', 0.5)] }],
     upgrades: [
-      { description: 'Bleed +2 s', values: { bleed: 2 } },
-      { description: 'Execute threshold 50%', values: { radius40: -1, radius50: 1 } },
+      { description: 'Bleed lasts 6 s', values: { bleed: 2 } },
+      { description: 'The bonus applies below 50% HP', values: { radius40: -1, radius50: 1 } },
       { description: 'Killing a hero resets Spear Bill and Plunge' }, // the hook
     ],
   },
@@ -136,7 +137,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'kingfisher.riverstrike',
     name: 'Riverstrike',
-    description: 'Teleport behind a hero and strike. A kill soon after refunds half the cooldown.',
+    description: 'Target an enemy hero within 30 m: after a 0.5 s cast (a stun cancels it) you appear 1.5 m behind them and strike for 220 + 1.6 x SP Song damage plus 12% of their missing HP. If they die within 3 s, half the cooldown comes back.',
     targeting: 'unit',
     affects: ENEMY_HEROES,
     range: 30,
@@ -152,9 +153,9 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
       { kind: 'damage', amount: { of: 'damage', song: 1.6 }, type: 'song', missingHpPct: 0.12 },
     ],
     upgrades: [
-      { description: '+10 m range', range: 10 },
+      { description: '+10 m range (40 m)', range: 10 },
       // 12% → 18%: a second hit of the extra 6% (a number until the W3.5 round makes missingHpPct a Magnitude).
-      { description: 'Missing-HP part 18%', effects: [{ kind: 'damage', amount: 0, type: 'song', missingHpPct: 0.06 }] },
+      { description: 'Missing-HP part rises to 18%', effects: [{ kind: 'damage', amount: 0, type: 'song', missingHpPct: 0.06 }] },
       { description: 'The target is silenced 1.5 s and you turn invisible 1.5 s after the strike', effects: [apply(SILENCE, 1.5)], selfEffects: [STRIKE_VANISH] },
     ],
   },

@@ -151,6 +151,36 @@ describe('Albatross', () => {
     });
   });
 
+  describe('Gale Shield, runtime (W3 follow-up)', () => {
+    it('blocks an enemy gun: shots from behind the wall hurt the wall, not you', async () => {
+      const { sb, me, rest } = await setup([{ hero: 'pelican', at: AHEAD(12), team: 'dusk' }]);
+      const gunner = rest[0] as EntityId;
+      sb.cast(me, 0);
+      sb.step(2);
+      const [wall] = walls(sb);
+      const hp = sb.health(me).hp;
+      const wallHp = wall?.health.hp ?? 0;
+      sb.aimAt(gunner, me, 'body');
+      sb.fire(gunner);
+      sb.step(TICK_RATE / 2);
+      sb.fire(gunner, false);
+      expect(sb.health(me).hp).toBe(hp);
+      expect(wall?.health.hp ?? 0).toBeLessThan(wallHp);
+    });
+
+    it('T3 burst goes the way the wall ended up facing, not the way you cast', async () => {
+      const { sb, me, rest } = await setup([{ hero: 'pelican', at: { x: -6, y: 0, z: 0 }, team: 'dusk' }], [3, 0, 0, 0]);
+      const foe = rest[0] as EntityId;
+      sb.place(me, { x: -14, y: 0, z: 0 });
+      sb.cast(me, 0);
+      sb.step(2);
+      sb.look(me, Math.PI / 2); // a quarter turn right: the wall follows and faces +x
+      sb.step(TICK_RATE * 5);
+      expect(hitsOn(sb, me, foe, 'albatross.galeShield')).toHaveLength(1);
+      expect(sb.entity(foe).pos.x).toBeGreaterThan(-2);
+    });
+  });
+
   describe('Wing Slam', () => {
     it('dashes 12 m, hitting enemies on the way for 75 and knocking them up', async () => {
       const { sb, me, rest } = await setup([{ hero: 'pelican', at: AHEAD(6) }]);
