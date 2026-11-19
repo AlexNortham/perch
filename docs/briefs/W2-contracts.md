@@ -27,7 +27,14 @@ requests. Your job is to settle them so wave 3 starts from one agreed set of con
    angles and axes), seed handling (seeds cut to 32 bits), the command staleness check by object identity that drops
    bot button presses, per-tick array allocation in the spatial hash and the store, and the telemetry beak-shot
    percentage.
-5. **Write the follow-up list** `docs/briefs/W3-contract-followups.md`: for each accepted change that an owner must
+5. **Practice match (Stage 2 gate, D-EP-017).** Play from the menu must drop the player into a lane as a bird before Bot
+   AI exists (wave 5). Define it in `src/client/app` and the `createSim` config: Menu → Play → hero select → match.
+   Hero select shows all 24 heroes, but only heroes whose kits are implemented can be picked: give the UI a way to know
+   (for example an `implemented` flag on the hero module or registry, set by the hero engineers). The practice match:
+   the human on Dawn with the chosen hero, the 'main' map, fledgling waves on all three lanes, no bot heroes (a roster
+   option turns them on later). The router's `lane` scene starts the same practice match with `hero=<id>`, so
+   screenshots and e2e reach it without clicking.
+6. **Write the follow-up list** `docs/briefs/W3-contract-followups.md`: for each accepted change that an owner must
    implement, the owner, what to implement and why. Group by owner (Combat, Ability Systems, Character Controller,
    Economy, Objectives, Hero Engineer A, UI, Build …). Wave 3 briefs will point at it.
 
