@@ -4,6 +4,7 @@
  */
 import { EFFECT_OWNERS } from '../core/contracts';
 import type { AbilityDef, AreaEffect, Effect, EffectKind, HeroModule, Magnitude } from '../core/contracts';
+import { ROOT } from '../data/combat';
 
 /** An ability with its first `tier` upgrades folded in. */
 export interface ResolvedAbility {
@@ -20,7 +21,12 @@ export interface ResolvedAbility {
   readonly selfEffects: readonly Effect[];
   /** Moves the caster (a dash, teleport or movement mode): rooted and grounded block it. */
   readonly movement: boolean;
+  /** Cleanses the root status itself (Scatter: "removes slows and roots on cast"), so rooted does not block it. */
+  readonly unroots: boolean;
 }
+
+const cleansesRoot = (e: Effect): boolean =>
+  e.kind === 'cleanse' && (e.remove === 'negative' || (e.remove !== 'positive' && e.remove.includes(ROOT.id)));
 
 const MOVEMENT_KINDS: ReadonlySet<EffectKind> = new Set(['dash', 'teleport', 'movementMode']);
 
@@ -53,6 +59,7 @@ export function resolveAbility(def: AbilityDef, tier: number): ResolvedAbility {
     effects: f.effects,
     selfEffects: f.selfEffects,
     movement: [...f.effects, ...f.selfEffects].some((e) => MOVEMENT_KINDS.has(e.kind)),
+    unroots: [...f.effects, ...f.selfEffects].some(cleansesRoot),
   };
 }
 

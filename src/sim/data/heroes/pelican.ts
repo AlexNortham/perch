@@ -109,7 +109,12 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
       { description: 'Fire rate +15% (50%)', effects: [stat('pelican.frenzy.t2', 'Feeding Frenzy: tempo', 'fireRate', 0.15)] },
       {
         description: 'Each gun hit on a hero shreds 2% Talon resist for 6 s (up to 5 stacks)',
-        effects: [{ kind: 'weaponMod', durationS: 'duration', onBulletHit: [apply(FRENZY_SHRED, 6)] }],
+        // Items' trigger (sim/items): a weapon hit on a hero, so a fledgling hit does not shred.
+        effects: [{
+          kind: 'trigger',
+          durationS: 'duration',
+          trigger: { on: 'weaponHit', heroesOnly: true, chance: 1, cooldownS: 0, target: 'other', effects: [apply(FRENZY_SHRED, 6)] },
+        }],
       },
     ],
   },

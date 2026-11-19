@@ -1097,3 +1097,17 @@ Wave's target rides just inside the 20 m/s wave front and lands 12 m on.
 **Why:** physics adds each push to the hero's velocity, so 36 pushes of 0.33 m stacked to about 27 m and threw the hero
 out ahead of the wave, which then re-entered it and repeated onEnter's 160 Song. Units, whose pushes replace their
 velocity, barely moved. One launch meets GDD §9.12's "carried with it (up to 12 m)" for both.
+
+### D-ABIL-012 · 19/11/2026 — Rooted does not block a cast that cleanses the root (W4 integration, for Abilities)
+**Decision:** a movement cast is still refused while rooted or grounded, except that rooted does not refuse one whose
+own effects or selfEffects cleanse the root status (`ROOT.id`, or `'negative'`). Kit resolution derives `unroots` from
+the data, so no AbilityDef flag is needed. Grounded still blocks.
+**Why:** GDD §9.8 Scatter "removes slows and roots on cast". ROOT is the only status that carries `rooted`, and the
+cleanse lands before the dash in the same cast. Contracts are frozen, so the rule comes from the effects.
+
+### D-CTRL-009 · 19/11/2026 — A glide ends itself on landing or Jump (W4 integration, for Physics)
+**Decision:** the glide movement mode ends, running its onEnd, when a pressed Jump arrives (no hop: the hero falls
+from there) or on the tick the hero lands after being airborne. A glide that starts grounded runs until it lands or
+expires. Owl's hook and its one-tick replacement mode are gone.
+**Why:** GDD §9.5 Silent Wing "ends on landing or pressing Space", and Thermal's glide is "as Silent Wing's glide", so
+the rule belongs to the mode, not one hero (Hero B's W4 interface request 2).
