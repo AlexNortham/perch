@@ -643,7 +643,8 @@ events for the local hero. View-to-display mapping lives in pure `display.ts`.
 ### D-ECON-001 · 19/11/2026 — Pods resolve in the economy phase from queued hits; pod radius 1 m
 **Decision:** `projectile.impact` (gun, or `via` absent) and `melee` events on a pod are queued and resolved in the
 economy phase by pod age: ignored while rising (< 36 ticks), resolved while ripe, gone at 120 ticks. The pod is
-spawned in the `entity.died` handler (value V/2 unrounded; payments floor). Hit radius is 1 m.
+spawned in the `entity.died` handler (value V/2 unrounded; payments floor). Hit radius is 1 m (back to 0.25 m, the
+drawn orb, in the wave 3 integration once the aim ray stopped on pods, D-SYS-005).
 **Why:** one ordering for hits emitted by combat the same tick and by tests between ticks; the GDD gives no pod size and
 a muzzle-offset bullet misses a smaller orb at lane range.
 

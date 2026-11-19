@@ -28,11 +28,11 @@ export const ECONOMY = {
     riseS: 0.6,
     ripeS: 1.4,
     /**
-     * Hit sphere radius (m; the GDD gives none) and spawn height as a fraction of the dead unit's height (the chest).
-     * Generous on purpose: bullets leave the muzzle, not the camera, so at 6 m a crosshair-centred shot passes ~0.75 m
-     * from the orb.
+     * Hit sphere radius (m; the GDD gives none): the drawn orb's size (the VFX POD.radius is 0.24). Combat's aim ray
+     * stops on pods (D-SYS-005), so the bullet converges on the orb under the crosshair and needs no extra reach.
+     * Spawn height is a fraction of the dead unit's height (the chest).
      */
-    radius: 1,
+    radius: 0.25,
     chestFraction: 0.75,
   },
 } as const;
