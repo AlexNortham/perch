@@ -1245,3 +1245,18 @@ finished. The 30 s test timeout is unchanged. `npx playwright test e2e/audio.spe
 **Why:** the offline `OfflineAudioContext` renders stalled past 30 s under the full parallel run in `check.sh` (3
 failures in 4 runs at the W4 gate, a different test each time) and never alone. Running them on a quiet machine
 removes the cause; a longer timeout or a retry would only hide it.
+### D-ARCH-020 · 19/11/2026 — Browser victory replay and a read-only `window.__perch.state`
+**Decision:** `?scene=replay&seed=N` starts the ordinary Play match (`matchConfig`, Owl, Dawn, no bots) with the
+siege-proof agent (`src/sim/ai/siege-proof.testkit.ts`, shared with `tests/siege-proof.test.ts`) writing the local
+hero's command each tick instead of input. The commands go through the app's normal step loop, events reach VFX,
+UI and audio as usual, and the end screen comes from the usual `sim.isOver` check. The loop fast-forwards by
+stepping for up to 45 ms of wall time per frame; `t` fast-forwards with the agent driving too. Input stays disabled
+in a replay and the camera follows the agent's look. Like the headless proof, the agent reads `sim.ctx` to decide
+(the `Sim.ctx` contract allows tests and tools) and never writes it; no other client path touches the context.
+`window.__perch.state` is a fresh copy per read: screen, tick, seconds, over, winner, every structure's id, team,
+type, lane, phase and health, and `hash` (`sim.hash()`, computed only when read). `e2e/result.spec.ts` runs in the
+serial Playwright project (D-QA-010) because the fast-forward uses a full core.
+**Why:** QA's W4 gate had no browser evidence of the result screen, and a real-input siege takes about 20 minutes.
+Seed 1 reaches Victory at tick 69,973 (19:26) in about 8 s, the same tick as the headless proof. The browser hash
+equals the same commands run on the bare sim in the page, so the app adds nothing to the sim; it differs from
+Node's hash from tick 3 onward (see the W4 gate-fix STATUS entry).

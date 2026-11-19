@@ -1,6 +1,7 @@
 import { aimRay, pivotHeight } from '../../sim/core/aim';
 import { ViewFlag } from '../../sim/core/contracts';
-import type { EntityId, HeroId, Ping, Sim, SimConfig, SimView, SightLine, Vec3, EventOf, WeaponState } from '../../sim/core/contracts';
+import type { EntityId, HeroId, Ping, PlayerCommand, PlayerTeam, Sim, SimConfig, SimView, SightLine, Vec3, EventOf, WeaponState } from '../../sim/core/contracts';
+import { siegeAgent } from '../../sim/ai/siege-proof.testkit';
 import { CAMERA, TICK_RATE } from '../../sim/data/core';
 import { HEROES } from '../../sim/heroes/registry';
 import { createSim } from '../../sim/index';
@@ -23,13 +24,27 @@ declare global {
     /**
      * Set once the requested scene has rendered READY_FRAMES frames; the screenshot harness waits on it. `hero` is a
      * read-only test hook for e2e: the local hero's position and how many shots it has fired (null with no hero).
+     * `state` is the read-only match state (D-ARCH-020): the screen, the clock, the result and every structure's health.
      */
-    __perch?: { ready: boolean; scene: SceneName; hero: { pos: Vec3; tick: number; flags: number; shotsFired: number; meleePose: NonNullable<WeaponState['meleePose']> | null; lastMelee: EventOf<'melee'> | null; lastParry: EventOf<'parry'> | null } | null };
+    __perch?: { ready: boolean; scene: SceneName; hero: { pos: Vec3; tick: number; flags: number; shotsFired: number; meleePose: NonNullable<WeaponState['meleePose']> | null; lastMelee: EventOf<'melee'> | null; lastParry: EventOf<'parry'> | null } | null; state: PerchState };
   }
+}
+
+/** A copy of the match state for e2e assertions; `hash` is `sim.hash()`, computed when read. */
+export interface PerchState {
+  readonly screen: Screen;
+  readonly tick: number;
+  readonly seconds: number;
+  readonly over: boolean;
+  readonly winner: PlayerTeam | null;
+  readonly hash: string;
+  readonly structures: readonly { id: EntityId; team: string; type: string; lane: string | null; phase: number; hp: number; maxHp: number }[];
 }
 
 const READY_FRAMES = 3;
 const MS_PER_SECOND = 1000;
+/** Wall-clock time per frame the replay spends stepping the sim (about 20 frames a second while it fast-forwards). */
+const REPLAY_FRAME_MS = 45;
 
 /** One running sim and the two newest views the renderer interpolates between. */
 interface Session {
@@ -38,6 +53,8 @@ interface Session {
   readonly hero: EntityId | null;
   readonly heroId: HeroId | null;
   readonly cam: CameraPreset;
+  /** `?scene=replay`: the siege-proof agent writes the local hero's commands instead of input (D-ARCH-020). */
+  readonly drive: (() => PlayerCommand) | null;
   prev: SimView;
   curr: SimView;
 }
@@ -73,6 +90,8 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   let openPanel: UiAction | null = null;
   let sessionRequest = 0;
   const intents: HudIntent[] = [];
+  /** Input drives the local hero: there is one and no replay agent drives it. */
+  const playable = (): boolean => session.hero !== null && !session.drive;
   /** Set by the pause menu's Concede; sent with the next command. */
   let concedeNext = false;
 
@@ -83,7 +102,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
       if (screen !== 'match') return;
       pointerReleased = release;
       if (!release) openPanel = null;
-      input.setEnabled(!release && session.hero !== null);
+      input.setEnabled(!release && playable());
     },
     project: (point) => pose && projectPoint(point, pose, root.clientWidth, root.clientHeight),
     crosshairPing: () => resolvePing(),
@@ -183,14 +202,14 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   document.addEventListener('keyup', (e) => panelKey(e.code, false, e), true);
   document.addEventListener('mousedown', (e) => panelKey('Mouse' + e.button, true, e), true);
   document.addEventListener('mouseup', (e) => panelKey('Mouse' + e.button, false, e), true);
-  session = await startSession(firstConfig, req.cam, req.t);
+  session = await startSession(firstConfig, req.cam, req.t, req.scene === 'replay');
 
   function show(next: Screen): void {
     openPanel = null;
     inspecting = false;
     pointerReleased = false;
     screen = next;
-    input.setEnabled(next === 'match' && session.hero !== null);
+    input.setEnabled(next === 'match' && playable());
     if (next === 'match') audio.resume();
     else if (next !== 'pause') input.exitFullscreen();
     const telemetry = next === 'end' ? session.sim.telemetry() : null;
@@ -223,13 +242,16 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     if (zoom !== undefined) input.setAimZoom?.(zoom);
   }
 
-  async function startSession(config: SimConfig, cam: CameraPreset, fastForwardS: number): Promise<Session> {
+  async function startSession(config: SimConfig, cam: CameraPreset, fastForwardS: number, replay = false): Promise<Session> {
     const sim = await createSim(config);
-    for (let i = 0, n = Math.round(fastForwardS * TICK_RATE); i < n && !sim.isOver; i++) sim.step();
-    sim.drainEvents();
     const hero = sim.view.localHero;
+    const drive = replay && hero !== null ? siegeAgent(sim, hero) : null;
+    for (let i = 0, n = Math.round(fastForwardS * TICK_RATE); i < n && !sim.isOver; i++) {
+      sim.step(drive && hero !== null ? [{ hero, command: drive() }] : undefined);
+    }
+    sim.drainEvents();
     const heroId = sim.view.heroes.find((h) => h.id === hero)?.heroId ?? null;
-    return { sim, seed: config.seed, hero, heroId, cam, prev: sim.view, curr: sim.view };
+    return { sim, seed: config.seed, hero, heroId, cam, drive, prev: sim.view, curr: sim.view };
   }
 
   const resize = (): void => renderer.resize(root.clientWidth, root.clientHeight);
@@ -248,6 +270,16 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
       const local = session.hero === null ? undefined : entityById(session.curr, session.hero);
       return local ? { pos: local.pos, tick: session.curr.tick, flags: local.flags, shotsFired, meleePose: local.meleePose ?? null, lastMelee, lastParry } : null;
     },
+    get state(): PerchState {
+      const { sim, curr: v } = session;
+      return {
+        screen, tick: v.tick, seconds: v.seconds, over: v.over, winner: v.winner,
+        get hash() { return sim.hash(); },
+        structures: v.entities.filter((e) => e.structure).map((e) => ({
+          id: e.id, team: e.team, type: e.type, lane: e.structure?.lane ?? null, phase: e.structure?.phase ?? 1, hp: e.hp, maxHp: e.maxHp,
+        })),
+      };
+    },
   };
   let last = performance.now();
   const frame = (now: number): void => {
@@ -255,11 +287,14 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     last = now;
     const s = session;
     const running = (screen === 'match' || screen === 'menu') && !s.sim.isOver;
-    const steps = running ? step.advance(dt) : 0;
-    for (let i = 0; i < steps && !s.sim.isOver; i++) {
-      const command = { ...input.sample(), ...(sight && { sight }), ...intents.shift(), concede: concedeNext };
+    // A replay fast-forwards: as many ticks as fit in the frame budget, each with the agent's command.
+    const steps = !running ? 0 : s.drive ? Infinity : step.advance(dt);
+    const budgetEnd = performance.now() + REPLAY_FRAME_MS;
+    for (let i = 0; i < steps && !s.sim.isOver && (!s.drive || performance.now() < budgetEnd); i++) {
+      const command = s.drive ? { ...s.drive(), concede: concedeNext } : { ...input.sample(), ...(sight && { sight }), ...intents.shift(), concede: concedeNext };
       concedeNext = false;
       s.sim.step(s.hero === null ? [] : [{ hero: s.hero, command }]);
+      if (s.drive) input.setLook({ yaw: command.yaw, pitch: command.pitch });
       s.prev = s.curr;
       s.curr = s.sim.view;
       const events = s.sim.drainEvents();
@@ -280,7 +315,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
       audio.onEvents(events, s.curr);
     }
     if (screen === 'match' && s.sim.isOver) show('end');
-    const f: Frame = { prev: s.prev, curr: s.curr, alpha: running ? step.alpha : 1, dt };
+    const f: Frame = { prev: s.prev, curr: s.curr, alpha: running && !s.drive ? step.alpha : 1, dt };
     pose = camera.update(f, s.heroId, input.look, s.cam);
     if (s.cam === 'player' && screen === 'match') {
       const dx = pose.target.x - pose.position.x, dy = pose.target.y - pose.position.y, dz = pose.target.z - pose.position.z;

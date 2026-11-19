@@ -1,5 +1,6 @@
 import { HERO_IDS } from '../../sim/core/contracts';
 import type { HeroId, SimConfig } from '../../sim/core/contracts';
+import { SIEGE_HERO } from '../../sim/ai/siege-proof.testkit';
 import { humanRoster } from '../../sim/index';
 import { CAMERA_PRESETS } from './contracts';
 import type { CameraPreset, MatchSetup, Quality } from './contracts';
@@ -7,6 +8,7 @@ import type { CameraPreset, MatchSetup, Quality } from './contracts';
 /**
  * The `?scene=` router for repeatable screenshots and quick starts:
  *   scene   menu (default) | blockout | sandbox | practice (hub) | lane (Play) | match (1 + 11 bots)
+ *           | replay (the Play match with the siege-proof Owl driving the local hero, fast-forwarded to the result)
  *   seed    integer match seed (default 1)
  *   hero    hero id for the human (default shrike)
  *   cam     camera preset (CAMERA_PRESETS); default 'overview' for menu and blockout, 'player' otherwise
@@ -14,7 +16,7 @@ import type { CameraPreset, MatchSetup, Quality } from './contracts';
  *   t       seconds of sim to fast-forward before the first frame, also for a match started from the menu (default 0)
  * Bad values fall back to the defaults.
  */
-export const SCENES = ['menu', 'blockout', 'sandbox', 'practice', 'lane', 'match'] as const;
+export const SCENES = ['menu', 'blockout', 'sandbox', 'practice', 'lane', 'match', 'replay'] as const;
 export type SceneName = (typeof SCENES)[number];
 
 export interface SceneRequest {
@@ -84,5 +86,7 @@ export function sceneConfig(req: SceneRequest): SimConfig {
       return matchConfig({ seed, hero, team: 'dawn', difficulty: 'normal' });
     case 'match':
       return { seed, map: 'main', roster: humanRoster(seed, hero) };
+    case 'replay':
+      return matchConfig({ seed, hero: SIEGE_HERO, team: 'dawn', difficulty: 'normal' });
   }
 }

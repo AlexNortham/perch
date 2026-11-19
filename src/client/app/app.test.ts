@@ -49,6 +49,8 @@ describe('scene router', () => {
     expect(at('blockout')).toMatchObject({ map: 'main', roster: [] });
     expect(at('sandbox').roster).toEqual([{ team: 'dawn', hero: 'kiwi', controller: 'human' }]);
     expect(at('match').roster.length).toBe(12);
+    // The replay is the Play match with the siege-proof Owl, whatever `hero` says.
+    expect(at('replay')).toEqual(matchConfig({ hero: 'owl', team: 'dawn', difficulty: 'normal', seed: 3 }));
   });
 
   it('starts the structure match from Play and from ?scene=lane', () => {
