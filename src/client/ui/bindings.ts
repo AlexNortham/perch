@@ -72,9 +72,12 @@ export function rebind(bindings: Bindings, action: BindAction, code: string): Re
   return { bindings: next, swapped: ACTIONS.find((a) => a !== action && next[a] !== bindings[a]) ?? null };
 }
 
-/** A captured key press: Esc cancels (null), anything else rebinds. */
+/** Keys that cannot be bound: Esc cancels, and Tab is kept for the browser (the scoreboard that used it is always on, D-EP-041). */
+export const UNBINDABLE: readonly string[] = ['Escape', 'Tab'];
+
+/** A captured key press: Esc or Tab refuse (null), anything else rebinds. */
 export function capture(bindings: Bindings, action: BindAction, code: string): RebindResult | null {
-  return code === 'Escape' ? null : rebind(bindings, action, code);
+  return UNBINDABLE.includes(code) ? null : rebind(bindings, action, code);
 }
 
 /** Reset one action to its default key (swapping with whoever holds it now). */

@@ -210,6 +210,7 @@ export function createInput(
       if (!e.repeat && Math.abs(e.timeStamp - lockLostAt) >= ESC_DEDUPE_MS) onUiAction('pause', true);
       return;
     }
+    if (enabled && e.code === 'Tab') e.preventDefault(); // focus never leaves the game mid-match; Tab is not a binding
     if (!enabled || !bound(e.code)) return;
     e.preventDefault();
     if (!e.repeat) press(e.code, e.timeStamp);

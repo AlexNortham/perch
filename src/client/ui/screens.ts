@@ -5,9 +5,12 @@ import { HEROES, heroSwatch } from '../../sim/heroes/registry';
 import type { AppActions, ScreenContext } from '../app/contracts';
 import { ARCHETYPE_LABEL, GRAPH, hex, PERCENT, TEAM_CSS, ULTIMATE_SLOT } from './constants';
 import { AP_COSTS } from '../../sim/data/abilities';
-import { CONCEDE_AFTER_SECONDS } from '../../sim/data/core';
+import { CONCEDE_AFTER_SECONDS, TEAM_SIZE } from '../../sim/data/core';
 import { button, el } from './dom';
 import { clock } from './model';
+
+/** Play is the full 6v6: the player and eleven bots (M3). */
+const FULL_MATCH_BOTS = TEAM_SIZE * 2 - 1;
 
 const screen = (cls: string, ...children: Element[]): HTMLElement => {
   const s = el(`pu-screen ${cls}`);
@@ -63,7 +66,7 @@ export function heroSelectScreen(actions: AppActions, seed: number, mode: 'siege
     card.addEventListener('focus', show);
     if (implemented === true) {
       card.append(el('', 'em', undefined, 'Pick'));
-      card.addEventListener('click', () => actions.startMatch({ hero: id, team: 'dawn', difficulty: 'normal', seed }));
+      card.addEventListener('click', () => actions.startMatch({ hero: id, team: 'dawn', difficulty: 'normal', seed, ...(mode === 'siege' && { bots: FULL_MATCH_BOTS }) }));
     } else {
       card.append(el('', 'em', undefined, 'Coming soon'));
       card.setAttribute('aria-disabled', 'true');

@@ -98,6 +98,35 @@ export function createHud(actions: AppActions): Hud {
 
   // Ability row: round icons, cooldown inside, key under, tier pips under; hold the upgrade key to click one.
   const bottom = el('pu-bottom', 'div', root);
+  // One shared hover card (D-EP-038): the ability's text, the next tier, its AP cost and the unspent AP, or why not.
+  const card = el('pu-card-tip', 'div', bottom);
+  const cardHead = el('hd', 'b', card);
+  const cardDesc = el('', 'p', card);
+  const cardTiers = el('', 'ul', card);
+  const cardStat = el('stat', 'p', card);
+  const cardCost = el('cost', 'p', card);
+  let hovered: number | null = null;
+  let hoverView: SimView | null = null;
+  const fillCard = (view: SimView | null, i: number): void => {
+    const h = view?.heroes.find((x) => x.id === view.localHero);
+    const ability = h && HEROES[h.heroId].def.abilities[i];
+    const slot = h?.abilities[i];
+    if (!h || !ability || !slot) return;
+    const u = upgradeDisplay(slot, i, h.ap, slot.nextUpgradeCost);
+    cardHead.textContent = `Ability ${i + 1}: ${ability.name}`;
+    cardDesc.textContent = ability.description;
+    if (cardTiers.dataset['hero'] !== h.heroId + i) {
+      cardTiers.dataset['hero'] = h.heroId + i;
+      cardTiers.replaceChildren();
+      ability.upgrades.forEach((t, n) => el('', 'li', cardTiers, `Tier ${n + 1} (${AP_COSTS[n] ?? '?'} AP): ${t.description}`));
+    }
+    Array.from(cardTiers.children).forEach((li, n) => {
+      li.classList.toggle('done', n < u.tier);
+      li.classList.toggle('next', n === u.tier);
+    });
+    cardStat.textContent = `Tier ${u.tier} of ${MAX_TIER} learned.`;
+    cardCost.textContent = u.reason === null ? `Next: tier ${u.tier + 1}, costs ${u.cost} AP. Unspent AP: ${h.ap}` : `${u.reason}. Unspent AP: ${h.ap}`;
+  };
   const abil = el('pu-abil', 'div', bottom);
   const slots = Array.from({ length: ABILITY_SLOTS }, (_, n) => n).map((i) => {
     const s = el(i === ULTIMATE_SLOT ? 'pu-slot ult' : 'pu-slot', 'div', abil);
@@ -113,12 +142,20 @@ export function createHud(actions: AppActions): Hud {
     const key = el('key', 'div', s);
     const tiers = el('tiers', 'div', s);
     const tierPips = Array.from({ length: MAX_TIER }, () => el('', 'i', tiers));
-    const card = el('pu-card-tip', 'div', s);
-    const cardHead = el('hd', 'b', card);
-    const cardDesc = el('', 'p', card);
-    const cardTiers = el('', 'ul', card);
-    const cardStat = el('stat', 'p', card);
-    const cardCost = el('cost', 'p', card);
+    const show = (): void => {
+      hovered = i;
+      card.classList.add('on');
+      card.style.left = `${s.offsetLeft + s.offsetWidth / 2}px`;
+      fillCard(hoverView, i);
+    };
+    const hide = (): void => {
+      hovered = null;
+      card.classList.remove('on');
+    };
+    s.addEventListener('mouseenter', show);
+    s.addEventListener('mouseleave', hide);
+    s.addEventListener('focusin', show);
+    s.addEventListener('focusout', hide);
     ico.addEventListener('click', () => {
       if (ico.getAttribute('aria-disabled') !== 'true') actions.submit({ upgrade: i });
     });
@@ -136,11 +173,6 @@ export function createHud(actions: AppActions): Hud {
       setTier: cell((t: number) => tierPips.forEach((p, n) => p.classList.toggle('on', n < t))),
       aria: attr(ico, 'aria-label'),
       disabled: attr(ico, 'aria-disabled'),
-      head: text(cardHead),
-      desc: text(cardDesc),
-      stat: text(cardStat),
-      cost: text(cardCost),
-      tiersList: cardTiers,
     };
   });
   const actsBox = el('pu-acts', 'div', bottom);
@@ -438,10 +470,6 @@ export function createHud(actions: AppActions): Hud {
         slots.forEach((s, i) => {
           s.name(def.abilities[i]?.name ?? '');
           s.setKey(keys ? keyLabel(keys[SLOT_KEYS[i] ?? 'ability1']) : '');
-          s.tiersList.replaceChildren();
-          def.abilities[i]?.upgrades.forEach((u, t) => el('', 'li', s.tiersList, `Tier ${t + 1} (${AP_COSTS[t] ?? '?'} AP): ${u.description}`));
-          s.head(`Ability ${i + 1}: ${def.abilities[i]?.name ?? ''}`);
-          s.desc(def.abilities[i]?.description ?? '');
         });
       }
       h.abilities.forEach((a, i) => {
@@ -460,13 +488,9 @@ export function createHud(actions: AppActions): Hud {
         const label = `Upgrade ${def.abilities[i]?.name ?? ''}`;
         s.aria(u.reason === null ? label : `${label}: ${u.reason}`);
         s.disabled(String(u.reason !== null));
-        s.stat(`Tier ${u.tier} of ${MAX_TIER} learned.`);
-        s.cost(u.reason === null ? `Next: tier ${u.tier + 1}, costs ${u.cost} AP. Unspent AP: ${h.ap}` : `${u.reason}. Unspent AP: ${h.ap}`);
-        Array.from(s.tiersList.children).forEach((li, n) => {
-          li.classList.toggle('done', n < u.tier);
-          li.classList.toggle('next', n === u.tier);
-        });
       });
+      hoverView = curr;
+      if (hovered !== null) fillCard(curr, hovered);
 
       const reloading = (ent.flags & ViewFlag.Reloading) !== 0;
       setAmmo(ammoText(h));

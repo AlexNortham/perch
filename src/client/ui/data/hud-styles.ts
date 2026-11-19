@@ -135,8 +135,8 @@ export const HUD_STYLES = `
 .pu-slot .tiers{display:flex;gap:${u(3)}}
 .pu-slot .tiers i{width:${u(14)};height:${u(5)};border-radius:1px;background:rgba(255,255,255,.28)}
 .pu-slot .tiers i.on{background:${BEAK_CSS}}
-.pu-card-tip{display:none;position:absolute;bottom:calc(100% + ${u(16)});left:50%;transform:translateX(-50%);width:340px;padding:10px 12px;background:rgba(12,14,18,.96);border:1px solid ${TEXT_DIM};border-radius:6px;font-size:13px;line-height:1.35;text-shadow:none;z-index:3}
-.pu-hud.upgrading .pu-slot:hover .pu-card-tip,.pu-hud.upgrading .pu-slot:focus-within .pu-card-tip{display:block}
+.pu-card-tip{display:none;position:absolute;bottom:calc(100% + ${u(16)});left:50%;transform:translateX(-50%);pointer-events:none;width:340px;padding:10px 12px;background:rgba(12,14,18,.96);border:1px solid ${TEXT_DIM};border-radius:6px;font-size:13px;line-height:1.35;text-shadow:none;z-index:3}
+.pu-hud.upgrading .pu-card-tip.on{display:block}
 .pu-card-tip .hd{display:block;margin-bottom:4px;font-size:15px;color:${SEEDS_CSS}}
 .pu-card-tip p{margin:0 0 6px}
 .pu-card-tip ul{margin:0 0 6px;padding-left:16px}

@@ -25,6 +25,16 @@ const mainMenuPractice = (page: Page) => page.getByRole('button', { name: 'Pract
 const bar = (page: Page, which: 'Enemy' | 'Ally') => page.getByRole('progressbar', { name: new RegExp(`${which} dummy`, 'i') });
 const hp = async (b: ReturnType<typeof bar>, attr: 'aria-valuenow' | 'aria-valuemax') => Number(await b.getAttribute(attr));
 
+/** A locked pointer sends every click to the game, so the on-screen button is clicked with the upgrade key held (the cursor is free, D-EP-038). */
+async function clickSwap(page: Page): Promise<void> {
+  await page.keyboard.down(DEFAULT_BINDINGS.upgradeModifier);
+  try {
+    await swapButton(page).click();
+  } finally {
+    await page.keyboard.up(DEFAULT_BINDINGS.upgradeModifier);
+  }
+}
+
 async function hub(page: Page): Promise<void> {
   await open(page);
   await pickHero(page, 'Practice Hub', 'Lyrebird');
@@ -53,7 +63,7 @@ test.describe('Swap bird (D-EP-040)', () => {
   test('the on-screen button opens the same 24-card picker without leaving the hub', async ({ page }) => {
     await hub(page);
     const url = page.url();
-    await swapButton(page).click();
+    await clickSwap(page);
     await expect(picker(page)).toBeVisible();
     await expect(page.locator('.pu-card'), 'the same 24-card picker').toHaveCount(24);
     await expect(mainMenuPractice(page), 'the main menu is never shown').toHaveCount(0);
@@ -71,7 +81,7 @@ test.describe('Swap bird (D-EP-040)', () => {
     await page.waitForTimeout(300);
     const before = (await hero(page)).pos;
 
-    await swapButton(page).click();
+    await clickSwap(page);
     await expect(picker(page)).toBeVisible();
     await page.getByRole('button', { name: new RegExp(`^${NEW_BIRD}\\b`) }).click();
     await page.waitForFunction('window.__perch?.hero != null');
@@ -88,7 +98,7 @@ test.describe('Swap bird (D-EP-040)', () => {
   test('swapping from the pause menu works the same way, and Resume is not needed afterwards', async ({ page }) => {
     await hub(page);
     await page.keyboard.press('Escape');
-    await swapButton(page).click();
+    await clickSwap(page);
     await expect(picker(page)).toBeVisible();
     await page.getByRole('button', { name: new RegExp(`^${NEW_BIRD}\\b`) }).click();
     await page.waitForFunction('window.__perch?.hero != null');
@@ -122,7 +132,7 @@ test.describe('Swap bird (D-EP-040)', () => {
     } finally {
       await page.keyboard.up(crouch);
     }
-    await swapButton(page).click();
+    await clickSwap(page);
     await page.getByRole('button', { name: new RegExp(`^${NEW_BIRD}\\b`) }).click();
     await page.waitForFunction('window.__perch?.hero != null');
     const enemy = bar(page, 'Enemy');

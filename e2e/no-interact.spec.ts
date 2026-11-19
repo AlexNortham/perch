@@ -58,7 +58,8 @@ test.describe('no Interact (D-EP-039)', () => {
     expect(Object.keys(loaded), 'no Interact row').not.toContain('interact');
     expect(loaded['jump'], 'the player\'s Jump choice survives').toBe('J');
     expect(loaded['melee'], 'the player\'s Melee choice survives').toBe('T');
-    const keep = Object.keys(baseline).filter((a) => a !== 'jump' && a !== 'melee');
+    // Crouch is left out: this saved profile names C itself, a choice a profile keeps, while a fresh profile gets Left Ctrl where keyboard lock exists (D-EP-030).
+    const keep = Object.keys(baseline).filter((a) => a !== 'jump' && a !== 'melee' && a !== 'crouch');
     for (const action of keep) expect(loaded[action], `${action} is untouched`).toBe(baseline[action]);
     expect(Object.keys(loaded).sort(), 'the same rows as a fresh profile').toEqual(Object.keys(baseline).sort());
     await context.close();
