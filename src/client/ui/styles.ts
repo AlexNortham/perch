@@ -25,8 +25,9 @@ export const STYLES = `
 .pu-btn{font:inherit;font-size:22px;padding:10px 40px;border:2px solid ${TEXT};border-radius:6px;background:${PANEL_BG};color:${TEXT};cursor:pointer;text-shadow:none}
 .pu-btn:hover,.pu-btn:focus-visible{background:${TEAM_CSS.dawn};color:#1a1204;border-color:${TEAM_CSS.dawn};outline:none}
 .pu-btn.pu-quiet{font-size:16px;padding:6px 24px;border-color:${TEXT_DIM}}
-.pu-grid{display:grid;grid-template-columns:repeat(8,150px);gap:10px}
-.pu-card{position:relative;display:flex;flex-direction:column;gap:3px;height:92px;padding:10px 10px 8px 16px;text-align:left;font:inherit;color:${TEXT};background:${PANEL_BG};border:1px solid rgba(255,255,255,.18);border-radius:6px;cursor:pointer;overflow:hidden;text-shadow:none}
+.pu-select-body{display:flex;gap:20px;align-items:flex-start}
+.pu-grid{display:grid;grid-template-columns:repeat(6,140px);gap:10px}
+.pu-card{position:relative;display:flex;flex-direction:column;gap:3px;height:84px;padding:10px 10px 8px 16px;text-align:left;font:inherit;color:${TEXT};background:${PANEL_BG};border:1px solid rgba(255,255,255,.18);border-radius:6px;cursor:pointer;overflow:hidden;text-shadow:none}
 .pu-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:7px;background:var(--sw)}
 .pu-card b{font-size:18px}
 .pu-card span{font-size:13px;color:${TEXT_DIM}}

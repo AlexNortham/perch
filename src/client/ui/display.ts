@@ -1,7 +1,7 @@
 /** Pure view-to-display mapping for the HUD (unit tested); no DOM here. */
 import type { HeroView } from '../../sim/core/contracts';
 import type { AbilitySlotState } from '../../sim/core/contracts/entity';
-import { AP_COSTS, UNLOCK_LEVELS } from '../../sim/data/abilities';
+import { AP_COSTS } from '../../sim/data/abilities';
 import { TICK_RATE } from '../../sim/data/core';
 import { DECIMAL_COOLDOWN_BELOW_S, MAX_TIER } from './constants';
 import type { HitKind } from './constants';
