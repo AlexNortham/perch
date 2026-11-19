@@ -1,13 +1,19 @@
 /**
  * The hero character controller (GDD §3), run in the movement phase from each hero's latched command: walk, sprint,
- * jump, air control, crouch, slide, dash, dash-jump, mantle, stamina, Updrafts, Chimneys, Vines, knockback state, and
- * the scripted motions physics-owned effects start (ability dashes, movement modes, attach). One state machine per
- * hero; exactly one of these runs per tick, first match wins: dead, attached, mantle, ability dash, Updraft ride,
- * climb, movement mode, ordinary locomotion.
+ * jump, air control, crouch, slide, dash, dash-jump, mantle, stamina, Updrafts, Chimneys, Vines and ladders, Bough
+ * Springs, the Cellar Run's speed, knockback state, and the scripted motions physics-owned effects start (ability
+ * dashes, movement modes, attach). One state machine per hero; exactly one of these runs per tick, first match wins:
+ * dead, attached, mantle, ability dash, Updraft ride, climb, movement mode, ordinary locomotion.
+ *
+ * Updrafts (GDD §3.7, D-EP-039): no key. Jump held for UPDRAFT.latchHoldS within reach (updrafts.ts) latches: an
+ * airborne hero within airReach attaches in attachS, anyone else is pulled up at pullSpeed. A fresh Jump press
+ * (released since latching) jumps off; Crouch drops off.
  */
-import { Button, LAYERS_SOLID } from '../core/contracts';
+import { Button } from '../core/contracts';
 import type {
+  BoxVolume,
   CoreContext,
+  DamageAppliedEvent,
   Effect,
   EffectCause,
   EntityId,
@@ -20,10 +26,13 @@ import type {
 } from '../core/contracts';
 import { lookDir } from '../core/aim';
 import { clamp, copy, ticks } from '../core/math';
-import { COMBAT } from '../data/combat';
+import { COMBAT, SLOW } from '../data/combat';
 import { TICK_SECONDS } from '../data/core';
-import { AIR, CHIMNEY, CONTROLLER, DASH, DISPLACE, GROUND, MANTLE, SLIDE, UPDRAFT, VINE } from '../data/movement';
+import { AIR, CHIMNEY, CONTROLLER, DASH, DISPLACE, GROUND, MANTLE, SLIDE, SPRING, TUNNEL, UPDRAFT, VINE } from '../data/movement';
+import { MOVE_MASK } from './rapier';
 import type { MoveResult, Space } from './rapier';
+import { pointOnLine } from './updrafts';
+import type { Reach, Updrafts } from './updrafts';
 import * as dmath from '../core/dmath';
 
 const dt = TICK_SECONDS;
@@ -54,20 +63,32 @@ const T = {
   afterCombat: ticks(GROUND.sprintDelayS - COMBAT.combatStateS),
   slideBoost: ticks(SLIDE.boostCooldownS),
   mantle: ticks(MANTLE.durationS),
-  mount: ticks(UPDRAFT.mountS),
+  latchHold: ticks(UPDRAFT.latchHoldS),
+  attach: ticks(UPDRAFT.attachS),
+  damageLock: ticks(UPDRAFT.damageLockoutS),
+  leaveLock: ticks(UPDRAFT.leaveLockoutS),
   boost: ticks(UPDRAFT.boostS),
   boostCooldown: ticks(UPDRAFT.boostCooldownS),
   boostLock: ticks(UPDRAFT.boostDamageLockS),
-  remount: ticks(UPDRAFT.remountDelayS),
+  springCooldown: ticks(SPRING.cooldownS),
+  springClip: ticks(SPRING.clipS),
   knockUp: ticks(DISPLACE.knockUpMaxS),
 } as const;
+const TAU = 2 * Math.PI;
+/** `a` wrapped into [−π, π). */
+const wrapAngle = (a: number): number => {
+  const w = (a + Math.PI) % TAU;
+  return (w < 0 ? w + TAU : w) - Math.PI;
+};
 
 /** An ability dash (DashEffect) in progress. */
 interface ScriptedDash {
-  /** Unit direction; dirY ≠ 0 for 'aim' dashes that follow the aim pitch. */
-  readonly dirX: number;
+  /** Unit direction; dirY ≠ 0 for 'aim' dashes that follow the aim pitch and dashes to a surface point. */
+  dirX: number;
   readonly dirY: number;
-  readonly dirZ: number;
+  dirZ: number;
+  /** Follows the aim yaw within ±max of `base` (radians) while it runs (STEER_VALUE), or null. */
+  readonly steer: { readonly base: number; readonly max: number } | null;
   /** Metres per tick along the direction. */
   readonly step: number;
   readonly n: number;
@@ -92,6 +113,8 @@ interface Mode {
   readonly allowAbilities: boolean;
   readonly onCollide: readonly Effect[];
   readonly onEnd: readonly Effect[];
+  /** MovementModeEffect.endOn, or null for the mode's own rule (glide: land and Jump; toboggan: Jump with a hop). */
+  readonly endOn: readonly ('land' | 'jump')[] | null;
   readonly cause: EffectCause;
   readonly hit: EntityId[];
 }
@@ -106,10 +129,21 @@ interface Ride {
   readonly line: number;
   s: number;
   readonly dir: 1 | -1;
-  /** Ticks of the 0.3 s mount left. */
+  /** Ticks of the latch (air attach or pull-up) left, out of `mountTicks`. */
   mount: number;
+  readonly mountTicks: number;
   readonly from: Vec3;
   boostUntil: number;
+  /** Jump has been released since latching, so the next press jumps off. */
+  released: boolean;
+}
+
+/** A Bough Spring launch in flight (GDD §7.15). */
+interface SpringFlight {
+  /** No air control before this tick (the apex), SPRING.airControl after. */
+  apexAt: number;
+  /** Enemy hero damage before this tick clips the launch. */
+  clipUntil: number;
 }
 
 interface Attach {
@@ -163,10 +197,16 @@ export interface HeroState {
   mantle: Mantle | null;
   ride: Ride | null;
   boostReadyAt: number;
+  /** Last tick an enemy hero damaged this hero (latch lockout, boost lock, Spring clip). */
   heroDamagedAt: number;
+  /** No latch before this tick (UPDRAFT.leaveLockoutS after leaving a line). */
   remountAt: number;
-  /** The line just left: no air mount on it again until the hero has been out of reach of it or landed. */
-  leftLine: number;
+  /** Consecutive ticks Jump has been held, this one included. */
+  jumpHeld: number;
+  /** Feet inside a 'tunnel' room this tick (TUNNEL.runSpeedMult). */
+  tunnel: boolean;
+  spring: SpringFlight | null;
+  springReadyAt: number;
   vineSide: number;
   /** In a push, pull or along displacement until landing (20% air control, stops at walls). */
   displaced: boolean;
@@ -213,7 +253,10 @@ function freshState(groundY: number): HeroState {
     boostReadyAt: NEVER,
     heroDamagedAt: NEVER,
     remountAt: NEVER,
-    leftLine: -1,
+    jumpHeld: 0,
+    tunnel: false,
+    spring: null,
+    springReadyAt: NEVER,
     vineSide: 0,
     displaced: false,
     slam: null,
@@ -224,64 +267,36 @@ function freshState(groundY: number): HeroState {
   };
 }
 
-/** An Updraft polyline with cumulative lengths. */
-interface Line {
-  readonly points: readonly Vec3[];
-  readonly cum: readonly number[];
-  readonly length: number;
+/** A room volume as a point test: centre, half sizes and the yaw's sine and cosine. */
+interface Volume {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly hx: number;
+  readonly hy: number;
+  readonly hz: number;
+  readonly sin: number;
+  readonly cos: number;
 }
 
-function makeLine(points: readonly Vec3[]): Line {
-  const cum = [0];
-  let length = 0;
-  for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1];
-    const b = points[i];
-    if (a && b) length += dmath.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
-    cum.push(length);
-  }
-  return { points, cum, length };
-}
+const volume = (v: BoxVolume): Volume => ({
+  x: v.centre.x,
+  y: v.centre.y,
+  z: v.centre.z,
+  hx: v.size.x * HALF,
+  hy: v.size.y * HALF,
+  hz: v.size.z * HALF,
+  sin: dmath.sin(v.yaw),
+  cos: dmath.cos(v.yaw),
+});
 
-/** Arc length of the point on `line` closest to `p`, and the squared distance to it. */
-function closestOnLine(line: Line, p: Vec3): { s: number; d2: number } {
-  let best = { s: 0, d2: Number.POSITIVE_INFINITY };
-  for (let i = 1; i < line.points.length; i++) {
-    const a = line.points[i - 1];
-    const b = line.points[i];
-    const start = line.cum[i - 1];
-    if (!a || !b || start === undefined) continue;
-    const ex = b.x - a.x;
-    const ey = b.y - a.y;
-    const ez = b.z - a.z;
-    const len2 = ex * ex + ey * ey + ez * ez;
-    const t = len2 > 0 ? clamp(((p.x - a.x) * ex + (p.y - a.y) * ey + (p.z - a.z) * ez) / len2, 0, 1) : 0;
-    const dx = a.x + ex * t - p.x;
-    const dy = a.y + ey * t - p.y;
-    const dz = a.z + ez * t - p.z;
-    const d2 = dx * dx + dy * dy + dz * dz;
-    if (d2 < best.d2) best = { s: start + Math.sqrt(len2) * t, d2 };
-  }
-  return best;
-}
-
-/** Point at arc length `s` (clamped) into `out`, unit tangent into `tan`. */
-function pointOnLine(line: Line, s: number, out: Vec3, tan: Vec3): void {
-  let i = 1;
-  while (i < line.points.length - 1 && (line.cum[i] ?? 0) < s) i++;
-  const a = line.points[i - 1];
-  const b = line.points[i];
-  const start = line.cum[i - 1] ?? 0;
-  const end = line.cum[i] ?? 0;
-  if (!a || !b) return;
-  const t = end > start ? clamp((s - start) / (end - start), 0, 1) : 0;
-  const len = end - start || 1;
-  tan.x = (b.x - a.x) / len;
-  tan.y = (b.y - a.y) / len;
-  tan.z = (b.z - a.z) / len;
-  out.x = a.x + (b.x - a.x) * t;
-  out.y = a.y + (b.y - a.y) * t;
-  out.z = a.z + (b.z - a.z) * t;
+/** Feet at `p` inside the volume (a feet height on its floor counts). */
+function within(v: Volume, p: Vec3): boolean {
+  const dx = p.x - v.x;
+  const dz = p.z - v.z;
+  const dy = p.y - v.y;
+  return Math.abs(dx * v.cos - dz * v.sin) <= v.hx && Math.abs(dx * v.sin + dz * v.cos) <= v.hz &&
+    dy >= -v.hy - CONTROLLER.restBand && dy <= v.hy;
 }
 
 export interface Controller {
@@ -308,22 +323,32 @@ export interface Controller {
   hash(h: Hasher): void;
 }
 
-export function createController(ctx: CoreContext, space: Space, service: PhysicsService): Controller {
+export function createController(ctx: CoreContext, space: Space, service: PhysicsService, updrafts: Updrafts): Controller {
   const { store, bus, map, clock } = ctx;
   const states = new Map<EntityId, HeroState>();
-  const lines = map.updrafts.map((u) => makeLine(u.points));
+  const lines = updrafts.lines;
+  const springs = map.springs ?? [];
+  const tunnels = (map.rooms ?? []).filter((r) => r.tag === 'tunnel').map((r) => volume(r.volume));
   const W = { x: 0, y: 0, z: 0 };
   const D = { x: 0, y: 0, z: 0 };
   const P = { x: 0, y: 0, z: 0 };
   const TAN = { x: 0, y: 0, z: 0 };
+  const REACH: Reach = { updraft: -1, point: { x: 0, y: 0, z: 0 }, t: 0, d: 0 };
   const near: EntityId[] = [];
 
   const emit = (hero: EntityId, action: MovementAction): void => bus.emit({ type: 'movement', hero, action });
+  const isEgg = (h: HeroEntity): boolean => h.stats.conditions.has('eggCarrier');
 
-  /** Updraft boosts lock for a while after hero damage. */
+  /**
+   * Enemy hero damage: locks Updraft latching and boosts for a while (GDD §3.7) and clips a Bough Spring launch in its
+   * first SPRING.clipS: no more rise, and a slow (GDD §7.15).
+   */
   bus.on('damage.applied', (e) => {
     const s = states.get(e.target);
-    if (s && e.source !== null && store.getKind(e.source, 'hero')) s.heroDamagedAt = clock.tick;
+    const h = s && store.getKind(e.target, 'hero');
+    if (!s || !h || e.source === null || e.sourceTeam === h.team || !store.getKind(e.source, 'hero')) return;
+    s.heroDamagedAt = clock.tick;
+    if (s.spring && clock.tick < s.spring.clipUntil) clipSpring(h, s, e);
   });
   /** Casting an ability dismounts an Updraft (GDD §3.7). */
   bus.on('ability', (e) => {
@@ -360,8 +385,9 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const slow = h.stats.final.slow;
     return slow > 0 ? Math.max(GROUND.minSlowedSpeed, speed * (1 - slow)) : speed;
   };
+  /** Run speed: the stat (×1.3 in the Cellar Run), the sprint ramp, slows. */
   const runSpeed = (h: HeroEntity, s: HeroState): number =>
-    slowed(h, h.stats.final.moveSpeed + h.stats.final.sprintSpeed * s.sprint);
+    slowed(h, h.stats.final.moveSpeed * (s.tunnel ? TUNNEL.runSpeedMult : 1) + h.stats.final.sprintSpeed * s.sprint);
 
   /**
    * Move through the controller and write pos; returns the shared result. `rest`: the hero stands on the ground with
@@ -369,7 +395,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
    * smaller than CONTROLLER.restBand is dropped and the hero stays exactly still (a real fall moves more).
    */
   const move = (h: HeroEntity, rest = false): MoveResult => {
-    const r = space.moveHero(h.id, h.pos, h.motor.crouching, D);
+    const r = space.moveHero(h.id, h.pos, h.motor.crouching, D, isEgg(h));
     const m = r.moved;
     if (rest && r.grounded && Math.abs(m.x) + Math.abs(m.y) + Math.abs(m.z) < CONTROLLER.restBand) {
       m.x = 0;
@@ -407,7 +433,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     s.wallJumps = 0;
     s.wallAt = NEVER;
     s.fatigueAt = NEVER;
-    s.leftLine = -1;
+    s.spring = null;
     // A displacement ends where it lands: its distance is the flat-ground distance (GDD §3.9), with no skid after.
     if (s.displaced) {
       h.vel.x = 0;
@@ -485,9 +511,8 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     h.vel.x *= keep;
     h.vel.y = h.vel.y * keep + (jump ? UPDRAFT.dismountUp : 0);
     h.vel.z *= keep;
-    s.leftLine = ride.line;
     s.ride = null;
-    s.remountAt = clock.tick + T.remount;
+    s.remountAt = clock.tick + T.leaveLock;
     h.motor.updraft = null;
     h.motor.grounded = false;
     emit(h.id, 'updraftOff');
@@ -508,6 +533,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     endSlide(h, s);
     s.mantle = null;
     s.dash = null;
+    s.spring = null;
     s.dashUntil = NEVER;
     s.dashStarted = NEVER;
     h.motor.dashJumpReady = false;
@@ -679,12 +705,12 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     if (mx * dx + mz * dz < MANTLE.facing) return false;
     const ref = Math.min(h.pos.y, s.groundY);
     const from = { x: h.pos.x + dx * (gap + MANTLE.probeIn), y: ref + MANTLE.maxHeight + PROBE_PAD, z: h.pos.z + dz * (gap + MANTLE.probeIn) };
-    const hit = service.raycast(from, DOWN, MANTLE.maxHeight - MANTLE.minHeight + PROBE_PAD, LAYERS_SOLID);
+    const hit = service.raycast(from, DOWN, MANTLE.maxHeight - MANTLE.minHeight + PROBE_PAD, MOVE_MASK);
     if (!hit || hit.normal.y < WALKABLE_NY) return false;
     const rise = hit.point.y - ref;
     if (rise < MANTLE.minHeight || rise > MANTLE.maxHeight) return false;
     const to = { x: h.pos.x + dx * (gap + h.radius + MANTLE.probeIn), y: hit.point.y, z: h.pos.z + dz * (gap + h.radius + MANTLE.probeIn) };
-    if (!space.fits(h.id, to, false)) return false;
+    if (!space.fits(h.id, to, false, isEgg(h))) return false;
     s.mantle = { t: 0, from: copy(h.pos), to, exitX: vx, exitZ: vz };
     endSlide(h, s);
     s.dashUntil = NEVER;
@@ -695,49 +721,90 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     return true;
   };
 
-  const mountLine = (h: HeroEntity, s: HeroState, line: number, at: number): void => {
-    const l = lines[line];
+  /**
+   * Latch onto the cable point `r` (GDD §3.7): an airborne hero within airReach attaches in attachS; anyone else is
+   * pulled to the point at pullSpeed. The ride runs toward the end the camera faces.
+   */
+  const latch = (h: HeroEntity, s: HeroState, r: Reach): void => {
+    const l = lines[r.updraft];
     if (!l) return;
-    pointOnLine(l, at, P, TAN);
+    pointOnLine(l, r.t, P, TAN);
     const f = lookDir(h.yaw, h.pitch);
     const dir = f.x * TAN.x + f.y * TAN.y + f.z * TAN.z >= 0 ? 1 : -1;
-    s.ride = { line, s: at, dir, mount: T.mount, from: copy(h.pos), boostUntil: NEVER };
+    const n = !h.motor.grounded && r.d <= UPDRAFT.airReach ? T.attach : Math.max(1, Math.ceil(r.d / (UPDRAFT.pullSpeed * dt)));
+    s.ride = { line: r.updraft, s: r.t, dir, mount: n, mountTicks: n, from: copy(h.pos), boostUntil: NEVER, released: false };
     endSlide(h, s);
     s.dashUntil = NEVER;
+    s.spring = null;
     h.motor.dashing = false;
     h.motor.crouching = false;
-    h.motor.updraft = line;
+    h.motor.updraft = r.updraft;
+    h.motor.updraftInReach = null;
     h.vel = { x: 0, y: 0, z: 0 };
     emit(h.id, 'updraftOn');
   };
 
-  const tryUpdraft = (h: HeroEntity, s: HeroState): boolean => {
-    if ((h.command.pressed & Button.Interact) !== 0) {
-      for (let i = 0; i < map.updrafts.length; i++) {
-        const l = lines[i];
-        for (const st of map.updrafts[i]?.stations ?? []) {
-          const near2 = (h.pos.x - st.x) ** 2 + (h.pos.z - st.z) ** 2 <= UPDRAFT.stationRadius ** 2;
-          if (l && near2 && h.pos.y >= st.y - UPDRAFT.stationBelow && h.pos.y <= st.y + UPDRAFT.stationAbove) {
-            mountLine(h, s, i, closestOnLine(l, st).s);
-            return true;
-          }
-        }
-      }
-    }
-    if (h.motor.grounded || clock.tick < s.remountAt) return false;
-    for (let i = 0; i < lines.length; i++) {
-      const l = lines[i];
-      if (!l) continue;
-      const c = closestOnLine(l, h.pos);
-      // A jump or drop off a line falls back through its reach: that is leaving, not a remount.
-      if (c.d2 > UPDRAFT.airMountRadius ** 2) {
-        if (i === s.leftLine) s.leftLine = -1;
-      } else if (i !== s.leftLine) {
-        mountLine(h, s, i, c.s);
-        return true;
-      }
+  /** Jump held for latchHoldS within reach, outside both lockouts, latches (a tap never does). */
+  const tryLatch = (h: HeroEntity, s: HeroState, inReach: boolean): boolean => {
+    const tick = clock.tick;
+    if (!inReach || s.jumpHeld < T.latchHold || tick < s.remountAt || tick < s.heroDamagedAt + T.damageLock) return false;
+    latch(h, s, REACH);
+    return true;
+  };
+
+  /** A grounded hero on a Bough Spring pad flies its arc to the landing point (GDD §7.15). */
+  const trySpring = (h: HeroEntity, s: HeroState): boolean => {
+    const tick = clock.tick;
+    const cond = h.stats.conditions;
+    if (springs.length === 0 || tick < s.springReadyAt || cond.has('grounded') || isEgg(h)) return false;
+    for (const sp of springs) {
+      const dx = h.pos.x - sp.pad.x;
+      const dz = h.pos.z - sp.pad.z;
+      if (dx * dx + dz * dz > sp.radius * sp.radius || Math.abs(h.pos.y - sp.pad.y) > SPRING.padHeight) continue;
+      const rise = sp.apexY - h.pos.y;
+      if (rise <= 0) continue;
+      // A ballistic arc under hero gravity: up to the apex, then down to the landing height.
+      const vy = Math.sqrt(2 * AIR.gravity * rise);
+      const up = vy / AIR.gravity;
+      const flight = up + Math.sqrt((2 * Math.max(0, sp.apexY - sp.land.y)) / AIR.gravity);
+      h.vel = { x: (sp.land.x - h.pos.x) / flight, y: vy, z: (sp.land.z - h.pos.z) / flight };
+      endSlide(h, s);
+      s.dashUntil = NEVER;
+      s.lastGroundTick = NEVER;
+      s.jumpBufferUntil = NEVER;
+      s.spring = { apexAt: tick + ticks(up), clipUntil: tick + T.springClip };
+      s.springReadyAt = tick + T.springCooldown;
+      h.motor.dashing = false;
+      h.motor.grounded = false;
+      emit(h.id, 'jump');
+      return true;
     }
     return false;
+  };
+
+  /** GDD §7.15 clipped launch: the rise stops, air control drops to the after-apex share, and a slow. */
+  const clipSpring = (h: HeroEntity, s: HeroState, e: DamageAppliedEvent): void => {
+    const sp = s.spring;
+    if (!sp) return;
+    sp.clipUntil = NEVER;
+    sp.apexAt = clock.tick;
+    h.vel.y = Math.min(h.vel.y, 0);
+    const cause: EffectCause = {
+      source: e.source,
+      team: e.sourceTeam,
+      via: 'objective',
+      ability: null,
+      item: null,
+      values: null,
+      songPower: 0,
+      proc: true,
+      origin: copy(h.pos),
+    };
+    ctx.effects.apply(
+      { kind: 'applyStatus', status: SLOW, durationS: SPRING.clipSlowS, magnitude: SPRING.clipSlow },
+      { entity: h.id, point: copy(h.pos), dir: lookDir(h.yaw, 0) },
+      cause,
+    );
   };
 
   const tryClimb = (h: HeroEntity, s: HeroState, input: number): boolean => {
@@ -781,7 +848,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
   const canSlide = (h: HeroEntity, s: HeroState, speed: number): boolean =>
     h.motor.crouching && speed > 0 && (speed >= SLIDE.minSpeed || s.downhill > SLIDE_MIN_SLOPE_TAN);
 
-  const locomotion = (h: HeroEntity, s: HeroState): void => {
+  const locomotion = (h: HeroEntity, s: HeroState, inReach: boolean): void => {
     const m = h.motor;
     const v = h.vel;
     const cond = h.stats.conditions;
@@ -790,7 +857,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const canAct = !cond.has('stunned') && !m.knockedUp;
     const canMove = canAct && !cond.has('rooted');
     const canLeave = canMove && !cond.has('grounded');
-    const egg = cond.has('eggCarrier');
+    const egg = isEgg(h);
     const pressed = canAct ? h.command.pressed : 0;
     const held = canAct ? h.command.held : 0;
     const input = canMove ? wish(h) : 0;
@@ -812,13 +879,14 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     }
     const jumpPressed = (pressed & Button.Jump) !== 0;
     const wantsMantle = ((pressed | held) & Button.Jump) !== 0 && canLeave && !egg && !s.displaced;
-    if (canLeave && !egg && !s.displaced && (pressed & (Button.Interact | Button.Jump)) !== 0 && tryUpdraft(h, s)) return;
     if (wantsMantle && input > 0) {
       const origin = { x: h.pos.x, y: h.pos.y + GROUND.stepUp, z: h.pos.z };
-      const face = service.raycast(origin, W, MANTLE.reach + h.radius, LAYERS_SOLID);
+      const face = service.raycast(origin, W, MANTLE.reach + h.radius, MOVE_MASK);
       const gap = face ? -face.distance * (face.normal.x * W.x + face.normal.z * W.z) : 0;
       if (face && tryMantle(h, s, face.normal, input, v.x, v.z, gap)) return;
     }
+    // GDD §3.3 jump priority: a held-Jump latch comes after a ledge pull-up.
+    if (canLeave && !egg && !s.displaced && tryLatch(h, s, inReach)) return;
     if (jumpPressed) s.jumpBufferUntil = tick + T.buffer;
     if (
       (pressed & Button.Dash) !== 0 && canLeave && m.stamina >= DASH.cost && tick >= s.nextDashAt &&
@@ -906,7 +974,8 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     } else if (m.grounded) {
       groundAccel(v, input, m.crouching ? crouchSpeed : run);
     } else if (jump === null && !downDash) {
-      airControl(v, input, run, m.knockedUp ? 0 : s.displaced ? DISPLACE.airControl : 1);
+      const spring = s.spring ? (tick < s.spring.apexAt ? 0 : SPRING.airControl) : 1;
+      airControl(v, input, run, m.knockedUp ? 0 : s.displaced ? DISPLACE.airControl : spring);
     }
     if (!canMove && m.grounded) v.x = v.z = 0;
 
@@ -934,9 +1003,10 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     }
     m.dashJumpReady = canLeave && dashJumpReady(h, s);
 
+    if (m.grounded && !s.displaced && trySpring(h, s)) return;
     if (!canLeave || egg || s.displaced) return;
     if (wantsMantle && r.hasWall && tryMantle(h, s, r.wall, input, vx, vz)) return;
-    if (tryUpdraft(h, s) || tryClimb(h, s, input)) return;
+    tryClimb(h, s, input);
   };
 
   // ---- Scripted states. ----
@@ -974,6 +1044,13 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
 
   const dashTick = (h: HeroEntity, s: HeroState, d: ScriptedDash): void => {
     d.t++;
+    if (d.steer) {
+      // Follow the aim yaw, at most steer.max either side of where the dash started (Rampage, D-SYS-011).
+      const yaw = d.steer.base + clamp(wrapAngle(h.yaw - d.steer.base), -d.steer.max, d.steer.max);
+      const flat = dmath.hypot(d.dirX, d.dirZ);
+      d.dirX = dmath.sin(yaw) * flat;
+      d.dirZ = dmath.cos(yaw) * flat;
+    }
     const f0 = (d.t - 1) / d.n;
     const f1 = d.t / d.n;
     D.x = d.dirX * d.step;
@@ -1007,20 +1084,27 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     }
     const line = lines[ride.line];
     if (!line) return;
+    const pressed = h.command.pressed;
+    // Holding Jump through the latch and the ride does nothing; once it is let go, the next press jumps off.
+    if ((h.command.held & Button.Jump) === 0) ride.released = true;
     if (ride.mount > 0) {
+      // The latch: nothing but looking until the hero reaches the cable.
       ride.mount--;
       pointOnLine(line, ride.s, P, TAN);
-      const f = 1 - ride.mount / T.mount;
+      const f = 1 - ride.mount / ride.mountTicks;
       const x = ride.from.x + (P.x - ride.from.x) * f;
       const y = ride.from.y + (P.y - ride.from.y) * f;
       const z = ride.from.z + (P.z - ride.from.z) * f;
-      h.vel = { x: 0, y: 0, z: 0 };
+      h.vel = { x: (x - h.pos.x) / dt, y: (y - h.pos.y) / dt, z: (z - h.pos.z) / dt };
       h.pos = { x, y, z };
       return;
     }
-    const pressed = h.command.pressed;
-    if ((pressed & (Button.Jump | Button.Crouch)) !== 0) {
-      leaveRide(h, s, (pressed & Button.Jump) !== 0);
+    if ((pressed & Button.Crouch) !== 0) {
+      leaveRide(h, s, false);
+      return;
+    }
+    if ((pressed & Button.Jump) !== 0 && ride.released) {
+      leaveRide(h, s, true);
       return;
     }
     const tick = clock.tick;
@@ -1106,7 +1190,13 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const input = canMove ? wish(h) : 0;
     const held = canMove ? h.command.held : 0;
     const climb = (held & Button.Jump) !== 0 ? mode.vertical : (held & Button.Crouch) !== 0 ? -mode.vertical : 0;
-    if (mode.kind === 'toboggan' && canMove && (h.command.pressed & Button.Jump) !== 0) {
+    const jumped = canMove && (h.command.pressed & Button.Jump) !== 0;
+    // A stun drops a clinging hero (Tree Cling, GDD §9.19).
+    if ((jumped && mode.endOn?.includes('jump') === true) || (mode.kind === 'cling' && cond.has('stunned'))) {
+      endMode(h);
+      return;
+    }
+    if (mode.endOn === null && mode.kind === 'toboggan' && jumped) {
       // Jump ends a toboggan with a hop that keeps the slide's horizontal speed (air control never adds to it).
       endMode(h);
       if (s.mode === null) {
@@ -1117,7 +1207,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
       }
       return;
     }
-    if (mode.kind === 'glide' && canMove && (h.command.pressed & Button.Jump) !== 0) {
+    if (mode.endOn === null && mode.kind === 'glide' && jumped) {
       // GDD §9.5: Space ends a glide (no hop: the hero falls from there).
       endMode(h);
       return;
@@ -1161,8 +1251,9 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const r = move(h);
     const wasGrounded = h.motor.grounded;
     settle(h, s, r, v.y > 0);
-    // GDD §9.5: a glide also ends on landing.
-    if (mode.kind === 'glide' && h.motor.grounded && !wasGrounded) endMode(h);
+    // GDD §9.5: a glide also ends on landing; `endOn` 'land' says so for any mode.
+    const endsOnLand = mode.endOn === null ? mode.kind === 'glide' : mode.endOn.includes('land');
+    if (endsOnLand && h.motor.grounded && !wasGrounded) endMode(h);
     else if (mode.onCollide.length > 0) touch(h, mode.cause, mode.hit, mode.onCollide, { x: v.x, y: 0, z: v.z });
   };
 
@@ -1188,6 +1279,8 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     if (h.health.dead) {
       // Dead heroes stay where they fell; nothing they were doing survives (no onEnd effects).
       interrupt(h);
+      m.updraftInReach = null;
+      s.spring = null;
       s.mode = null;
       if (m.mode !== null) clearMode(h);
       m.knockedUp = false;
@@ -1202,13 +1295,18 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     else if (m.stamina > maxStamina) m.stamina = maxStamina;
 
     m.dashJumpReady = false;
+    s.jumpHeld = (h.command.held & Button.Jump) !== 0 ? s.jumpHeld + 1 : 0;
+    // The HUD prompt and bots read the cable in reach; physics latches from it (D-EP-039).
+    const inReach = s.ride === null && s.attach === null && updrafts.reach(h.pos, REACH);
+    m.updraftInReach = inReach ? REACH.updraft : null;
+    s.tunnel = tunnels.some((v) => within(v, h.pos));
     if (s.attach) return;
     if (s.mantle) mantleTick(h, s, s.mantle);
     else if (s.dash) dashTick(h, s, s.dash);
     else if (s.ride) rideTick(h, s, s.ride);
     else if (m.climb !== null) climbTick(h, s, m.climb);
     else if (s.mode) modeTick(h, s, s.mode);
-    else locomotion(h, s);
+    else locomotion(h, s, inReach);
 
     const b = map.bounds;
     if (h.pos.y < map.killY) {

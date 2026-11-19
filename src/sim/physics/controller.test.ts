@@ -531,16 +531,32 @@ describe('Updrafts (GDD §3.7)', () => {
     prims: [box({ x: 0, y: 5.25, z: 10 }, { x: 4, y: 10.5, z: 4 })],
   });
 
-  it('rides station to station: mount 0.3 s, 11 m/s, boost 18 m/s for 3 s (12 s cooldown), drops off the end', async () => {
+  const HOLD = { yaw: 0, held: Button.Jump };
+  const hitBy = (b: Bench): void => {
+    const other = b.other;
+    if (!other) throw new Error('no enemy');
+    b.sim.ctx.bus.emit({
+      type: 'damage.applied', source: other.id, sourceTeam: 'dusk', target: b.h.id, targetKind: 'hero', amount: 10,
+      absorbed: 0, damageType: 'talon', via: 'weapon', ability: null, item: null, beakShot: false, weakPoint: false,
+      proc: false, lethal: false, pos: { ...b.h.pos },
+    });
+  };
+
+  it('Jump held 0.2 s in reach latches and pulls up at 30 m/s; rides 11 m/s, boosts 18 m/s for 3 s (12 s cooldown), drops off the end', async () => {
     const b = await bench(line, { x: 1, y: 0, z: -31 });
-    b.step({ yaw: 0, pressed: Button.Interact });
+    expect(b.h.motor.updraftInReach, 'feet 1.4 m from the ground line, cable 12 m up').toBe(0);
+    b.step(HOLD, 11);
+    expect(b.h.motor.updraft, 'not before 0.2 s').toBeNull();
+    b.step(HOLD);
     expect(b.h.motor.updraft).toBe(0);
-    b.step({ yaw: 0 }, 17);
+    expect(b.h.motor.updraftInReach, 'null while riding').toBeNull();
+    // 12.08 m to the cable at 30 m/s: 25 ticks.
+    b.step(HOLD, 24);
     expect(b.h.pos.y).toBeLessThan(12);
-    b.step({ yaw: 0 });
+    b.step(HOLD);
     expect(b.h.pos.y).toBeCloseTo(12, 6);
-    b.step({ yaw: 0 }, 30);
-    expect(b.h.vel.z).toBeCloseTo(11, 6);
+    b.step(HOLD, 30);
+    expect(b.h.vel.z, 'holding Jump on the ride does nothing').toBeCloseTo(11, 6);
     b.step({ yaw: 0, pressed: Button.Dash });
     expect(b.h.vel.z).toBeCloseTo(18, 6);
     expect(b.h.motor.stamina).toBe(3);
@@ -556,11 +572,45 @@ describe('Updrafts (GDD §3.7)', () => {
     expect(b.h.pos.z).toBeCloseTo(30, 1);
   });
 
-  it('rides toward the end the camera faces; Space dismounts with +4 m/s up and 70% of the ride speed', async () => {
+  it('a tap never latches, nor a press that starts a normal jump and lets go; out of reach, nothing', async () => {
+    const b = await bench(line, { x: 1, y: 0, z: -20 });
+    b.step({ yaw: 0, pressed: Button.Jump });
+    b.step({ yaw: 0 }, 60);
+    expect(b.actions).toEqual(['jump', 'land']);
+    b.step({ ...HOLD, pressed: Button.Jump });
+    b.step(HOLD, 5);
+    b.step({ yaw: 0 }, 60);
+    expect(b.h.motor.updraft).toBeNull();
+    b.place({ x: 4, y: 0, z: -20 });
+    expect(b.h.motor.updraftInReach, '4 m from the ground line').toBeNull();
+    b.step(HOLD, 60);
+    expect(b.h.motor.updraft).toBeNull();
+  });
+
+  it('from the ground the press starts a normal jump and the hold pulls up from the air; airborne within 1.5 m it attaches in 0.15 s', async () => {
+    const b = await bench(line, { x: 1, y: 0, z: -20 });
+    b.step({ ...HOLD, pressed: Button.Jump });
+    b.step(HOLD, 11);
+    expect(b.actions).toEqual(['jump', 'updraftOn']);
+    expect(b.h.pos.y, 'latched in the air, then pulled up').toBeGreaterThan(1);
+    // On the 10.5 m block under the cable: a jump puts the feet within 1.5 m of it by the time the hold counts.
+    const c = await bench(line, { x: 0, y: 10.5, z: 10 });
+    c.step({ ...HOLD, pressed: Button.Jump });
+    c.step(HOLD, 11);
+    expect(c.h.motor.updraft).toBe(0);
+    c.step(HOLD, 8);
+    expect(c.h.pos.y).toBeLessThan(12);
+    c.step(HOLD);
+    expect(c.h.pos.y, '0.15 s: 9 ticks').toBeCloseTo(12, 6);
+  });
+
+  it('rides toward the end the camera faces; a fresh Jump press jumps off with +4 m/s up and 70% of the ride speed', async () => {
     const b = await bench(line, { x: 0, y: 0, z: 1 });
-    b.step({ yaw: Math.PI, pressed: Button.Interact });
-    b.step({ yaw: Math.PI }, 40);
+    b.step({ yaw: Math.PI, held: Button.Jump }, 12);
+    b.step({ yaw: Math.PI, held: Button.Jump, pressed: Button.Jump }, 40);
+    expect(b.h.motor.updraft, 'a press while Jump was never released does nothing').toBe(0);
     expect(b.h.vel.z).toBeCloseTo(-11, 6);
+    b.step({ yaw: Math.PI });
     b.step({ yaw: Math.PI, pressed: Button.Jump });
     expect(b.h.motor.updraft).toBeNull();
     expect(b.h.vel.z).toBeCloseTo(-7.7, 6);
@@ -570,19 +620,28 @@ describe('Updrafts (GDD §3.7)', () => {
     expect(b.h.pos.y).toBeGreaterThan(y);
   });
 
-  it('mounts by jumping into the line; no boost within 3 s of hero damage; stun forces a dismount', async () => {
-    const b = await bench(line, { x: 0, y: 10.5, z: 10 }, { x: 20, y: 0, z: 20 });
-    // Facing −z: 40 m of line ahead, enough for the 3 s lock below.
-    b.step({ yaw: Math.PI, pressed: Button.Jump });
-    b.step({ yaw: Math.PI }, 3);
+  it('Crouch drops off with 70%; no latch for 1.0 s after leaving, even falling back through reach', async () => {
+    const b = await bench(line, { x: 0, y: 0, z: 1 });
+    b.step({ yaw: Math.PI, held: Button.Jump }, 60);
+    b.step({ yaw: Math.PI, pressed: Button.Crouch });
+    expect(b.h.motor.updraft).toBeNull();
+    expect(b.h.vel.z).toBeCloseTo(-7.7, 6);
+    expect(b.h.vel.y).toBeCloseTo(0, 6);
+    b.step({ yaw: Math.PI, held: Button.Jump }, 50);
+    expect(b.h.motor.updraft, 'inside the 1.0 s leave lockout').toBeNull();
+    b.step({ yaw: Math.PI, held: Button.Jump }, 20);
+    expect(b.h.motor.updraft, 'after it, with Jump still held').toBe(0);
+  });
+
+  it('no latch for 3 s after enemy hero damage, no boost within 3 s of it; stun forces a dismount', async () => {
+    const b = await bench(line, { x: 0, y: 0, z: -20 }, { x: 20, y: 0, z: 20 });
+    hitBy(b);
+    b.step(HOLD, 170);
+    expect(b.h.motor.updraft, 'inside the 3 s damage lockout').toBeNull();
+    b.step(HOLD, 20);
     expect(b.h.motor.updraft).toBe(0);
-    const other = b.other;
-    if (!other) throw new Error('no enemy');
-    b.sim.ctx.bus.emit({
-      type: 'damage.applied', source: other.id, sourceTeam: 'dusk', target: b.h.id, targetKind: 'hero', amount: 10,
-      absorbed: 0, damageType: 'talon', via: 'weapon', ability: null, item: null, beakShot: false, weakPoint: false,
-      proc: false, lethal: false, pos: { ...b.h.pos },
-    });
+    b.step({ yaw: 0 }, 30);
+    hitBy(b);
     b.step({ pressed: Button.Dash });
     expect(b.actions).not.toContain('updraftBoost');
     b.step({}, 179);
@@ -593,15 +652,35 @@ describe('Updrafts (GDD §3.7)', () => {
     expect(b.h.motor.updraft).toBeNull();
   });
 
-  it('casting an ability dismounts; the Egg carrier cannot mount', async () => {
+  it('casting an ability dismounts; the Egg carrier cannot latch; the Interact bit does nothing (D-EP-039)', async () => {
     const b = await bench(line, { x: 1, y: 0, z: -31 });
-    b.step({ yaw: 0, pressed: Button.Interact }, 30);
+    b.step(HOLD, 30);
     b.sim.ctx.bus.emit({ type: 'ability', caster: b.h.id, slot: 0, ability: 'owl.1', stage: 'start', point: { ...b.h.pos } });
     expect(b.h.motor.updraft).toBeNull();
     const c = await bench(line, { x: 1, y: 0, z: -31 });
     c.sim.ctx.stats.set(c.h.id, 'test', { conditions: ['eggCarrier'] });
-    c.step({ yaw: 0, pressed: Button.Interact });
+    c.step(HOLD, 30);
     expect(c.h.motor.updraft).toBeNull();
+    const d = await bench(line, { x: 1, y: 0, z: -31 });
+    d.step({ yaw: 0, pressed: Button.Interact, held: Button.Interact }, 30);
+    expect(d.h.motor.updraft).toBeNull();
+  });
+
+  it('PhysicsService.updraftInReach: anywhere along the cable within 2.5 m of its ground line and 0.5–14 m below it, or within 1.5 m of it', async () => {
+    const b = await bench(line);
+    const reach = b.sim.ctx.physics.updraftInReach;
+    if (!reach) throw new Error('physics lands updraftInReach');
+    const r = reach({ x: 2, y: 0, z: 17.3 });
+    expect(r?.updraft).toBe(0);
+    expect(r?.point.x).toBeCloseTo(0, 9);
+    expect(r?.point.y).toBeCloseTo(12, 9);
+    expect(r?.point.z).toBeCloseTo(17.3, 9);
+    expect(r?.t, 'arc length from the first point').toBeCloseTo(47.3, 9);
+    expect(reach({ x: 2.6, y: 0, z: 0 })).toBeNull();
+    expect(reach({ x: 0, y: -2.5, z: 0 }), '14.5 m below').toBeNull();
+    expect(reach({ x: 0, y: 11.6, z: 0 }), 'feet 0.4 m below: only the 1.5 m sphere').not.toBeNull();
+    expect(reach({ x: 1.2, y: 12.5, z: 5 }), 'beside and above').not.toBeNull();
+    expect(reach({ x: 0, y: 14, z: 5 }), '2 m above').toBeNull();
   });
 });
 
@@ -1040,8 +1119,9 @@ describe('Hedgerow traversal run (GDD §3.10) on Old Mossmarket', () => {
     }, 300)).not.toBeNull();
     sb.move(me, 0);
     sb.look(me, 0, 0);
-    sb.press(me, Button.Interact);
+    sb.hold(me, Button.Jump); // under the cable: the hold latches and pulls the Shrike up (D-EP-039)
     expect(sb.stepUntil(() => h().motor.updraft !== null && h().pos.y > 11.99, 60)).not.toBeNull();
+    sb.release(me, Button.Jump);
     sb.press(me, Button.Dash);
     sb.stepUntil(() => h().pos.z >= -35, 120);
     expect(h().pos.y, 'the rider passes 2 m over the 10 m tower cap').toBeCloseTo(12, 3);

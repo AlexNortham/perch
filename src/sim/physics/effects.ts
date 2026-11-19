@@ -13,7 +13,8 @@
 import type { CoreContext, DisplaceEffect, EffectCause, EffectTarget, EntityId, HeroEntity, PhysicsService, UnitEntity, Vec3 } from '../core/contracts';
 import { lookDir } from '../core/aim';
 import { ticks } from '../core/math';
-import { AIR, DASH, DEGREES_PER_HALF_TURN, DISPLACE } from '../data/movement';
+import { SURFACE_VALUE } from '../data/abilities';
+import { AIR, CONTROLLER, DASH, DEGREES_PER_HALF_TURN, DISPLACE, STEER_VALUE } from '../data/movement';
 import type { Controller, Slam } from './controller';
 import type { UnitMover } from './units';
 import * as dmath from '../core/dmath';
@@ -119,6 +120,17 @@ export function registerEffects(ctx: CoreContext, ctrl: Controller, service: Phy
       const gap = dmath.hypot(goal.x - mover.pos.x, goal.z - mover.pos.z) - (t ? t.radius + mover.radius : 0);
       distance = Math.min(distance, Math.max(0, gap));
       dir = flat(mover.yaw, goal.x - mover.pos.x, goal.z - mover.pos.z);
+      if (!t && (cause.values?.[SURFACE_VALUE] ?? 0) >= 1) {
+        // A surface point (a wall or tree under the crosshair, D-SYS-012): fly straight at it, stopping with the body
+        // just short of the surface.
+        const back = mover.radius + CONTROLLER.skin;
+        const dx = goal.x - dir.x * back - mover.pos.x;
+        const dy = goal.y - mover.pos.y;
+        const dz = goal.z - dir.z * back - mover.pos.z;
+        const len = dmath.hypot(dx, dy, dz);
+        distance = Math.min(effects.magnitude(e.distance, cause), len);
+        if (len > 0) dir = { x: dx / len, y: dy / len, z: dz / len };
+      }
     }
     const n = Math.max(1, ticks(effects.magnitude(e.durationS, cause)));
     const step = distance / n;
@@ -127,10 +139,12 @@ export function registerEffects(ctx: CoreContext, ctrl: Controller, service: Phy
       return;
     }
     if (!h) return;
+    const steerDeg = e.dir === 'aim' ? (cause.values?.[STEER_VALUE] ?? 0) : 0;
     ctrl.startAbilityDash(h, {
       dirX: dir.x,
       dirY: dir.y,
       dirZ: dir.z,
+      steer: steerDeg > 0 ? { base: dmath.atan2(dir.x, dir.z), max: (steerDeg * Math.PI) / DEGREES_PER_HALF_TURN } : null,
       step,
       n,
       arc: e.arcHeight ?? 0,
@@ -186,6 +200,7 @@ export function registerEffects(ctx: CoreContext, ctrl: Controller, service: Phy
       allowAbilities: e.allowAbilities,
       onCollide: e.onCollide ?? [],
       onEnd: e.onEnd ?? [],
+      endOn: e.endOn ?? null,
       cause,
     });
   });
