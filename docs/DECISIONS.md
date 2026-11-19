@@ -860,3 +860,11 @@ on an 8 m column. The Heron keeps its stilt legs, frame, stepping pose and bill 
 combat reach at 22 m for Hawk fire, 30 m for the Heron beam and 7 m for its stomp.
 **Why:** the lane retains its tower silhouettes and fight geometry. Verify clearance at normal and boost
 speed over both kinds of tower and check the existing range thresholds.
+
+### D-DIR-003 · 19/11/2026 — Practice Hub and ability inspection
+**Decision:** Practice Hub begins at the menu, lets the player select an available hero, and offers repeatable
+damage and ally healing on labelled targets. Its four base abilities and 32 AP use the usual tier rules.
+Tap the inspect action to free the pointer for hover descriptions, focus and click-to-upgrade. Keep the
+keyboard upgrade chord and return to aiming on Close or Esc.
+**Why:** the player can try any unlocked kit and all tiers, including ally heals, using the same controls
+and outcomes as the match. Check the two target paths, the AP panel and a fresh Play session in the M2 gate.

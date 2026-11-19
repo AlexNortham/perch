@@ -134,6 +134,7 @@ the first minute and still has decisions to make at minute 35.
 | Parry | F | §5.8. |
 | Abilities 1–4 | 1, 2, 3, 4 | Slot 4 is the ultimate. |
 | Upgrade ability 1–4 | Alt + 1–4 | Spends AP on the next tier. |
+| Inspect / upgrade abilities | Left Alt (tap) | Frees the pointer for the ability panel. Esc or Close returns to aiming (§12.4). |
 | Item actives | Z, X, N, V | Bound to the first four active items in slot order (rebindable per slot). |
 | Interact | E | Pick up the Golden Egg, deliver, mount an Updraft at a station. |
 | Shoulder swap | G | §4.2. |
@@ -1690,16 +1691,19 @@ works with mouse and keyboard; Esc always backs out.
 Boot → Main menu ─┬─ Play → Match setup → Hero select → Loading → Match (HUD) → End of match ─┬─ Play again
                   ├─ Heroes (gallery)                         │  ↑ Esc: Pause ─ Settings      └─ Main menu
                   ├─ Settings                                 └─ Tab scoreboard, B shop, M big map
+                  ├─ Practice Hub → Hero select → Practice (HUD) → Main menu
                   └─ How to play
 ```
 
 ### 12.2 Main menu
 
 - Background: a slow fly-through of the map at dusk with the 12 last-picked heroes perched on a rooftop.
-- Title "PERCH" with a feather that drifts across it. Buttons: **Play**, **Heroes**, **Settings**, **How to play**.
+- Title "PERCH" with a feather that drifts across it. Buttons: **Play**, **Practice Hub**, **Heroes**,
+  **Settings**, **How to play**.
 - **Match setup** (from Play): bot difficulty (Chick / Hunter / Raptor / Mixed), flock (Dawn / Dusk / Random),
   seed (blank = random, shown on the end screen for replays), Start.
 - **Heroes:** the hero select grid without a timer; for learning kits.
+- **Practice Hub:** choose an available hero and enter a solo practice session (§12.12).
 - **How to play:** controls table (§3.1) and a one-page loop summary (lanes, seeds, pods, structures, Patron).
 
 ### 12.3 Hero select
@@ -1729,12 +1733,13 @@ Boot → Main menu ─┬─ Play → Match setup → Hero select → Loading �
 |  [buff][buff][debuff]                                       damage numbers float in world  |
 |  +------+  HP ██████████████░░░░  642 / 820 (+120 shield)                                  |
 |  | face |  Stamina ● ● ○     Lv 9 ▰▰▰▰▱ 6,000→7,200   AP 2     Seeds 1,250                 |
-|  +------+  [ 1 ][ 2 ][ 3 ][ 4 ]   [ Z ][ X ][ C ][ V ]   18 / 24  ⟳                         |
+|  +------+  [ 1 ][ 2 ][ 3 ][ 4 ]   [ Z ][ X ][ N ][ V ]   18 / 24  ⟳                         |
 +-------------------------------------------------------------------------------------------+
 ```
 
 - **Bottom-left cluster:** portrait (flashes red on damage), health bar (shields shown as a white extension,
-  barriers grey), stamina pips, level with progress to the next level, unspent AP (pulses; Alt+1–4 to spend),
+  barriers grey), stamina pips, level with progress to the next level, unspent AP (pulses; Alt+1–4 or the
+  ability panel to spend),
   wallet. Ability icons with cooldown sweeps, charges as small numbers, AP tier pips (3 per ability), keybinds;
   item actives below their keys; ammo and reload ring at the right end.
 - **Top centre:** flock net worth totals, match timer, and per-lane structure pips for both flocks.
@@ -1747,6 +1752,14 @@ Boot → Main menu ─┬─ Play → Match setup → Hero select → Loading �
   ability telegraphs, offscreen damage direction arcs (red), low-HP vignette below 25% HP.
 - **Death screen:** "Taken down by" with the killer's portrait and a damage breakdown (Talon / Song, top 3
   sources), respawn countdown, spectate allies (mouse buttons cycle). The shop and AP spending work while dead.
+
+Tap Inspect / upgrade (Left Alt by default) to release pointer lock and open the ability panel. Hover or
+keyboard-focus an ability to see its full current description, rank, tier effects and next tier cost or
+lock reason. Click an eligible ability's upgrade button or activate it with the keyboard to buy one tier
+using the normal AP rules (§8.5). Refresh the cost, rank and AP immediately. The panel consumes its clicks
+and suppresses aiming, firing and casts while open. Close it with its action again, Close or Esc, then
+resume pointer capture. Holding the configured upgrade modifier and pressing 1–4 keeps the quick upgrade
+shortcut. Releasing the modifier after the shortcut keeps the panel closed.
 
 ### 12.5 Minimap and pings
 
@@ -1821,6 +1834,18 @@ simulation (single-player).
 - Buttons: **Play again** (same setup, new seed), **Main menu**.
 
 ---
+
+### 12.12 Practice Hub
+
+Open **Practice Hub** from the main menu and lock in an available hero. A fresh session unlocks all four
+base abilities and grants 32 practice AP to try the usual tier costs. Choose a damaging hero to fire or cast
+at the stationary enemy damage dummy. Choose a healer to use a normal ally-targeted heal on the stationary
+wounded ally dummy. Each has a distinct label and health bar. Show damage or healing feedback and updated
+health through normal play. Once the target settles, reset it to its starting state for another attempt.
+The enemy starts at full health and the ally at 40%.
+
+Practice uses the usual controls, aim, abilities and upgrade panel. Pause and choose Main menu to leave.
+Play starts with fresh match progression and the usual ultimate unlock.
 
 ## 13. Audio direction
 
@@ -2099,6 +2124,12 @@ An item fails if it can't be shown with a screenshot, a test or a telemetry numb
       heavy commitment, lunge, impact and recovery, then parry success and whiff with their distinct cues.
 - [ ] Seed payouts match §8 for last hit, secure, deny, hero kill (with an assist), structures and passive income.
 - [ ] Level thresholds match §8.5; AP and the level-6 ultimate unlock work; upgrade tiers change numbers.
+- [ ] Open Practice Hub from the menu with a damaging hero, damage the enemy dummy and observe its reset.
+      Re-enter with a healer, restore the wounded ally's health and see it return to 40%. Verify four base
+      abilities and 32 AP on entry and that Play starts with its normal progression.
+- [ ] Tap the inspect action, hover and keyboard-focus an ability with the pointer free, then spend AP with
+      a click. Verify cost, rank and AP update, blocked upgrades explain why, clicks do not shoot, Esc or
+      Close restores aiming and the quick keyboard shortcut upgrades without opening the panel.
 - [ ] Shop: buy, upgrade with component discount, sell 50% / 100% within 20 s, only in shop zones.
 - [ ] Flex slots unlock on the right objectives for the whole flock.
 - [ ] Hawk punishes a hero who shoots an allied hero under it (target switch within 0.5 s).
