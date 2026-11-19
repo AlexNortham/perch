@@ -158,8 +158,8 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W4 earnings and AP', () => {
 describe.runIf(process.env.PERCH_PENDING === '1')('W4 shop transactions', () => {
   it('§§8.7–8.8 the 16-item catalogue spans four tiers and trades validate own zone, funds, ownership and uniqueness', async () => {
     const { sb, buyer, enemy } = await market(2 * ITEM_COST);
-    expect(sb.ctx.itemCatalogue.map((item) => item.id).sort()).toEqual([...ITEMS].sort());
-    expect(new Set(sb.ctx.itemCatalogue.map((item) => item.tier))).toEqual(new Set([1, 2, 3, 4]));
+    expect(sb.sim.itemCatalogue.map((item) => item.id).sort()).toEqual([...ITEMS].sort());
+    expect(new Set(sb.sim.itemCatalogue.map((item) => item.tier))).toEqual(new Set([1, 2, 3, 4]));
     const h = sb.hero(buyer);
     const stall = ownShop(sb, 'dawn', 'stall');
     sb.place(buyer, ownShop(sb, 'dusk', 'stall').pos);

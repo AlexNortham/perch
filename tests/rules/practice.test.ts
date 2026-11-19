@@ -29,30 +29,37 @@ it('§12.12 Practice starts with four base skills and 32 AP, and a fresh siege h
 });
 
 describe.runIf(process.env.PERCH_PENDING === '1')('W4 Practice target reset', () => {
-  it('§12.12 real weapon damage and Mended Song heal can each be repeated after the target resets', async () => {
+  it('§12.12 the enemy takes real weapon damage again after returning to its mark at full health', async () => {
     const sb = await practice();
-    const [user, ally, enemy] = sb.heroes as [number, number, number];
-    const allyStart = sb.hero(ally).hero.training!;
-    const enemyStart = sb.hero(enemy).hero.training!;
-    expect(sb.health(ally).hp).toBeCloseTo(sb.hero(ally).stats.final.maxHealth * 0.4);
+    const [user, , enemy] = sb.heroes as [number, number, number];
+    const start = sb.hero(enemy).hero.training!;
     expect(sb.health(enemy).hp).toBe(sb.hero(enemy).stats.final.maxHealth);
     for (let attempt = 0; attempt < 2; attempt++) {
       sb.clearEvents();
-      sb.place(enemy, { ...enemyStart.pos, x: enemyStart.pos.x + 2 });
+      sb.place(enemy, { ...start.pos, x: start.pos.x + 2 });
       sb.aimAt(user, enemy);
       sb.fire(user);
-      expect(sb.stepUntil(() => sb.health(enemy).hp < enemyStart.hp, TICK_RATE)).not.toBeNull();
+      expect(sb.stepUntil(() => sb.health(enemy).hp < start.hp, TICK_RATE)).not.toBeNull();
       sb.fire(user, false);
       expect(sb.eventsOf('damage.applied')).toContainEqual(expect.objectContaining({ source: user, target: enemy, via: 'weapon' }));
-      expect(sb.stepUntil(() => Math.abs(sb.health(enemy).hp - enemyStart.hp) < 0.01, MAX_RESET_TICKS), 'damaged enemy resets').not.toBeNull();
-      expect(sb.hero(enemy).pos.x).toBeCloseTo(enemyStart.pos.x, 1);
+      expect(sb.stepUntil(() => Math.abs(sb.health(enemy).hp - start.hp) < 0.01, MAX_RESET_TICKS), 'damaged enemy resets').not.toBeNull();
+      expect(sb.hero(enemy).pos.x).toBeCloseTo(start.pos.x, 1);
+    }
+  });
 
-      sb.place(ally, { ...allyStart.pos, x: allyStart.pos.x - 2 });
+  it('§12.12 the ally takes a real Mended Song heal again after returning to its mark at 40% HP', async () => {
+    const sb = await practice();
+    const [user, ally] = sb.heroes as [number, number];
+    const start = sb.hero(ally).hero.training!;
+    expect(sb.health(ally).hp).toBeCloseTo(sb.hero(ally).stats.final.maxHealth * 0.4);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      sb.clearEvents();
+      sb.place(ally, { ...start.pos, x: start.pos.x - 2 });
       sb.cast(user, 0, ally);
-      expect(sb.stepUntil(() => sb.health(ally).hp > allyStart.hp, TICK_RATE)).not.toBeNull();
+      expect(sb.stepUntil(() => sb.health(ally).hp > start.hp, TICK_RATE)).not.toBeNull();
       expect(sb.eventsOf('heal.applied')).toContainEqual(expect.objectContaining({ source: user, target: ally }));
-      expect(sb.stepUntil(() => Math.abs(sb.health(ally).hp - allyStart.hp) < 0.01, MAX_RESET_TICKS), 'healed ally resets').not.toBeNull();
-      expect(sb.hero(ally).pos.x).toBeCloseTo(allyStart.pos.x, 1);
+      expect(sb.stepUntil(() => Math.abs(sb.health(ally).hp - start.hp) < 0.01, MAX_RESET_TICKS), 'healed ally resets').not.toBeNull();
+      expect(sb.hero(ally).pos.x).toBeCloseTo(start.pos.x, 1);
     }
   });
 });
