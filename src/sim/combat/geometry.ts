@@ -1,5 +1,6 @@
 /** Pure hit geometry for sim/combat. Every ray direction is a unit vector; results are distances along it, −1 for a miss. */
 import type { Rng, Vec3 } from '../core/contracts';
+import * as dmath from '../core/dmath';
 
 const EPS = 1e-9;
 /** Above this |dir.y| the spread basis is built from the x axis instead of up. */
@@ -59,8 +60,8 @@ export function rayCylinder(o: Vec3, d: Vec3, cx: number, cz: number, y0: number
  * forward), grown by r on every side (a swept sphere against the box's Minkowski hull, square-cornered). Slab test.
  */
 export function rayBox(o: Vec3, d: Vec3, cx: number, cy: number, cz: number, yaw: number, hx: number, hy: number, hz: number, r: number): number {
-  const s = Math.sin(yaw);
-  const c = Math.cos(yaw);
+  const s = dmath.sin(yaw);
+  const c = dmath.cos(yaw);
   const ox = o.x - cx;
   const oz = o.z - cz;
   // Local axes: x = (cos, 0, −sin), z = (sin, 0, cos). Slabs unrolled: no allocation per cast.
@@ -117,7 +118,7 @@ export function falloff(dist: number, start: number, end: number, floor: number)
  * around the unit vector `dir`. Draws exactly two numbers from `rng`.
  */
 export function spreadDir(dir: Vec3, halfAngle: number, rng: Rng, out: Vec3): Vec3 {
-  const cosT = 1 - rng.next() * (1 - Math.cos(halfAngle));
+  const cosT = 1 - rng.next() * (1 - dmath.cos(halfAngle));
   const sinT = Math.sqrt(Math.max(0, 1 - cosT * cosT));
   const phi = rng.next() * Math.PI * 2;
   // Orthonormal basis around dir: u ⟂ dir picked away from the nearer axis, v = dir × u.
@@ -135,15 +136,15 @@ export function spreadDir(dir: Vec3, halfAngle: number, rng: Rng, out: Vec3): Ve
     uy = -dir.z;
     uz = dir.y;
   }
-  const ul = Math.hypot(ux, uy, uz);
+  const ul = dmath.hypot(ux, uy, uz);
   ux /= ul;
   uy /= ul;
   uz /= ul;
   const vx = dir.y * uz - dir.z * uy;
   const vy = dir.z * ux - dir.x * uz;
   const vz = dir.x * uy - dir.y * ux;
-  const a = sinT * Math.cos(phi);
-  const b = sinT * Math.sin(phi);
+  const a = sinT * dmath.cos(phi);
+  const b = sinT * dmath.sin(phi);
   out.x = dir.x * cosT + ux * a + vx * b;
   out.y = dir.y * cosT + uy * a + vy * b;
   out.z = dir.z * cosT + uz * a + vz * b;

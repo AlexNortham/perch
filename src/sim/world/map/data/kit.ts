@@ -6,6 +6,7 @@ import type {
   Anchor, BlockoutPrim, BoxPrim, BotSpot, CylinderPrim, LaneId, MapId, MaterialTag, RampPrim, ShopAnchor,
   StructureAnchor, ThicketAnchor, Vec3,
 } from '../../../core/contracts';
+import * as dmath from '../../../core/dmath';
 
 /** A climb as authored: the point on the wall face, and the horizontal unit direction from the climb into the
  * building it serves. `roof` is the height of the surface the climb tops out on. */
@@ -95,7 +96,7 @@ export function column(
 
 /** Roof slab thickness on flat roofs; gables pitch at 50° (too steep to walk). */
 const ROOF_SLAB = 0.4;
-const GABLE_PITCH = Math.tan((50 * Math.PI) / 180);
+const GABLE_PITCH = dmath.tan((50 * Math.PI) / 180);
 
 /** A building standing on y0 with its walkable top (flat) or eaves (gable) at h. */
 export function house(

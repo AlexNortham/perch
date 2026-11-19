@@ -11,6 +11,7 @@
  */
 import { CONE_HALF_HEIGHT, RAD_PER_DEG } from '../data/abilities';
 import type { AreaShape, Magnitude, Vec3 } from '../core/contracts';
+import * as dmath from '../core/dmath';
 
 export type ResolvedShape =
   | { readonly kind: 'sphere'; readonly radius: number }
@@ -26,7 +27,7 @@ export function resolveShape(s: AreaShape, mag: (m: Magnitude) => number): Resol
     case 'cylinder':
       return { kind: 'cylinder', radius: mag(s.radius), half: s.height / 2 };
     case 'cone':
-      return { kind: 'cone', length: mag(s.length), cosHalf: Math.cos((s.angleDeg / 2) * RAD_PER_DEG) };
+      return { kind: 'cone', length: mag(s.length), cosHalf: dmath.cos((s.angleDeg / 2) * RAD_PER_DEG) };
     case 'ring':
       return { kind: 'ring', inner: mag(s.inner), outer: mag(s.outer), half: s.height / 2 };
     case 'box':
@@ -55,13 +56,13 @@ export function boundRadius(s: ResolvedShape): number {
     case 'sphere':
       return s.radius;
     case 'cylinder':
-      return Math.hypot(s.radius, s.half);
+      return dmath.hypot(s.radius, s.half);
     case 'cone':
-      return Math.hypot(s.length, CONE_HALF_HEIGHT);
+      return dmath.hypot(s.length, CONE_HALF_HEIGHT);
     case 'ring':
-      return Math.hypot(s.outer, s.half);
+      return dmath.hypot(s.outer, s.half);
     case 'box':
-      return Math.hypot(s.halfX, s.half, s.halfZ);
+      return dmath.hypot(s.halfX, s.half, s.halfZ);
   }
 }
 
@@ -83,12 +84,12 @@ export function inside(s: ResolvedShape, c: Vec3, fx: number, fz: number, p: Vec
     }
     case 'ring': {
       if (Math.abs(dy) > s.half) return false;
-      const d = Math.hypot(dx, dz);
+      const d = dmath.hypot(dx, dz);
       return d >= s.inner - r && d <= s.outer + r;
     }
     case 'cone': {
       if (Math.abs(dy) > CONE_HALF_HEIGHT) return false;
-      const d = Math.hypot(dx, dz);
+      const d = dmath.hypot(dx, dz);
       if (d > s.length + r) return false;
       return d <= r || dx * fx + dz * fz >= d * s.cosHalf;
     }
@@ -107,5 +108,5 @@ export function inside(s: ResolvedShape, c: Vec3, fx: number, fz: number, p: Vec
 export function sideOf(s: ResolvedShape, c: Vec3, fx: number, fz: number, p: Vec3, r: number): boolean | null {
   if (s.kind !== 'ring') return inside(s, c, fx, fz, p, r);
   if (Math.abs(p.y - c.y) > s.half) return null;
-  return Math.hypot(p.x - c.x, p.z - c.z) < (s.inner + s.outer) / 2;
+  return dmath.hypot(p.x - c.x, p.z - c.z) < (s.inner + s.outer) / 2;
 }

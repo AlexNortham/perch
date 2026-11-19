@@ -25,6 +25,7 @@ import {
   VIPER_KICK,
   VIPER_KNOCKBACK,
 } from '../../data/heroes/secretarybird';
+import * as dmath from '../../core/dmath';
 
 const VIPER_SLOT = 3;
 const TIER_3 = 3;
@@ -91,7 +92,7 @@ export const secretarybird: HeroModule = {
       if (!last) return;
       const dx = target.pos.x - hero.pos.x;
       const dz = target.pos.z - hero.pos.z;
-      const len = Math.hypot(dx, dz) || 1;
+      const len = dmath.hypot(dx, dz) || 1;
       ctx.effects.apply(VIPER_KNOCKBACK, { entity: target.id, point: target.pos, dir: { x: dx / len, y: 0, z: dz / len } }, cause);
       if (d.cast.tier >= TIER_3) ctx.effects.applyAll(VIPER_FINISH, onEntity(hero), cause);
     };

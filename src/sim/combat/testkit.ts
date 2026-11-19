@@ -37,6 +37,7 @@ import { SPATIAL_CELL_SIZE, TICK_RATE } from '../data/core';
 import { HEROES } from '../heroes/registry';
 import { ARENA } from '../world/map';
 import { createCombatSystem } from './index';
+import * as dmath from '../core/dmath';
 
 /** The muzzle is the hero's own (it is where shots start), so a data change moves the fixture with it. */
 const body = (height: number, headR: number, headUp: number, radius: number): Omit<BodyPlan, 'muzzle'> => ({
@@ -352,8 +353,8 @@ export function createKit(
         const dx = point.x - ray.origin.x;
         const dy = point.y - ray.origin.y;
         const dz = point.z - ray.origin.z;
-        h.yaw = Math.atan2(dx, dz);
-        h.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+        h.yaw = dmath.atan2(dx, dz);
+        h.pitch = dmath.atan2(dy, dmath.hypot(dx, dz));
       }
       h.command = { ...h.command, yaw: h.yaw, pitch: h.pitch };
     },

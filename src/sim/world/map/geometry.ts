@@ -5,6 +5,7 @@
  */
 import type { BlockoutPrim, Vec3 } from '../../core/contracts';
 import { REACH } from './data/traversal';
+import * as dmath from '../../core/dmath';
 
 /** Grid cell edge for the prim index (m). */
 const CELL = 8;
@@ -43,8 +44,8 @@ function solidOf(p: BlockoutPrim): Solid {
   return {
     cx: p.centre.x,
     cz: p.centre.z,
-    cos: Math.cos(yaw),
-    sin: Math.sin(yaw),
+    cos: dmath.cos(yaw),
+    sin: dmath.sin(yaw),
     hx: cylinder ? p.radius : p.size.x / 2,
     hz: cylinder ? p.radius : p.size.z / 2,
     cylinder,
@@ -88,8 +89,8 @@ export function footprintBounds(p: BlockoutPrim): { minX: number; maxX: number; 
   if (p.shape === 'cylinder') {
     return { minX: p.centre.x - p.radius, maxX: p.centre.x + p.radius, minZ: p.centre.z - p.radius, maxZ: p.centre.z + p.radius };
   }
-  const c = Math.abs(Math.cos(p.yaw));
-  const s = Math.abs(Math.sin(p.yaw));
+  const c = Math.abs(dmath.cos(p.yaw));
+  const s = Math.abs(dmath.sin(p.yaw));
   const hx = (p.size.x * c + p.size.z * s) / 2;
   const hz = (p.size.x * s + p.size.z * c) / 2;
   return { minX: p.centre.x - hx, maxX: p.centre.x + hx, minZ: p.centre.z - hz, maxZ: p.centre.z + hz };
@@ -97,8 +98,8 @@ export function footprintBounds(p: BlockoutPrim): { minX: number; maxX: number; 
 
 /** The four footprint corners of a box or ramp, in order around it, grown by `grow`. */
 export function corners(p: Exclude<BlockoutPrim, { shape: 'cylinder' }>, grow = 0): Vec3[] {
-  const c = Math.cos(p.yaw);
-  const s = Math.sin(p.yaw);
+  const c = dmath.cos(p.yaw);
+  const s = dmath.sin(p.yaw);
   const hx = p.size.x / 2 + grow;
   const hz = p.size.z / 2 + grow;
   return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([i = 0, k = 0]) => ({

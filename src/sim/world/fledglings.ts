@@ -37,6 +37,7 @@ import type { HeroThreat } from './structures';
 import { DEFENCE, FLEDGLING_AI as AI, FLEDGLINGS, STRUCTURE_RADIUS, WAVES } from '../data/world';
 import type { FledglingDef, FledglingType } from '../data/world';
 import { aimHeight } from './vision';
+import * as dmath from '../core/dmath';
 
 const SECONDS_PER_MINUTE = 60;
 const EPS = 1e-6;
@@ -128,7 +129,7 @@ export function buildTrack(ctx: SimContext, lane: Lane, team: PlayerTeam): Track
   for (let i = 1; i < pts.length; i++) {
     const a = pts[i - 1] as Vec3;
     const b = pts[i] as Vec3;
-    const l = Math.hypot(b.x - a.x, b.z - a.z);
+    const l = dmath.hypot(b.x - a.x, b.z - a.z);
     cum.push(length);
     len.push(Math.max(l, EPS));
     dx.push(l > EPS ? (b.x - a.x) / l : 0);
@@ -291,7 +292,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
       team: track.team,
       pos,
       vel: { x: 0, y: 0, z: 0 },
-      yaw: Math.atan2(d, track.dz[0] as number),
+      yaw: dmath.atan2(d, track.dz[0] as number),
       radius: def.radius,
       unit: { type, lane: track.lane.id, height: def.height, owner: null, summon: null, target: null, attacking: false },
       health: { hp, talonShield: 0, songShield: 0, barrier: 0, dead: false, respawnAt: null, inCombatUntil: 0 },
@@ -389,7 +390,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
     const me = f.e;
     const origin = { x: me.pos.x, y: me.pos.y + me.unit.height * AI.shotHeight, z: me.pos.z };
     const point = { x: t.pos.x, y: t.pos.y + aimHeight(ctx, t), z: t.pos.z };
-    const d = Math.hypot(point.x - origin.x, point.y - origin.y, point.z - origin.z) || 1;
+    const d = dmath.hypot(point.x - origin.x, point.y - origin.y, point.z - origin.z) || 1;
     const dir = { x: (point.x - origin.x) / d, y: (point.y - origin.y) / d, z: (point.z - origin.z) / d };
     const cause: EffectCause = {
       source: me.id,
@@ -406,7 +407,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
   };
 
   const face = (e: UnitEntity, x: number, z: number): void => {
-    if (Math.abs(x) + Math.abs(z) > EPS) e.yaw = Math.atan2(x, z);
+    if (Math.abs(x) + Math.abs(z) > EPS) e.yaw = dmath.atan2(x, z);
   };
 
   const stand = (e: UnitEntity): void => {
@@ -415,7 +416,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
   };
 
   const moveBy = (e: UnitEntity, mx: number, mz: number, max: number): void => {
-    const l = Math.hypot(mx, mz);
+    const l = dmath.hypot(mx, mz);
     if (l > max) {
       mx *= max / l;
       mz *= max / l;
@@ -463,8 +464,8 @@ export function createFledglings(ctx: SimContext): Fledglings {
     const bx = -(tr.dx[i] as number);
     const bz = -(tr.dz[i] as number);
     const d = t.radius + AI.meleeStandoff;
-    dest.x = t.pos.x + (bx * Math.cos(a) + bz * Math.sin(a)) * d;
-    dest.z = t.pos.z + (bz * Math.cos(a) - bx * Math.sin(a)) * d;
+    dest.x = t.pos.x + (bx * dmath.cos(a) + bz * dmath.sin(a)) * d;
+    dest.z = t.pos.z + (bz * dmath.cos(a) - bx * dmath.sin(a)) * d;
   };
 
   const dropHolder = (f: Fledgling): void => {
@@ -504,7 +505,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
             moveBy(e, t.pos.x - e.pos.x, t.pos.z - e.pos.z, step);
           } else {
             slot(f, t);
-            if (Math.hypot(dest.x - e.pos.x, dest.z - e.pos.z) < SLOT_EPS) stand(e);
+            if (dmath.hypot(dest.x - e.pos.x, dest.z - e.pos.z) < SLOT_EPS) stand(e);
             else moveBy(e, dest.x - e.pos.x, dest.z - e.pos.z, step);
           }
         } else if (f.returning || f.at.off > f.track.lane.halfWidth) {

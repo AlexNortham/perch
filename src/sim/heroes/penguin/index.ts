@@ -8,6 +8,7 @@ import type { EffectCause, EffectTarget, EntityId, HeroEntity, HeroModule, Tick,
 import { STUN } from '../../data/combat';
 import { TICK_RATE } from '../../data/core';
 import { MARCH, penguinDef, TOBOGGAN_ASIDE_M, TOBOGGAN_HIT_HOOK, TOBOGGAN_KNOCK_UP_M } from '../../data/heroes/penguin';
+import * as dmath from '../../core/dmath';
 
 const MARCH_ABILITY = 'penguin.emperorsMarch';
 /** Touch reach beyond the two bodies (m). */
@@ -60,7 +61,7 @@ export const penguin: HeroModule = {
         }
         // Aside: perpendicular to the slide, on the side the enemy is on.
         const d = target.dir;
-        const len = Math.hypot(d.x, d.z) || 1;
+        const len = dmath.hypot(d.x, d.z) || 1;
         const px = d.z / len;
         const pz = -d.x / len;
         const side = Math.sign((foe.pos.x - hero.pos.x) * px + (foe.pos.z - hero.pos.z) * pz) || 1;
@@ -90,9 +91,9 @@ export const penguin: HeroModule = {
         }
         for (const foe of ctx.store.list('hero')) {
           if (foe.team === hero.team || foe.health.dead || m.hit.has(foe.id)) continue;
-          if (Math.hypot(foe.pos.x - hero.pos.x, foe.pos.z - hero.pos.z) > hero.radius + foe.radius + TOUCH_MARGIN) continue;
+          if (dmath.hypot(foe.pos.x - hero.pos.x, foe.pos.z - hero.pos.z) > hero.radius + foe.radius + TOUCH_MARGIN) continue;
           m.hit.add(foe.id);
-          const dir = { x: Math.sin(hero.yaw), y: 0, z: Math.cos(hero.yaw) };
+          const dir = { x: dmath.sin(hero.yaw), y: 0, z: dmath.cos(hero.yaw) };
           ctx.effects.apply({ kind: 'damage', amount: { of: MARCH.touchHit, song: MARCH.touchK }, type: 'song' }, at(foe, dir), m.cause);
           ctx.effects.apply({ kind: 'displace', mode: 'up', distance: MARCH.knockUpM }, at(foe, dir), m.cause);
         }

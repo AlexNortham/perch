@@ -1,6 +1,7 @@
 import { CAMERA, CROUCH_SCALE } from '../data/core';
 import type { BodyPlan, HeroEntity, LocalOffset, SightLine, Vec3 } from './contracts';
 import { clamp } from './math';
+import * as dmath from './dmath';
 
 /**
  * The aim model (GDD §4.5), shared by the sim (sim/combat, sim/abilities, sim/ai) and the client camera, so the
@@ -27,19 +28,19 @@ export interface AimRay {
 
 /** Unit look direction for a yaw and pitch. */
 export function lookDir(yaw: number, pitch: number): Vec3 {
-  const cp = Math.cos(pitch);
-  return { x: Math.sin(yaw) * cp, y: Math.sin(pitch), z: Math.cos(yaw) * cp };
+  const cp = dmath.cos(pitch);
+  return { x: dmath.sin(yaw) * cp, y: dmath.sin(pitch), z: dmath.cos(yaw) * cp };
 }
 
 /** Horizontal unit vector to the right of a yaw. */
 export function rightDir(yaw: number): Vec3 {
-  return { x: -Math.cos(yaw), y: 0, z: Math.sin(yaw) };
+  return { x: -dmath.cos(yaw), y: 0, z: dmath.sin(yaw) };
 }
 
 /** A point in an entity's frame (feet at `pos`, facing `yaw`) to world space. */
 export function toWorld(pos: Vec3, yaw: number, off: LocalOffset): Vec3 {
-  const s = Math.sin(yaw);
-  const c = Math.cos(yaw);
+  const s = dmath.sin(yaw);
+  const c = dmath.cos(yaw);
   return {
     x: pos.x + s * off.forward - c * off.right,
     y: pos.y + off.up,
@@ -80,7 +81,7 @@ export function aimRay(
     y: pivot.y + CAMERA.shoulderUp - dir.y * boom,
     z: pivot.z + right.z * side - dir.z * boom,
   };
-  const toPivot = Math.hypot(pivot.x - origin.x, pivot.y - origin.y, pivot.z - origin.z);
+  const toPivot = dmath.hypot(pivot.x - origin.x, pivot.y - origin.y, pivot.z - origin.z);
   return { origin, dir, start: toPivot + CAMERA.aimStartPad };
 }
 
@@ -91,8 +92,8 @@ export function heroAimRay(hero: HeroEntity, body: BodyPlan, sight: SightLine | 
   if (!sight || hero.hero.controller !== 'human') return fallback();
   const { origin, dir } = sight;
   const dx = hero.pos.x - origin.x, dy = hero.pos.y + pivotHeight(body, crouching) - origin.y, dz = hero.pos.z - origin.z;
-  const length = Math.hypot(dir.x, dir.y, dir.z);
-  if (!Number.isFinite(length) || !length || !(Math.hypot(dx, dy, dz) <= CAMERA.boomMax + body.height)) return fallback();
+  const length = dmath.hypot(dir.x, dir.y, dir.z);
+  if (!Number.isFinite(length) || !length || !(dmath.hypot(dx, dy, dz) <= CAMERA.boomMax + body.height)) return fallback();
   const unit = { x: dir.x / length, y: dir.y / length, z: dir.z / length };
   return { origin, dir: unit, start: Math.max(0, dx * unit.x + dy * unit.y + dz * unit.z + CAMERA.aimStartPad) };
 }

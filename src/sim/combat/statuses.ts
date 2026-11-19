@@ -20,6 +20,7 @@ import type {
 } from '../core/contracts';
 import { copy, ticks } from '../core/math';
 import type { Mutable } from './types';
+import * as dmath from '../core/dmath';
 
 interface Rec {
   readonly e: Damageable;
@@ -107,7 +108,7 @@ export function createStatuses(ctx: SimContext, deps: StatusDeps): Statuses {
   const targetOf = (e: Damageable): EffectTarget => ({
     entity: e.id,
     point: copy(e.pos),
-    dir: { x: Math.sin(e.yaw), y: 0, z: Math.cos(e.yaw) },
+    dir: { x: dmath.sin(e.yaw), y: 0, z: dmath.cos(e.yaw) },
   });
 
   const announce = (r: Rec): void => {

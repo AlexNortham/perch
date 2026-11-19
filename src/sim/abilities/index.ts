@@ -45,6 +45,7 @@ import { addScaled, clamp, copy, dot, normalize, sub, ticks } from '../core/math
 import { resolveAbility } from './kit';
 import type { ResolvedAbility } from './kit';
 import { centreHeight, clearLine, createZones, matches, near } from './zones';
+import * as dmath from '../core/dmath';
 
 export { onCaster, resolveAbility, validateKit } from './kit';
 export type { ResolvedAbility } from './kit';
@@ -55,7 +56,7 @@ const TIERS = 3;
 const ROOT_KEY = 'abilities:rooted';
 const ROOTED = { conditions: ['rooted'] } as const;
 const ENEMIES: TargetFilter = { teams: 'enemies' };
-const COS_UNIT_CONE = Math.cos(UNIT_TARGET_CONE_DEG * RAD_PER_DEG);
+const COS_UNIT_CONE = dmath.cos(UNIT_TARGET_CONE_DEG * RAD_PER_DEG);
 
 interface Cast {
   readonly slot: number;
@@ -237,7 +238,7 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
       if (e.team !== h.team && !canSee(h.team, e)) continue;
       const c = centre(e);
       const v = sub(c, ray.origin);
-      const len = Math.hypot(v.x, v.y, v.z);
+      const len = dmath.hypot(v.x, v.y, v.z);
       const cos = len > 0 ? dot(v, ray.dir) / len : -1;
       if (cos < bestCos || (best !== null && cos === bestCos)) continue;
       if (!clearLine(ctx, origin, c)) continue;
@@ -261,7 +262,7 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
         const p = aimPoint(ray);
         const dx = p.x - h.pos.x;
         const dz = p.z - h.pos.z;
-        const d = Math.hypot(dx, dz);
+        const d = dmath.hypot(dx, dz);
         const max = rangeOf(hs, r);
         const k = d > max ? max / d : 1;
         const x = h.pos.x + dx * k;

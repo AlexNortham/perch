@@ -1,3 +1,4 @@
+import * as dmath from '../../../core/dmath';
 /**
  * Movement reach the map is built for (GDD §3), plus the nav-graph build settings. The Character Controller owns the
  * live values in src/sim/data/movement.ts; these copies only shape and check geometry.
@@ -23,7 +24,7 @@ export const REACH = {
 } as const;
 
 /** Rise per metre of the steepest walkable slope. */
-export const MAX_SLOPE_RISE = Math.tan((REACH.maxSlopeDeg * Math.PI) / 180);
+export const MAX_SLOPE_RISE = dmath.tan((REACH.maxSlopeDeg * Math.PI) / 180);
 
 /** GDD §3.7: Updrafts run this far above the lane path. */
 export const UPDRAFT_HEIGHT = 12;

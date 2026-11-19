@@ -16,6 +16,7 @@ import type { ClimbSpec, MapSpec, SpecPart } from './kit';
 import {
   at, block, chimney, column, flipClimb, flipV, flipX, house, ramp, slab, stilts, tree, v, vine, yard,
 } from './kit';
+import * as dmath from '../../../core/dmath';
 
 const PI = Math.PI;
 
@@ -84,7 +85,7 @@ const base: BlockoutPrim[] = [
 
 /** Lane direction of the side lanes' first leg, (−55, 34) normalised, and the yaw that runs along it. */
 const DIAG = { x: -0.8506, z: 0.5258 };
-const DIAG_YAW = Math.atan2(DIAG.x, DIAG.z);
+const DIAG_YAW = dmath.atan2(DIAG.x, DIAG.z);
 /** Inward normal of the Hedgerow first leg (toward the jungle). */
 const DIAG_IN = { x: 0.5258, z: 0.8506 };
 const DIAG_MID = { x: -67.5, z: -97 };

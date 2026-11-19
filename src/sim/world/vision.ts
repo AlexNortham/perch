@@ -11,6 +11,7 @@
 import { LAYERS_SOLID, SeenBy } from '../core/contracts';
 import type { Entity, EntityId, AreaEntity, HeroEntity, PlayerTeam, SimContext } from '../core/contracts';
 import { VISION } from '../data/world';
+import * as dmath from '../core/dmath';
 
 const TEAMS = ['dawn', 'dusk'] as const;
 const HERO2 = VISION.hero * VISION.hero;
@@ -110,7 +111,7 @@ export function createVision(ctx: SimContext): { update(): void } {
     const dx = px - x;
     const dy = py - y;
     const dz = pz - z;
-    const d = Math.hypot(dx, dy, dz);
+    const d = dmath.hypot(dx, dy, dz);
     if (d < EPS) return true;
     from.x = x;
     from.y = y;

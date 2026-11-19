@@ -15,6 +15,7 @@ import type { CastFilter, Hitboxes } from './hitboxes';
 import type { Statuses } from './statuses';
 import { Melee } from './types';
 import type { HeroState } from './types';
+import * as dmath from '../core/dmath';
 
 const M = COMBAT.melee;
 const P = COMBAT.parry;
@@ -90,7 +91,7 @@ export function createMelee(
     }
     const ps = target.kind === 'hero' ? heroes.get(target.id) : undefined;
     if (ps && parrying(ps, now)) {
-      const toAttacker = (h.pos.x - target.pos.x) * Math.sin(target.yaw) + (h.pos.z - target.pos.z) * Math.cos(target.yaw);
+      const toAttacker = (h.pos.x - target.pos.x) * dmath.sin(target.yaw) + (h.pos.z - target.pos.z) * dmath.cos(target.yaw);
       if (toAttacker >= 0) {
         // Parried from the front: no damage, the attacker is stunned, the parry is ready again (GDD §5.8).
         ps.parryOpen = -1;

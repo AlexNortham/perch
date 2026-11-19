@@ -7,6 +7,7 @@ import { COMBAT } from '../data/combat';
 import { CROUCH_SCALE } from '../data/core';
 import type { BodyPlan, Entity, EntityId, SimContext, Team, Vec3 } from '../core/contracts';
 import { nearer, rayBox, rayCapsule, rayCylinder, raySphere } from './geometry';
+import * as dmath from '../core/dmath';
 
 export interface Hit {
   id: EntityId;
@@ -63,8 +64,8 @@ export function createHitboxes(ctx: SimContext): Hitboxes {
     const body = bodyOf(e);
     if (!body) return -1;
     const c = body.head.centre;
-    const s = Math.sin(e.yaw);
-    const k = Math.cos(e.yaw);
+    const s = dmath.sin(e.yaw);
+    const k = dmath.cos(e.yaw);
     out.x = e.pos.x + s * c.forward - k * c.right;
     out.y = e.pos.y + c.up * (crouched(e) ? CROUCH_SCALE : 1);
     out.z = e.pos.z + k * c.forward + s * c.right;

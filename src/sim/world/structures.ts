@@ -8,6 +8,7 @@ import { canSee } from '../core/vision';
 import { DEFENCE as D, FLEDGLING_AI, STRUCTURE_BODY, STRUCTURE_RADIUS } from '../data/world';
 import { isFledgling } from './fledglings';
 import { aimHeight } from './vision';
+import * as dmath from '../core/dmath';
 
 type Actor = HeroEntity | UnitEntity;
 type Attack = StructureAttackEvent['attack'];
@@ -73,7 +74,7 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
   function shoot(s: StructureEntity, a: Actor, attack: 'bolt' | 'volley', damage: number): void {
     const point = { ...a.pos, y: a.pos.y + aimHeight(ctx, a) };
     const dy = point.y - (s.pos.y + s.structure.body.height * D.muzzleHeightFraction);
-    const travel = Math.hypot(point.x - s.pos.x, dy, point.z - s.pos.z) / D.boltSpeed;
+    const travel = dmath.hypot(point.x - s.pos.x, dy, point.z - s.pos.z) / D.boltSpeed;
     const at = ctx.clock.tick + Math.max(1, ticks(travel));
     pending.push({ tower: s, at, target: a.id, point, attack, damage });
     cue(s, attack, point, at);
@@ -177,7 +178,7 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
       for (const a of enemies(s, s.pos, D.gale.range)) {
         const x = a.pos.x - s.pos.x;
         const z = a.pos.z - s.pos.z;
-        if (x * dx + z * dz >= Math.hypot(x, z) * Math.hypot(dx, dz) * D.gale.cosHalf) hit(s, a, 'song', D.gale.damage, D.gale.push);
+        if (x * dx + z * dz >= dmath.hypot(x, z) * dmath.hypot(dx, dz) * D.gale.cosHalf) hit(s, a, 'song', D.gale.damage, D.gale.push);
       }
       t.gale = now + ticks(D.gale.interval);
     }
@@ -253,8 +254,8 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
     const info = s.structure;
     info.phase = 2;
     delete info.transitionUntil;
-    info.weakPoint = { centre: { x: s.pos.x + Math.sin(s.yaw) * s.radius, y: s.pos.y + D.transition.heartHeight,
-      z: s.pos.z + Math.cos(s.yaw) * s.radius }, radius: D.transition.heartRadius };
+    info.weakPoint = { centre: { x: s.pos.x + dmath.sin(s.yaw) * s.radius, y: s.pos.y + D.transition.heartHeight,
+      z: s.pos.z + dmath.cos(s.yaw) * s.radius }, radius: D.transition.heartRadius };
     ctx.stats.setBase(s.id, { ...s.stats.base, maxHealth: D.transition.hp });
     apply(s, s.team as PlayerTeam, s.pos, s, { kind: 'heal', amount: D.transition.hp });
     ctx.stats.set(s.id, 'world:transition', null);
