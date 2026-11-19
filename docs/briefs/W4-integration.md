@@ -58,3 +58,27 @@ never edit the same files. Each works in its own worktree branched from `integra
    screenshots.
 6. Play a match from the menu with one of the 12 birds. Earn Seeds, level up, buy an item in a shop zone and sell it
    back, open the scoreboard and map, and see damage numbers. Save screenshots.
+
+## EP: gate-fix round after the W4 QA BLOCK (19/11/2026)
+
+The QA gate (`W4 · QA gate` in STATUS) blocked `integrate/w4c` on two items. Fix both, plus three small findings, in
+one worktree branched from `integrate/w4c`. Act for each owner, with one commit per item and no contract changes.
+1. **Flaky `npm run check` (QA and Build).** The audio browser tests (`e2e/audio.spec.ts`) time out at 30 s under
+   the full parallel e2e run in `check.sh` (3 failures in 4 runs, a different test each time); alone they pass every
+   time. Give them their own Playwright project that runs after the others with one worker (project dependencies),
+   or another structural fix. Don't just raise the timeout. Proof: **five consecutive** `npm run check` passes,
+   each quoted.
+2. **The result screen is unproven in the browser (UI/HUD, app, QA).**
+   - Add a **Concede** button to the pause menu, wired to the existing `actions.concede`. It is available from 15:00
+     per GDD; before then it is disabled, with the reason shown. A Playwright e2e clicks it with real input and
+     asserts the Defeat screen and its stats.
+   - Add a **browser victory replay**: a route (for example `?scene=replay&proof=siege&seed=1`) that drives the
+     local hero with the siege-proof scripted controller through the **normal command path** (no win helpers, no
+     state mutation), fast-forwards, and lets the real Victory screen appear. A Playwright e2e asserts Victory and its
+     stats.
+   - Add the read-only sim state to `window.__perch` that QA asked for, so these tests can assert on it.
+3. **Hawk retarget (Objectives and QA):** a committed rules test that a Sentinel Hawk switches to a hero who damages
+   an allied hero nearby (QA measured 0.07 s in a scratch run).
+4. **Upgrade panel (UI):** hovering shows two overlapping description cards; only one may show.
+5. Regenerate the wiki (`npm run wiki`) if any UI screenshot it uses changed.
+Finish: STATUS entry `### W4 · Gate fixes · 19/11/2026`; reply in at most 200 words.
