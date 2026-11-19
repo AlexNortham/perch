@@ -748,3 +748,10 @@ new field and the hero module carries a fallback hook guarded by a constant (`WA
 `SUMMON_END_IN_FRAMEWORK`, `SELF_EFFECTS_IN_FRAMEWORK`) that is false today. After the Systems follow-up merges, set it true
 (or delete the hook): nothing applies twice.
 **Why:** the smoke tests must pass on this branch, and a hook plus the new field would otherwise double the effect after the merge.
+### D-ART-001 · 19/11/2026 — One merged mesh per rig part, vertex colours, instanced chicks
+**Decision:** each hero is 8 meshes (body, head, two wings, two legs, tail, gun) built once per hero and team from its
+BodyPlan, sharing one flat-shaded vertex-colour material; team trim is baked into the vertex colours. Fledglings are
+one InstancedMesh per type and team (capacity 256), animated by whole-body matrix only. No numbers from the GDD are
+copied into the models: sizes come from `HEROES[id].def.body`.
+**Why:** about 8 draw calls per hero and 4 for any number of chicks, no per-frame allocation, and the models follow
+the data when hero engineers change a body plan.

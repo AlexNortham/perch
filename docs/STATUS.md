@@ -697,3 +697,28 @@ should burst the way you face).
 `SELF_EFFECTS_IN_FRAMEWORK` (Kingfisher) to true and delete the fallbacks; add tests for Echo Double T2 (two decoys at ±15°) and
 T3 (burst) and Gale Shield's wall blocking shots, which need that branch. When Economy's `trigger` lands, Kingfisher's Ambush and
 kill refunds can become trigger data.
+### W3 · Technical Artist · 19/11/2026
+**Done:** `src/client/render/models/` (kit, `parts.ts` primitive merger, `bird.ts` shared parts, `heroes.ts` Shrike,
+Albatross, Kingfisher, Lyrebird plus the generic bird for the other 20 tinted by roster index, `fledgling.ts`,
+`hitboxes.ts`, dev-only `debug.ts`/`lineup.ts`, `constants.ts`) and `src/client/render/rigs/` (`bird-rig.ts`,
+`fledgling-rig.ts`). Every build derives its sizes from `HEROES[id].def.body` at runtime: head shell centred on the
+head hitbox, body fits the capsule, gun tip at the muzzle. One hero = 8 meshes sharing one vertex-coloured material.
+Rig animates idle, run, sprint, air, dash, slide, crouch, mantle, climb, Updraft, glide, shoot recoil, reload, cast,
+stun, hit flinch, death, burrow (sink) from view flags, velocity, pitch and hp. Fledglings: one InstancedMesh per
+(type, team), proxy Object3D takes a slot on 'added', frees on 'removed'. Everything else keeps the old box.
+Dev URL options: `hitboxes`, `modelLineup=a,b`, `modelState=run,dash…`, `modelYaw`, `modelWave=n`, `modelTeam`;
+`window.__perchModels.setHitboxes(on)`. D-ART-001.
+**Verified:** `npm run check` → PASS typecheck, lint (no warnings), test, sim, e2e. New tests (models.test.ts): all 24
+ids get a model of 8 meshes and under 1,500 triangles; the four heads within 2 cm of the hitbox centre; 200 fledglings
+get distinct slots; 150 mixed fledglings use 4 InstancedMeshes. Measured in the browser (renderer.info, shadow pass
+included): one hero 16 calls = 8 per pass; 150 fledglings +8 = 4 per pass; tris per chick under 150. Looked at
+`npm run shots -- --scene sandbox --param modelLineup=shrike,albatross,kingfisher,lyrebird --param modelYaw=0|60|90
+--param renderCam=…` (front, side, three-quarter), a shrike pose sheet (idle, run, air, dash, slide, shoot, cast,
+dead), the hitbox overlay and a 12 v 12 fledgling wave. Shots used the GDD §9 plans via a temporary override I then
+removed, because main's data is still placeholder; re-shoot after merge.
+**Blocked:** nothing.
+**Interface requests:** Architect — `ModelKit.pose` gets no events, so there is no hero melee animation (no view flag);
+add a `Meleeing` ViewFlag or pass this step's events to pose. Rendering — invisible allies need a ghost material;
+for now invisible enemies are hidden and allies shown normally. Rendering — structures, Patrons, pickups, projectiles
+and other units still use the box.
+**Next:** hero LODs (budget met at LOD0 only), per-hero cast poses, the 40 m silhouette line-up (M3), structures.
