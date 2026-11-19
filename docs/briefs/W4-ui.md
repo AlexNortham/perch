@@ -1,0 +1,10 @@
+# W4 · UI/HUD · UI
+
+Own client/ui. Read W4-common.md, the contract follow-ups and GDD §§12, 16. Implement each M2 HUD element against
+live views, including levels/AP and upgrades, current Seeds, inventory/active slots, objective health and gates,
+vision-filtered north-up minimap (east at left), big map, pings in world/map/feed, scoreboard, kill feed, damage
+numbers and actual victory/defeat. Build the Magpie's Hoard with all three categories and four tiers, working
+transactions/components/refunds, zone feedback and read-only browsing away from a stall. Derive catalogue and
+input labels from public boundaries. Keep the 24-card picker, Options and its rebinding/volume persist-and-apply
+flow. Migrate imports and fix this owner's warnings. Inspect menu, match, shop, scoreboard and result at 1080p;
+check labels, keyboard/pointer interaction, readable overlays and dismissed panels. Give evidence paths.

@@ -7,13 +7,13 @@ Architecture: [ARCHITECTURE.md](ARCHITECTURE.md), [INTERFACES.md](INTERFACES.md)
 
 ## Now
 
-- **Milestone:** M0 — Foundations
+- **Milestone:** M2 — The loop
 - **Roster:** 24 heroes (D-EP-015), shipped in six batches of four from W3 to W6
 - **Stage 1 (M0) closed 19/11/2026.** W1 and W2 on main; QA gate APPROVE (W2 · QA gate entry). See PLAYABLE.md.
 - **W2.5 contract round merged 19/11/2026** (28 requests: 22 accepted, 6 modified; INTERFACES.md §11).
 - **Stage 2 (M1) closed 19/11/2026.** W3 + integration round on main; QA gate APPROVE (W3 · QA gate entry).
-- **PAUSED by the user after wave 3.** When resumed: W3.5 contract round (the interface requests in the W3 Log entries
-  and the W3 QA gate follow-ups), QA's test-first suites for W4 (deferred from the W3 gate), then W4 = Stage 3.
+- **Stage 3 opened 19/11/2026.** W3.5 settles contracts first. QA's test-first suites then land on main before
+  the W4 implementers start. The release gate is below and in GDD §16.
 - **Last `npm run check`:** PASS on integrate/w3 (6/6 steps incl. perf, 76 s; 5 runs in a row); sim 0.234 ms per tick
   mean over 35 minutes, deterministic (hash 52196bc3abdb2fe3)
 

@@ -827,3 +827,10 @@ address to that identity and `main` was force-pushed (file contents unchanged). 
 DECISIONS.md before this entry refer to the history before the rewrite; the same commits now have new hashes.
 **Why:** the user's instructions: keep the project on their personal GitHub as it goes, and keep it separate from
 their work identity.
+
+### D-EP-026 · 19/11/2026 — Sixteen items for the M2 shop
+**Decision:** ship the twelve GDD tier-one items, Flurry Feathers, Stout Breast, Rising Song and Thunderbird Heart.
+The three categories each have a component upgrade. Quick Preen upgrades to a usable active, and Down Padding
+can be upgraded twice. Present the four GDD tiers in the shop and offer only implemented items for purchase.
+**Why:** sixteen distinct items let players fill all twelve base slots and all four earned flex slots. This slice
+also exercises the transaction rules and the stat, trigger, active and cooldown systems on their real player paths.
