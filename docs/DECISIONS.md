@@ -1631,3 +1631,27 @@ GDD §4.1, §8.1, §8.9, §12.4–§12.8 and §15 change in the next Director GD
 **Why:** D-EP-046 asks for PERCH to feel as close as possible to the reference. The frames show the reference's HUD,
 camera, density and pacing differ from PERCH in these specific, measurable ways. Each fix keeps D-EP-002: layout,
 pacing and mechanics, with no names, art or map layout copied.
+
+### D-UI-006 · 19/11/2026 — Hold to upgrade uses the real cursor, and keys keep working
+**Decision:** holding the upgrade key calls `exitPointerLock()` and releasing it requests the lock again in the key's own
+event. Input stays enabled: movement and abilities keep working, look and mouse buttons wait because they need the lock.
+Measured with Playwright (300 ms and 7 s holds, script `out/probe/probe.mjs`): Edge 156 and Firefox 159 both re-lock
+at once with no click and no gesture limit; Chrome is not installed on this machine and runs the same engine as Edge.
+No game-drawn cursor exists. A lock lost on purpose is not a pause; Esc during the hold pauses as usual.
+**Why:** the real cursor gives native hover, focus and accessibility for free, and the re-lock works in every browser tried.
+`lock()` makes no request when `navigator.userActivation.isActive` is false (it only fails and raced the click's own
+request, which paused the match), except for this re-lock.
+
+### D-UI-007 · 19/11/2026 — Swap bird is a fresh practice session placed on the old spot
+**Decision:** `swapBird` opens the picker with the session paused; picking builds `practiceConfig(seed, hero)` and, before
+the first frame, emits `hero.respawned` with the old position on that session's bus so Physics re-seats the bird there.
+That uses `sim.ctx`, which the contract reserves for tests and tools, so the line carries a `ponytail:` comment and an
+interface request: `SimOptions.practiceStart` for the Architect. The look direction is kept.
+**Why:** it needs no sim change in wave 5a and meets "respawns the player as the new bird at their current spot".
+
+### D-UI-008 · 19/11/2026 — Scoreboard numbers
+**Decision:** a portrait and the team pills show net worth ("Seeds") and the HUD wallet shows spendable Seeds. The window under
+the totals reads `Egg mm:ss-mm:ss` from the soonest scheduled Egg or Roc: the timer's start to 30 s later
+(`OBJECTIVE_WINDOW_S`). The lead is the leader's margin as a percent of the other flock. Play starts with the player and 11
+bots (`FULL_MATCH_BOTS`), because the bar has six birds a side.
+**Why:** net worth is what a flock compares; the 30 s window is the time an Egg or Roc stays up before it matters.

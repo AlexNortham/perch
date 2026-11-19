@@ -1847,3 +1847,54 @@ From `docs/reference/feel-reference.md`: G01–G04, G06–G10, G13, G15 and G30 
 G19 and G20 to the Level Designer; G16 (Updraft ride visuals) and G18 (team identification) to Rendering & VFX in wave
 5b; G22 (hero bots that fight) to Bot AI in wave 5b; G23 (600-Seed starting purse) to the integration round. The
 Stage 5 gaps (G05, G11, G12, G14, G17, G21, G24–G29) feed the Stage 5 style guide and balancing.
+
+### W5a · UI & controls engineer (UI/HUD, Camera & Input, app shell) · 19/11/2026
+**Done:** `worktree-agent-ac95e8513ee97dc43` from `integrate/w5` (926bd47), `src/client/ui/**`, `src/client/input/**` and the named `app/**` changes.
+- **Hold to upgrade (D-EP-038):** holding the upgrade key frees the real cursor (`exitPointerLock`; Input keeps keys and
+  movement, ignores look and mouse buttons). The HUD ability row is four round buttons named `Upgrade <ability>[: reason]`
+  (`aria-disabled` when blocked) with one shared hover card: description, every tier, the next tier's AP cost and the
+  unspent AP, or why not ("Fully upgraded", "Unlocks at level 6"). Releasing locks again in the key's own event. 1-4 held
+  with the key upgrade through the ordinary `upgrade` command. The tap-to-open panel is deleted. Pointer route per browser
+  (probe `out/probe/probe.mjs`, 300 ms and 7 s holds): **Edge 156 real cursor, re-locks on release; Firefox 159 real cursor,
+  re-locks on release**. Chrome is not installed here and shares Edge's engine, so it takes the real-cursor route too
+  (D-UI-006). No game-drawn cursor was needed.
+- **Always-on scoreboard (D-EP-041, G01):** `topbar.ts` is the bar (region `Scoreboard`; `[data-portrait]` with `data-side`,
+  `data-hero`, `data-dead`; health `progressbar`; `[data-field=seeds|respawn|clock|flock-seeds]`): clock over two team
+  pills with the lead % and the next Egg or Roc window, 12 round portraits from a `PortraitProvider` (`ui/portraits.ts`,
+  `setPortraitProvider` for Rendering in 5b; placeholder = team colour and initial), eye mark, critical and streak tags,
+  a dead bird dark with a red countdown, unseen enemies dimmed, a compact Patron and lane-tower strip, a Rekindle chip with
+  the 30 s warning. The Tab scoreboard and its binding are gone. The kill feed is on the left under the bar with
+  portraits, structures and neutrals named ("Dusk Heron") and callouts (First Blood, Twin Strike, Hat Trick, Talon Storm,
+  Apex Predator, `streaks.ts`); Brood Ward lines left the feed (WARD chip on the bar, G30).
+- **Feel gaps:** G02 contextual objective bars (within 40 m or hit in the last 5 s, at most 2, 380 px, 600 px for the Patron
+  and Roc); G03 health gauge 160 x 265 at 22 %, 62 % with a red chunk (holds 0.5 s, drains 0.4 s), shield caps, stamina
+  pips; G04 72 px round ability row bottom centre, 56 px actives; G06 round 360 px minimap bottom right with the zone name and
+  rune and camp timers; G07 ammo 80 px under the crosshair; G08 kill badge (1.2 s) with the bounty; G09 melee hint only near
+  a claimable target or in a player's first 2 minutes ever (`localStorage`); G10 "+N Seeds" pop, status word, level-up and
+  tower banners; G13 `CAMERA.shoulderUp` 0.35 to 0.15 (the one Architect-owned constant touched); G15 held gun capped at
+  0.45 x bird height and 0.08 m (`GUN_CAP`, one line in the Technical Artist's `render/models`).
+- **Swap bird (D-EP-040):** `AppActions.swapBird`, `ScreenContext.swap`; an on-screen button in the hub's dummy panel and in
+  the pause menu (never in Play); the same 24-card picker; picking builds a fresh practice session (32 AP, dummies reset)
+  and puts the new bird on the old spot (D-UI-007).
+- **No Interact (D-EP-039):** `'interact'` and `'scoreboard'` are out of `BindAction`, the defaults, Input and Options;
+  saved profiles drop them in `sanitizeSettings` (tests). Tab is no binding (refused in capture, swallowed in play).
+- **Hero select:** the detail panel has a fixed 320 x 372 size; no card moves (the QA spec had reproduced 3.55 px).
+- **Follow-ups done:** Mute toggle, `previewHero` on hover and focus, the hold-Jump updraft prompt, keepsake count with a
+  tooltip, the Rekindle chip, rune and camp timers on the minimap. **Not done:** the Recommended strip (there is no `BUILDS`
+  module yet), the neutral Den shop wording, minimap building outlines and up and down marks, Egg and Roc timers on the minimap.
+**Also changed:** Play now starts the player and 11 bots (`FULL_MATCH_BOTS`, `ui/screens.ts`), because the bar shows 12
+birds; `lock()` makes no request without a user gesture (it raced the click and paused the match); the sim fast-forward
+yields every 30 ms. The Stage 3 e2e for the old panel and the Tab scoreboard (`m2`, `keys`) now test hold to upgrade and the
+always-on bar; the Stage 4 specs for these items are always on (the dead-bird test in `scoreboard-bar` stays pending until
+bots fight, G22). Spec adjustments: `no-interact` leaves `crouch` out of its comparison (a saved `KeyC` is a choice; a fresh
+profile gets Left Ctrl); `practice-swap` clicks the on-screen button with the upgrade key held (a locked pointer sends
+every click to the game); `hold-upgrade` waits 150 ms after the re-lock before it moves the mouse.
+**Verified:** typecheck, lint (0 warnings), unit tests; Playwright: hold-upgrade 7/7, hero-select-layout, no-interact,
+practice-swap 6/6, scoreboard-bar 5 of 6 (+1 pending), keys, m2, match. 1080p screenshots looked at: Play 6v6 HUD, Practice
+Hub HUD, hold to upgrade with the hover card, hero select, and a built bar with a dead, critical, seen and streaking bird
+(`out/shots/`, git-ignored).
+**Blocked / expected red:** `play.spec` "Riverbank Updraft" still presses E and fails until Physics lands the Jump latch (QA
+moves it to held Space). The bots idle in Play, so nobody dies in the 6v6 yet.
+**Interface requests:** Architect: `SimOptions.practiceStart` (position and yaw), so Swap bird needs no `sim.ctx`
+(D-UI-007). Rendering (5b): call `setPortraitProvider` from `ui/portraits.ts`. Docs: `tools/wiki/mechanics.ts` still says
+"press the interact key" and `imageplan.ts` still lists a Tab scoreboard shot.

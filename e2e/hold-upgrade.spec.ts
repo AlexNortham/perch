@@ -24,6 +24,7 @@ const SLOT_KEYS = [DEFAULT_BINDINGS.ability1, DEFAULT_BINDINGS.ability2, DEFAULT
 const TIER_COSTS = [1, 2, 5] as const;
 const PRACTICE_AP = 32;
 const AIM_SETTLE_MS = 300;
+const RELOCK_SETTLE_MS = 150;
 const TURN_COUNTS = 240;
 const MOVED_PX = 20;
 const STILL_PX = 1;
@@ -141,6 +142,9 @@ test.describe('hold to upgrade (D-EP-038)', () => {
     await expect.poll(() => cursorFree(page)).toBe(true);
     await page.keyboard.up(UPGRADE_KEY);
     await expect.poll(() => cursorFree(page), { message: 'the pointer is captured again without a click', timeout: 1_000 }).toBe(false);
+    await page.waitForTimeout(RELOCK_SETTLE_MS); // the browser drops a mouse move that lands while the lock is still settling; a real mouse keeps moving
+    await page.mouse.move(VIEWPORT.width / 2 + 1, VIEWPORT.height / 2);
+    await page.waitForTimeout(RELOCK_SETTLE_MS);
     const x0 = await labelX(page);
     await page.mouse.move(VIEWPORT.width / 2 + TURN_COUNTS, VIEWPORT.height / 2);
     await page.waitForTimeout(AIM_SETTLE_MS);
