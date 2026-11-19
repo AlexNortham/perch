@@ -14,7 +14,7 @@ import {
 } from './constants';
 
 export const MATCH_STYLES = `
-.pu-hero-detail{width:320px;max-height:64vh;overflow:auto;padding:12px 14px;background:${PANEL_BG};border-radius:6px;font-size:12px;line-height:1.35;text-shadow:none}
+.pu-hero-detail{width:320px;height:372px;box-sizing:border-box;flex:none;overflow:auto;padding:12px 14px;background:${PANEL_BG};border-radius:6px;font-size:12px;line-height:1.35;text-shadow:none}
 .pu-hero-detail h3{margin:0 0 4px;font-size:16px;color:${TEAM_CSS.dawn}}
 .pu-hero-detail p{margin:2px 0}
 .pu-hero-detail .gun{color:${TEXT_DIM}}
