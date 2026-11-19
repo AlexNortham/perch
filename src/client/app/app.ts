@@ -192,6 +192,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     screen = next;
     input.setEnabled(next === 'match' && session.hero !== null);
     if (next === 'match') audio.resume();
+    else if (next !== 'pause') input.exitFullscreen();
     const telemetry = next === 'end' ? session.sim.telemetry() : null;
     ui.show(next, { view: session.curr, settings, seed: session.seed, telemetry, catalogue: session.sim.itemCatalogue, mode });
   }
