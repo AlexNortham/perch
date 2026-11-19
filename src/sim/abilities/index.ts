@@ -8,15 +8,16 @@
  * - point:     entity = caster, point = aim point clamped to range and dropped to the ground, dir = flat look.
  * - unit:      entity = the chosen hero or unit, point = its feet, dir = muzzle → its body centre.
  * So self-buffs work in self, direction and point casts, and anything meant for others goes through a projectile,
- * area, dash onHit, tether or summon. A 'unit' cast reaches its caster through `onCaster(effects)`. The cause's
+ * area, dash onHit, tether or summon. `selfEffects` land on the caster whatever the targeting (entity = caster, point
+ * = its feet, dir = the cast's dir), after `effects` and before the onCast hook. The cause's
  * origin is the muzzle point. `cooldownMod` always changes the cause's source's cooldowns.
  *
- * A cast: press → checks (unlocked, a charge, not stunned, silenced, egg-carrying or casting; rooted or grounded
- * block casts that move the caster) → `ability` start → castS wind-up (stun or silence interrupts it and nothing is
- * spent) → land: effects, then the hook's onCast, then a charge is spent and its cooldown starts (so cooldownMod in
- * the cast's own effects reaches only the other slots) → `ability` land → optional channel with channelEffects
- * every channelIntervalS, ended by its duration ('end'), a second press ('end'), or stun, silence or death
- * ('interrupted').
+ * A cast: press → checks (unlocked, a charge, not stunned, silenced, egg-carrying or casting, no movement mode that
+ * forbids abilities; rooted or grounded block casts that move the caster) → `ability` start → castS wind-up (stun or
+ * silence interrupts it and nothing is spent) → land: effects, selfEffects, then the hook's onCast, then a charge is
+ * spent and its cooldown starts (so cooldownMod in the cast's own effects reaches only the other slots) → `ability`
+ * land → optional channel with channelEffects every channelIntervalS, ended by its duration ('end'), a second press
+ * ('end'), or stun, silence, death or a displacement ('interrupted').
  */
 import { AP_COSTS, CHARGE_LOCKOUT_S, COOLDOWN_REDUCTION_CAP, GROUND_PROBE_UP, RAD_PER_DEG, UNIT_TARGET_CONE_DEG, UNLOCK_LEVELS } from '../data/abilities';
 import { CAMERA } from '../data/core';
@@ -189,6 +190,12 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
     });
   });
 
+  // GDD §3.9: displacement cancels channels.
+  bus.on('movement', (e) => {
+    const hs = e.action === 'displaced' ? byId.get(e.hero) : undefined;
+    if (hs?.cast?.stage === 'channel') stop(hs, 'interrupted');
+  });
+
   const upgrade = (hs: HeroState, i: number): void => {
     const slot = hs.hero.abilities.slots[i];
     const def = hs.def.abilities[i];
@@ -293,6 +300,7 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
     const channel = ticks(r.def.channelS);
     if (c.rooted && channel === 0) stats.set(h.id, ROOT_KEY, null);
     effects.applyAll(r.effects, c.target, c.cause);
+    if (r.selfEffects.length > 0) effects.applyAll(r.selfEffects, { entity: h.id, point: copy(h.pos), dir: copy(c.target.dir) }, c.cause);
     if (r.def.hook) hs.hooks?.onCast?.({ hero: h, slot: c.slot, ability: r.def, tier: r.tier, target: c.target, cause: c.cause });
     const slot = h.abilities.slots[c.slot];
     if (slot) {
@@ -321,6 +329,8 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
     const slot = h.abilities.slots[i];
     const r = hs.abilities[i];
     if (!slot || !r || !slot.unlocked || slot.charges < 1 || clock.tick < (hs.lockUntil[i] ?? 0)) return;
+    // A movement mode that forbids abilities (Burrow) blocks new casts, not the re-press that ends a channel (D-ARCH-016).
+    if (h.motor.modeAllowsAbilities === false) return;
     if (blocked(h.id) || (r.movement && (stats.has(h.id, 'rooted') || stats.has(h.id, 'grounded')))) return;
     const origin = muzzlePoint(h.pos, h.yaw, hs.def.body, h.motor.crouching);
     const target = pickTarget(hs, r, origin);

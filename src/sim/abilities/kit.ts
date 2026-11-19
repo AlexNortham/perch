@@ -16,6 +16,8 @@ export interface ResolvedAbility {
   readonly range: number;
   /** Base effects, then each bought tier's extra effects. */
   readonly effects: readonly Effect[];
+  /** Base selfEffects, then each bought tier's (applied to the caster after `effects`). */
+  readonly selfEffects: readonly Effect[];
   /** Moves the caster (a dash, teleport or movement mode): rooted and grounded block it. */
   readonly movement: boolean;
 }
@@ -27,14 +29,16 @@ function fold(def: AbilityDef, tier: number) {
   const values: Record<string, number> = { ...def.values };
   let { cooldownS, charges, range } = def;
   const effects = [...def.effects];
+  const selfEffects = [...(def.selfEffects ?? [])];
   for (const u of def.upgrades.slice(0, tier)) {
     for (const [k, v] of Object.entries(u.values ?? {})) values[k] = (values[k] ?? 0) + v;
     cooldownS += u.cooldownS ?? 0;
     charges += u.charges ?? 0;
     range += u.range ?? 0;
     if (u.effects) effects.push(...u.effects);
+    if (u.selfEffects) selfEffects.push(...u.selfEffects);
   }
-  return { values, cooldownS, charges, range, effects };
+  return { values, cooldownS, charges, range, effects, selfEffects };
 }
 
 export function resolveAbility(def: AbilityDef, tier: number): ResolvedAbility {
@@ -47,7 +51,8 @@ export function resolveAbility(def: AbilityDef, tier: number): ResolvedAbility {
     charges: Math.max(1, f.charges),
     range: Math.max(0, f.range),
     effects: f.effects,
-    movement: f.effects.some((e) => MOVEMENT_KINDS.has(e.kind)),
+    selfEffects: f.selfEffects,
+    movement: [...f.effects, ...f.selfEffects].some((e) => MOVEMENT_KINDS.has(e.kind)),
   };
 }
 
@@ -57,7 +62,7 @@ const ON_CASTER_RADIUS = 0.01;
 /**
  * Effects for the caster from any cast, including 'unit' casts whose target is someone else (Riverstrike's
  * refund trigger and invisibility): a burst on the source that only the source itself matches.
- * TODO(interface request): a first-class way to target the caster.
+ * Superseded by AbilityDef.selfEffects (W2.5 #15); kept until no kit uses it.
  */
 export function onCaster(effects: readonly Effect[]): AreaEffect {
   return {
@@ -95,7 +100,7 @@ function parts(e: Effect): { mags: readonly (Magnitude | undefined)[]; kids: rea
     case 'projectile':
       return { mags: [e.speed, e.range], kids: [e.onHit, e.onExpire] };
     case 'displace':
-      return { mags: [e.distance], kids: [] };
+      return { mags: [e.distance], kids: [e.onWall] };
     case 'dash':
       return { mags: [e.distance, e.durationS], kids: [e.onHit, e.onArrive] };
     case 'movementMode':
@@ -114,7 +119,7 @@ function parts(e: Effect): { mags: readonly (Magnitude | undefined)[]; kids: rea
       return { mags: [e.durationS, ...size], kids: [e.effects, e.onEnter, e.onExit, e.onCross] };
     }
     case 'summon':
-      return { mags: [e.health, e.durationS], kids: [e.effects] };
+      return { mags: [e.health, e.durationS, e.count], kids: [e.effects, e.onEnd] };
     case 'delay':
       return { mags: [e.seconds], kids: [e.effects] };
     case 'cooldownMod':
@@ -189,8 +194,12 @@ export function validateKit(module: HeroModule): string[] {
       if (e.kind === 'summon' && !(Number.isInteger(e.maxCount) && e.maxCount >= 1)) bad('summon maxCount must be ≥ 1');
     };
     walkEffects(a.effects, check);
+    walkEffects(a.selfEffects ?? [], check);
     walkEffects(a.channelEffects ?? [], check);
-    for (const u of a.upgrades) walkEffects(u.effects ?? [], check);
+    for (const u of a.upgrades) {
+      walkEffects(u.effects ?? [], check);
+      walkEffects(u.selfEffects ?? [], check);
+    }
     if (usesHook && !module.hooks) bad('uses a hook but the hero module has no `hooks`');
   }
   return out;

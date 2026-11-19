@@ -24,12 +24,6 @@ export const UNIT_TARGET_CONE_DEG = 6;
 /** 'point' targeting probes for the ground from this far above the aim point. */
 export const GROUND_PROBE_UP = 2;
 
-/**
- * Default tick interval of lasting areas and tethers (GDD §5.12). Mirrors combat's DoT tick (0.5 s); kept here
- * because this branch can't import combat's data.
- */
-export const AREA_TICK_S = 0.5;
-
 /** Areas with onCross watch this much beyond their edge, so a fast mover (a dash) can't skip the line. */
 export const CROSS_MARGIN = 1;
 
