@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Button, IDLE_COMMAND } from '../core/contracts';
 import type { AbilityDef, Effect, SimEvent } from '../core/contracts';
+import { ticks } from '../core/math';
+import { HEROES } from '../heroes/registry';
 import { createSim, humanRoster } from '../index';
 import { BUFF as buff, ability, createHarness, kit } from './testkit';
 import type { Harness } from './testkit';
@@ -301,8 +303,12 @@ describe('in a real sim', () => {
     sim.drainEvents();
     for (const s of [locked, sim]) s.step([{ hero: me, command: { ...IDLE_COMMAND, pressed: Button.Ability4 } }]);
     expect(locked.drainEvents().filter((e) => e.type === 'ability')).toHaveLength(0);
-    expect(sim.drainEvents().flatMap((e) => (e.type === 'ability' ? [e.stage] : []))).toEqual(['start', 'land']);
-    expect(sim.view.heroes[0]?.abilities[3]?.readyAt).toBe(1 + 90 * 60);
+    // Timings come from Shrike's data, so kit changes can't break this framework test.
+    const ult = HEROES.shrike.def.abilities[3];
+    const windup = ticks(ult.castS);
+    for (let i = 0; i < windup; i++) sim.step([{ hero: me, command: { ...IDLE_COMMAND } }]);
+    expect(sim.drainEvents().flatMap((e) => (e.type === 'ability' ? [e.stage] : [])).slice(0, 2)).toEqual(['start', 'land']);
+    expect(sim.view.heroes[0]?.abilities[3]?.readyAt).toBe(1 + windup + ticks(ult.cooldownS));
   });
 
   it('is deterministic with casts and upgrades', async () => {

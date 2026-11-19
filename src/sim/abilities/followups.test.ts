@@ -137,6 +137,23 @@ describe('summons (Ability Systems 2, 3, 4, 9)', () => {
     expect(t.ctx.store.list('unit')[0]?.unit.size).toEqual({ x: 6, y: 3, z: 0.5 });
   });
 
+  it('a wall a hook turns and moves (Gale Shield follows the aim) ends facing its current yaw, where it stands', () => {
+    // The hook's behaviour runs every tick with the summon as target.entity, as Gale Shield's follow hook does.
+    const turn = (_name: string, target: EffectTarget) => {
+      const w = target.entity === null ? undefined : t.ctx.store.get(target.entity);
+      if (!w) return;
+      w.yaw = Math.PI / 2;
+      w.pos.x = 4;
+    };
+    const { t, cause } = arena([], () => ({ onEffect: turn }));
+    t.ctx.effects.apply(summon({ summon: 'wall', behaviour: 'galeShield', size: { x: 6, y: 3, z: 0.5 } }), at(O), cause);
+    t.step(60);
+    const end = t.of('statMod').find((a) => a.effect.id === 'burst');
+    expect(end?.target.dir.x).toBeCloseTo(1);
+    expect(end?.target.dir.z).toBeCloseTo(0);
+    expect(end?.target.point.x).toBe(4);
+  });
+
   it('a rooted or stunned decoy stands still', () => {
     const { t, cause } = arena();
     t.ctx.effects.apply(summon({ durationS: 6 }), at(O), cause);
