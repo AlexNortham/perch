@@ -593,10 +593,11 @@ Lane lengths along the path: Hedgerow and Pinewood 289 m gate to gate; Riverbank
 | Old Mill Bridge | x −5…5, z −22…22, deck y 0 | Riverbank lane crosses the Hollow on it |
 | Egg Perches / Hatching Stones | (−50, 0), (50, 0) | Raised plazas 1 m high; 3 m delivery circle |
 | Feather rune bridges | over Hedgerow at (−95, 0) and over Pinewood at (95, 0) | Footbridges 6 m up spanning the lane; rune sits mid-span |
-| Thickets tier 1 | (−65, −22), (−30, −52), (30, −52), (65, −22) | 4 per half |
-| Thickets tier 2 | (−60, −80), (60, −80) | 2 per half |
+| Thickets tier 1 | (−65, −22), (−30, −52), (30, −52), (65, −22) | 4 per half, outdoor yards |
+| Thickets tier 2 | (−60, −80), (60, −80) outdoor; (−21, 1.2, −103), (21, 1.2, −103) in the Granaries; (−23, −4, −33), (23, −4, −33) under the Market Hall and the Water Mill | 6 per half (§6.10) |
 | Thickets tier 3 | (−40, −12), (40, −12) | 2 per half, next to the Egg Perches |
 | Updraft stations | each gate, z = 0, and 6 m along the lane toward each owning gate from its Heron and Hawk | 12 m above the lane path |
+| Buildings, Nests, Feeders, Hides, Springs, Berries, Lookouts, the Cellar Run | §6.9 and §6.10 | Stage 4 detail pass (D-EP-033) |
 
 Hawks and Herons stay grounded at their listed x/z anchors. Their collision and visible geometry, including
 animated poses, stay at or below 10 m above the lane to leave at least 2 m below the Updraft rider's feet.
@@ -615,19 +616,87 @@ Each side lane bends toward its base after its Heron (§6.2), creating a "corner
 
 ### 6.5 Jungle
 
-- Between the lanes on each half: city blocks of 2–4 buildings separated by 5–8 m alleys, small squares and
-  wooded yards. Two jungle zones per half (west and east of Riverbank).
-- **Rooftops and balconies:** at least 40% of jungle buildings have walkable roofs reached by Chimney, Vine or
-  balcony stairs. Rooftops connect with rope bridges or gaps ≤ 6 m (a level dash-jump travels about 7.3 m in the air).
-- **Chimneys:** 6 per half, at least one within 25 m of every tier-2 and tier-3 Thicket and of each Hawk. Rise
-  8–14 m.
-- **Vines:** 10 per half on walls and big trees, 5–12 m tall, at least one on every lane's Hawk-side building
-  and one at each Egg Perch plaza.
-- **Thickets** at the coordinates in §6.3, each in a yard of 12–16 m with two entrances.
-- **Nests:** 16 per half: 8 in alleys, 4 on rooftops, 4 at lane edges between Hawk and Heron. They respawn
-  (§7.9).
+The jungle is the city between the lanes. Each flock's half has two **quarters**, west and east of Riverbank. The
+west quarter is authored and mirrored in x for the east quarter: same footprints, openings and anchors, rebuilt in
+timber, with the Water Mill standing in for the Market Hall (§6.8). Both quarters are then mirrored in z for Dusk.
+A quarter has three zones, south to north:
+
+| Zone (west quarter) | Extent | Character | Holds |
+|---|---|---|---|
+| **Gatefields** | z −114…−88 | Brick storehouses beside the base wall; the quietest zone, farmed early by its own flock | Granary (Rat Thicket, Bell Feeder), Warehouse, the Weasel yard's south entrance |
+| **Lantern Row** | z −88…−44 | Lantern-hung alleys between the Heron and Hawk lines; the main rotation corridor between Hedgerow and Riverbank | Tavern (Cellar Run stairs), Hollow-tree House, Weasel and west tier-1 yards, a Hide, a Bough Spring |
+| **Old Square** | z −44…0 | Open squares and tall buildings toward the centre; the contested zone | Bell Tower (Feeder, Lookout), Market Hall (Toad Thicket), tier-1 and tier-3 yards, Egg Perch plaza, a Bough Spring |
+
+**Paths** (west quarter; widths are clear ground between solids):
+
+| Path | Route | Width | Use |
+|---|---|---|---|
+| **Back Lane** | x = −73 from the Hedgerow lane at z −86 to z −4, behind the Hedgerow east terrace | 5 m (6 m beside the Hollow-tree House) | Hedgerow side rotation; the three enterable east-terrace houses open onto it |
+| **Granary Lane** | z = −95 from the Hedgerow lane at x −50 to the Riverbank lane | 6 m | Base-side cross route |
+| **Lantern Row** | z = −74 from x −54 to the Riverbank lane | 8 m | Main cross route between Heron lines |
+| **Bell Street** | z = −45 from Back Lane to the market square | 4.5 m | Hawk-line cross route; passes the Hide, the Bell Tower and the Market Hall |
+| **Perch Road** | z = 0 from the rune-bridge ramp (−84) through the Egg plaza to the Hollow's west ramp (−22) | 6 m | Centre route; its own mirror image |
+
+- **Sightlines:** no jungle street gives more than 45 m of clear sight at standing height, except Perch Road
+  (60 m, from the rune ramp to the plaza). Lantern Row is broken by crate stacks every ~20 m.
 - **Cover rule:** no open ground wider than 25 m without hard cover (wall, crate stack, tree) except the lanes'
   market squares and the Hollow floor.
+- **Flank routes:** (1) Hedgerow ↔ Back Lane through the three enterable east-terrace houses; (2) Riverbank ↔ Old
+  Square through the Market Hall arcade and its west doors; (3) Riverbank ↔ the Cellar Run by the lane stairs;
+  (4) west quarter ↔ east quarter under Riverbank through the Cellar Run; (5) the roof route: Warehouse roof →
+  rope bridge → Hollow-tree crown → Back Lane; (6) the Hedgerow garden route behind the west terrace, past a Hide,
+  to the Hawk.
+- **Rooftops and balconies:** at least 40% of jungle buildings have walkable roofs reached by stairs, Chimney, Vine,
+  ladder or Bough Spring. Rooftops connect with rope bridges or gaps ≤ 6 m (a level dash-jump travels about 7.3 m
+  in the air).
+- **Chimneys:** 6 per half, at least one within 25 m of every tier-2 and tier-3 Thicket and of each Hawk. Rise
+  8–14 m. Two per quarter are inside buildings (Warehouse at (−46, −83), Market Hall at (−21.7, −26)).
+- **Vines:** at least 10 per half on walls and big trees, 5–12 m tall: one on every lane's Hawk-side building, one at
+  each Egg Perch plaza, one on each Bell Tower (south face to the 9 m balcony), one on each Market Hall (square
+  face, moved from (−14, −38) to (−16, −36)) and one on each Granary gable.
+- **Thickets** at the coordinates in §6.3; outdoor camps sit in a yard of 12–16 m with two entrances; indoor camps
+  follow §6.8.
+- **Nests:** 100 on the map (§6.10, §7.9). They respawn.
+
+```
+West quarter of the Dawn half (2 m per column, 4 m per row; Dusk mirrors z, the east quarter mirrors x)
+      x: -130                                               0
+      +-----------------------------------------------------------------+
+    0 |              .......                EEEEEEE          o      ....|
+   -4 |              .......                 EEEEE333333     o      ....|
+   -8 |       tttttt ....... ttttt              33333333     oo     ....|
+  -12 |       tttttt ....... ttttt              33333333       oo   ....|
+  -16 |       tttttt ....... ttttt   111111     33333333        oooo....|
+  -20 |       tttttt ....... ttttt   111111                        ooooo|
+  -24 |       tttttt ....... ttttt   111111              MMMMMMM    ....|
+  -28 |       tttttt ....... ttttt                       MMMMMMM :: ....|
+  -32 |       tttttt ...k... ttttt                       MMMMMMM :: ....|
+  -36 |   hh  tttttt ....... ttttt       BBBB            MMMMMMM :: ....|
+  -40 |       TTTTTT ....... TTTTT       BBBB                    :: ....|
+  -44 |       TTTTTT ....... TTTTT    ^                          :: ....|
+  -48 |       TTTTTT ....... TTTTT               hhh  111111     :: ....|
+  -52 |       TTTTTT ....... TTTTT                    111111  ^  :: ....|
+  -56 |       XXX  $ ....... ttttt   OOOOO            111111        ....|
+  -60 |       XXX    ....... ttttt   OOOOOO    VVVVV                DDDD|
+  -64 |       TTTTTT ....... TTTTT   OOOOO     VV===================DDDD|
+  -68 |       TTTTTT ....... TTTTT             VVVVV                DDDD|
+  -72 |       TTTTTT ...n...                                        ....|
+  -76 |       TTTTTT ..........        222222                       ....|
+  -80 |                ...........     222222   WWWWWWWWWW          ....|
+  -84 |                ..............  222222   WWWWWWWWWW          ....|
+  -88 |                  ...............        WWWWWWWWWW          ....|
+  -92 |                     ................                        ....|
+  -96 |                        ................                     ....|
+ -100 |                            ...............        GGGGGGG   ....|
+ -104 |                               ...............     GGGGGGG   ....|
+ -108 |                                  .............              ....|
+ -112 |                                  ###############################|
+      +-----------------------------------------------------------------+
+ . lane   : market square   # base wall   k Hawk   n Heron   $ Hedgerow stall   t terrace house   T enterable
+ terrace house   X Seed Exchange (stall house)   G Granary   W Warehouse   V Tavern   O Hollow-tree House
+ B Bell Tower   M Market Hall   h Hide   ^ Bough Spring pad   = Cellar Run   D Magpie Den   E Egg Perch plaza
+ 1 2 3 Thicket yard by tier   o rim of the Hollow
+```
 
 ### 6.6 Bases
 
@@ -644,6 +713,170 @@ Each side lane bends toward its base after its Heron (§6.2), creating a "corner
   Updraft stations, with link types (walk, jump, dash-jump, mantle, chimney, vine, updraft, drop) for bots.
 - Named points: every object in §6.3, plus bot "safe spots" behind each tower and "ambush spots" near each
   Thicket.
+- Stage 4: the nav graph also covers every storey, cellar and roof of the enterable buildings and the Cellar Run.
+  Doors and stairs are walk links, ladders are vine links, hatches and skylights are drop links, leap windows are
+  mantle links and Bough Springs are a new `spring` link. Every node carries its interior volume id (none outdoors),
+  and every Nest, Feeder, Berry, Hide, Lookout and Spring anchor is a named point.
+
+### 6.8 Buildings: the kit and the archetypes
+
+Old Mossmarket is a market town for birds that the forest has grown through. Stage 4 makes its key buildings
+enterable (D-EP-033). Every enterable building is assembled from one kit, so heroes, the camera and bots meet the
+same sizes everywhere.
+
+**Kit (rule):**
+
+| Element | Size and behaviour |
+|---|---|
+| Storey | 4.0 m floor to floor; 0.4 m slab; 3.6 m clear. Rooms are at least 5 × 5 m; corridors at least 3 m wide and at most 20 m long without a side opening |
+| Walls | 0.5 m thick outside and inside (the nav sample step). Walls, floors and roofs block movement, sight, bullets, projectiles and areas |
+| Door | 2.4 m wide × 3.0 m tall opening (the tallest hero is 2.1 m). Loading doors and arches 3.0–4.0 m wide × 3.6 m |
+| Shot window | 1.6 m wide × 1.0 m tall, sill 1.2 m above the floor. Bullets, projectiles, ability areas and sight pass; heroes can't (an invisible movement blocker fills it) |
+| Leap window | 2.0 m wide × 2.4 m tall, sill 0.9 m. A mantle or jump goes through it; it also works as a shot window |
+| Stairs | 2.0 m wide ramps rising 4 m over 8 m (26.6°); straight, or two flights with a 2 × 2 m landing |
+| Ladder | A Vine (§3.8) 1 m wide on an inner wall, topped by a 2 × 2 m hatch; used where stairs don't fit |
+| Interior Chimney | A §3.8 shaft through a stairwell void that exits through a 3 m roof opening |
+| Balcony | 2.0 m deep, 1.0 m rail (shoot over it, mantle onto it), reached through an upper door or leap window |
+| Roofs | Flat roofs are walkable, with a 0.8 m parapet; gable roofs are 30° and walkable. A 2 × 2 m roof hatch with a ladder serves every flat roof that has no Chimney |
+| Exits | Every enterable building has at least two ground exits on different faces; only juke alcoves are dead ends |
+| Ivy curtain | Hangs in a doorway or arch. Blocks sight and `unit` targeting both ways; never blocks movement, bullets, projectiles or areas. A hero within 3 m of a curtain sees through it |
+| Juke alcove | A 3 × 3 m dead-end nook behind an ivy curtain |
+
+**Archetypes:**
+
+| Archetype | Footprint, storeys | Doors and windows | Vertical routes | Interior and what it links | Contents (per building) |
+|---|---|---|---|---|---|
+| **Market Hall** | 14 × 16 m; ground hall, gallery at 4 m, flat roof at 8.4 m; undercroft at −4 m (10 × 12 m) | Square face: an open arcade of four 3 m arches. Jungle face: 2 doors. One door on each short face. Gallery: 4 shot windows over the square, 2 leap windows to a jungle-side balcony | Two stairs to the gallery along the jungle wall; interior Chimney to the roof; Vine on the square face; stairs down to the undercroft, plus a 3 m passage south to a street grate with a ladder | A hall with four 1 m pillars and 1.2 m market counters as cover, the gallery 3 m wide on three sides around an open void you can drop through. Links the lane's market square to Old Square and to the roof | Toad Thicket (undercroft), 1 Twig Nest (counters), 1 Woven Nest (undercroft), 1 Keepsake Nest (gallery), Berry (roof), Bough Spring landing (roof) |
+| **Water Mill** | The Market Hall's footprint, openings and routes, mirrored | As the Market Hall, with a waterwheel in the river on the lane face | As the Market Hall | Mill machinery replaces the counters; the undercroft is a wet millrace | As the Market Hall |
+| **Bell Tower** | 8 × 8 m; floors at 0, 4.5, 9 and 13.5 m (the belfry); solid spire to 20 m | 2 ground doors (north, south). 2 shot windows per face on the 4.5 m and 9 m floors. The belfry has an open 3 × 3 m arch on every face and a 1.2 m parapet | Ladders: ground → 4.5 m on the west wall, 4.5 → 9 m on the north wall, 9 → 13.5 m on the east wall, each through a hatch. A Vine on the south face reaches a 9 m leap window; a 2 m balcony on the west face at 9 m | A vertical fight: every floor sees the next through its hatch. The best Old Square vantage | Bell Feeder, Lookout and Berry (belfry), 1 Twig Nest (ground), Bough Spring landing (9 m balcony) |
+| **Granary** | 14 × 10 m on 1.2 m stone staddles; storage hall, loft at 5.2 m, 30° gable roof (ridge 10.5 m) | A 4 m loading door on each long face. A leap window on each gable end at loft level | Ramps 2 m wide at both short ends up to the staddle deck; 2 ladders to the loft at opposite corners; 2 hay hatches (2 × 2 m) drop from the loft into the hall; a Vine on the west gable | Grain sacks (1.2 m) as cover in the hall. Links Granary Lane to the base-side lane edge | Rat Thicket (hall), Bell Feeder (loft; one hybrid camp with the Rats), 1 Twig Nest (loft) |
+| **Warehouse** | 20 × 14 m; one 7 m storey, mezzanine catwalk at 4 m, flat roof at 8 m | Loading doors (4.0 × 3.6 m) on both short faces; one door on each long face with an ivy curtain. Two 3 × 3 m skylights | 2 stairs to the catwalk; crate stacks (1.5 m and 3.0 m) form a mantle chain to it; interior Chimney to the roof; drop in through the skylights; rope bridge to the Hollow-tree crown | The catwalk (3 m wide) runs along both long walls and the west wall. A juke alcove in the south-west corner. Links the Weasel yard to Lantern Row, Granary Lane and the roof route | 2 Twig Nests and 1 Woven Nest (floor), 1 Keepsake Nest (catwalk), Twig Nest and Berry (roof) |
+| **Tavern** | 10 × 12 m; taproom and kitchen, upper floor at 4 m, gable roof (ridge 10 m); cellar at −4.5 m | Front door (Lantern Row), back door with an ivy curtain, side door (west). Upper floor: 2 rooms (4.5 × 5.5 m) off a 3 m corridor, a 2 m balcony over the front door | 1 interior stair up; cellar stairs down into the Cellar Run | Taproom (9 × 7 m) with a 1.2 m counter; kitchen (9 × 4 m). The west entrance of the Cellar Run | 1 Twig Nest (taproom), 1 Woven Nest (cellar) |
+| **Hollow-tree House** | A giant trunk, outer radius 5 m, wall 1 m; crown deck of radius 6 m at 12 m | 2 ground arches 3 m wide (north, south); 2 knot-hole leap windows at 6 m (east, south) | A 2 m spiral ramp inside rises 12 m in 1.5 turns (23°); a 2 m rope bridge runs from the crown's south-east edge (−61, 12, −66) to the Warehouse roof (−47, 8, −79), 19 m long | Climb inside, fight at the knot-holes, take the roof route. The canopy stays at 28–30 m | 1 Keepsake Nest, Lookout and Berry (crown) |
+| **Terrace House** | 8–8.5 m along the lane × 11–13 m deep; 2 storeys, flat (8–9 m) or gable roof | Front door on the lane, back door on the garden or Back Lane; upper door onto the 4 m lane balcony | 1 interior stair; roof hatch with a ladder on flat roofs | One room per floor. Links Hedgerow to Back Lane (east terrace) or to the gardens (west terrace) | Some hold a Twig Nest (§6.10) |
+| **Seed Exchange** | A Terrace House with an open shopfront and a flat roof at 10 m | 2 arches onto the lane; back door to the gardens | Roof hatch and ladder | Holds the Hedgerow Magpie stall counter inside its shopfront | Lookout (roof) |
+| **Stilt House** | Pinewood huts (6 × 5 m) on the 6 m platforms (§6.4) | 2 doors, shot windows on every face | The existing ramps and rope stairs | Links the Pinewood platforms through cover | — |
+| **Hide** | 3 × 6 m shed, 3.2 m tall | One door on a short end, with an ivy curtain; a 0.4 m slit window band at 1.4 m along one long face | — | A bird hide: stand inside to vanish (§7.15) | — |
+| **Dovecote** | Round tower, radius 3 m, 12 m tall (centre, beside each rune bridge) | Ground door facing the lane | Interior ladder to the top | — | Lookout and Berry (top) |
+
+### 6.9 Where the buildings stand
+
+Footprints are for the west quarter of the Dawn half. The east quarter mirrors x (the Water Mill stands in for the
+Market Hall), and Dusk mirrors z. They replace the blockout houses they overlap; blockout houses that don't overlap
+stay as solid fill. Each quarter has 8 enterable jungle buildings plus its lane's enterable houses.
+
+| Building | Archetype | Footprint (x; z) | Main faces |
+|---|---|---|---|
+| Granary | Granary | x −28…−14; z −108…−98 | Doors north (Granary Lane) and south; ramps west and east |
+| Warehouse | Warehouse | x −48…−28; z −92…−78 | Loading doors west (Weasel yard) and east; doors north (Lantern Row) and south (Granary Lane) |
+| Tavern | Tavern | x −51…−41; z −70…−58 | Front north; back south; side west |
+| Hollow-tree House | Hollow tree | centre (−65, −62), radius 5 | Arches north and south |
+| Bell Tower | Bell Tower | x −62…−54; z −42…−34 | Doors north and south (Bell Street) |
+| Market Hall (east: Water Mill) | Market Hall | x −30…−16; z −41…−25 | Arcade east onto the market square; doors west; grate at (−23, −43.5) |
+| Hide, Old Square | Hide | x −47…−41; z −49.5…−46.5 | Door west |
+| Hide, Hedgerow gardens (east: Pinewood band) | Hide | x −124.5…−121.5; z −43…−37 | Door east, facing the lane |
+| Seed Exchange | Seed Exchange | x −116…−109; z −62…−54 | Shopfront east onto Hedgerow |
+| Enterable terrace houses | Terrace House | west terrace x −116…−103 at z −78…−70, −70…−62, −54…−46, −46…−38; east terrace x −87…−76 at z −74…−65.5, −57…−48.5, −48.5…−40 | Lane and back |
+| Cellar Run | Tunnel (§6.10) | x −46…−8; z −66…−62; floor y −4.5 | Tavern cellar, lane stairs, the Magpie Den |
+| Magpie Den | Chamber | x −8…8; z −70…−58; floor y −4.5 (its own mirror in x) | Arches west and east with ivy curtains |
+| Dovecote | Dovecote | (−121, 0) and (121, 0), radius 3 (centre) | Door toward the lane |
+
+Near the bases, the Granary and the Warehouse sit 6–10 m from the Hedgerow gate and its Wardens and guard the
+Gatefields. Along the lanes, Hedgerow gets its enterable terraces and the Seed Exchange, Riverbank its Market Hall
+and Water Mill, and Pinewood its Stilt Houses.
+
+### 6.10 What there is to do inside and around them
+
+All anchors are for the west quarter of the Dawn half unless marked; mirror as in §6.9. Rules and numbers are in
+§7.8–§7.15.
+
+**Thickets (12 per half, 24 on the map).** Two indoor kinds per quarter.
+
+| Camp | Anchor (x, y, z) | Tier | Family | Setting |
+|---|---|---|---|---|
+| West Beetle yard | (−65, 0, −22) | 1 | Beetles | Outdoor yard, entrances north and east |
+| Lantern Beetle yard | (−30, 0, −52) | 1 | Beetles | Outdoor yard, entrances north and west |
+| Weasel yard | (−60, 0, −80) | 2 | Weasels | Outdoor yard, entrances south and east |
+| Granary | (−21, 1.2, −103) | 2 | Rats | **Indoor:** Granary hall; one hybrid camp with the loft's Bell Feeder |
+| Undercroft | (−23, −4, −33) | 2 | Toads | **Indoor:** Market Hall undercroft (east: the Water Mill's millrace) |
+| Badger Sett | (−40, 0, −12) | 3 | Badgers | Outdoor yard (16 m), entrances north and east |
+
+**Bell Feeders (2 per quarter, 8 on the map):** Bell Tower belfry (−58, 13.5, −38); Granary loft (−21, 5.2, −101).
+
+**Nests (24 per quarter plus 4 in the Hollow: 100 on the map).**
+
+| Variant | Anchors (x, y, z) |
+|---|---|
+| Twig (17) | Tavern taproom (−49, 0, −68) · alley (−33, 0, −61) · Bell Tower ground (−55, 0, −40) · Warehouse floor (−44, 0, −84), (−30, 0, −80) · Granary loft (−17, 5.2, −105) · Market Hall counters (−26, 0, −30) · terrace interiors (−110, 0, −74), (−81, 0, −52) · rooftops: Warehouse (−36, 8, −88), east-terrace flat roof (−81, 9, −53) · Hedgerow balcony (−101.5, 4, −64) · lane edges (−89.5, 0, −56), (−8.5, 0, −62) · alleys (−70, 0, −30), (−58, 0, −50), (−24, 0, −70) |
+| Woven (4) | Warehouse floor (−34, 0, −86) · Cellar Run (−28, −4.5, −64) · Tavern cellar (−46, −4.5, −66) · Market Hall undercroft (−20, −4, −30) |
+| Keepsake (3) | Hollow-tree crown (−65, 12, −62) · Warehouse catwalk (−38, 4, −90.5) · Market Hall gallery (−28.5, 4, −33) |
+| Twig, centre (4) | Hollow floor (−14, −10, −8), (14, −10, −8), (−14, −10, 8), (14, −10, 8) |
+
+These replace the 32 Nest anchors of Stage 3.
+
+**Hides (2 per quarter, 8 on the map):** Old Square (−44, 0, −48); Hedgerow gardens (−123, 0, −40), whose east-quarter
+mirror stands in the Pinewood pine band.
+
+**Bough Springs (2 per quarter, 8 on the map):** pad at (−68, 0, −44) lands on the Bell Tower's 9 m west balcony at
+(−63, 9, −38), apex 11 m; pad at (−20, 0, −52) lands on the Market Hall roof at (−22, 8.4, −37), apex 11.5 m.
+
+**Berries (5 per quarter plus 2 at the centre, 22 on the map):** Bell Tower belfry (−56, 13.5, −36), Hollow-tree crown
+(−63, 12, −60), Market Hall roof (−18, 8.4, −27), Warehouse roof (−30, 8, −80), Hedgerow west balcony (−101.5, 4,
+−46); centre: Dovecote tops (−121, 12, 0) and (121, 12, 0).
+
+**Lookouts (14 on the map):** Bell Tower belfry (−58, 13.5, −38) and Hollow-tree crown (−65, 12, −62) in every
+quarter; the Seed Exchange roof (−112.5, 10, −58) on Hedgerow and the existing 10 m lookout (112, 10, −40) on
+Pinewood in each half; the two Dovecote tops at the centre.
+
+**Ivy curtains (8 per quarter, 32 on the map):** both Hide doors, the Tavern's back door, the Warehouse's north and
+south doors, the Magpie Den's west arch, and two juke alcoves: the Warehouse's south-west corner and a Back Lane
+alcove at (−74.5, 0, −30) set into the terrace back.
+
+**The Cellar Run (one per half).** A tunnel 4 m wide with 3.5 m clear height, floor at y −4.5, along z −66…−62 from
+the Tavern cellar (x −46) under the Riverbank lane to the east quarter's Tavern (x 46). Entrances: the two Tavern
+cellar stairs, and a lane stair on each bank: west at x −12…−10, z −74…−66, descending north; east on the far bank of
+the river at x 14…16, same z. Halfway, under the lane, is the **Magpie Den**: a 16 × 12 m chamber with a neutral
+shop counter (shop zone radius 5 m at (0, −4.5, −64)) that both flocks can use. Rules: §7.15.
+
+**Shop counters:** the Hedgerow stall stands inside the Seed Exchange's shopfront at (−105, 0, −58) as before; the
+Pinewood stall under its stilt house; the Riverbank stall (10, 0, −60) gets a roofed counter; the Magpie Den adds a
+neutral fourth counter per half.
+
+**Feather runes** stay on the rune bridges at (±95, 6, 0); the Egg Perches stay at (±50, 1, 0); the Roc's Ember
+spots are in §7.12.
+
+### 6.11 Interiors: sight, sound, abilities and units
+
+- **Sight:** walls, floors and roofs block sight (§11.1). Shot windows, arches and open doors pass it. Ivy curtains
+  block it except within 3 m. The 40 m vision rule doesn't change indoors.
+- **Sound:** each storey, cellar and the Cellar Run is one interior volume. A sound made inside a volume and heard
+  from outside it is 6 dB quieter and low-passed at 2 kHz.
+- **Minimap:** buildings show as outlines. A hero on an upper storey shows a small ▲ beside the dot; one in a cellar
+  or the Cellar Run shows ▼.
+- **Abilities:** `point` placement clamps to the floor under the crosshair, never through a ceiling. A ground area
+  placed on a floor stays on that floor, and cylinder areas are 3 m tall unless an ability says otherwise, so an
+  area on one storey never reaches the next.
+- **Units:** fledglings never leave their lanes. Thicket creatures stay within their leash (§7.8), so indoor camps
+  stay indoors. The Egg carrier can't use the Cellar Run (§7.11).
+- **Camera:** ceilings pull the camera in by the §4.4 rule. The 5 × 5 m minimum room keeps the hero in view.
+
+### 6.12 Budget for the Level Designer
+
+The game must stay at 60 FPS with 12 birds and about 150 fledglings (§16, M3 and M4).
+
+| Budget | Limit (today's measure) |
+|---|---|
+| Solid collision prims, whole map | ≤ 3,000 (590). QA raises the `main.test.ts` ceiling from 1,500 to 3,000 in W5 |
+| Prims per quarter (buildings, props, Nests' colliders) | ≤ 600 |
+| Map build / nav build (median, `npm run perf`) | ≤ 100 ms / ≤ 250 ms, unchanged |
+| Nav nodes | ≤ 2,500 (891) |
+| Map triangles drawn | ≤ 180,000 High · ≤ 110,000 Medium · ≤ 60,000 Low (Low draws no interior props) |
+| Map draw calls | Static geometry merged per material in 64 × 64 m cells: ≤ 60 map draw calls in any frame at Medium. The full-match ceiling of 248 (D-QA-BROWSER-002) stands |
+| Nests, Berries, Feeders | One instanced mesh per kind and variant, ≤ 80 triangles each (Feeders ≤ 300); broken or taken ones are hidden instances |
+| Thicket creatures | ≤ 72 at once; ≤ 300 triangles each, instanced per family |
+| Lights | No new dynamic lights. Interiors use the hemisphere light and emissive lanterns; interior props cast no shadows |
+| Interior culling | Interior props, Nests and Berries are not drawn beyond 45 m |
+| Sim | Dormant camps and every static interactable cost no per-tick work beyond `ctx.spatial` overlap queries; all Stage 4 objectives together ≤ 0.1 ms per tick |
 
 ---
 
