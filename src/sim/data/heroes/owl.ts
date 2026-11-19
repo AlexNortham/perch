@@ -4,7 +4,7 @@
  * something on raises a value that is 0 (an empty area) until the tier. Tiers are bought in order (T1, T2, T3).
  */
 import type { AbilityDef, Effect, HeroDef, Magnitude, StatusDef, TargetFilter } from '../../core/contracts';
-import { DAMAGE_AMP, REVEAL, SILENCE } from '../combat';
+import { REVEAL, SILENCE } from '../combat';
 
 const ENEMIES: TargetFilter = { teams: 'enemies' };
 const ENEMY_HEROES: TargetFilter = { teams: 'enemies', heroesOnly: true };
@@ -38,6 +38,16 @@ const NIGHT_EYES_BEAK: Effect = {
   name: 'Night Eyes: beak shots',
   stats: [{ stat: 'beakShotBonus', op: 'add', value: 0.4 }],
   durationS: 'duration',
+};
+/** T3's damage amp: one instance that refreshes each pulse (the shared DAMAGE_AMP is independent, so refreshes would add up). */
+const MARKED_AMP: StatusDef = {
+  id: 'owl.nightEyesAmp',
+  name: 'Seen by the Owl',
+  negative: true,
+  stacking: 'max',
+  maxStacks: 1,
+  durationS: 0.75,
+  modifiers: { stats: [{ stat: 'talonAmp', op: 'add', value: 1 }, { stat: 'songAmp', op: 'add', value: 1 }] },
 };
 /** Revealed to the flock for a moment longer than one pulse, so the reveal never flickers. */
 const REVEAL_PULSE_S = 0.75;
@@ -134,7 +144,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
       apply(NIGHT_EYES_SIGHT, 'duration', 'sight'),
       NIGHT_EYES_BEAK,
       pulse('reveal', [apply(REVEAL, REVEAL_PULSE_S)]),
-      pulse('ampRadius', [apply(DAMAGE_AMP, REVEAL_PULSE_S, 'amp')]),
+      pulse('ampRadius', [apply(MARKED_AMP, REVEAL_PULSE_S, 'amp')]),
     ],
     upgrades: [
       { description: 'True sight 40 m and reveal 45 m (+10 m to both)', values: { sight: 10, reveal: 10 } },

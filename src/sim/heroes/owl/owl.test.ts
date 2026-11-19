@@ -116,7 +116,9 @@ describe('Owl', () => {
       expect(sb.ctx.stats.get(me, 'trueSightRadius')).toBe(40);
       expect(sb.ctx.stats.has(foe, 'revealed')).toBe(true);
       expect(sb.ctx.stats.get(foe, 'talonAmp')).toBeCloseTo(0.1, 3);
-      sb.step(TICK_RATE * 7);
+      sb.step(TICK_RATE * 3);
+      expect(sb.ctx.stats.get(foe, 'talonAmp')).toBeCloseTo(0.1, 3); // refreshed pulses do not stack
+      sb.step(TICK_RATE * 4);
       expect(sb.ctx.stats.has(me, 'trueSight')).toBe(true); // 9 s
       sb.step(TICK_RATE * 3);
       expect(sb.ctx.stats.has(me, 'trueSight')).toBe(false);
