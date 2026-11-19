@@ -5,8 +5,8 @@
  * advances its arc length at the march speed and slides sideways toward its file, stepping round structure footprints
  * on the way, so a wave advances at exactly the march speed along the lane however it sidesteps. Off the lane (after
  * a chase) it heads back for a point a little ahead on the path. Units ignore walls (D-CTRL-002); moves go through
- * `ctx.physics.moveCharacter` for the ground height. Until structures exist (W4), a fledgling that reaches the enemy
- * Wardens holds there, queued behind earlier arrivals in its file.
+ * `ctx.physics.moveCharacter` for ground height. At enemy gates a siege wave pursues vulnerable base objectives.
+ * Waves-only fixtures hold there, queued behind earlier arrivals in the same file.
  *
  * Fighting: every 0.5 s (staggered by id) a fledgling picks a target by the §7.1 rules, keeping its current one unless
  * a higher-priority one appears; a target that dies, goes out of sight or leaves 18 m is dropped at once. In reach it
@@ -192,6 +192,8 @@ interface Fledgling {
   hold: number;
   /** This tick's projection on the track (movement phase). */
   readonly at: Projection;
+  projectedX: number;
+  projectedZ: number;
 }
 
 export interface Fledglings {
@@ -206,7 +208,7 @@ export interface Fledglings {
 export function createFledglings(ctx: SimContext): Fledglings {
   const tracks = ctx.map.lanes.flatMap((l) => [buildTrack(ctx, l, 'dawn'), buildTrack(ctx, l, 'dusk')]);
   const live: Fledgling[] = [];
-  /** Hero → last tick it damaged an enemy hero (rule 2; the Hawk rule in W4 reads it too). */
+  /** Hero aggression for fledgling rule 2 and the tower interrupt. */
   const hurtAt = new Map<EntityId, HeroThreat>();
   const near: EntityId[] = [];
   const dest = { x: 0, y: 0, z: 0 };
@@ -310,18 +312,21 @@ export function createFledglings(ctx: SimContext): Fledglings {
       returning: false,
       hold: -1,
       at: { s, lat: file, off: Math.abs(file) },
+      projectedX: pos.x,
+      projectedZ: pos.z,
     });
   };
 
   /** Centre-to-surface distance from the fledgling to a target. */
-  const reach = (f: Fledgling, t: Damageable): number => dist(f.e.pos, t.pos) - t.radius;
+  const reach = (f: Fledgling, t: Damageable): number => Math.sqrt(distance2(f.e.pos, t.pos)) - t.radius;
+  const inReach = (f: Fledgling, t: Damageable, range = f.def.range): boolean => distance2(f.e.pos, t.pos) <= (range + t.radius) ** 2;
 
   const valid = (f: Fledgling, t: Damageable): boolean =>
     !t.removed &&
     !t.health.dead &&
     (t.kind === 'structure' && f.assault || canSee(f.e.team as PlayerTeam, t)) &&
     !t.stats.conditions.has('intangible') &&
-    (t.kind === 'structure' ? !t.stats.conditions.has('invulnerable') && (f.assault || reach(f, t) <= AI.leash) : dist(f.e.pos, t.pos) <= AI.leash);
+    (t.kind === 'structure' ? !t.stats.conditions.has('invulnerable') && (f.assault || inReach(f, t, AI.leash)) : distance2(f.e.pos, t.pos) <= AI.leash ** 2);
 
   /** GDD §7.1 target rules; keeps the current target unless a higher-priority one appears. */
   const pick = (f: Fledgling): void => {
@@ -338,10 +343,10 @@ export function createFledglings(ctx: SimContext): Fledglings {
       let r = NONE;
       let d = 0;
       if (t.kind === 'unit') {
-        d = dist(me.pos, t.pos);
+        d = Math.sqrt(distance2(me.pos, t.pos));
         if (isFledgling(t) && d <= AI.fledglingAggro) r = RULE.fledgling;
       } else if (t.kind === 'hero') {
-        d = dist(me.pos, t.pos);
+        d = Math.sqrt(distance2(me.pos, t.pos));
         const hurt = hurtAt.get(t.id);
         if (hurt !== undefined && now - hurt.tick <= hurtWindow && d <= AI.hurtAggro) r = RULE.hurtHero;
         else if (d <= AI.heroAggro) r = RULE.hero;
@@ -480,14 +485,18 @@ export function createFledglings(ctx: SimContext): Fledglings {
       live.length = k;
       for (const f of live) {
         const e = f.e;
-        project(f.track, e.pos.x, e.pos.z, f.at);
+        if (e.pos.x !== f.projectedX || e.pos.z !== f.projectedZ) {
+          project(f.track, e.pos.x, e.pos.z, f.at);
+          f.projectedX = e.pos.x;
+          f.projectedZ = e.pos.z;
+        }
         const cond = e.stats.conditions;
         if (cond.has('stunned') || cond.has('rooted')) continue;
         const st = e.stats.final;
         const step = Math.max(GROUND.minSlowedSpeed, st.moveSpeed * (1 - Math.min(1, st.slow))) * TICK_SECONDS;
         const t = f.target;
         if (t && !t.removed && !t.health.dead) {
-          if (reach(f, t) <= f.def.range) {
+          if (inReach(f, t)) {
             stand(e);
           } else if (f.def.projectileSpeed > 0) {
             moveBy(e, t.pos.x - e.pos.x, t.pos.z - e.pos.z, step);
@@ -536,7 +545,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
         const t = f.target;
         const cond = e.stats.conditions;
         e.unit.attacking = false;
-        if (!t || reach(f, t) > f.def.range || cond.has('stunned')) continue;
+        if (!t || !inReach(f, t) || cond.has('stunned')) continue;
         if (f.def.projectileSpeed > 0 && cond.has('disarmed')) continue;
         e.unit.attacking = true;
         face(e, t.pos.x - e.pos.x, t.pos.z - e.pos.z);
@@ -565,6 +574,6 @@ export function createFledglings(ctx: SimContext): Fledglings {
   };
 }
 
-function dist(a: Vec3, b: Vec3): number {
-  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+function distance2(a: Vec3, b: Vec3): number {
+  return (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2;
 }

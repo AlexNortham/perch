@@ -38,6 +38,7 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
   const roosts = ctx.map.shops.filter((s) => s.kind === 'roost');
   const nearby: EntityId[] = [];
   const actors: Actor[] = [];
+  const fledglings: Record<PlayerTeam, UnitEntity[]> = { dawn: [], dusk: [] };
   const threatWindow = ticks(FLEDGLING_AI.hurtWindowS);
   let ended = false;
 
@@ -111,7 +112,8 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
       if (!canSee(s.team as PlayerTeam, a) || (a.kind === 'unit' && !isFledgling(a))) continue;
       const threat = a.kind === 'hero' ? hurtAt.get(a.id) : undefined;
       const hostile = threat && ctx.clock.tick - threat.tick <= threatWindow && distance2(s.pos, threat.victimPos) <= def.range ** 2;
-      const rank = hostile ? 0 : s.structure.target === a.id ? 1 : a.kind === 'unit' ? 2 : 3;
+      const rank = hostile ? D.priority.aggressor : s.structure.target === a.id ? D.priority.current :
+        a.kind === 'unit' ? D.priority.fledgling : D.priority.hero;
       if (rank < bestRank || (rank === bestRank && dist < bestD)) {
         preferred = a;
         bestRank = rank;
@@ -196,7 +198,13 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
   }
 
   function ward(s: StructureEntity): void {
-    const active = !enemies(s, s.pos, D.ward.range).some((a) => a.kind === 'unit' && isFledgling(a));
+    let active = true;
+    for (const u of fledglings[enemyTeam(s)]) {
+      if (distance2(u.pos, s.pos) <= D.ward.range ** 2) {
+        active = false;
+        break;
+      }
+    }
     const factor = ctx.clock.seconds >= D.ward.lateAtS ? D.ward.late : D.ward.early;
     if (active === s.structure.broodWard && (!active || s.stats.final.damageTaken === factor)) return;
     ctx.stats.set(s.id, 'world:ward', active ? { stats: [{ stat: 'damageTaken', op: 'mul', value: factor }] } : null);
@@ -275,10 +283,14 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
       }
       pending.length = n;
       if (now % ticks(D.roost.interval) === 0) homeRoost();
+      fledglings.dawn.length = fledglings.dusk.length = 0;
+      for (const u of ctx.store.list('unit')) {
+        if (u.team !== 'neutral' && !u.health.dead && isFledgling(u)) fledglings[u.team].push(u);
+      }
       for (const t of towers) {
         const s = t.e;
         if (s.removed) continue;
-        if ((now + s.id) % D.scanTicks === 0) ward(s);
+        ward(s);
         const info = s.structure;
         if (info.transitionUntil !== undefined) {
           if (now >= info.transitionUntil) phaseTwo(t);

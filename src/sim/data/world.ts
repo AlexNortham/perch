@@ -89,7 +89,7 @@ export const FLEDGLING_AI = {
 } as const;
 
 /**
- * Structure footprint radii (the anchors' placeholder bodies; StructureInfo.body.radius from W4). Fledglings step
+ * Structure cylinder radii at the authored anchors. Fledglings step
  * round them (Level Designer: Hawks, Herons and Wardens stand on the lane path).
  */
 export const STRUCTURE_RADIUS: Readonly<Record<Exclude<StructureType, 'nest'>, number>> = {
@@ -107,10 +107,7 @@ export const VISION = {
   structure: 30,
   /** Invisible enemies are seen within this of an eye. */
   invisible: 8,
-  /**
-   * True sight radius. The GDD gives it per ability (Night Eyes 30 m, Night Sense 20–30 m) but the status carries no
-   * radius yet: TODO(interface request) a radius on the true-sight status.
-   */
+  /** Default for true-sight holders whose effect supplies no radius. */
   trueSight: 30,
   /** Non-hero entities are re-evaluated every this many ticks (heroes every tick); ARCHITECTURE §11 allows 0.25 s. */
   staggerTicks: 6,
@@ -129,6 +126,7 @@ export const DEFENCE = {
   boltSpeed: 60,
   muzzleHeightFraction: 0.8,
   scanTicks: 6,
+  priority: { aggressor: 0, current: 1, fledgling: 2, hero: 3 },
   stomp: { range: 7, damage: 120, push: 5, interval: 4, warning: 0.5 },
   pulse: { range: 12, damage: 120, interval: 3 },
   volley: { range: 35, damage: 50, feathers: 6, targets: 3, phase1: 3, phase2: 2 },

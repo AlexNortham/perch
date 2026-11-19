@@ -135,9 +135,20 @@ export function createVision(ctx: SimContext): { update(): void } {
 
   const sees = (E: Eyes, e: Entity, invisible: boolean, revealed: boolean): boolean => {
     const { x, y, z } = e.pos;
-    if (revealed && !invisible && aroundTarget.length === 0) return true;
+    if (!invisible && aroundTarget.length === 0) {
+      if (revealed) return true;
+      for (let i = 0; i < E.n; i++) {
+        if (dist2(E.x[i], E.y[i], E.z[i], x, y, z) <= E.r2[i]!) return true;
+      }
+      const py = y + aimHeight(ctx, e);
+      for (let i = 0; i < E.hn; i++) {
+        const hx = E.hx[i]!, hy = E.hy[i]!, hz = E.hz[i]!;
+        if (dist2(hx, hy, hz, x, py, z) <= HERO2 && clear(hx, hy, hz, x, py, z, e.id)) return true;
+      }
+      return false;
+    }
     for (let i = 0; i < E.tn; i++) {
-      if ((invisible || aroundTarget.length > 0) && dist2(E.tx[i], E.ty[i], E.tz[i], x, y, z) <= E.tr2[i]!) return true;
+      if (dist2(E.tx[i], E.ty[i], E.tz[i], x, y, z) <= E.tr2[i]!) return true;
     }
     for (let i = 0; i < E.n; i++) {
       const hidden = invisible || (aroundTarget.length > 0 && outsideFog(E.x[i]!, E.y[i]!, E.z[i]!));
@@ -174,7 +185,7 @@ export function createVision(ctx: SimContext): { update(): void } {
         let bits = e.team === 'neutral' ? 0 : SeenBy[e.team];
         for (const t of TEAMS) if (t !== e.team && sees(byTeam[t], e, invisible, revealed)) bits |= SeenBy[t];
         e.seenBy = bits;
-        e.mapOnlySeenBy = revealed ? SeenBy.all & ~bits : 0;
+        if (revealed || e.mapOnlySeenBy) e.mapOnlySeenBy = revealed ? SeenBy.all & ~bits : 0;
       }
     },
   };

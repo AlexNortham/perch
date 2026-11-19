@@ -41,6 +41,39 @@ describe('marching (GDD §7.1)', () => {
     expect(closest).toBeGreaterThan(0);
   }, T);
 
+  it('an actual wave leaves its lane through a breached gate and hits both Shrines and the Patron', async () => {
+    const sb = await createSandbox({ map: 'main', heroes: ['shrike'], options: { waves: true, structures: true } });
+    const source = sb.heroes[0]!;
+    const dusk = sb.ctx.store.list('structure').filter((s) => s.team === 'dusk');
+    const kill = (id: EntityId) => {
+      sb.apply({ kind: 'damage', amount: 100_000, type: 'talon' }, id, sb.cause(source, { via: 'weapon' }));
+      sb.step();
+    };
+    for (const type of ['hawk', 'heron', 'warden']) {
+      for (const s of dusk.filter((s) => s.structure.type === type)) kill(s.id);
+    }
+    sb.ctx.objectives.nextWaveAt = sb.sim.tick + 1;
+    sb.step();
+    sb.ctx.objectives.nextWaveAt = Number.MAX_SAFE_INTEGER;
+    const attackers = fledglings(sb).filter((u) => u.team === 'dawn' && u.unit.lane === 'riverbank');
+    for (const u of fledglings(sb)) if (!attackers.includes(u)) sb.ctx.store.despawn(u.id);
+    const shrines = dusk.filter((s) => s.structure.type === 'shrine');
+    const patron = dusk.find((s) => s.structure.type === 'patron')!;
+    const nextHit = (ids: readonly EntityId[]) => sb.eventsOf('damage.applied').find((e) =>
+      e.via === 'unit' && ids.includes(e.target) && attackers.some((u) => u.id === e.source));
+    // Follow the original Dawn spawn all the way across the lane, then past both independent base targets.
+    const remaining = shrines.map((s) => s.id);
+    while (remaining.length > 0) {
+      sb.clearEvents();
+      expect(sb.stepUntil(() => !!nextHit(remaining), 75 * TICK_RATE)).not.toBeNull();
+      const target = nextHit(remaining)!.target;
+      remaining.splice(remaining.indexOf(target), 1);
+      kill(target);
+    }
+    sb.clearEvents();
+    expect(sb.stepUntil(() => !!nextHit([patron.id]), 20 * TICK_RATE)).not.toBeNull();
+  }, T);
+
   it('holds at the enemy Wardens until structures exist, queued 1.5 m apart in its file', async () => {
     const sb = await firstWave();
     for (const u of fledglings(sb)) if (u.team === 'dusk') sb.ctx.store.despawn(u.id);
