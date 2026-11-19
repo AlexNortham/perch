@@ -164,7 +164,9 @@ Gate M2:
   interior activities) · Economy & Items, split across two engineers by category
   (64 items: the 48 GDD items + 16 new, about 14 actives) · Hero Engineer A, batch A3 (peacock, vulture, swift, hummingbird) · Hero Engineer B,
   batch B2 (cassowary, toucan, woodpecker, nightjar) · Technical Artist (A3 and B2 birds) · QA
-- **W6**: Level Designer (detail polish and bot navigation through interiors) · Hero Engineer B, batch B3 (frigatebird, cockatoo, swan,
+- **W6**: Build Lab (Balance & Data, pulled forward from M4): 1,000+ headless bot matches at full sim speed, learning
+  per-hero item scores with synergy and timing terms; recommended builds in the shop and the wiki (D-EP-036) ·
+  Level Designer (detail polish and bot navigation through interiors) · Hero Engineer B, batch B3 (frigatebird, cockatoo, swan,
   kiwi) · Technical Artist (B3 birds) · Bot AI (build lists and tuning for all 24) · Hero polish (fixes from earlier
   reviews) · QA (20 seeded headless matches, soak)
 
@@ -174,6 +176,9 @@ Gate M3:
 - [ ] Detailed map: enterable buildings with interiors and things to do in them, a jungle with Thicket camps, and
   breakable Nests (boxes) throughout (D-EP-033); still 60 FPS on the budget scenes
 - [ ] 11 bots finish 20 seeded headless matches with zero crashes
+- [ ] Build Lab: at least 1,000 headless matches run; every hero has a recommended build (early, mid and late core
+  plus situational picks) in the shop and the wiki; bots buy varied but synergistic builds, measured over 20 matches
+  (no two of a hero's builds near-identical; synergy above a random baseline) (D-EP-036)
 - [ ] Launchable: a 1 + 11 bots match with any of the 24 heroes starts from the menu; PLAYABLE.md "Stage 4 (M3)" written
 
 ### M4 — Balance and polish

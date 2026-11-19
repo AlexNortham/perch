@@ -1194,3 +1194,21 @@ animation state) by QA and the EP. The Stage 3 fix is done by the Technical Arti
 work that missed it (D-EP-019 escalation).
 **Why:** the user saw guns floating beside the birds instead of being held, and asked that nothing like it happens
 again.
+
+### D-EP-036 · 19/11/2026 — Learned item scores, recommended builds and varied bot shopping
+**Decision:**
+- **Bot shopping.** Bots don't follow fixed build lists. Each hero has a learned item score: a base value, plus
+  synergy with the items already owned (including upgrade chains), plus a game-phase factor. Bots sample purchases
+  from those scores. Difficulty sets the temperature: hard bots stay near the best options, easy bots explore more.
+  The sampling uses a seeded RNG stream, so replays stay deterministic. The Bot AI engineer implements the policy in
+  wave 5.
+- **Build Lab.** The Balance & Data role is pulled forward from M4 into wave 6 to run it. It plays at least 1,000
+  headless bot matches at full sim speed across the 16 cores, in rounds of about 200. The first round explores with
+  varied, sensible builds. Each later round fits the scores to outcomes (wins, damage, kills, objectives, Seed
+  efficiency, weighted by purchase time), then samples from the updated scores with decreasing exploration.
+- **Outputs.** The scores become sim data. Each hero's recommended build (early, mid and late core plus situational
+  picks) appears in the Magpie's Hoard and on its wiki page. The method and results go in `docs/BALANCE.md`.
+- **Gate.** The Stage 4 gate checks 1,000+ matches, a build for every hero, and build diversity with synergy above a
+  random baseline. The scores are re-learned in Stage 5 after balance changes.
+**Why:** the user wants every character to have a recommended build learned from at least 1,000 fast mock games, while
+bots still buy different but synergistic items every game.
