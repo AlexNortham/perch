@@ -3,7 +3,7 @@
  * death and respawn (§8.9), the combat state (§5.13) and the heal on level-up (§8.6).
  */
 import { COMBAT } from '../data/combat';
-import { TICK_RATE } from '../data/core';
+import { EFFECT_TICK_SECONDS, TICK_RATE } from '../data/core';
 import type {
   Damageable,
   DamageBonus,
@@ -123,7 +123,7 @@ export function createDamage(
   /** Hero → allied hero → last tick it healed, shielded or buffed it. */
   const supporters = new Map<EntityId, Map<EntityId, number>>();
   const headScratch = { x: 0, y: 0, z: 0 };
-  const interval = COMBAT.tickIntervalS * TICK_RATE;
+  const interval = EFFECT_TICK_SECONDS * TICK_RATE;
 
   const note = (ledger: Map<EntityId, Map<EntityId, number>>, key: EntityId, who: EntityId): void => {
     let m = ledger.get(key);
@@ -210,7 +210,9 @@ export function createDamage(
   };
 
   const bonusHolds = (b: DamageBonus, e: Damageable, src: Entity | undefined, cause: EffectCause): boolean => {
-    if (b.targetHpBelow !== undefined && !(e.health.hp < b.targetHpBelow * e.stats.final.maxHealth)) return false;
+    if (b.targetHpBelow !== undefined && !(e.health.hp < ctx.effects.magnitude(b.targetHpBelow, cause) * e.stats.final.maxHealth)) {
+      return false;
+    }
     if (b.targetKinds && !b.targetKinds.includes(e.kind)) return false;
     if (b.maxDistance !== undefined || b.minDistance !== undefined) {
       const from = src?.pos ?? cause.origin;
@@ -308,12 +310,13 @@ export function createDamage(
 
     // 1. Base (+ % of missing hp).
     let dmg = r.base;
-    if (fx?.missingHpPct) dmg += fx.missingHpPct * Math.max(0, max - e.health.hp);
+    // Magnitudes (D-ARCH-015): numbers today, value names once the W3.5 round widens the types.
+    if (fx?.missingHpPct !== undefined) dmg += ctx.effects.magnitude(fx.missingHpPct, r.cause) * Math.max(0, max - e.health.hp);
     // 2. Falloff.
     dmg *= r.falloff;
     // 3. Beak shot (head hitbox only, so never on units or structures).
     if (r.beak === Beak.Gun) dmg = dmg * (r.beakMult + (ss?.beakShotBonus ?? 0)) + (ss?.beakShotFlat ?? 0);
-    else if (r.beak === Beak.Ability) dmg *= COMBAT.abilityBeakShotMult;
+    else if (r.beak === Beak.Ability) dmg *= r.beakMult;
     // 4. Outgoing bonuses: additive within the step, applied once.
     let out = 0;
     if (ss && via === 'weapon') out += ss.gunDamage;
@@ -339,7 +342,7 @@ export function createDamage(
     const absorbed = drainShields(e, r.type, dmg);
     // 9. Health: undying floors at 1, an onLethal status saves the holder.
     let hp = e.health.hp - (dmg - absorbed);
-    let lethal = hp <= 0 || (fx?.executeBelow !== undefined && hp < fx.executeBelow * max);
+    let lethal = hp <= 0 || (fx?.executeBelow !== undefined && hp < ctx.effects.magnitude(fx.executeBelow, r.cause) * max);
     let saved: StatusInstance | null = null;
     if (lethal && cond.has('undying')) {
       hp = Math.max(hp, 1);
@@ -460,7 +463,10 @@ export function createDamage(
       if (fx.beakShot) {
         const hr = hb.head(e, headScratch);
         const p = target.point;
-        if (hr >= 0 && Math.hypot(p.x - headScratch.x, p.y - headScratch.y, p.z - headScratch.z) <= hr) r.beak = Beak.Ability;
+        if (hr >= 0 && Math.hypot(p.x - headScratch.x, p.y - headScratch.y, p.z - headScratch.z) <= hr) {
+          r.beak = Beak.Ability;
+          r.beakMult = fx.beakShotMult ?? COMBAT.abilityBeakShotMult;
+        }
       }
       if (cause.via === 'ability' && cause.source !== null) {
         const caster = ctx.store.getKind(cause.source, 'hero');
@@ -482,7 +488,7 @@ export function createDamage(
         heal(e, amount, cause);
         return;
       }
-      const n = Math.max(1, Math.round(over / COMBAT.tickIntervalS));
+      const n = Math.max(1, Math.round(over / EFFECT_TICK_SECONDS));
       hots.push({ e, cause, per: amount / n, left: n, next: ctx.clock.tick + interval });
     },
     shield(fx, target, cause) {

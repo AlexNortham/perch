@@ -54,6 +54,48 @@ export function rayCylinder(o: Vec3, d: Vec3, cx: number, cz: number, y0: number
   return nearer(t, nearer(rayCap(o, d, cx, cz, y0, r), rayCap(o, d, cx, cz, y1, r)));
 }
 
+/**
+ * A box of half extents (hx, hy, hz) centred on (cx, cy, cz), turned by `yaw` about +y (its local z is the yaw's
+ * forward), grown by r on every side (a swept sphere against the box's Minkowski hull, square-cornered). Slab test.
+ */
+export function rayBox(o: Vec3, d: Vec3, cx: number, cy: number, cz: number, yaw: number, hx: number, hy: number, hz: number, r: number): number {
+  const s = Math.sin(yaw);
+  const c = Math.cos(yaw);
+  const ox = o.x - cx;
+  const oz = o.z - cz;
+  // Local axes: x = (cos, 0, −sin), z = (sin, 0, cos). Slabs unrolled: no allocation per cast.
+  let tin = 0;
+  let tout = Infinity;
+  let p = ox * c - oz * s;
+  let v = d.x * c - d.z * s;
+  let h = hx + r;
+  if (Math.abs(v) < EPS) {
+    if (p < -h || p > h) return -1;
+  } else {
+    tin = Math.max(tin, Math.min((-h - p) / v, (h - p) / v));
+    tout = Math.min(tout, Math.max((-h - p) / v, (h - p) / v));
+  }
+  p = o.y - cy;
+  v = d.y;
+  h = hy + r;
+  if (Math.abs(v) < EPS) {
+    if (p < -h || p > h) return -1;
+  } else {
+    tin = Math.max(tin, Math.min((-h - p) / v, (h - p) / v));
+    tout = Math.min(tout, Math.max((-h - p) / v, (h - p) / v));
+  }
+  p = ox * s + oz * c;
+  v = d.x * s + d.z * c;
+  h = hz + r;
+  if (Math.abs(v) < EPS) {
+    if (p < -h || p > h) return -1;
+  } else {
+    tin = Math.max(tin, Math.min((-h - p) / v, (h - p) / v));
+    tout = Math.min(tout, Math.max((-h - p) / v, (h - p) / v));
+  }
+  return tin <= tout ? tin : -1;
+}
+
 /** A horizontal disc at height y. */
 function rayCap(o: Vec3, d: Vec3, cx: number, cz: number, y: number, r: number): number {
   const t = (y - o.y) / d.y;

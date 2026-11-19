@@ -83,7 +83,7 @@ export const KINGFISHER = fixture('kingfisher', body(1.6, 0.16, 1.42, 0.28), 520
   gun({ name: 'Dart Pistol', spreadDeg: 0.4, fireRate: 4, reloadS: 1.6, falloff: { start: 18, end: 40 } }));
 /** GDD §9.2 Albatross: hitscan shotgun, 8 pellets, shell-loader. */
 export const ALBATROSS = fixture('albatross', body(2.3, 0.2, 2.05, 0.5), 720, 6, 6,
-  gun({ name: 'Gale Blunderbuss', pellets: 8, spreadDeg: 5, fireRate: 1.4, reloadS: 0.45, reload: 'perRound', falloff: { start: 8, end: 22 } }));
+  gun({ name: 'Gale Blunderbuss', pellets: 8, spreadDeg: 5, fireRate: 1.4, reloadS: 0.45, reload: 'perRound', perRoundStartS: 0.3, falloff: { start: 8, end: 22 } }));
 /** GDD §9.1 Shrike: projectile rifle at 180 m/s. */
 export const SHRIKE = fixture('shrike', body(1.75, 0.17, 1.55, 0.32), 580, 14, 24,
   gun({ name: 'Barb Rifle', spreadDeg: 0.6, fireRate: 6, hitscan: false, projectileSpeed: 180, reloadS: 2.2, falloff: { start: 20, end: 45 } }));
@@ -95,7 +95,7 @@ export const PELICAN = fixture('pelican', body(2.1, 0.19, 1.85, 0.48), 640, 8, 5
   gun({ name: 'Gullet Gatling', spreadDeg: 1.6, fireRate: 11, reloadS: 2.8, falloff: { start: 18, end: 40 } }));
 /** GDD §9.4 Lyrebird: slow projectile lute at 90 m/s. */
 export const LYREBIRD = fixture('lyrebird', body(1.8, 0.15, 1.62, 0.3), 560, 16, 20,
-  gun({ name: 'Echo Lute', spreadDeg: 0.8, fireRate: 4.5, hitscan: false, projectileSpeed: 90, reloadS: 2, falloff: { start: 15, end: 35 } }));
+  gun({ name: 'Echo Lute', spreadDeg: 0.8, fireRate: 4.5, hitscan: false, projectileSpeed: 90, projectileRadius: 0.25, reloadS: 2, falloff: { start: 15, end: 35 } }));
 
 const FIXTURES: Partial<Record<HeroId, HeroModule>> = {
   kingfisher: KINGFISHER,
@@ -188,7 +188,9 @@ export interface Kit {
   mod(e: { id: EntityId }, key: string, stats: readonly [StatId, 'add' | 'pct' | 'mul' | 'max' | 'stack', number][]): void;
 }
 
-export function createKit(opts: { seed?: number; boxes?: Box[]; keepEvents?: boolean } = {}): Kit {
+export function createKit(
+  opts: { seed?: number; boxes?: Box[]; keepEvents?: boolean; heroes?: Partial<Record<HeroId, HeroModule>> } = {},
+): Kit {
   const seed = opts.seed ?? 1;
   const boxes = opts.boxes ?? [];
   const keep = opts.keepEvents ?? true;
@@ -204,7 +206,7 @@ export function createKit(opts: { seed?: number; boxes?: Box[]; keepEvents?: boo
       options: { waves: false, neutrals: false, unlockAbilities: false, startSeeds: null },
     },
     map: ARENA,
-    heroes: { ...HEROES, ...FIXTURES },
+    heroes: { ...HEROES, ...FIXTURES, ...opts.heroes },
     clock,
     store,
     bus,
