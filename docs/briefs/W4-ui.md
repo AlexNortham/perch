@@ -8,3 +8,8 @@ transactions/components/refunds, zone feedback and read-only browsing away from 
 input labels from public boundaries. Keep the 24-card picker, Options and its rebinding/volume persist-and-apply
 flow. Migrate imports and fix this owner's warnings. Inspect menu, match, shop, scoreboard and result at 1080p;
 check labels, keyboard/pointer interaction, readable overlays and dismissed panels. Give evidence paths.
+
+The player reported failed mouse rebinding and indistinct heavy melee. Fix Options capture for supported primary,
+middle, secondary and side buttons through down/up/auxiliary navigation; keep conflict swaps and saved profiles.
+Make tap-versus-hold clear on the actual melee binding and show heavy charge, parry and the dash-jump window
+using the agreed live data. Verify both side buttons operate their rebound actions in play.

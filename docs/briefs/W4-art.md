@@ -7,3 +7,6 @@ and both Patrons (Elder Raven and Great Owl), with a readable transition/phase-t
 and the Brood Ward presentation agreed with Rendering. Keep the 12 m Updraft clear above the tower centreline
 at binding map anchors. Honor the draw-call budget; prefer existing merged/instanced geometry. Test dispatch,
 alignment and lifecycle; inspect and record real PNGs of birds, towers and both Patron phases.
+
+Give the playable birds distinct and readable light melee, charged melee and parry poses on normal input. Inspect
+the windup, lunge and recovery in game alongside camera/UI/audio cues.

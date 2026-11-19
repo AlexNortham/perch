@@ -834,3 +834,10 @@ The three categories each have a component upgrade. Quick Preen upgrades to a us
 can be upgraded twice. Present the four GDD tiers in the shop and offer only implemented items for purchase.
 **Why:** sixteen distinct items let players fill all twelve base slots and all four earned flex slots. This slice
 also exercises the transaction rules and the stat, trigger, active and cooldown systems on their real player paths.
+
+### D-EP-027 · 19/11/2026 — Preview stability, controls and movement enter the M2 gate
+**Decision:** on player feedback, add a sustained browser traversal check, mouse-button melee/parry rebinding,
+readable charged melee and reference-based movement to M2. Update the old GDD assumptions about single jumps,
+dash-jump cost, sprint, slides and wall movement to match the agreed controls. Keep PERCH's map and original kits.
+**Why:** the player experienced intermittent tab closure and could not access expected actions in the released
+M1 preview. The linked guide supplies observable movement combinations and stamina costs to check in play.
