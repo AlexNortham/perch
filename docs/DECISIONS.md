@@ -1544,3 +1544,41 @@ always-on, as with the vitest suites. They also set `actionTimeout: 8_000`, so a
 pickup, and `sandbox:` stat sources for conditions such as `eggCarrier` and `grounded`.
 **Why:** the rules live in world, combat, economy and physics together; a unit stub of one system would pass while
 the pipeline is broken.
+### D-HEROB-004 · 19/11/2026 — A dash that stops on the first hero is a pass-through dash plus a hook (Rampage)
+**Decision:** Rampage's dash never sets `stopOnHit`; its `onHit` is a hook that applies the hit to heroes only and, unless
+`values.pass` is 1 (T3), replaces the dash with a zero-length one, which ends it next tick. Fledglings do not stop it.
+**Why:** `stopOnHit` is a literal, so no tier can switch it off, and it would also stop on a fledgling (GDD: first hero).
+The steer of ±30° in the GDD is not built: a dash has a fixed direction.
+
+### D-HEROB-005 · 19/11/2026 — Damage is queued, so a same-hit shred waits a tick or two (Seed Spit)
+**Decision:** Seed Spit applies its Song shred inside a 0.05 s `delay`, after the hit's damage. Statuses are live
+immediately while damage resolves in the damage phase, so an inline shred made the first hit 10% stronger (66, not 60).
+Same-type shreds elsewhere (Dagger Kick, Bore Hole shred Talon but deal Song) don't need it.
+**Why:** the GDD says the target "takes" the damage and "loses" the resist.
+
+### D-HEROB-006 · 19/11/2026 — Seeded mortars are delays that fire a hook (Fruit Barrage)
+**Decision:** the 12 (16 with T1) mortars are `delay` effects in the data, each firing a hook that picks a spot from
+stream `heroes/toucan` (uniform over the disc, radius `values.radius`) and applies the 3 m burst. T1's four fall between
+the base ones. "+3 m radius" (T2) widens the 9 m scatter, not each 3 m burst.
+**Why:** data cannot draw random points; this keeps timing in the data and the randomness seeded and replayable.
+
+### D-HEROB-007 · 19/11/2026 — Hooks stand in for framework pieces that arrive in W5 (flagged TODO(framework))
+**Decision:** (1) Bristle's thorns are a hook on `damage.applied` (20% of the damage, Song, within 15 m), to move to
+`DamageEffect.triggerPct` with `TriggerDef.withinM` when Combat and Items land them. (2) Tree Cling's Jump and stun ends
+are the hook's `onTick` replacing the cling with a one-tick hover, to move to `MovementModeEffect.endOn` when Physics lands
+it. (3) Gape's 30% heal is a 0.1 s `songLifesteal` status on the bite. (4) Hammerhead counts gun hits per hero in a hook.
+(5) Nightfall's first-hit bonus is a hook; its T3 re-applies the invisibility after the first hit.
+**Why:** each works today and none fires twice once the owner lands (D-HEROA-002); tests assert behaviour, not the route.
+
+### D-HEROB-008 · 19/11/2026 — Woodpecker's Drumroll is fire rate only until Combat gives spin a control
+**Decision:** Drumroll is +20% fire rate (T2 +10%) for 6 s. "Instantly reach full spin" and "no spin-down" are not
+expressible: `WeaponDef.spinUp` is the whole interface, and Combat's spin restarts whenever fire stops for a tick (the
+GDD's 0.5 s spin-down after release is not built either). Request: a `weaponMod` field (`spun: true`) and a spin-down time.
+**Why:** the spin state is private to Combat's gun code; a hook cannot touch it.
+
+### D-HEROB-009 · 19/11/2026 — Targeting limits that change a verb, not a number
+**Decision:** Branch Swing and Tree Cling use `point` targeting, which lands on the floor under the crosshair: they work
+on open ground and cannot pick a wall or tree surface (GDD "any surface" / "wall or tree"). Night Swallow's strike lands
+0.25 s after its dash only if the Nightjar ended within 3.5 m of the target. Nightfall's bonus holds until 1.5 s after the
+invisibility ends (the Ambush window, as Kingfisher's). Churring Call, Gape and Boom Call affect fledglings too.
+**Why:** surface targeting is a framework change; the rest are readings of GDD text that leaves them open.

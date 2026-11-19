@@ -1750,3 +1750,28 @@ e2e 102s · check 141s`.
 **Notes:** the existing `siege.test.ts` and `controller.test.ts` still press Interact; the Physics owner moves them to
 held Jump with the latch. If a suite misreads the GDD, say so here rather than editing it (README rule). **Blocked:**
 nothing. **Interface requests:** none.
+
+### W5a · Hero Engineer B (B2) · 19/11/2026
+**Done:** worktree branch from `integrate/w5` (8891822). Cassowary, Toucan, Woodpecker and Nightjar ship real data in
+`src/sim/data/heroes/<id>.ts` (GDD body plan, stats, gun, swatch, four abilities with every tier and its player text) and
+are `implemented: true`. Hooks: Cassowary (Rampage hero-only stop, Bristle thorns), Toucan (Fruit Barrage spots, Branch
+Swing T3 buff), Woodpecker (Tree Cling end and heal, Hammerhead counter), Nightjar (Nightfall ambush, Night Swallow
+strike). Woodpecker's gun uses `WeaponDef.spinUp` 6 to 14 shots/s over 1.5 s. Tests next to each hero: cassowary 14,
+toucan 15, woodpecker 20, nightjar 21: a gun test (damage, head, rate, magazine, reload), a smoke test for every ability
+at base and at T3, and the level-6 ultimate lock. Decisions D-HEROB-004 to -009.
+
+**Verified:** typecheck, lint, test, perf and sim pass; the kit validator is green for all 24. `npm run e2e`: 34 pass,
+2 fail, and neither is mine to edit: (1) `m2.spec.ts:219` expects exactly twelve selectable cards, now 16 with Hero A's
+four (the count and id list are QA's); (2) `match.spec.ts` "Play from the menu as Kingfisher" fails every time here and
+passes on a clean `integrate/w5` checkout: the player dies in the Hedgerow clash (screenshot `out/web/match-damage-numbers.png`:
+"Respawning in 23") before a shot lands, because the enemy flock now has real kits where it had placeholders. It needs
+QA's call (a stronger player, an earlier snapshot, or a quieter lane). The rest of e2e passes with those two excluded.
+
+**Limitations:** Drumroll is fire rate only (D-HEROB-008). Branch Swing and Tree Cling land on the floor under the
+crosshair, not on walls or trees. Rampage does not steer. Bristle, Tree Cling's ends and Gape's heal are hook or status
+stand-ins marked `TODO(framework)` (D-HEROB-007). Models are the generic rig (Technical Artist, wave 5b).
+
+**Interface requests:** (1) Combat: a `weaponMod` that sets full spin and holds it, and the 0.5 s spin-down (Woodpecker).
+(2) Abilities or Physics: `point` targeting that can return a surface hit, for Branch Swing and Tree Cling. (3) Combat:
+the 0 s `applyStatus` rule in W5-contract-followups is still a plain one-tick status in this tree (D-HEROB-001).
+(4) QA: the two e2e specs above. **Blocked:** nothing.
