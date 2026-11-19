@@ -114,6 +114,8 @@ interface AreaState {
   readonly interval: Tick;
   readonly kindKey: number;
   readonly carry: DisplaceEffect | null;
+  /** Entity → metres carried so far, for move.maxCarry. */
+  readonly carried: Map<EntityId, number>;
   /** Has enter, exit, cross or carry behaviour, so membership is checked every tick. */
   readonly watch: boolean;
   nextTick: Tick;
@@ -209,7 +211,14 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       vel: vec3(),
       yaw: Math.atan2(dir.x, dir.z),
       radius: bound,
-      area: { owner: cause.source, ability: cause.ability, shape: effect.shape.kind, expiresAt: clock.tick + duration },
+      area: {
+        dimensions: shape,
+        ...(effect.concealsAlliesOutside ? { concealsAlliesOutside: true } : {}),
+        owner: cause.source,
+        ability: cause.ability,
+        shape: effect.shape.kind,
+        expiresAt: clock.tick + duration,
+      },
     });
     const interval = Math.max(1, ticks(effect.intervalS ?? EFFECT_TICK_SECONDS));
     areas.push({
@@ -223,7 +232,10 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       expiresAt: clock.tick + duration,
       interval,
       kindKey,
-      carry: effect.move?.carry ? { kind: 'displace', mode: 'along', distance: effect.move.speed * TICK_SECONDS } : null,
+      carry: effect.move?.carry
+        ? { kind: 'displace', mode: 'along', distance: effect.move.speed * TICK_SECONDS, ...(effect.move.onWall ? { onWall: effect.move.onWall } : {}) }
+        : null,
+      carried: new Map(),
       watch: !!(effect.onEnter?.length || effect.onExit?.length || effect.onCross?.length || effect.move?.carry),
       nextTick: clock.tick + interval,
       lastIn: new Map(),
@@ -290,7 +302,14 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       const was = a.lastIn.has(id);
       a.lastIn.set(id, tick);
       if (!was && e.onEnter && ready(id)) apply(e.onEnter, t, a.dir, cause);
-      if (a.carry) effects.apply(a.carry, at(t, a.dir), cause);
+      if (a.carry) {
+        const cap = e.move?.maxCarry ?? Infinity;
+        const done = a.carried.get(id) ?? 0;
+        if (done < cap) {
+          a.carried.set(id, done + (a.carry.distance as number));
+          effects.apply(a.carry, at(t, a.dir), cause);
+        }
+      }
       if (due && e.effects.length) {
         const key = a.kindKey * AREA_KEY_STRIDE + id;
         if (!hitThisTick.has(key)) {
@@ -345,7 +364,8 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
     const owner = cause.source;
     const count = Math.max(0, Math.floor(effects.magnitude(effect.count ?? 1, cause)));
     // One application never replaces its own summons: the cap is at least `count` (D-SYS-002).
-    const cap = Math.max(effect.maxCount, count);
+    const extra = effect.extraCount === undefined ? 0 : Math.max(0, Math.floor(effects.magnitude(effect.extraCount, cause)));
+    const cap = Math.max(effect.maxCount + extra, count);
     const live = summons.filter((s) => !s.done && s.cause.source === owner && s.effect.behaviour === effect.behaviour);
     for (let i = 0; i < live.length + count - cap; i++) {
       const old = live[i] as SummonState;
@@ -415,6 +435,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
 
   /** Nearest visible, unoccluded target: heroes first, then anything else the filter allows. */
   const acquire = (u: Entity, s: SummonState, range: number, f: TargetFilter): Entity | null => {
+    const heroesFirst = s.effect.preferHeroes !== false;
     const eye = { x: u.pos.x, y: u.pos.y + centreHeight(ctx, u), z: u.pos.z };
     let best: Entity | null = null;
     let bestD = Infinity;
@@ -424,9 +445,9 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       if (t.team !== s.cause.team && s.cause.team !== 'neutral' && !canSee(s.cause.team, t)) continue;
       const d = distSq(u.pos, t.pos);
       if (best) {
-        const bestIsHero = best.kind === 'hero';
+        const bestIsHero = heroesFirst && best.kind === 'hero';
         if (bestIsHero && t.kind !== 'hero') continue;
-        if (bestIsHero === (t.kind === 'hero') && d >= bestD) continue;
+        if ((!heroesFirst || bestIsHero === (t.kind === 'hero')) && d >= bestD) continue;
       }
       if (!clearLine(ctx, eye, { x: t.pos.x, y: t.pos.y + centreHeight(ctx, t), z: t.pos.z })) continue;
       best = t;

@@ -8,13 +8,13 @@ import type { EntityId, EntityView, PlayerTeam } from '../../sim/core/contracts'
 import { ViewFlag } from '../../sim/core/contracts';
 import type { Frame } from '../app/contracts';
 import { entityById } from '../app/loop';
-import { ALLY_TEAL, ENEMY_RED, NEUTRAL_COLOUR, TEAM_COLOURS } from '../render/palette';
+import { ALLY_TEAL, ENEMY_RED, NEUTRAL_COLOUR, TEAM_COLOURS } from '../app/palette';
 import {
-  AREA, HEAD, HIT_FLASH, HIT_FLASH_CAPACITY, MARKER, MARKER_BITS, MAX_TETHERS, PROJECTILE, POD, SLIDE_SPARK_EVERY, SUMMON, TETHER,
+  AREA, MELEE, HEAD, HIT_FLASH, HIT_FLASH_CAPACITY, MARKER, MARKER_BITS, MAX_TETHERS, PROJECTILE, POD, SLIDE_SPARK_EVERY, SUMMON, TETHER,
   WIND_EVERY,
 } from './constants';
 import { chestHeight } from './mapping';
-import { drawnByVfx } from './drawn';
+import { drawnByVfx } from '../app/drawn';
 import { faceZ, identity, rgb } from './fx';
 import type { Draw, Transients } from './fx';
 
@@ -62,6 +62,13 @@ export class Bound {
     private readonly fx: Transients,
   ) {
     for (let i = 0; i < HIT_FLASH_CAPACITY; i++) this.flashes.push({ id: -1, age: 0, live: false });
+  }
+
+  /** Forget everything remembered between frames (new session). */
+  reset(): void {
+    this.podSeen.clear();
+    this.tethers.length = 0;
+    for (const f of this.flashes) f.live = false;
   }
 
   tether(source: EntityId, target: EntityId, on: boolean): void {
@@ -133,6 +140,7 @@ export class Bound {
         if ((e.flags & ViewFlag.Dead) !== 0) continue;
         this.at(frame, e);
         this.markers(e, src.statusBits.get(e.id) ?? 0);
+        if (e.meleePose) this.melee(e);
         if (e.kind === 'hero') {
           if (slide && (e.flags & ViewFlag.Sliding) !== 0) this.fx.burst('slideSpark', { x: this.x - e.vel.x * 0.05, y: this.y + 0.1, z: this.z - e.vel.z * 0.05 }, UP, WHITE);
           if (wind && (e.flags & ViewFlag.OnUpdraft) !== 0) this.fx.burst('wind', { x: this.x, y: this.y, z: this.z }, UP, WHITE);
@@ -197,7 +205,7 @@ export class Bound {
     }
   }
 
-  /** Areas: only a radius and a shape reach the view, so the other dimensions are presentation constants. */
+  /** Areas: exact dimensions when the sim publishes them (AreaInfo.dimensions), else sizes derived from the radius. */
   private area(e: EntityView, local: PlayerTeam): void {
     const enemy = e.team !== local;
     const rim = enemy ? ENEMY_RED : ALLY_TEAL;
@@ -209,30 +217,41 @@ export class Bound {
     const ground = this.y + AREA.ringLift;
     const sy = Math.sin(e.yaw);
     const cy = Math.cos(e.yaw);
+    const d = e.area?.dimensions;
     switch (e.type) {
-      case 'sphere':
-        this.sphere(x, this.y, z, r, fill, AREA.fill * pulse);
-        this.ring(x, ground, z, r, rim, rimK);
+      case 'sphere': {
+        const rr = d?.kind === 'sphere' ? d.radius : r;
+        this.sphere(x, this.y, z, rr, fill, AREA.fill * pulse);
+        this.ring(x, ground, z, rr, rim, rimK);
         break;
+      }
       case 'cylinder': {
-        this.put('cylinder', identity(), x, this.y + AREA.cylinderHeight / 2, z, r, AREA.cylinderHeight, r, fill, AREA.fill * pulse);
-        this.ring(x, ground, z, r, rim, rimK);
+        const rr = d?.kind === 'cylinder' ? d.radius : r;
+        const h = d?.kind === 'cylinder' ? d.half * 2 : AREA.cylinderHeight;
+        this.put('cylinder', identity(), x, this.y + h / 2, z, rr, h, rr, fill, AREA.fill * pulse);
+        this.ring(x, ground, z, rr, rim, rimK);
         break;
       }
       case 'cone': {
-        const base = r * Math.tan(AREA.coneHalfAngleDeg * DEG);
-        this.put('cone', faceZ(this.q, sy, 0, cy), x, this.y + 0.3, z, base, base, r, fill, AREA.fill * 1.5 * pulse);
+        const len = d?.kind === 'cone' ? d.length : r;
+        const half = d?.kind === 'cone' ? Math.acos(d.cosHalf) : AREA.coneHalfAngleDeg * DEG;
+        const base = len * Math.tan(half);
+        this.put('cone', faceZ(this.q, sy, 0, cy), x, this.y + 0.3, z, base, base, len, fill, AREA.fill * 1.5 * pulse);
         break;
       }
-      case 'ring':
-        this.ring(x, ground, z, r, rim, rimK);
-        this.ring(x, ground, z, r * 0.9, fill, AREA.fill * 3 * pulse);
+      case 'ring': {
+        const outer = d?.kind === 'ring' ? d.outer : r;
+        const inner = d?.kind === 'ring' ? d.inner : r * 0.9;
+        this.ring(x, ground, z, outer, rim, rimK);
+        this.ring(x, ground, z, inner, fill, AREA.fill * 3 * pulse);
         break;
+      }
       default: {
         // box
-        const w = r * AREA.boxWidthPerRadius;
-        const l = r * AREA.boxLengthPerRadius;
-        this.put('box', faceZ(this.q, sy, 0, cy), x, this.y + AREA.boxHeight / 2, z, w, AREA.boxHeight, l, fill, AREA.fill * pulse);
+        const w = d?.kind === 'box' ? d.halfX * 2 : r * AREA.boxWidthPerRadius;
+        const l = d?.kind === 'box' ? d.halfZ * 2 : r * AREA.boxLengthPerRadius;
+        const h = d?.kind === 'box' ? d.half * 2 : AREA.boxHeight;
+        this.put('box', faceZ(this.q, sy, 0, cy), x, this.y + h / 2, z, w, h, l, fill, AREA.fill * pulse);
         this.ring(x, ground, z, Math.max(w, l) / 2, rim, rimK * 0.5);
       }
     }
@@ -252,6 +271,29 @@ export class Bound {
         break;
       default:
         this.put('box', faceZ(this.q, Math.sin(e.yaw), 0, Math.cos(e.yaw)), this.x, this.y + SUMMON.wall.height / 2, this.z, SUMMON.wall.width, SUMMON.wall.height, SUMMON.wall.depth, col, SUMMON.fill);
+    }
+  }
+
+  /** Melee pose from state: charge gathers, light and heavy lunge forward, parry holds a guard ring. */
+  private melee(e: EntityView): void {
+    const fx = Math.sin(e.yaw);
+    const fz = Math.cos(e.yaw);
+    const y = this.y + MELEE.height;
+    switch (e.meleePose) {
+      case 'charging': {
+        const p = 1 + 0.3 * Math.sin(this.clock * MELEE.chargeHz * TAU);
+        this.sphere(this.x + fx * MELEE.reach * 0.5, y, this.z + fz * MELEE.reach * 0.5, MELEE.chargeRadius * p, MELEE.charge, 1);
+        break;
+      }
+      case 'light':
+      case 'heavy': {
+        const heavy = e.meleePose === 'heavy';
+        const len = heavy ? MELEE.heavyLunge : MELEE.lightLunge;
+        this.put('box', faceZ(this.q, fx, 0, fz), this.x + (fx * len) / 2, y, this.z + (fz * len) / 2, heavy ? 0.5 : 0.25, 0.12, len, heavy ? MELEE.heavy : MELEE.light, 0.7);
+        break;
+      }
+      default:
+        this.ring(this.x + fx * MELEE.reach * 0.6, y, this.z + fz * MELEE.reach * 0.6, MELEE.guardRadius, MELEE.parry, 1);
     }
   }
 

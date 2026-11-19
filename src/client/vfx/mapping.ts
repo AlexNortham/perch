@@ -3,7 +3,7 @@
  * `FxSink`, so the mapping is unit-tested without a GPU.
  */
 import type { EntityId, EntityView, PlayerTeam, SimEvent, Team, Vec3 } from '../../sim/core/contracts';
-import { ENEMY_RED, NEUTRAL_COLOUR, TEAM_COLOURS } from '../render/palette';
+import { ENEMY_RED, NEUTRAL_COLOUR, TEAM_COLOURS } from '../app/palette';
 import { CHEST, RANGED_DISTANCE, RANGED_TYPES, TRACER } from './constants';
 import type { BurstKind } from './constants';
 
@@ -53,6 +53,8 @@ export function mapEvents(events: readonly SimEvent[], lk: Lookup, sink: FxSink)
       case 'weapon.fired': {
         sink.burst('muzzle', e.muzzle, e.dir, WHITE);
         if (!lk.hitscan(e.shooter)) break; // Projectile guns: the bullet itself is drawn from the view.
+        // weapon.traces carries every pellet's true endpoint, misses included; the impact scan is the fallback.
+        if (events.some((t) => t.type === 'weapon.traces' && t.shooter === e.shooter)) break;
         const shooter = lk.entity(e.shooter);
         const colour = shooter && shooter.team !== lk.localTeam ? TRACER.enemy : TRACER.ally;
         let hits = 0;
@@ -66,6 +68,32 @@ export function mapEvents(events: readonly SimEvent[], lk: Lookup, sink: FxSink)
           const far = { x: e.muzzle.x + e.dir.x * TRACER.missLength, y: e.muzzle.y + e.dir.y * TRACER.missLength, z: e.muzzle.z + e.dir.z * TRACER.missLength };
           sink.tracer(e.muzzle, far, colour, TRACER.width);
         }
+        break;
+      }
+      case 'weapon.traces': {
+        const shooter = lk.entity(e.shooter);
+        const colour = shooter && shooter.team !== lk.localTeam ? TRACER.enemy : TRACER.ally;
+        for (const end of e.ends) sink.tracer(e.muzzle, end, colour, TRACER.width);
+        break;
+      }
+      case 'structure.attack': {
+        const s = lk.entity(e.structure);
+        const tint = s ? teamTint(s.team) : WHITE;
+        if (e.attack === 'stomp' || e.attack === 'pulse' || e.attack === 'screech' || e.attack === 'rain' || e.attack === 'gale' || e.attack === 'transition') {
+          sink.burst('structureBlast', e.point, UP, tint);
+        } else {
+          sink.tracer(e.origin, e.point, tint, e.attack === 'beam' ? TRACER.structureWidth * 0.6 : TRACER.structureWidth);
+        }
+        break;
+      }
+      case 'structure.state': {
+        const s = lk.entity(e.structure);
+        if (s && (e.state === 'phase2' || e.state === 'wardDown')) sink.burst('structureBlast', chestOf(s), UP, teamTint(s.team));
+        break;
+      }
+      case 'patron.depleted': {
+        const s = lk.entity(e.structure);
+        if (s) sink.burst('structureBlast', chestOf(s), UP, WHITE);
         break;
       }
       case 'projectile.impact': {
@@ -94,12 +122,13 @@ export function mapEvents(events: readonly SimEvent[], lk: Lookup, sink: FxSink)
         if (!a) break;
         const at = chestOf(a);
         const reach = { x: at.x + Math.sin(a.yaw) * 1.2, y: at.y, z: at.z + Math.cos(a.yaw) * 1.2 };
-        sink.burst(e.heavy ? 'swipeHeavy' : 'swipe', reach, { x: Math.sin(a.yaw), y: 0, z: Math.cos(a.yaw) }, teamTint(a.team));
+        if (e.target === null) sink.burst('whiff', reach, { x: Math.sin(a.yaw), y: 0, z: Math.cos(a.yaw) }, teamTint(a.team));
+        else sink.burst(e.heavy ? 'swipeHeavy' : 'swipe', reach, { x: Math.sin(a.yaw), y: 0, z: Math.cos(a.yaw) }, teamTint(a.team));
         break;
       }
       case 'parry': {
-        const h = e.outcome === 'success' ? lk.entity(e.hero) : undefined;
-        if (h) sink.burst('parry', chestOf(h), UP, WHITE);
+        const h = lk.entity(e.hero);
+        if (h) sink.burst(e.outcome === 'success' ? 'parry' : e.outcome === 'start' ? 'parryStart' : 'parryWhiff', chestOf(h), UP, WHITE);
         break;
       }
       case 'entity.died': {

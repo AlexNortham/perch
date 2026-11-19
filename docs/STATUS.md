@@ -1076,3 +1076,15 @@ the blockout markers hide and each structure draws as one placeholder box (rende
 at t = 1 s. Needs instanced structure models or a new QA ceiling.
 **Interface requests:** Technical Artist, draw calls above; QA, the ride modifier. No contract change.
 **Limits:** no hand-played browser siege yet; structure art and the Patron e2e wait on Art and UI.
+### W4 · Contract follow-ups: Rendering & VFX and Ability Systems · 19/11/2026
+**Done:** branch worktree-agent-a3b9cf65e87ddcca2 (from main 6ba3741), four commits plus docs. Migrated render host,
+palette and drawn to `app/`; VFX draws `weapon.traces`, melee whiff, parry start/success/whiff, structure attacks,
+phase/ward blasts, exact area dimensions and meleePose cues; `Vfx.reset` clears stale state; the entity layer hides
+unseen enemies, ghosts allied invisible heroes and fades the local hero within 1 m. Abilities target through
+`heroAimRay`, publish area dimensions/concealment, honour extraCount, preferHeroes, maxCarry and onWall. D-RENDER-009,
+D-ABIL-010.
+**Evidence:** `npm run check` six steps PASS (128 s); new unit tests in vfx.test.ts, entities.test.ts,
+followups.test.ts; shot out/shots/w4-lane.png (Albatross, lane, local hero opaque at normal camera distance).
+**Limitations / requests:** the Albatross distant-sightline tracer comparison needs Combat's `weapon.traces` producer
+(w4/movement), so it is not seen end to end here; ability dash `maxPitchUpDeg` belongs to Physics. The local fade and
+ghosts are material swaps, not a shader. Fog Bank concealment is published but has no distinct visual yet.

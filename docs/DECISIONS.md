@@ -993,3 +993,17 @@ without making it available as a unit target.
 damage step 4 adds (×1.75 in all) instead of multiplying them (×1.875). Brood Ward weakens to ×0.6 at the same time.
 **Why:** GDD §5.2 step 4 makes conditional target-kind bonuses additive within the step, and D-OBJ-004 kept the ×1.5
 as a pipeline bonus so the lever could add to it.
+### D-RENDER-009 · 19/11/2026 — W4 consumers: traces, ghosts, fade and cues come from the contract
+**Decision:** hitscan tracers draw from `weapon.traces` (every pellet end, misses included, from the real muzzle); the
+impact scan stays only as a fallback when a shot has no traces event. Enemies render only when `canSee` for the local
+flock; allied invisible heroes draw at 0.35 opacity; the local hero's materials fade over the last metre before the
+camera (per-mesh clones, restored at full opacity). Areas draw from `AreaInfo.dimensions`. `meleePose` and the
+parry/whiff/structure events have their own cues; `Vfx.reset` clears transients, pods, tethers and flashes. Render
+host, palette and drawn now live in `app/`; the old render/vfx modules re-export them.
+**Why:** one source of truth per fact, as INTERFACES §12 and the W4 follow-ups require.
+
+### D-ABIL-010 · 19/11/2026 — W4 consumers: abilities use heroAimRay and publish area geometry
+**Decision:** unit/point/direction targeting uses `core/aim.heroAimRay`; lasting areas store resolved
+`dimensions` and `concealsAlliesOutside`; summons honour `extraCount` and `preferHeroes` (default true); moving
+areas stop carrying a target after `move.maxCarry` metres and pass `move.onWall` to the carry displacement.
+**Why:** W4-contract-followups, Abilities and Rendering sections.

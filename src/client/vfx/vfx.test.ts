@@ -7,7 +7,7 @@ import { Bound } from './bound';
 import type { Source } from './bound';
 import { CAPACITY, TRACER, TRANSIENT_CAPACITY } from './constants';
 import type { BurstKind } from './constants';
-import { drawnByVfx } from './drawn';
+import { drawnByVfx } from '../app/drawn';
 import { createDraw, Transients } from './fx';
 import { mapEvents } from './mapping';
 import type { FxSink, Lookup } from './mapping';
@@ -59,6 +59,27 @@ describe('event to effect mapping', () => {
     const miss = h.log.find((l) => l.kind === 'tracer')?.detail as { to: Vec3 };
     expect(miss.to.z).toBeCloseTo(TRACER.missLength);
     expect(h.run([fired(1), impact(1, 4)])).toEqual(['burst:muzzle', 'tracer']);
+  });
+
+  it('draws one straight tracer per weapon.traces end from the real muzzle, hits and misses, instead of the impact scan', () => {
+    const h = harness(world, [1]);
+    const traces: SimEvent = { type: 'weapon.traces', shooter: 1, muzzle: v(0, 1, 0), ends: [v(0.5, 1, 8), v(1, 1, 60), v(-1, 1, 60)] };
+    expect(h.run([fired(1), traces, impact(1, null)])).toEqual(['burst:muzzle', 'tracer', 'tracer', 'tracer', 'burst:impactWorld']);
+    expect((h.log[1]?.detail as { from: Vec3; to: Vec3 }).from).toEqual(v(0, 1, 0));
+    expect((h.log[1]?.detail as { to: Vec3 }).to.z).toBe(8);
+  });
+
+  it('shows parry start, success and whiff, and a melee whiff, distinctly', () => {
+    const h = harness(world, [1]);
+    const parry = (outcome: 'start' | 'success' | 'whiff'): SimEvent => ({ type: 'parry', hero: 1, outcome, attacker: null });
+    expect(h.run([parry('start'), parry('success'), parry('whiff')])).toEqual(['burst:parryStart', 'burst:parry', 'burst:parryWhiff']);
+    expect(h.run([{ type: 'melee', attacker: 1, heavy: false, target: null, parried: false }])).toEqual(['burst:whiff']);
+  });
+
+  it('draws structure attacks from their real origin to their point', () => {
+    const h = harness(world, [1]);
+    expect(h.run([{ type: 'structure.attack', structure: 3, attack: 'bolt', origin: v(0, 3, 0), point: v(0, 1, 9), impactAt: 5 }])).toEqual(['tracer']);
+    expect(h.run([{ type: 'structure.attack', structure: 3, attack: 'stomp', origin: v(0, 3, 0), point: v(0, 0, 3), impactAt: 5 }])).toEqual(['burst:structureBlast']);
   });
 
   it('tints enemy tracers red-ish and allied ones gold-white', () => {

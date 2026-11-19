@@ -1,5 +1,5 @@
 /** VFX presentation constants (D-EP-009). Colours are 0xRRGGBB sRGB; sizes in metres, times in seconds. */
-import { ALLY_TEAL, ENEMY_RED } from '../render/palette';
+import { ALLY_TEAL, ENEMY_RED } from '../app/palette';
 
 export type Shape = 'box' | 'sphere' | 'cylinder' | 'cone' | 'ring';
 
@@ -72,6 +72,21 @@ export const AREA = {
   ringLift: 0.12,
   pulseHz: 1.2,
   pulseDepth: 0.2,
+} as const;
+
+/** Melee pose cues drawn from EntityView.meleePose while it lasts. */
+export const MELEE = {
+  height: 1.2,
+  reach: 1.6,
+  chargeHz: 4,
+  chargeRadius: 0.22,
+  guardRadius: 0.9,
+  lightLunge: 1.6,
+  heavyLunge: 2.4,
+  charge: 0xffd27a,
+  light: 0xffffff,
+  heavy: 0xffe9a0,
+  parry: 0xbfeaff,
 } as const;
 
 /** Summon placeholders (until the Technical Artist models them). */
@@ -205,6 +220,13 @@ export const BURSTS = {
   parry: [
     { shape: 'ring', count: 1, speed: 0, spread: 0, s0: 0.2, s1: 1.8, life: 0.25, colour: 0xbfeaff },
     { shape: 'box', count: 5, speed: 7, spread: 1, s0: 0.05, s1: 0.01, len: 0.4, life: 0.2, colour: 0xe8f8ff },
+  ],
+  whiff: [{ shape: 'box', count: 2, speed: 0, spread: 0.3, s0: 0.04, s1: 0.01, len: 1.2, life: 0.1, colour: 0xdddddd, tint: true, scatter: 0.2 }],
+  parryStart: [{ shape: 'ring', count: 1, speed: 0, spread: 0, s0: 0.1, s1: 1, life: 0.15, colour: 0x9fd0e8 }],
+  parryWhiff: [{ shape: 'ring', count: 1, speed: 0, spread: 0, s0: 0.8, s1: 0.2, life: 0.2, colour: 0x707880 }],
+  structureBlast: [
+    { shape: 'ring', count: 1, speed: 0, spread: 0, s0: 0.5, s1: 6, life: 0.4, colour: 0xffffff, tint: true },
+    { shape: 'sphere', count: 10, speed: 5, spread: 1, s0: 0.3, s1: 0.9, life: 0.5, colour: 0xffe9a0, gravity: 2 },
   ],
   /** Axis = the direction of travel; the streak trails behind. */
   dash: [
