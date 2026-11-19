@@ -612,3 +612,30 @@ choose the kind; `createInput` now returns `Input` (an `InputController` plus th
 x0.8, Owl x0.5) needs an aim flag or hero zoom reachable by the camera; not done. Renderer — hero fade under 1 m camera
 distance (GDD §4.1) is not signalled by the camera.
 **Next:** Updraft boost and sprint FOV, auto shoulder swap, ping wheel (UI), the aim zoom once the flag exists.
+### W3 · Rendering & VFX · 19/11/2026
+**Done:** src/client/vfx: five additive instanced meshes (`fx.ts`), a pure event→effect mapping (`mapping.ts`), entity-bound
+visuals redrawn from the view (`bound.ts`), constants (`constants.ts`), a dev-only self-test (`selftest.ts`, `?vfxdemo=1`,
+effects age in slow motion so a screenshot catches them). Covers: muzzle flash, hitscan tracers, projectile bolts with
+trails (enemy red-tinted, allied white), world/body/structure impacts, a distinct gold beak-shot flash, hit flashes,
+seed pods (rising, ripe pulse, withering; gold = can secure, blue = can deny) with secured pop and denied crunch,
+areas (sphere, cylinder, cone, ring, box; red rim enemy, teal ally), trap/turret/wall placeholders, tethers, status
+markers (stun, silence, disarm, root, slow, grounded), dash streaks, landing dust, slide sparks, Updraft wind, melee
+swipes, parry flash, fledgling swipes and shots, cast and ability-land pulses, deaths. `render/host.ts` +
+`render/entities.ts` (skips VFX-drawn entities). Decisions D-RENDER-006…008.
+**Verified:** `npm run check`: typecheck, lint, test, sim, e2e all PASS (25 s). `src/client/vfx/vfx.test.ts` 14 tests
+(mapping per event, tracer count and colour, pooling: 600 frames of sustained fire leave the record ring and instance
+buffers the same size, retirement, capacity drop, bound visuals). Shots read with the Read tool:
+`npm run shots -- --scene sandbox --hero shrike --param vfxdemo=1 --param renderCam=-7.5,13,-23,-7.5,1,8` shows every
+effect at once. Draw calls with the self-test: 11 (6 without it; the 5 extra are the instanced meshes).
+**Blocked:** `?scene=lane&hero=shrike&t=60` has no fledglings: no sim system spawns them yet (no `wave.spawned` emitter
+on main), so a real lane fight could not be screenshot; fledgling swipes and shots are shown in the self-test only.
+**Interface requests:** Technical Architect: (1) `EntityView` for areas should carry the shape's dimensions (cone length
+and angle, ring inner, box size, cylinder height) and the owner; areas are drawn from `radius` with presentation
+constants today. (2) `EntityView` or a spawn event for pods should carry age or `expiresAt` (pod stages are timed from
+first sighting, which is wrong after a fast-forward). (3) Projectiles: the view gives no `source`/`ability`, so ability
+bolts can't take a hero's colour; expose `ProjectileInfo.source` and ability id on the view. (4) Unit statuses are not in
+the view, only heroes'; markers on fledglings come from the stun and silence flags only. (5) `weapon.fired` should
+carry whether the gun is hitscan.
+**Next:** hitstop, shake and post-processing are wave 7. Per-ability colours and shapes once (1) and (3) land. Lint: the
+vfx files carry ~240 `no-magic-numbers` warnings (positions in selftest are exempted; the rest are small presentation
+literals in fx.ts, bound.ts and mapping.ts) to move into constants.ts.
