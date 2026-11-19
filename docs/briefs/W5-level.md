@@ -32,3 +32,8 @@ legibly.
 
 Prove it with screenshots you look at yourself: overview, top-down, one street-level shot per lane, two building
 interiors, a rooftop route and a jungle path. `npm run check` must pass all six steps.
+
+## Added by the EP: feel gaps from the video analysis (D-EP-046)
+Read `docs/reference/feel-reference.md` G19 (lane framing and density) and G20 (verticality in fights). They are Stage
+4 and yours. The reference's lanes are framed by dense, tall building fronts with no bare walls, and fights use height
+constantly. Build the detailed map to that standard within the Director's budgets.

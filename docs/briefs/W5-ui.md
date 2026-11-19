@@ -36,3 +36,13 @@ changes named below.
 - QA's pending browser specs for these items pass.
 - You have looked at a 1080p screenshot of every changed screen.
 - `npm run check` passes all six steps.
+
+## Added by the EP: feel gaps from the video analysis (D-EP-046)
+Read `docs/reference/feel-reference.md`, sections G01–G04, G06–G10, G13, G15 and G30. They are Stage 4 and yours.
+Implement each fix as specified there: the scoreboard strip (G01, together with item 2 above), contextual objective
+bars (G02), the health gauge beside the bird (G03), the ability row at the bottom centre (G04), the round minimap at
+the bottom right (G06), ammo under the crosshair (G07), the kill feed and kill badge (G08), the melee hint (G09),
+contextual feedback (the Stage 4 part of G10), and Brood Ward lines kept out of the feed (G30). For the camera
+(acting for Camera & Input): the head level with the crosshair (G13, e.g. `shoulderUp` 0.35 → 0.15 m; if the
+constant lives in Architect-owned data, change only that constant and record it) and a cap on the local gun's
+on-screen footprint (G15, Stage 4 part). Compare your 1080p screenshots with the reference description for each gap.

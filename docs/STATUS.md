@@ -1841,3 +1841,9 @@ check`: `PASS typecheck 8s · lint 6s · test 51s · perf 10s · sim 13s · e2e 
 only the world perf test (0.998 ms per tick against 0.5). It ran while the capture browsers were busy and passed alone
 and in the run above. No `src/` change.
 **Interface requests:** none. The gap owners are listed per gap, for the EP to route.
+
+### Stage 4 · EP note · 19/11/2026 · feel gaps routed (D-EP-046)
+From `docs/reference/feel-reference.md`: G01–G04, G06–G10, G13, G15 and G30 go to the wave 5a UI and controls brief;
+G19 and G20 to the Level Designer; G16 (Updraft ride visuals) and G18 (team identification) to Rendering & VFX in wave
+5b; G22 (hero bots that fight) to Bot AI in wave 5b; G23 (600-Seed starting purse) to the integration round. The
+Stage 5 gaps (G05, G11, G12, G14, G17, G21, G24–G29) feed the Stage 5 style guide and balancing.
