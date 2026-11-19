@@ -889,3 +889,19 @@ still has only the "Next, Stage 2" teaser (line 33), no "Stage 2 (M1)" section (
 **Blocked:** nothing. Nothing under `src/`, `tests/` or `e2e/` was changed; my scratch scripts live in the session scratchpad and
 `out/qa/` (gitignored).
 **Next:** EP writes PLAYABLE.md and fast-forwards `main`; QA writes the wave 4 test-first suites first thing in wave 4.
+
+### W4 · Game Director · 19/11/2026
+**Done:** GDD traversal, browser bindings and combat cues (D-DIR-007), Hawk and Heron clearance (D-DIR-008),
+and Practice Hub and ability inspection (D-DIR-009). The M2 checklist covers the Hedgerow chain, default
+migration, mouse-bound melee and parry, tower clearance, damage and healing targets, and pointer-free upgrades.
+**Verified:** `npm ci --prefer-offline --no-audit --no-fund` installed 145 packages. In Git Bash,
+`VITEST_MAX_WORKERS=1 npm run check` passed all six steps in 142 s. Unit tests 499/499, perf 6/6, sim
+10,800 ticks with seed 1 and hash `a8d14facda91c2fa`, browser tests 10/10. Lint passed with 117 existing
+warnings. Logs and telemetry are in `out/check/` in the director worktree. Initial runs saw a concession
+timeout with parallel unit workers and a 0.552 ms/tick world perf result against a 0.500 ms limit. The clean
+run measured 0.339 ms/tick. Checked GDD key and distance cross-references, the Hedgerow hedge coordinates,
+and unique D-DIR IDs.
+**Limits:** the branch contains the design and baseline verification. Live traversal, tower clearance,
+Practice Hub and the inspect panel need implementation and their M2 play checks.
+**Interface requests:** Architect and Preview QA received default migration, dash timing and stamina,
+practice setup and inspect inputs. EP approved the shared tower envelope for Objectives and Art.
