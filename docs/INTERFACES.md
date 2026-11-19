@@ -10,7 +10,8 @@ Contents: [1 Contract files](#1-contract-files) · [2 Context services](#2-conte
 [3 Components](#3-components-who-writes-what) · [4 Effects](#4-effects) · [5 Events](#5-events) ·
 [6 Damage pipeline](#6-the-damage-pipeline) · [7 Data shapes](#7-data-shapes) · [8 Client](#8-client-contracts) ·
 [9 Responsibility matrix](#9-responsibility-matrix) · [10 Change process](#10-change-process) ·
-[11 Wave 2 requests](#11-wave-2-requests)
+[11 Wave 2 requests](#11-wave-2-requests) · [12 Wave 3 requests](#12-wave-3-requests-and-the-m2-contract-freeze-19112026) ·
+[13 Wave 4 requests](#13-wave-4-requests-w45-19112026) · [14 Stage 4 contracts](#14-stage-4-contracts-w45)
 
 ---
 
@@ -38,7 +39,8 @@ Import everything from `src/sim/core/contracts` (the barrel).
 
 Pure helpers anyone (sim or client) may import: [`core/aim.ts`](../src/sim/core/aim.ts) (the aim model),
 [`core/math.ts`](../src/sim/core/math.ts) (`ticks()`, vectors), [`core/vision.ts`](../src/sim/core/vision.ts)
-(`canSee`). Constants: [`src/sim/data/core.ts`](../src/sim/data/core.ts), including `EFFECT_TICK_SECONDS` (0.5 s, the
+(`canSee`), [`core/dmath.ts`](../src/sim/core/dmath.ts) (`sin`, `cos`, `tan`, `atan`, `atan2`, `asin`, `acos`,
+`hypot` with 2 or 3 terms; the sim must use these, never `Math`'s, D-ARCH-021). Constants: [`src/sim/data/core.ts`](../src/sim/data/core.ts), including `EFFECT_TICK_SECONDS` (0.5 s, the
 GDD §5.12 tick that DoTs, lasting areas and tethers share).
 
 ## 2. Context services
@@ -166,7 +168,9 @@ Facts only; one emitter each. The client may read any event from `sim.drainEvent
 | `flexSlots` | team, slots | economy | items, client, telemetry |
 | `wave.spawned` | wave | world | client, telemetry |
 | `structure.state` | structure, state (phase2, wardUp, wardDown, vulnerable) | world | client, ai, telemetry |
-| `objective` | action (egg spawned/taken/dropped/delivered, Roc spawned, Ember claimed, rune spawned/taken), hero, team, pickup, pos | world | economy (Egg payout), ai, telemetry, client |
+| `objective` | action (egg spawned/taken/dropped/rolling/spoiled/delivered, Roc spawned, Ember dropped/claimed, rune spawned/taken, camp spawned/cleared, keepsake gained, berry eaten), hero, team, pickup, pos, camp, variant, value | world | economy (Egg payout and golden pods), ai, telemetry, client |
+| `unit.attack` | unit, attack (bite, dashBite, lash, spit, slam, rake, flap, shriek), origin, point, impactAt | world | client (telegraphs, audio), ai (dodging) |
+| `unit.state` | unit, state (awake, asleep, enraged) | world | client (the Roc's roar), ai |
 | `ping` | by, team, kind, pos, target | core (rate-limited from commands) | ui (minimap, world markers), audio, ai |
 
 ## 6. The damage pipeline
@@ -211,7 +215,10 @@ GDD §5.2 is the rule; this is who does each step. Every source of damage goes t
 - **Statuses**: inline `StatusDef`s; shared ones exported from `src/sim/data/combat.ts`.
 - **Map**: `MapData` from `loadMap(id)`; every GDD §6.3 object has a field (spawns and the Home Roost zone, shops,
   structures, lanes, Updrafts with stations, climbs, ledges, Thickets with tiers, Nests, rune spots, Egg perches, the
-  Hollow, nav graph with link kinds, bot spots).
+  Hollow, nav graph with link kinds, bot spots). Stage 4 adds optional buildings, rooms, openings, jungle zones,
+  interactables and springs (§14.3).
+- **Learned builds**: `BuildData` (contracts/items.ts) in `src/sim/data/builds.ts`: per-hero `ItemScores` and
+  `RecommendedBuild` (§14.1).
 
 ## 8. Client contracts
 
@@ -415,3 +422,111 @@ UI calls actions.play('practice') for the Hub and actions.startMatch after selec
 Shop, upgrade inspect and ping-wheel activations release pointer capture while simulation continues. UI submits buy/sell/upgrade/ping through actions.submit; the app consumes one per tick in order. Escape closes the active panel. UI can call actions.capturePointer(false) after its own close button. Input distinguishes a tap of upgradeModifier (inspect) from a modifier chord (upgrade only). AbilityDef and AbilityUpgrade already carry descriptions; HeroView slots publish nextUpgradeCost, null at maximum. ScreenContext includes catalogue, mode and seed. Map pings and world damage labels use actions.project with the actual displayed camera. Audio and VFX get reset on session change.
 
 Human commands may carry the finite, copied centre ray of the displayed player camera. Combat and Ability Systems call heroAimRay so interpolation, shoulder blend, crouch and pull-in agree with the last frame; bots/headless retain deterministic rig reconstruction. Hits originate at the physical muzzle with ordinary cover/occlusion. See [W4 contract follow-ups](briefs/W4-contract-followups.md) for the regression cases.
+
+## 13. Wave 4 requests (W4.5, 19/11/2026)
+
+Every "Interface requests" item in the W4 STATUS entries, plus the W3 carry-overs the W4.5 brief names. A = accepted,
+M = accepted with a different shape, S = already satisfied by landed work (named), R = rejected. Landed contract
+changes are additive and optional; what each owner implements is in
+[briefs/W5-contract-followups.md](briefs/W5-contract-followups.md).
+
+| # | From | Request | Decision | Landed as / why |
+|---|---|---|---|---|
+| 1 | EP, Gate fixes | Node and Edge hash the siege replay differently from tick 3 | A | Root cause: engine `Math` transcendental functions. `core/dmath.ts`, every sim call switched, `e2e/determinism.spec.ts` compares per-tick hashes (D-ARCH-021) |
+| 2 | Technical Artist (animation) | `EntityView.castSlot` from `AbilityState.casting` | A | `EntityView.castSlot`, filled by core while casting or channelling |
+| 3 | Audio | Occlusion data: a line-of-sight flag per entity or a ray query on the view | M | No per-entity flag or client ray: the client has no physics, and GDD §6.11's rule is per interior volume. Audio compares the listener's and the source's `MapData.rooms` (−6 dB and a 2 kHz low-pass across volumes) and treats enemy heroes outside `seenBy` as occluded |
+| 4 | Audio | A hero-select hook on `AudioOut` | A | `AudioOut.onScreen?(screen)` on every screen change and `AudioOut.previewHero?(hero)`, routed from the new `AppActions.previewHero?(hero)`; the app already calls both |
+| 5 | Audio | A mute setting | A | `Settings.mute` (top level, so the three volume sliders keep their shape); sanitised, default false |
+| 6 | Hero B | A rooted hero can't cast Scatter, which removes roots | S | D-ABIL-012: a cast whose own effects cleanse the root is allowed |
+| 7 | Hero B | End a movement mode on landing or an event; an `endMode` service | M | Data, not a service: `MovementModeEffect.endOn?: ('land' \| 'jump')[]`. Without it, physics keeps its per-mode rule (glide, D-CTRL-009) |
+| 8 | Hero B, Hero A | Combat honours `weaponMod.gunDamage`, `reloadFraction` | S | Landed on w4/movement (D-COMBAT-009) |
+| 9 | Hero B | `applyStatus` with duration 0 still applies one tick | A | TSDoc: a resolved duration ≤ 0 applies nothing; Combat implements |
+| 10 | Hero A | Abilities: `extraCount`, `preferHeroes`, `maxCarry`, `onWall`, one `onEnter` per entry | S | D-ABIL-010, D-ABIL-011 |
+| 11 | Hero A | Physics: end a toboggan on Jump; honour `maxPitchUpDeg` | S | w4/movement |
+| 12 | Economy | World spawns structures; Combat's `closeGunDamage`, once-per-volley `beakShotFlat`, clamps after a sale | S | Objectives W4 and w4/movement |
+| 13 | Objectives | Draw calls of placeholder structures; a ride modifier for the siege Updraft test | S | D-ART-003 (lane/low 17 calls); INTEG-SIM's invulnerable rider |
+| 14 | Movement | App: `defaultBindings()` defaults, v2→v3 migration, `exitFullscreen` on menus; UI capture of mouseup/auxclick; VFX traces; Penguin hook; QA crouch key | S | INTEG-WEB items 1, 2 and 4; INTEG-SIM item 4 |
+| 15 | QA (M1 preview) | Test hook `flags`, `tick`, `meleePose`, `lastMelee`, `lastParry`; `weapon.traces` | S | `window.__perch.hero` (app.ts); §12 row 10 |
+| 16 | Browser QA | Accessible names for the upgrade dialog, abilities and dummy HP bars | S | UI W4; D-EP-038 moves them to the HUD icons in wave 5 |
+| 17 | Game Director (W4) | Default migration, dash timing and stamina, practice setup, inspect inputs | S | W4 implementation and INTEG-WEB |
+| 18 | QA gate | A read-only `window.__perch.state` | S | D-ARCH-020 |
+| 19 | Docs & Wiki | Regenerate the wiki at each gate | S | An EP process (D-EP-031); no contract |
+| 20 | Objectives (W3, named in the brief) | A true-sight radius | S | §12 row 22: `trueSightRadius` stat, per holder (Objectives W4) |
+| 21 | Objectives (W3, named) | A minimap-only visibility bit | S | §12 row 23: `mapOnlySeenBy`, `EntityView.mapSeenBy` |
+| 22 | Objectives (W3, named) | An out-parameter `moveCharacter` | S | §12 row 24, landed on w4/movement |
+| 23 | VFX (W3, named) | View fields for areas, pickups, projectiles, unit statuses | S | §12 rows 6–9 |
+| 24 | Production (W3.5) | Confirm item effect coverage and UI command routing | S | W3.5 round, §12.1 |
+
+Counts: 24 rows; 6 accepted, 2 modified, 16 satisfied, none rejected.
+
+## 14. Stage 4 contracts (W4.5)
+
+All optional and additive: today's code compiles unchanged and today's map loads. Field-level TSDoc is the source of
+truth; this section says who does what. Reconciled with the Director's W4.5 GDD (§§6.5–6.12, §§7.8–7.15) and D-EP-039.
+
+### 14.1 Bots and learned builds (D-EP-036, D-EP-037)
+
+- **Command path (confirmed, unchanged).** Bots write `HeroEntity.command` in the `ai` phase; core latches and
+  sanitises it exactly like the human's. Purchases are `command.buy` / `command.sell` (validated by Items at
+  execution), upgrades `command.upgrade`, movement and aim the ordinary axes, look and buttons. No sim shortcuts
+  (GDD §11.1). A bot mounts an Updraft by holding Jump while `motor.updraftInReach` is set (D-EP-039).
+- **Scores.** `ItemScores` per hero: `base`, sparse pairwise `synergy[owned][candidate]` (owning a component counts,
+  so upgrade chains score through it) and `phase[item] = [early, mid, late]`. Score = base + Σ synergy + phase
+  offset; sim/ai samples softmax(score / temperature) over affordable, buyable items from the stream
+  `'ai/<heroId>/shop'`, so shopping never shifts another stream. Temperature comes from the difficulty (data/ai).
+- **Builds.** `RecommendedBuild`: early, mid and late cores in buying order plus situational picks with a short
+  reason. `BuildData` = { round, matches, phases { midFromS, lateFromS }, scores, builds }, exported as `BUILDS` from
+  `src/sim/data/builds.ts`. Round 0 (no learned data) falls back to GDD §11.5's lists. Readers: sim/ai, the Magpie's
+  Hoard (client/ui may import `src/sim/data/builds.ts`, ARCHITECTURE §5) and tools/wiki.
+- **Build Lab.** `SimOptions.botShopping` per flock: replacement `scores`, a `temperature`, or `random` buying, so one
+  seeded match plays round N against round N−1 or against random (D-EP-037's held-out test). Outcomes come from
+  `sim.telemetry()` (`itemsBought` has each purchase's second). Headless results equal the browser's (D-ARCH-021).
+
+### 14.2 Objectives (GDD §§7.8–7.15)
+
+| Piece | Components | Events | View |
+|---|---|---|---|
+| Thickets | Units of type beetle, weasel, rat, toad, badger, cub; `UnitInfo.camp`, `asleep` (dormant); `ObjectiveState.campAt` | `objective` campSpawned / campCleared (`camp`); `unit.attack` telegraphs; `unit.state` awake / asleep | `EntityView.camp`, `ViewFlag.Asleep` |
+| Nests | Structure `'nest'`, `variant` twig / woven / keepsake, `anchor`, `breakable.by` (woven: heavyMelee), `solid: false` for twig and keepsake; `ObjectiveState.nestAt` | `entity.died` (victimType 'nest'); drops are pickups | `EntityView.variant` |
+| Drops | Pickups `sprig` (value), `crumb` (variant), `keepsake`; collected by walking within 1.5 m | crumbs are statuses | type, variant |
+| Keepsakes | `HeroEntity.keepsakes` { count, totals }, stat source `'world:keepsakes'` | `objective` keepsakeGained (`value`, `variant`) | `HeroView.keepsakes` |
+| Bell Feeders | Structure `'nest'` with variant `'feeder'`, `breakable` { by: 'melee', light: 60, heavy: 120 }, `lit`; `MapData.interactables` kind 'feeder' (`camp` for the Granary hybrid); `ObjectiveState.interactableAt` | swing-back is world damage; `entity.died`; keepsakeGained | `ViewFlag.Lit` |
+| Feather runes | Pickup `rune`, `melee: 'heavy'`; `ObjectiveState.runeAt` per spot | `objective` runeSpawned / runeTaken (`variant`) | type, variant |
+| Golden Egg | Pickup `egg`, `melee: 'any'`, `claimableAt` (lowering; 1 s after a drop); `ObjectiveState.egg` { pickup, perch, rollsAt, coolsAt, deliverUntil, value } | `objective` eggSpawned / eggTaken / eggDropped / eggRolling / eggSpoiled / eggDelivered (`value`; economy hatches the golden pods) | `ViewFlag.Carried`, `EggCarrier` |
+| Roc | Unit `roc`, `asleep`, `enraged`; `ObjectiveState.rocAt` | `objective` rocSpawned; `unit.attack` rake / flap / shriek; `unit.state` enraged | `ViewFlag.Asleep`, `Enraged` |
+| Embers and Rekindle | Three pickups `ember`, `melee: 'heavy'`, `claimableAt`; `TeamState.rekindle` { until, charges } | `objective` emberDropped / emberClaimed; `entity.died.revives`; `hero.respawned.revived` | `TeamView.rekindle` |
+| Berries | Pickup `berry`, eaten within 1.2 m; anchors in `MapData.interactables` | `objective` berryEaten | type |
+| Hides, Lookouts, ivy, Cellar Run, Springs | `Room.tag` 'hide' / 'tunnel', interactable 'lookout', `Opening.curtain` plus a `blocks: 'sight'` prim, `MapData.springs` | none new (hidden and lookout are statuses) | statuses |
+
+Writers: sim/world for all of the above except pods (economy, including the Egg's golden pods) and the revive itself
+(combat sets `entity.died.revives` and revives; world spends the charge on that event). Combat honours `breakable`
+and includes `melee` pickups in its melee hit test (they take no damage). Physics builds no collider for a
+structure with `solid: false`. A Bell Feeder is a `'nest'` variant so the tower tables keyed on
+`Exclude<StructureType, 'nest'>` stay valid (D-ARCH-023).
+
+### 14.3 The detailed map (D-EP-033, GDD §§6.5–6.12)
+
+New optional `MapData` fields: `buildings` (id, archetype, footprint, storeys, roof, zone), `rooms` (one interior
+volume per storey, cellar or tunnel; `tag` hide or tunnel), `openings` (door, shot window, leap window, hatch,
+skylight, arch, balcony, grate; the two rooms it joins; `passable`, `curtain`, `blocksEggCarrier`), `jungle` (zone
+outlines and paths), `interactables` (berry, feeder, lookout), `springs` (pad, radius, landing, apex). Also:
+`PrimBase.blocks` ('movement' for shot-window fillers, 'sight' for ivy), ladders as `Climb.kind 'ladder'` with vine
+nav links, `NestAnchor.variant`/`building`/`storey`, `ThicketAnchor.family`/`building`/`storey`,
+`ShopAnchor.neutral` (the Magpie Den), `NavLink.spring` (GDD §6.7's spring link, as a field so `NavLinkKind` stays
+closed) and `NavGraph.nodeRoom`. Geometry stays in `prims`; these records say what it means. Stairs are ramp prims
+and walk links; no stair record is needed.
+
+### 14.4 No Interact key (D-EP-039, D-ARCH-022)
+
+- `Button.Interact` and the `'interact'` binding are **deprecated, not deleted**: Physics, Input, the UI labels and two
+  tests still read them, and deleting now breaks the build. `RETIRED_BIND_ACTIONS` (app/bindings) lists `'interact'`
+  so Input maps no key to it and Options hides it in wave 5. The W5.5 round deletes the bit, the action and its
+  default. Bit 0x20000 is never reused.
+- **Updrafts:** `PhysicsService.updraftInReach(pos)` (optional until Physics lands it) gives the nearest cable point
+  in reach anywhere along the cable; physics writes `Motor.updraftInReach` each tick and mounts on held Jump;
+  `HeroView.updraftInReach` drives the HUD prompt.
+- **Egg, runes, Embers:** `PickupInfo.melee` ('any' for the Egg, 'heavy' for runes and Embers); combat reports the
+  pickup as `melee.target`; world claims it. Delivery is automatic in the Stone's circle (`EggState.deliverUntil`).
+- **Saved settings:** until W5.5 a saved `interact` code is kept but inert. Once `'interact'` leaves `BindAction`,
+  `sanitizeSettings` keeps only known actions, so the saved code is dropped on the next load and every other binding
+  is untouched; no storage-key bump. `app.test.ts` covers the drop.

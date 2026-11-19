@@ -440,9 +440,7 @@ export interface EggState {
   rollsAt: Tick | null;
   /** The tick it starts cooling (45 s after its first pickup), else null. */
   coolsAt: Tick | null;
-  /** A delivery in progress (automatic in the Stone's circle, D-EP-039) completes at this tick, else null. */
-  deliverUntil: Tick | null;
-  /** Its value E now, after cooling (Seeds). */
+  /** Its value E now, after cooling (Seeds). Delivery is the moment the carrier enters the Stone's circle (D-EP-039). */
   value: number;
 }
 

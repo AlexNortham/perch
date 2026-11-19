@@ -67,6 +67,15 @@ export interface DamageEffect {
   readonly bonus?: readonly DamageBonus[];
   /** Fraction of missing hp added to damage. */
   readonly missingHpPct?: Magnitude;
+  /** Fraction of the target's current hp added to damage, read when the hit resolves (Blight Spores). */
+  readonly currentHpPct?: Magnitude;
+  /** Fraction of the target's max hp added to damage (Rookery Dirge's aura). */
+  readonly maxHpPct?: Magnitude;
+  /**
+   * Trigger effects only: fraction of the triggering hit's amount (before the holder's resists) added to damage
+   * (Burr Coat returns 0.15 of the gun damage it took).
+   */
+  readonly triggerPct?: Magnitude;
   /** Execute below this post-hit fraction of max hp. */
   readonly executeBelow?: Magnitude;
 }
@@ -397,6 +406,12 @@ export interface TriggerDef {
   /** Who the effects land on: the other party of the event, or the holder. */
   readonly target: 'other' | 'self';
   readonly effects: readonly Effect[];
+  /** The trigger ends after firing this many times (Warbler's Trill 1, Skylark Cadence 3), or at its duration. */
+  readonly uses?: number;
+  /** Only events whose hit came this way ('damaged' by a gun: 'weapon'). */
+  readonly via?: EffectVia;
+  /** Only when the other party is within this many metres (Burr Coat 20 m). */
+  readonly withinM?: number;
 }
 
 /** Give the target a trigger for a while (item procs use the same TriggerDef permanently). Owner: sim/items. */

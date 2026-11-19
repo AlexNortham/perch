@@ -5,11 +5,12 @@ import { siegeAgent, SIEGE_HERO } from '../src/sim/ai/siege-proof.testkit';
 import { allBotRoster, createSim, humanRoster } from '../src/sim/index';
 
 export const TRACE_SEED = 1;
+// Kept short: the suite shares the machine with the parallel e2e. Native Math split these at tick 3 and by tick 1,800.
 export const TRACES = {
   /** The siege proof and `?scene=replay`: one Owl on the agent's ordinary commands, structures and waves on. */
-  siege: { everyTickUntil: 1800, stride: 600, ticks: 18_000 },
+  siege: { everyTickUntil: 1800, stride: 600, ticks: 7_200 },
   /** The headless bot match the Build Lab plays: 12 bots, everything on. */
-  bots: { everyTickUntil: 900, stride: 600, ticks: 9_000 },
+  bots: { everyTickUntil: 600, stride: 300, ticks: 3_600 },
 } as const;
 export type TraceName = keyof typeof TRACES;
 

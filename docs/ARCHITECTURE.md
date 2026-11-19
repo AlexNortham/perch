@@ -21,7 +21,7 @@ src/
     core/                      runtime every system shares                                  Architect
       contracts/               every cross-system type and event (no logic)
       events.ts store.ts rng.ts spatial.ts stats.ts effects.ts hash.ts telemetry.ts
-      view.ts aim.ts vision.ts math.ts
+      view.ts aim.ts vision.ts math.ts dmath.ts
     data/core.ts               sim-wide constants (tick rate, camera rig, limits)             Architect
     data/<system>.ts           each system's tuning (movement, combat, abilities, economy,    system owner;
                                items, world, ai) and data/heroes/<id>.ts                      Balance from W7
@@ -150,8 +150,9 @@ every tick's hash must match (D-ARCH-021). The rules:
 ## 5. The sim/client boundary
 
 - The client imports from `src/sim` only: `createSim` and the roster helpers (src/sim/index.ts), contract types,
-  the pure helpers `core/aim.ts`, `core/math.ts`, `core/vision.ts`, the hero registry (for body plans and names) and
-  `world/map` (map data for the blockout). Never `sim.ctx`, never a system module.
+  the pure helpers `core/aim.ts`, `core/math.ts`, `core/vision.ts`, `core/dmath.ts`, the hero registry (for body
+  plans and names), `world/map` (map data for the blockout) and, from Stage 4, `data/builds.ts` (recommended builds
+  for the shop, INTERFACES §14.1). Never `sim.ctx`, never a system module.
 - The sim never imports `src/client` (lint-enforced).
 - Each tick the client reads `sim.view` (a snapshot: plain copies, built lazily once per tick) and drains
   `sim.drainEvents()` (the events of the last step; drain after every step, and once after `createSim`).

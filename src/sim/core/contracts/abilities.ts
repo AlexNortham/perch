@@ -43,6 +43,8 @@ export interface AbilityDef {
   readonly targeting: AbilityTargeting;
   /** For 'unit' targeting: which entities can be chosen. */
   readonly affects?: TargetFilter;
+  /** For 'unit' targeting of allies: with no ally in the cone, target the caster instead of failing. */
+  readonly selfFallback?: boolean;
   /** Metres (0 for self casts). */
   readonly range: number;
   readonly cooldownS: number;
