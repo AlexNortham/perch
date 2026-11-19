@@ -18,6 +18,7 @@ export type LinkResolver = (target: string, text?: string) => string;
 export function inline(src: string, link: LinkResolver): string {
   let s = esc(src);
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+  s = s.replace(/&lt;kbd&gt;(.+?)&lt;\/kbd&gt;/g, '<kbd>$1</kbd>');
   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
   s = s.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_m, t: string, text?: string) => link(t, text));
@@ -36,8 +37,9 @@ export function markdown(src: string, link: LinkResolver, idPrefix = ''): string
     const h = /^(#{2,4}) (.+)$/.exec(line);
     if (h) {
       const level = (h[1] ?? '##').length;
-      const text = h[2] ?? '';
-      out.push(`<h${level} id="${idPrefix}${slug(text)}">${inline(text, link)}</h${level}>`);
+      const explicit = /\s*\{#([\w-]+)\}$/.exec(h[2] ?? '');
+      const text = (h[2] ?? '').replace(/\s*\{#[\w-]+\}$/, '');
+      out.push(`<h${level} id="${idPrefix}${explicit?.[1] ?? slug(text)}">${inline(text, link)}</h${level}>`);
       i++;
     } else if (/^\|/.test(line) && /^\|[\s:|-]+\|?\s*$/.test(lines[i + 1] ?? '')) {
       const head = cells(line);
