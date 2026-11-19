@@ -1582,3 +1582,9 @@ per engine until that is pinned down.
 **Notes:** the end screen's net worth graph is narrower than its dark panel (UI, cosmetic). Concede also shows in the
 Practice Hub, where the sim allows it after 15:00.
 **Blocked:** nothing. **Interface requests:** none.
+
+### W4 · EP note · 19/11/2026
+**Open, high priority for W4.5 (Architect):** the siege replay hash differs between Node (`d662ba91ea093bbd`) and
+Edge (`ab8a354ac8f9a12a`) from tick 3, although both reach Victory on the same tick (69,973). This breaks the rule that
+Node and the browser hash identically. It does not block Stage 3 (no feature yet relies on cross-environment replays),
+but it must be root-caused before the Stage 4 Build Lab relies on headless results.
