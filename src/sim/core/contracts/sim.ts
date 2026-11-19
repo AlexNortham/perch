@@ -19,7 +19,7 @@ import type { SimView } from './view';
  *
  *  1. ai         sim/ai: bots write their PlayerCommand from the state the last tick left.
  *     [core]     external commands override; commands latched on heroes; look and shoulder set; pings emitted.
- *  2. movement   sim/physics: hero controllers, impulses, updrafts, climbs, Rapier step. sim/world: unit steering.
+ *  2. movement   sim/physics: hero controllers, displacements, updrafts, climbs. sim/world: unit steering.
  *     [core]     spatial hash rebuilt.
  *  3. abilities  sim/abilities: upgrades, casts, channels, areas, summons, delays, hero hooks. sim/items: item actives.
  *  4. combat     sim/combat: guns (aim ray, fire, reload), melee, parry, projectiles → damage requests.
