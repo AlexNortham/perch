@@ -23,6 +23,9 @@ import {
 import { AIR } from '../../data/movement';
 
 const NECTAR_SLOT = 1;
+/** The tiers that widen the break distance (T2) and slow the target (T3). */
+const NECTAR_REACH_TIER = 2;
+const NECTAR_SLOW_TIER = 3;
 /** The fall gravity would add this tick, cancelled: with exact integration a start of g·dt/2 ends the step still. */
 const HOLD_VY = (AIR.gravity * TICK_SECONDS) / 2;
 
@@ -48,7 +51,7 @@ export const hummingbird: HeroModule = {
       },
       onCast(cast) {
         if (cast.slot !== NECTAR_SLOT || cast.target.entity === null) return;
-        ctx.effects.apply(nectarTether(cast.tier >= 2 ? NECTAR_BREAK_T2_M : NECTAR_BREAK_M), cast.target, cast.cause);
+        ctx.effects.apply(nectarTether(cast.tier >= NECTAR_REACH_TIER ? NECTAR_BREAK_T2_M : NECTAR_BREAK_M, cast.tier >= NECTAR_SLOW_TIER), cast.target, cast.cause);
       },
       onEffect(name, target, cause) {
         if (name !== 'dartHit' || cause.source === null || target.entity === null) return;

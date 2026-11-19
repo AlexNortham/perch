@@ -188,6 +188,13 @@ describe('Hummingbird', () => {
       expect(sb.ctx.stats.get(foe, 'slow')).toBe(0); // gone with the tether
       expect(sb.eventsOf('status.applied').filter((e) => e.target === foe && e.status === 'slow').length).toBeGreaterThan(0);
     });
+
+    it('does not slow before T3', async () => {
+      const { sb, me, foe } = await setup([0, 0, 0, 0], CLOSE);
+      sb.cast(me, 1, foe);
+      sb.step(TICK_RATE * 2.6);
+      expect(sb.eventsOf('status.applied').filter((e) => e.target === foe && e.status === 'slow')).toHaveLength(0);
+    });
   });
 
   describe('Blur', () => {

@@ -16,12 +16,14 @@ export const HOVER_S = 1.5;
 /** Nectar Sip's link: the target loses what you gain, every half second. The hook picks the break distance by tier. */
 export const NECTAR_BREAK_M = 12;
 export const NECTAR_BREAK_T2_M = 16;
-export const nectarTether = (breakDistance: number): TetherEffect => ({
+export const NECTAR_SLOW = 0.3;
+/** T3 adds the slow; a slow of magnitude 0 would still show as a status, so the base link carries none. */
+export const nectarTether = (breakDistance: number, slowed: boolean): TetherEffect => ({
   kind: 'tether',
   durationS: 'duration',
   breakDistance,
   onSourceTick: [{ kind: 'heal', amount: { of: 20, song: 0.2 } }],
-  onTargetTick: [song(20, 0.2), apply(SLOW, 0.6, 'slow')],
+  onTargetTick: slowed ? [song(20, 0.2), apply(SLOW, 0.6, NECTAR_SLOW)] : [song(20, 0.2)],
 });
 
 /** Thousand Beats: the status that marks the wings as blades (it also carries the +2 maximum Dart charges). */
@@ -75,12 +77,12 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     cooldownS: 16,
     charges: 1,
     hook: true, // the tether's break distance depends on the tier
-    values: { duration: 2, slow: 0 },
+    values: { duration: 2 },
     effects: [],
     upgrades: [
       { description: '+1 s duration (3 s)', values: { duration: 1 } },
       { description: '+4 m range and break distance (10 m, breaks at 16 m)', range: 4 },
-      { description: 'The target is also slowed 30%', values: { slow: 0.3 } },
+      { description: 'The target is also slowed 30%' }, // the hook adds the slow at this tier
     ],
   },
   {
