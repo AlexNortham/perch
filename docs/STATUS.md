@@ -548,3 +548,25 @@ config. `npm run shots -- --scene lane --hero kingfisher` → looked at: the pla
 to `Magnitude` once Combat reads them through `ctx.effects.magnitude` (D-ARCH-015).
 **Next:** wave 3 owners work through W3-contract-followups.md. Not done: unit tests for core/view.ts, vision.ts and
 math.ts (QA's review noted their absence; not in this brief).
+
+### W3 · UI/HUD Engineer · 19/11/2026
+**Done:** `src/client/ui/` replaces the placeholder screens. Main menu (title and Play over the live map, soft dark pool
+only); hero select (24 cards: name, archetype, hue swatch; pickable only if `HEROES[id].implemented === true`, else
+"Coming soon"; a pick calls `startMatch({hero, team:'dawn', difficulty:'normal', seed})`); HUD (crosshair, hit marker
+that is larger and gold for beak shots, red on a kill, orange on the Patron weak point; health with Talon, Song and
+barrier segments; stamina pips; Lv, AP (pulses) and Seeds; four ability slots with key caps, cooldown sweep and text,
+charges, 3 tier pips, locked state and an upgrade glow when AP is spendable; ammo with RELOADING and "PRESS R" at 0;
+"SECURED" / "DENIED" banner for the local hero's `pod.resolved`; respawn countdown); pause (Resume, Quit to menu); a
+plain end screen placeholder. Files: `display.ts` (pure mapping), `hud.ts`, `screens.ts`, `styles.ts`, `constants.ts`.
+HUD writes only cells whose value changed (no per-frame DOM allocation; events use the Web Animations API).
+**Verified:** `npm run check` → PASS typecheck, lint, test, sim, e2e (28 s). `display.test.ts` 7 tests (cooldown text,
+sweep, locked ultimate, charges, upgrade availability, ammo, stamina pips, health, respawn, key labels, hit kinds).
+`npm run shots -- --scene menu` and `--scene lane --hero shrike` looked at. A Playwright flow (temporarily setting
+Shrike `implemented`, reverted) clicked Play → Shrike → HUD visible → Esc → pause → Quit to menu → menu: all worked.
+**Blocked / not verified:** no hero is `implemented` on this branch, so every card shows "Coming soon" until Hero A
+merges. Hit marker, pod banner, cooldown sweep and respawn overlay are covered by unit mapping only (no live
+damage in the idle practice match). Esc from the pause screen relies on input's pause key still firing while disabled
+(the current input stub does).
+**Interface requests:** none. Hero data carries no colour, so swatches are hue-by-index (a `HeroDef` colour would let
+the card match the model).
+**Next:** wave 4: minimap, Hoard shop, scoreboard, kill feed, damage numbers; a hero preview in hero select.
