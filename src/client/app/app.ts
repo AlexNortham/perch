@@ -1,6 +1,6 @@
 import { TICK_RATE } from '../../sim/data/core';
 import type { EntityId, HeroId, Sim, SimConfig, SimView } from '../../sim/core/contracts';
-import { createSim, humanRoster } from '../../sim/index';
+import { createSim } from '../../sim/index';
 import { loadMap } from '../../sim/world/map';
 import { createAudio } from '../audio';
 import { createCamera } from '../camera';
@@ -10,7 +10,7 @@ import { createUi } from '../ui';
 import { createVfx } from '../vfx';
 import type { AppActions, CameraPreset, Frame, Screen, Settings, UiAction } from './contracts';
 import { createFixedStep, entityById } from './loop';
-import { sceneConfig } from './router';
+import { matchConfig, sceneConfig } from './router';
 import type { SceneName, SceneRequest } from './router';
 import { loadSettings, saveSettings } from './settings';
 
@@ -61,9 +61,8 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
 
   const actions: AppActions = {
     play: () => show('heroSelect'),
-    startMatch: ({ hero, team, difficulty, seed }) => {
-      const roster = humanRoster(seed, hero, { team, difficulty });
-      void startSession({ seed, map: 'main', roster }, 'player', 0).then((s) => {
+    startMatch: (setup) => {
+      void startSession(matchConfig(setup), 'player', 0).then((s) => {
         session = s;
         show('match');
       });
@@ -138,6 +137,10 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
       s.prev = s.curr;
       s.curr = s.sim.view;
       const events = s.sim.drainEvents();
+      for (const e of events) {
+        // A teleport that turned the local hero: adopt the yaw, or the next command would turn it back.
+        if (e.type === 'movement' && e.hero === s.hero && e.yaw !== undefined) input.setLook({ ...input.look, yaw: e.yaw });
+      }
       vfx.onEvents(events, s.curr);
       ui.onEvents(events, s.curr);
       audio.onEvents(events, s.curr);

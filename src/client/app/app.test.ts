@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TICK_SECONDS } from '../../sim/data/core';
 import type { SimView } from '../../sim/core/contracts';
 import { createFixedStep, interpolate, MAX_STEPS_PER_FRAME } from './loop';
-import { parseScene, sceneConfig } from './router';
+import { matchConfig, parseScene, sceneConfig } from './router';
 import { DEFAULT_SETTINGS, loadSettings, sanitizeSettings, saveSettings } from './settings';
 
 function memoryStorage(): Storage {
@@ -45,8 +45,14 @@ describe('scene router', () => {
     expect(at('menu')).toMatchObject({ map: 'main', roster: [] });
     expect(at('blockout')).toMatchObject({ map: 'main', roster: [] });
     expect(at('sandbox').roster).toEqual([{ team: 'dawn', hero: 'kiwi', controller: 'human' }]);
-    expect(at('lane').roster.length).toBe(2);
     expect(at('match').roster.length).toBe(12);
+  });
+
+  it('starts the practice match from Play and from ?scene=lane', () => {
+    const practice = { map: 'main', roster: [{ team: 'dawn', hero: 'kiwi', controller: 'human' }] };
+    expect(sceneConfig(parseScene('?scene=lane&hero=kiwi&seed=3'))).toEqual({ seed: 3, ...practice });
+    expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3 })).toEqual({ seed: 3, ...practice });
+    expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3, bots: 11 }).roster.length).toBe(12);
   });
 });
 

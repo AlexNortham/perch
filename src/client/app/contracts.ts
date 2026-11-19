@@ -171,12 +171,19 @@ export interface AudioOut {
 /** The screens the app state machine shows. 'pause' overlays the match. */
 export type Screen = 'menu' | 'heroSelect' | 'match' | 'pause' | 'end';
 
-/** Match setup (GDD §12.2): chosen on the menu's Play path, then the hero on hero select. */
+/**
+ * Match setup (GDD §12.2): chosen on the menu's Play path, then the hero on hero select. app/router.ts
+ * `matchConfig` turns it into the sim config: 'main', fledgling waves on all three lanes, the human with `hero`.
+ * Hero select offers only heroes whose module is `implemented` (src/sim/heroes/registry.ts HEROES).
+ */
 export interface MatchSetup {
   readonly hero: HeroId;
+  /** The practice match uses 'dawn'. */
   readonly team: PlayerTeam;
   readonly difficulty: BotDifficulty | 'mixed';
   readonly seed: number;
+  /** Bot heroes to add, 0–11. Default 0: the practice match (Stage 2). Bot AI arrives in wave 5. */
+  readonly bots?: number;
 }
 
 /** What the UI may ask the app to do. */
