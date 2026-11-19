@@ -103,4 +103,12 @@ describe('wiki coverage', () => {
     if (result.missingImages.length > 0) console.warn(`wiki: ${result.missingImages.length} screenshot(s) are stale or missing; run npm run wiki`);
     expect(result.pages.length).toBeGreaterThan(40);
   });
+
+  it('warns (never fails) when the committed wiki/ is stale; npm run wiki regenerates it at each gate', () => {
+    const strip = (h: string): string => h.replace(/Last regenerated [\d-]+/, '');
+    const committed = resolve(__dirname, '../../wiki');
+    const stale = result.pages.filter((p) => !existsSync(join(committed, p)) || strip(readFileSync(join(committed, p), 'utf8')) !== strip(read(p)));
+    if (stale.length > 0) console.warn(`wiki: committed wiki/ is stale (${stale.length} page(s), e.g. ${stale[0]}); run npm run wiki`);
+    expect(Array.isArray(stale)).toBe(true);
+  });
 });
