@@ -1,5 +1,5 @@
-import type { EffectCause, EntityId, HeroEntity, ItemDef, SimContext, TriggerDef, TriggerEvent } from '../core/contracts';
-import { normalize, sub, ticks } from '../core/math';
+import type { EffectCause, EffectVia, EntityId, HeroEntity, ItemDef, SimContext, TriggerDef, TriggerEvent } from '../core/contracts';
+import { distSq, normalize, sub, ticks } from '../core/math';
 
 export function itemCause(h: HeroEntity, item: string): EffectCause {
   return { source: h.id, team: h.team, via: 'item', ability: null, item, values: null,
@@ -11,6 +11,7 @@ interface Trigger {
   cause: EffectCause;
   expires: number | null;
   count: number;
+  fired: number;
   readyAt: number;
 }
 
@@ -21,11 +22,11 @@ export function createTriggers(ctx: SimContext) {
 
   function add(holder: EntityId, def: TriggerDef, cause: EffectCause, expires: number | null): void {
     const list = triggers.get(holder) ?? [];
-    list.push({ def, cause, expires, count: 0, readyAt: 0 });
+    list.push({ def, cause, expires, count: 0, fired: 0, readyAt: 0 });
     triggers.set(holder, list);
   }
 
-  function fire(holder: EntityId | null, event: TriggerEvent, other: EntityId | null): void {
+  function fire(holder: EntityId | null, event: TriggerEvent, other: EntityId | null, via?: EffectVia): void {
     const list = holder === null ? undefined : triggers.get(holder);
     if (!list || holder === null) return;
     const h = ctx.store.getKind(holder, 'hero');
@@ -39,10 +40,14 @@ export function createTriggers(ctx: SimContext) {
       if (d.on !== event || (t.expires !== null && now >= t.expires) || now < t.readyAt) continue;
       const target = d.target === 'self' ? h : other === null ? undefined : ctx.store.get(other);
       if (!target || (d.heroesOnly && (other === null || !ctx.store.getKind(other, 'hero')))) continue;
+      if (d.via !== undefined && d.via !== via) continue;
+      if (d.withinM !== undefined && (!target || distSq(target.pos, h.pos) > d.withinM * d.withinM)) continue;
       if (++t.count < (d.count ?? 1)) continue;
       t.count = 0;
       if (d.chance < 1 && !rng.chance(d.chance)) continue;
       t.readyAt = now + ticks(d.cooldownS);
+      // A limited trigger ends after its last use (Warbler's Trill 1, Skylark Cadence 3).
+      if (d.uses !== undefined && ++t.fired >= d.uses) t.expires = now;
       const cause = t.expires === null && t.cause.item ? itemCause(h, t.cause.item) : t.cause;
       ctx.effects.applyAll(d.effects, { entity: target.id, point: { ...target.pos }, dir: normalize(sub(target.pos, h.pos)) },
         { ...cause, proc: true, origin: { ...h.pos } });
@@ -60,7 +65,7 @@ export function createTriggers(ctx: SimContext) {
       return;
     }
     if (e.amount <= 0) return;
-    fire(e.target, 'damaged', e.source);
+    fire(e.target, 'damaged', e.source, e.via);
     if (e.source === null || ctx.store.get(e.target)?.team === e.sourceTeam) return;
     if (e.via === 'weapon') {
       fire(e.source, 'weaponHit', e.target);
