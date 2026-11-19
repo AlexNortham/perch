@@ -1,6 +1,7 @@
 /* eslint-disable no-restricted-properties -- a benchmark measures wall time; the clock never reaches the sim */
 import { performance } from 'node:perf_hooks';
 import { describe, expect, it } from 'vitest';
+import type { EffectCause, Sim } from '../core/contracts';
 import { PERF_RUNS } from '../../../tests/helpers/perf';
 import { allBotRoster, createSim } from '../index';
 
@@ -8,6 +9,54 @@ const FORCED_WAVES = 7;
 const WAVE_GAP_TICKS = 120;
 const WARMUP_TICKS = 25 * 60;
 const MEASURE_TICKS = 1200;
+/** Re-aggro every camp this often while measuring, so they keep fighting instead of walking home. */
+const AGGRO_EVERY_TICKS = 120;
+
+/** Hit one creature of every camp from a hero, waking the camp and setting it on that hero. */
+function aggroAll(sim: Sim): void {
+  const heroes = sim.ctx.store.list('hero');
+  sim.ctx.store.list('unit').forEach((u, i) => {
+    if (u.unit.camp == null) return;
+    const h = heroes[i % heroes.length]!;
+    const cause: EffectCause = { source: h.id, team: h.team, via: 'weapon', ability: null, item: null, values: null, songPower: 0,
+      proc: false, origin: { ...h.pos } };
+    sim.ctx.effects.apply({ kind: 'damage', amount: 1, type: 'talon' }, { entity: u.id, point: { ...u.pos }, dir: { x: 0, y: 0, z: 1 } }, cause);
+  });
+}
+
+/**
+ * ms per tick of a 12-bot siege match at 1:25 with waves, and with `neutrals` every Stage 4 objective forced live at
+ * 1:00: all 16+ camps spawned and fighting (re-aggroed every 2 s), every Nest, Feeder and Berry up, both runes, the
+ * Egg and the awake Roc.
+ */
+async function objectives(neutrals: boolean): Promise<{ ms: number; creatures: number; breakables: number; pickups: number }> {
+  const sim = await createSim({ seed: 1, map: 'main', roster: allBotRoster(1, 12), options: { waves: true, structures: true, neutrals } });
+  const o = sim.ctx.objectives;
+  const step = (n: number, aggro = false): void => {
+    for (let i = 0; i < n; i++) {
+      if (aggro && i % AGGRO_EVERY_TICKS === 0) aggroAll(sim);
+      sim.step();
+      sim.drainEvents();
+    }
+  };
+  step(60 * 60);
+  if (neutrals) {
+    const now = sim.tick + 1;
+    for (const at of [o.campAt, o.nestAt, o.interactableAt]) at?.fill(now);
+    o.runesAt = o.eggAt = o.rocAt = now;
+  }
+  step(25 * 60, neutrals);
+  const t0 = performance.now();
+  step(MEASURE_TICKS, neutrals);
+  const ms = (performance.now() - t0) / MEASURE_TICKS;
+  const units = sim.ctx.store.list('unit');
+  return {
+    ms,
+    creatures: units.filter((u) => u.team === 'neutral').length,
+    breakables: sim.ctx.store.list('structure').filter((s) => s.structure.type === 'nest').length,
+    pickups: sim.ctx.store.list('pickup').length,
+  };
+}
 
 /** ms per tick over a window after `FORCED_WAVES` waves 2 s apart (168 fledglings) have marched for 25 s. */
 async function measure(waves: boolean): Promise<{ ms: number; alive: number; deaths: number; attacks: number }> {
@@ -77,4 +126,21 @@ describe('performance', () => {
     // Brief: 0.25 ms per tick for ~150 fledglings, vision included. The bound is loose for loaded machines.
     expect(cost).toBeLessThan(0.5);
   }, 120_000);
+
+  it('every Stage 4 objective live, every camp fighting, stays inside the objectives budget (GDD §6.12)', async () => {
+    const runs: { off: Awaited<ReturnType<typeof objectives>>; on: Awaited<ReturnType<typeof objectives>> }[] = [];
+    for (let i = 0; i < PERF_RUNS; i++) runs.push({ off: await objectives(false), on: await objectives(true) });
+    runs.sort((a, b) => a.on.ms - a.off.ms - (b.on.ms - b.off.ms));
+    const { off, on } = runs[Math.floor(PERF_RUNS / 2)] as (typeof runs)[number];
+    const cost = on.ms - off.ms;
+    console.log(
+      `objectives: ${on.creatures} creatures (Roc included), ${on.breakables} Nests and Feeders, ${on.pickups} pickups; ` +
+        `${on.ms.toFixed(3)} ms/tick (${off.ms.toFixed(3)} without), +${cost.toFixed(3)} ms; runs ` +
+        runs.map((r) => `+${(r.on.ms - r.off.ms).toFixed(3)}`).join(', '),
+    );
+    expect(on.creatures).toBeGreaterThan(40);
+    expect(on.breakables).toBeGreaterThan(20);
+    // GDD §6.12: 0.1 ms per tick for all Stage 4 objectives together. Loose bound for loaded machines, as above.
+    expect(cost).toBeLessThan(0.3);
+  }, 300_000);
 });
