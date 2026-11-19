@@ -7,7 +7,7 @@ import { Parts } from './parts';
 export type FledglingType = 'scrapper' | 'slinger';
 
 const R = FLEDGLING.nominalRadius;
-const BODY_SEG = [7, 5] as const;
+const BODY_SEG = [7, 4] as const;
 const HEAD_SEG = [6, 4] as const;
 const WING_SEG = [4, 3] as const;
 
@@ -15,8 +15,9 @@ const WING_SEG = [4, 3] as const;
 export function fledglingGeometry(type: FledglingType, team: TeamColours): BufferGeometry {
   const p = new Parts();
   p.ell(FLEDGLING.body, [R, R * 0.95, R * 0.95], [0, R, 0], [0, 0, 0], BODY_SEG);
-  p.ell(team.primary, [R * 0.58, R * 0.55, R * 0.58], [0, R * (type === 'scrapper' ? 1.05 : 1.35), R * 0.62], [0, 0, 0], HEAD_SEG);
+  p.ell(team.primary, [R * 0.66, R * 0.62, R * 0.66], [0, R * (type === 'scrapper' ? 1.05 : 1.35), R * 0.62], [0, 0, 0], HEAD_SEG);
   p.cone(FLEDGLING.bill, R * 0.17, R * 0.45, [0, R * (type === 'scrapper' ? 1.0 : 1.3), R * 1.1], [0, 0, 0], 4);
+  p.cone(team.primary, R * 0.32, R * 0.4, [0, R * 1.8, -R * 0.15], [-Math.PI / 2, 0, 0], 4);
   for (const s of [1, -1]) {
     p.cone(FLEDGLING.foot, R * 0.2, R * 0.35, [s * R * 0.4, R * 0.1, R * 0.35], [0, 0, 0], 4);
     if (type === 'scrapper') p.ell(FLEDGLING.wing, [R * 0.12, R * 0.4, R * 0.35], [s * R * 0.95, R * 0.95, -R * 0.1], [0.2, 0, s * 0.3], WING_SEG);

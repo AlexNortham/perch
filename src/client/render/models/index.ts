@@ -21,14 +21,12 @@ import { fledglingGeometry } from './fledgling';
 import type { FledglingType } from './fledgling';
 import { genericBuild, HERO_BUILDS } from './heroes';
 import { hitboxOverlay } from './hitboxes';
+import { createDebugScene } from './lineup';
 
 const PLACEHOLDER_COLOURS = { dawn: 0xe8a33c, dusk: 0x6d6be0, neutral: 0x9a9a9a } as const;
 /** Placeholder box height as a multiple of the entity's radius. */
 const HEIGHT_PER_RADIUS = 4;
 const MIN_SIZE = 0.2;
-const LINEUP_SPACING = 2.4;
-
-type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
 export interface ModelKitDebug extends ModelKit {
   /** Show or hide the head sphere and body capsule on every hero model (also on those already created). */
@@ -47,7 +45,7 @@ const isFledgling = (id: string): id is FledglingType => id === 'scrapper' || id
 
 export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitDebug {
   const dev = import.meta.env.DEV && typeof location !== 'undefined' ? readDebugOptions(location.search) : null;
-  const opt: DebugOptions = { gddPlans: false, hitboxes: false, lineup: [], yaw: 0, states: [], team: 'dawn', ...dev, ...overrides };
+  const opt: DebugOptions = { gddPlans: false, hitboxes: false, lineup: [], wave: 0, yaw: 0, states: [], team: 'dawn', ...dev, ...overrides };
 
   const material = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
   const builds = new Map<string, BirdBuild>();
@@ -93,39 +91,10 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
     else if (existing) existing.visible = hitboxes;
   };
 
-  // Lineup (dev): display models standing in for the real heroes.
-  let lineup: { root: Group; rigs: BirdRig[]; fake: Mutable<EntityView>[] } | null = null;
-  const poseLineup = (parent: Object3D, at: Object3D, frame: Frame, t: number): void => {
-    if (!lineup) {
-      const root = new Group();
-      const fake: Mutable<EntityView>[] = [];
-      const made = opt.lineup.map((id, i) => {
-        const rig = heroRig(id, opt.team);
-        rig.position.x = (i - (opt.lineup.length - 1) / 2) * LINEUP_SPACING;
-        rig.rotation.y = opt.yaw;
-        root.add(rig);
-        fake.push({
-          id: 100 + i, kind: 'hero', team: opt.team, type: id, pos: { x: 0, y: 0, z: 0 }, vel: { x: 0, y: 0, z: 0 }, yaw: opt.yaw,
-          pitch: 0, radius: 0.4, hp: 1, maxHp: 1, shield: 0, flags: 0, mode: null, seenBy: 3,
-        });
-        return rig;
-      });
-      parent.add(root);
-      lineup = { root, rigs: made, fake };
-    }
-    lineup.root.position.copy(at.position);
-    lineup.rigs.forEach((rig, i) => {
-      const e = lineup?.fake[i];
-      const state = STATES[opt.states.length > 0 ? (opt.states[i % opt.states.length] ?? 'idle') : 'idle'];
-      if (!e || !state) return;
-      e.flags = state.flags;
-      e.mode = state.mode ?? null;
-      e.vel.z = state.speed;
-      e.vel.y = state.vy ?? 0;
-      rig.animate(e, frame.dt, t, false);
-      syncHitboxes(rig);
-    });
-  };
+  const debugScene =
+    opt.lineup.length > 0 || opt.wave > 0
+      ? createDebugScene(opt, (id) => heroRig(id, opt.team), (type, team) => new FledglingProxy(fledglingGroup(type, team)), syncHitboxes)
+      : null;
 
   const kit: ModelKitDebug = {
     create(entity) {
@@ -151,10 +120,10 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
         const hidden = (entity.flags & ViewFlag.Invisible) !== 0 && (entity.flags & ViewFlag.Revealed) === 0;
         const viewer = frame.curr.localHero === null ? undefined : entityById(frame.curr, frame.curr.localHero);
         model.visible = !hidden || viewer?.team === entity.team;
-        if (opt.lineup.length > 0 && model.parent && entity.id === (frame.curr.localHero ?? entity.id)) {
-          model.visible = false;
-          poseLineup(model.parent, model, frame, t);
-        } else if (opt.lineup.length > 0) model.visible = false;
+        if (debugScene && model.parent) {
+          if (opt.lineup.length > 0) model.visible = false;
+          if (entity.id === (frame.curr.localHero ?? entity.id)) debugScene.update(model.parent, model, frame, t);
+        }
       } else if (model instanceof FledglingProxy) {
         model.animate(entity, t);
       } else {

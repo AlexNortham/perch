@@ -70,11 +70,11 @@ export class Parts {
   }
 
   /** Cone with its base at `at` and its apex `length` away along +z (before `rot`). */
-  cone(hex: number, radius: number, length: number, at: V3 = ZERO, rot: V3 = ZERO, sides = CYL_SIDES): this {
+  cone(hex: number, radius: number, length: number, at: V3 = ZERO, rot: V3 = ZERO, sides = CYL_SIDES, size: V3 = [1, 1, 1]): this {
     const g = new ConeGeometry(radius, length, sides);
     g.translate(0, length / 2, 0);
     g.rotateX(Math.PI / 2);
-    return this.push(g, hex, at, rot, [1, 1, 1]);
+    return this.push(g, hex, at, rot, size);
   }
 
   /** Vertical cylinder centred at `at`. */
@@ -86,7 +86,7 @@ export class Parts {
   rod(hex: number, a: V3, b: V3, radius: number): this {
     dir.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
     const len = dir.length();
-    const g = new CylinderGeometry(radius, radius, len, 4);
+    const g = new CylinderGeometry(radius, radius, len, 4, 1, true);
     g.applyQuaternion(quat.setFromUnitVectors(UP, dir.normalize()));
     return this.push(g, hex, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2], ZERO, [1, 1, 1]);
   }

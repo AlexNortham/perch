@@ -62,6 +62,7 @@ export class BirdRig extends Group {
     for (const n of PART_NAMES) {
       const m = new Mesh(build.geo[n], material);
       m.position.copy(build.pivot[n]);
+      m.name = n;
       m.castShadow = true;
       m.frustumCulled = false;
       this.mesh[n] = m;

@@ -45,8 +45,8 @@ export function headShell(parts: Parts, hex: number, hr: number): Parts {
 
 export function eyes(parts: Parts, hr: number, y = 0.15, z = 0.62): Parts {
   for (const s of [1, -1]) {
-    parts.ell(PLUMAGE.eye, [hr * 0.2, hr * 0.2, hr * 0.2], [s * hr * 0.68, hr * y, hr * z]);
-    parts.ell(PLUMAGE.eyeGlint, [hr * 0.07, hr * 0.07, hr * 0.07], [s * hr * 0.76, hr * (y + 0.08), hr * (z + 0.12)]);
+    parts.ell(PLUMAGE.eye, [hr * 0.2, hr * 0.2, hr * 0.2], [s * hr * 0.68, hr * y, hr * z], [0, 0, 0], [6, 4]);
+    parts.ell(PLUMAGE.eyeGlint, [hr * 0.07, hr * 0.07, hr * 0.07], [s * hr * 0.76, hr * (y + 0.08), hr * (z + 0.12)], [0, 0, 0], [4, 2]);
   }
   return parts;
 }
@@ -63,8 +63,11 @@ export function leg(hex: number, len: number, thick: number, foot: number): Part
  * long and `chord` deep, thin in x. Flaring the pivot about z swings the tip out to a horizontal span.
  */
 export function wing(s: 1 | -1, hex: number, len: number, chord: number, thick: number, trim: number, trimAt = 0.72): Parts {
-  const p = new Parts().ell(hex, [thick, len / 2, chord / 2], [s * thick, -len / 2, -chord * 0.15], [0.12, 0, 0]);
-  p.ell(trim, [thick * 1.25, len * 0.07, chord * 0.42], [s * thick, -len * trimAt, -chord * 0.2], [0.12, 0, 0]);
+  // A flat cone hanging from the shoulder: wide at the top, pointed at the tip, swept back a little.
+  const sweep = 0.12;
+  const p = new Parts().cone(hex, 1, len, [s * thick, 0, 0], [Math.PI / 2 + sweep, 0, 0], 6, [thick, chord / 2, 1]);
+  const w = (1 - trimAt) * chord * 0.5;
+  p.ell(trim, [thick * 1.3, len * 0.06, w * 1.05], [s * thick, -len * trimAt, -len * trimAt * Math.sin(sweep) - w * 0.1], [sweep, 0, 0]);
   return p;
 }
 

@@ -23,7 +23,7 @@ const shrike: Build = (plan, team) => {
   const body = new Parts()
     .ell(PLUMAGE.grey, [R * 0.95, ry, R * 1.25], [0, cy, -R * 0.1])
     .ell(PLUMAGE.white, [R * 0.82, ry * 0.8, R * 1.1], [0, cy - ry * 0.12, R * 0.12])
-    .ell(team.primary, [hr * 1.1, H * 0.018, hr * 1.1], [0, hc - hr * 0.95, 0]);
+    .ell(team.primary, [hr * 1.3, H * 0.03, hr * 1.3], [0, hc - hr * 0.95, 0]);
   const head = headShell(new Parts(), PLUMAGE.grey, hr)
     .ell(PLUMAGE.black, [hr * 1.08, hr * 0.3, hr * 0.75], [0, hr * 0.12, hr * 0.35])
     .cone(PLUMAGE.shrikeBill, hr * 0.55, hr * 1.9, [0, -hr * 0.1, hr * 0.85])
@@ -44,7 +44,7 @@ const shrike: Build = (plan, team) => {
       legL: leg(PLUMAGE.leg, legLen, H * 0.02, R * 0.4),
       legR: leg(PLUMAGE.leg, legLen, H * 0.02, R * 0.4),
       tail,
-      gun: gun({ length: 0.95, thick: 0.05, thorns: true }),
+      gun: gun({ length: 0.7, thick: 0.065, thorns: true }),
     },
     {
       body: [0, 0, 0],
@@ -71,7 +71,7 @@ const albatross: Build = (plan, team) => {
   const body = new Parts()
     .ell(PLUMAGE.white, [R * 1.0, ry, R * 1.2], [0, cy, -R * 0.05])
     .cyl(PLUMAGE.white, hr * 0.85, hr * 1.15, hc - cy - ry * 0.3, [0, (hc + cy + ry * 0.3) / 2 - 0.05, 0.02])
-    .ell(team.primary, [hr * 1.25, H * 0.016, hr * 1.25], [0, top - hr * 0.5, 0]);
+    .ell(team.primary, [hr * 1.4, H * 0.03, hr * 1.4], [0, top - hr * 0.5, 0]);
   const head = headShell(new Parts(), PLUMAGE.white, hr)
     .cone(PLUMAGE.albatrossBill, hr * 0.55, hr * 3.1, [0, -hr * 0.1, hr * 0.8])
     .cone(PLUMAGE.albatrossBillTip, hr * 0.3, hr * 0.9, [0, -hr * 0.1, hr * 0.8 + hr * 2.9], [1.0, 0, 0]);
@@ -83,12 +83,12 @@ const albatross: Build = (plan, team) => {
     {
       body,
       head,
-      wingL: wing(1, PLUMAGE.albatrossWing, wingLen, R * 1.9, R * 0.14, team.primary, 0.66),
-      wingR: wing(-1, PLUMAGE.albatrossWing, wingLen, R * 1.9, R * 0.14, team.primary, 0.66),
+      wingL: wing(1, PLUMAGE.albatrossWing, wingLen, R * 1.9, R * 0.22, team.primary, 0.66),
+      wingR: wing(-1, PLUMAGE.albatrossWing, wingLen, R * 1.9, R * 0.22, team.primary, 0.66),
       legL: leg(PLUMAGE.albatrossBill, legLen, H * 0.02, R * 0.5),
       legR: leg(PLUMAGE.albatrossBill, legLen, H * 0.02, R * 0.5),
       tail,
-      gun: gun({ length: 0.75, thick: 0.08, bell: 0.15 }),
+      gun: gun({ length: 0.6, thick: 0.09, bell: 0.16 }),
     },
     {
       body: [0, 0, 0],
@@ -115,7 +115,7 @@ const kingfisher: Build = (plan, team) => {
   const body = new Parts()
     .ell(PLUMAGE.kingfisherBack, [R * 0.95, ry, R * 1.15], [0, cy, -H * 0.1], lean)
     .ell(PLUMAGE.kingfisherBelly, [R * 0.85, ry * 0.8, R * 1.1], [0, cy - ry * 0.05, -H * 0.04], lean)
-    .ell(team.primary, [hr * 1.1, H * 0.016, hr * 1.1], [0, hc - hr * 0.95, 0.04]);
+    .ell(team.primary, [hr * 1.3, H * 0.03, hr * 1.3], [0, hc - hr * 0.95, 0.04]);
   const head = headShell(new Parts(), PLUMAGE.kingfisherBack, hr)
     .ell(PLUMAGE.white, [hr * 0.75, hr * 0.5, hr * 0.7], [0, -hr * 0.55, hr * 0.4])
     .cone(PLUMAGE.kingfisherBill, hr * 0.4, hr * 2.7, [0, -hr * 0.1, hr * 0.9]);
@@ -132,7 +132,7 @@ const kingfisher: Build = (plan, team) => {
       legL: leg(PLUMAGE.kingfisherBelly, legLen, H * 0.025, R * 0.4),
       legR: leg(PLUMAGE.kingfisherBelly, legLen, H * 0.025, R * 0.4),
       tail,
-      gun: gun({ length: 0.45, thick: 0.045 }),
+      gun: gun({ length: 0.38, thick: 0.055 }),
     },
     {
       body: [0, 0, 0],
@@ -159,7 +159,7 @@ const lyrebird: Build = (plan, team) => {
   const body = new Parts()
     .ell(PLUMAGE.lyreBrown, [R * 0.9, ry, R * 1.35], [0, cy, -R * 0.15])
     .ell(0x9a7a5a, [R * 0.75, ry * 0.8, R * 1.1], [0, cy - ry * 0.1, R * 0.1])
-    .ell(team.primary, [hr * 1.1, H * 0.016, hr * 1.1], [0, hc - hr * 0.95, 0]);
+    .ell(team.primary, [hr * 1.3, H * 0.03, hr * 1.3], [0, hc - hr * 0.95, 0]);
   const head = headShell(new Parts(), PLUMAGE.lyreBrown, hr)
     .cone(PLUMAGE.lyreBill, hr * 0.45, hr * 1.5, [0, -hr * 0.1, hr * 0.85])
     .ell(PLUMAGE.lyreBrown, [hr * 0.3, hr * 0.7, hr * 0.3], [0, hr * 1.0, -hr * 0.3], [0.5, 0, 0]);
@@ -171,7 +171,7 @@ const lyrebird: Build = (plan, team) => {
   for (const s of [1, -1]) {
     const steps = 9;
     for (let i = 0; i < steps; i++) tail.rod(PLUMAGE.lyreBrown, point(s, i / steps), point(s, (i + 1) / steps), 0.045);
-    tail.ell(team.primary, [0.07, 0.07, 0.07], point(s, 1));
+    tail.ell(team.primary, [0.07, 0.07, 0.07], point(s, 1), [0, 0, 0], [5, 4]);
     // Silver filaments: strings from the base fanning to the plume.
     for (const t of [0.35, 0.55, 0.75, 0.9]) tail.rod(PLUMAGE.lyreSilver, [s * 0.03, 0, -R * 0.9], point(s, t), 0.016);
   }
@@ -185,7 +185,7 @@ const lyrebird: Build = (plan, team) => {
       legL: leg(PLUMAGE.leg, legLen, H * 0.018, R * 0.35),
       legR: leg(PLUMAGE.leg, legLen, H * 0.018, R * 0.35),
       tail,
-      gun: gun({ length: 0.7, thick: 0.05, lute: 0.13 }),
+      gun: gun({ length: 0.55, thick: 0.06, lute: 0.13 }),
     },
     {
       body: [0, 0, 0],
@@ -216,7 +216,7 @@ export function genericBuild(plan: BodyPlan, team: TeamColours, index: number, c
   const body = new Parts()
     .ell(main, [R * 0.95, ry, R * 1.25], [0, cy, -R * 0.1])
     .ell(belly, [R * 0.8, ry * 0.8, R * 1.1], [0, cy - ry * 0.1, R * 0.12])
-    .ell(team.primary, [hr * 1.1, H * 0.016, hr * 1.1], [0, hc - hr * 0.95, 0]);
+    .ell(team.primary, [hr * 1.3, H * 0.03, hr * 1.3], [0, hc - hr * 0.95, 0]);
   const head = headShell(new Parts(), main, hr).cone(GENERIC.bill, hr * 0.5, hr * 1.7, [0, -hr * 0.1, hr * 0.85]);
   eyes(head, hr);
   const tail = new Parts().box(dark, [R * 0.6, H * 0.03, H * 0.22], [0, 0, -H * 0.1]).box(team.primary, [R * 0.62, H * 0.032, H * 0.04], [0, 0, -H * 0.2]);
@@ -230,7 +230,7 @@ export function genericBuild(plan: BodyPlan, team: TeamColours, index: number, c
       legL: leg(GENERIC.leg, legLen, H * 0.02, R * 0.4),
       legR: leg(GENERIC.leg, legLen, H * 0.02, R * 0.4),
       tail,
-      gun: gun({ length: 0.7, thick: 0.05 }),
+      gun: gun({ length: 0.55, thick: 0.06 }),
     },
     {
       body: [0, 0, 0],

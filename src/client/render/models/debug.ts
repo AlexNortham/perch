@@ -4,6 +4,7 @@
  *   hitboxes            draw each hero's head sphere and body capsule over its model
  *   modelLineup=a,b,c   replace the real heroes with a row of display models at the human's position, spaced 2.4 m
  *                       along x; ids may repeat (a pose sheet)
+ *   modelWave=<n>      two facing waves of n fledglings each (front rows fighting) beside the human
  *   modelYaw=<degrees>  how the lineup faces (0 faces +z, 90 faces +x); default 0
  *   modelState=a,b,c    poses for the lineup, cycled over its models: idle run sprint air dash slide crouch shoot
  *                       reload cast channel stun dead updraft mantle climb glide
@@ -34,6 +35,8 @@ export interface DebugOptions {
   gddPlans: boolean;
   hitboxes: boolean;
   lineup: readonly HeroId[];
+  /** Fledglings per flock in a debug wave (two flocks face each other). */
+  wave: number;
   yaw: number;
   states: readonly string[];
   team: PlayerTeam;
@@ -76,6 +79,7 @@ export function readDebugOptions(search: string): DebugOptions {
     gddPlans: q.has('modelGdd'),
     hitboxes: q.has('hitboxes'),
     lineup: list('modelLineup').filter((s): s is HeroId => ids.includes(s)),
+    wave: Math.min(100, Math.max(0, Math.floor(Number(q.get('modelWave')) || 0))),
     yaw: ((Number(q.get('modelYaw')) || 0) * Math.PI) / 180,
     states: list('modelState').filter((s) => s in STATES),
     team: q.get('modelTeam') === 'dusk' ? 'dusk' : 'dawn',
