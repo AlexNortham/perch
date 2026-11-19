@@ -5,8 +5,11 @@
  * Cast targets (what `effects` land on), per AbilityDef.targeting:
  * - self:      entity = caster, point = caster's feet, dir = look direction.
  * - direction: entity = caster, point = aim point, dir = muzzle → aim point.
- * - point:     entity = caster, point = aim point clamped to range and dropped to the ground, dir = flat look.
- * - unit:      entity = the chosen hero or unit, point = its feet, dir = muzzle → its body centre.
+ * - point:     entity = caster, point = the floor under the crosshair within range (never through a ceiling), or with
+ *              values.surface ≥ 1 the surface under it (D-SYS-012), dir = flat look.
+ * - unit:      entity = the chosen hero or unit (visible to the caster's flock, not behind ivy beyond 3 m; an ally cast
+ *              with selfFallback takes the caster when no ally is in the cone), point = its feet, dir = muzzle → its
+ *              body centre.
  * So self-buffs work in self, direction and point casts, and anything meant for others goes through a projectile,
  * area, dash onHit, tether or summon. `selfEffects` land on the caster whatever the targeting (entity = caster, point
  * = its feet, dir = the cast's dir), after `effects` and before the onCast hook. The cause's
