@@ -20,6 +20,7 @@ import type {
 } from '../core/contracts';
 import { lookDir } from '../core/aim';
 import { clamp, copy, ticks } from '../core/math';
+import { COMBAT } from '../data/combat';
 import { TICK_SECONDS } from '../data/core';
 import { AIR, CHIMNEY, CONTROLLER, DASH, DISPLACE, GROUND, MANTLE, SLIDE, UPDRAFT, VINE } from '../data/movement';
 import type { MoveResult, Space } from './rapier';
@@ -42,7 +43,13 @@ const T = {
   land: ticks(AIR.landEventMinAirS),
   dash: ticks(DASH.durationS),
   lockout: ticks(DASH.lockoutS),
-  dashJump: ticks(DASH.jumpWindowS),
+  dashJumpOpen: ticks(DASH.jumpWindowOpenS),
+  dashJumpClose: ticks(DASH.jumpWindowCloseS),
+  crouchTap: ticks(DASH.down.tapWindowS),
+  wallGrace: ticks(AIR.wall.graceS),
+  wallFatigue: ticks(AIR.wall.fatigueS),
+  sprintDelay: ticks(GROUND.sprintDelayS),
+  afterCombat: ticks(GROUND.sprintDelayS - COMBAT.combatStateS),
   slideBoost: ticks(SLIDE.boostCooldownS),
   mantle: ticks(MANTLE.durationS),
   mount: ticks(UPDRAFT.mountS),
@@ -132,9 +139,18 @@ export interface HeroState {
   dashZ: number;
   dashSpeed: number;
   dashGround: boolean;
-  dashEnded: number;
+  dashStarted: number;
   nextDashAt: number;
   airDashUsed: boolean;
+  airJumpUsed: boolean;
+  downDashUsed: boolean;
+  lastCrouchPress: number;
+  wallAt: number;
+  wallX: number;
+  wallZ: number;
+  wallJumps: number;
+  fatigueAt: number;
+  aimReadyAt: number;
   /** Sprint ramp 0..1. */
   sprint: number;
   slideX: number;
@@ -170,9 +186,18 @@ function freshState(groundY: number): HeroState {
     dashZ: 1,
     dashSpeed: 0,
     dashGround: false,
-    dashEnded: NEVER,
+    dashStarted: NEVER,
     nextDashAt: NEVER,
     airDashUsed: false,
+    airJumpUsed: false,
+    downDashUsed: false,
+    lastCrouchPress: NEVER,
+    wallAt: NEVER,
+    wallX: 0,
+    wallZ: 0,
+    wallJumps: 0,
+    fatigueAt: NEVER,
+    aimReadyAt: NEVER,
     sprint: 0,
     slideX: 0,
     slideZ: 1,
@@ -299,7 +324,10 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
   bus.on('ability', (e) => {
     const h = store.getKind(e.caster, 'hero');
     const s = states.get(e.caster);
-    if (h && s?.ride && e.stage === 'start') leaveRide(h, s, false);
+    if (!h || !s || e.stage !== 'start') return;
+    if (s.ride) leaveRide(h, s, false);
+    s.dashStarted = NEVER;
+    h.motor.dashJumpReady = false;
   });
 
   /** Fills W with the move direction; returns the input strength 0..1. */
@@ -368,6 +396,12 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     if (s.airTicks >= T.land) emit(h.id, 'land');
     s.airTicks = 0;
     s.airDashUsed = false;
+    s.airJumpUsed = false;
+    s.downDashUsed = false;
+    s.lastCrouchPress = NEVER;
+    s.wallJumps = 0;
+    s.wallAt = NEVER;
+    s.fatigueAt = NEVER;
     // A displacement ends where it lands: its distance is the flat-ground distance (GDD §3.9), with no skid after.
     if (s.displaced) {
       h.vel.x = 0;
@@ -391,6 +425,15 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     ctx.effects.applyAll(slam.onWall, { entity: h.id, point: copy(h.pos), dir: { x: -n.x / nl, y: 0, z: -n.z / nl } }, slam.cause);
   };
 
+  const rememberWall = (s: HeroState, n: Vec3): void => {
+    if (Math.abs(n.y) > AIR.wall.maxNormalY) return;
+    const len = Math.hypot(n.x, n.z);
+    if (len === 0) return;
+    s.wallX = n.x / len;
+    s.wallZ = n.z / len;
+    s.wallAt = clock.tick;
+  };
+
   /**
    * After a free move: grounded state, landing, and velocity. On the ground the intended velocity is kept against
    * walls (ground acceleration re-targets it every tick, and keeping the push is what lets the controller finish a
@@ -401,6 +444,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const v = h.vel;
     const was = m.grounded;
     m.grounded = r.grounded && !rising;
+    if (r.hasWall && !m.grounded) rememberWall(s, r.wall);
     if (r.hasWall && (s.displaced || !m.grounded)) {
       const vx = v.x;
       const vz = v.z;
@@ -458,6 +502,8 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     s.mantle = null;
     s.dash = null;
     s.dashUntil = NEVER;
+    s.dashStarted = NEVER;
+    h.motor.dashJumpReady = false;
     h.motor.mantling = false;
     h.motor.dashing = false;
   };
@@ -511,6 +557,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     clearMode(h);
     m.attachedTo = null;
     m.stamina = h.stats.final.stamina;
+    m.dashJumpReady = false;
     states.set(h.id, freshState(pos.y));
   };
 
@@ -523,6 +570,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     s.dashZ = input > 0 ? W.z : f.z;
     s.dashGround = m.grounded;
     s.dashSpeed = (m.grounded ? DASH.groundDistance : DASH.airDistance) / DASH.durationS;
+    s.dashStarted = clock.tick;
     s.dashUntil = clock.tick + T.dash;
     s.nextDashAt = clock.tick + T.lockout;
     m.stamina -= DASH.cost;
@@ -537,12 +585,14 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
 
   const startSlide = (h: HeroEntity, s: HeroState, speed: number, crouchSpeed: number): void => {
     const boost = clock.tick >= s.slideBoostAt ? SLIDE.boost : 0;
-    s.slideSpeed = Math.min(speed + boost, SLIDE.maxStartSpeed);
+    s.slideSpeed = Math.max(speed, Math.min(speed + boost, SLIDE.maxStartSpeed));
     s.slideX = h.vel.x / speed;
     s.slideZ = h.vel.z / speed;
     s.slideDecel = (s.slideSpeed - crouchSpeed) / SLIDE.decayS;
     s.dashUntil = NEVER;
     h.motor.dashing = false;
+    h.vel.x = s.slideX * s.slideSpeed;
+    h.vel.z = s.slideZ * s.slideSpeed;
     h.motor.sliding = true;
     emit(h.id, 'slide');
   };
@@ -603,11 +653,14 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     }
   };
 
-  const tryMantle = (h: HeroEntity, s: HeroState, r: MoveResult, input: number, speed: number, vx: number, vz: number): boolean => {
-    const nl = Math.hypot(r.wall.x, r.wall.z);
+  const tryMantle = (h: HeroEntity, s: HeroState, normal: Vec3, input: number, vx: number, vz: number, gap = h.radius): boolean => {
+    const nl = Math.hypot(normal.x, normal.z);
     if (nl === 0) return false;
-    const dx = -r.wall.x / nl;
-    const dz = -r.wall.z / nl;
+    const dx = -normal.x / nl;
+    const dz = -normal.z / nl;
+    const speed = Math.hypot(vx, vz);
+    const forward = lookDir(h.yaw, 0);
+    if (forward.x * dx + forward.z * dz < MANTLE.facing) return false;
     // Pushing into the wall: the input direction, or the flight direction when airborne without input.
     let mx = W.x;
     let mz = W.z;
@@ -618,15 +671,14 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     }
     if (mx * dx + mz * dz < MANTLE.facing) return false;
     const ref = Math.min(h.pos.y, s.groundY);
-    const from = { x: h.pos.x + dx * (h.radius + MANTLE.probeIn), y: ref + MANTLE.maxHeight + PROBE_PAD, z: h.pos.z + dz * (h.radius + MANTLE.probeIn) };
+    const from = { x: h.pos.x + dx * (gap + MANTLE.probeIn), y: ref + MANTLE.maxHeight + PROBE_PAD, z: h.pos.z + dz * (gap + MANTLE.probeIn) };
     const hit = service.raycast(from, DOWN, MANTLE.maxHeight - MANTLE.minHeight + PROBE_PAD, LAYERS_SOLID);
     if (!hit || hit.normal.y < WALKABLE_NY) return false;
     const rise = hit.point.y - ref;
     if (rise < MANTLE.minHeight || rise > MANTLE.maxHeight) return false;
-    const to = { x: h.pos.x + dx * (2 * h.radius + MANTLE.probeIn), y: hit.point.y, z: h.pos.z + dz * (2 * h.radius + MANTLE.probeIn) };
-    if (!space.fits(h.id, to, h.motor.crouching)) return false;
-    const exit = speed * MANTLE.exitSpeedFraction;
-    s.mantle = { t: 0, from: copy(h.pos), to, exitX: dx * exit, exitZ: dz * exit };
+    const to = { x: h.pos.x + dx * (gap + h.radius + MANTLE.probeIn), y: hit.point.y, z: h.pos.z + dz * (gap + h.radius + MANTLE.probeIn) };
+    if (!space.fits(h.id, to, false)) return false;
+    s.mantle = { t: 0, from: copy(h.pos), to, exitX: vx, exitZ: vz };
     endSlide(h, s);
     s.dashUntil = NEVER;
     h.motor.dashing = false;
@@ -707,6 +759,18 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     return false;
   };
 
+  const groundedOrCoyote = (h: HeroEntity, s: HeroState): boolean =>
+    h.motor.grounded || clock.tick - s.lastGroundTick <= T.coyote;
+
+  const dashJumpReady = (h: HeroEntity, s: HeroState): boolean => {
+    const elapsed = clock.tick - s.dashStarted;
+    return s.dashGround && elapsed >= T.dashJumpOpen && elapsed <= T.dashJumpClose &&
+      h.motor.stamina >= DASH.jumpCost && groundedOrCoyote(h, s);
+  };
+
+  const canSlide = (h: HeroEntity, s: HeroState, speed: number): boolean =>
+    h.motor.crouching && speed > 0 && (speed >= SLIDE.minSpeed || s.downhill > SLIDE_MIN_SLOPE_TAN);
+
   const locomotion = (h: HeroEntity, s: HeroState): void => {
     const m = h.motor;
     const v = h.vel;
@@ -721,7 +785,10 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const held = canAct ? h.command.held : 0;
     const input = canMove ? wish(h) : 0;
 
-    s.sprint = tick < h.health.inCombatUntil ? 0 : Math.min(1, s.sprint + dt / GROUND.sprintRampS);
+    if ((held & Button.Aim) !== 0) s.aimReadyAt = tick + T.sprintDelay + 1;
+    const combatReady = h.health.inCombatUntil > 0 ? h.health.inCombatUntil + T.afterCombat : NEVER;
+    if (tick < Math.max(s.aimReadyAt, combatReady)) s.sprint = 0;
+    else if (input > 0 && !m.crouching) s.sprint = Math.min(1, s.sprint + dt / GROUND.sprintRampS);
     const run = runSpeed(h, s);
     const crouchSpeed = slowed(h, GROUND.crouchSpeed);
 
@@ -730,10 +797,18 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     if (m.sliding && (!m.crouching || !canMove)) endSlide(h, s);
 
     const speed = Math.hypot(v.x, v.z);
-    if ((pressed & Button.Crouch) !== 0 && canMove && m.grounded && !m.sliding && speed >= SLIDE.minSpeed) {
+    if (canMove && m.grounded && !m.sliding && !m.dashing && canSlide(h, s, speed)) {
       startSlide(h, s, speed, crouchSpeed);
     }
-    if ((pressed & Button.Jump) !== 0) s.jumpBufferUntil = tick + T.buffer;
+    const jumpPressed = (pressed & Button.Jump) !== 0;
+    const wantsMantle = ((pressed | held) & Button.Jump) !== 0 && canLeave && !egg && !s.displaced;
+    if (canLeave && !egg && !s.displaced && tryUpdraft(h, s)) return;
+    if (wantsMantle && input > 0) {
+      const origin = { x: h.pos.x, y: h.pos.y + GROUND.stepUp, z: h.pos.z };
+      const face = service.raycast(origin, W, MANTLE.reach + h.radius, LAYERS_SOLID);
+      if (face && tryMantle(h, s, face.normal, input, v.x, v.z, face.distance)) return;
+    }
+    if (jumpPressed) s.jumpBufferUntil = tick + T.buffer;
     if (
       (pressed & Button.Dash) !== 0 && canLeave && m.stamina >= DASH.cost && tick >= s.nextDashAt &&
       (m.grounded || !s.airDashUsed)
@@ -743,30 +818,61 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     if (m.dashing && tick >= s.dashUntil) {
       // Dash over: exit at run speed + 1 in the dash direction.
       m.dashing = false;
-      s.dashEnded = s.dashUntil;
       v.x = s.dashX * (run + DASH.exitBonus);
       v.z = s.dashZ * (run + DASH.exitBonus);
     }
 
 
-    if (canLeave && tick <= s.jumpBufferUntil && (m.grounded || tick - s.lastGroundTick <= T.coyote)) {
-      if (s.dashGround && (m.dashing || tick - s.dashEnded <= T.dashJump)) {
+    m.dashJumpReady = canLeave && dashJumpReady(h, s);
+    let jump: MovementAction | null = null;
+    if (canLeave && tick <= s.jumpBufferUntil) {
+      if (m.dashJumpReady) {
         v.x = s.dashX * DASH.jumpHorizontal;
         v.z = s.dashZ * DASH.jumpHorizontal;
         v.y = DASH.jumpVertical;
-        s.dashUntil = NEVER;
-        s.dashEnded = NEVER;
-        m.dashing = false;
-        emit(h.id, 'dashJump');
-      } else {
+        m.stamina -= DASH.jumpCost;
+        jump = 'dashJump';
+      } else if (groundedOrCoyote(h, s)) {
         v.y = JUMP_SPEED;
-        emit(h.id, 'jump');
+        jump = 'jump';
+      } else if (tick <= s.wallAt + T.wallGrace && (s.wallJumps === 0 || m.stamina >= AIR.wall.repeatCost)) {
+        const together = v.x * s.wallX + v.z * s.wallZ;
+        v.x += (AIR.wall.push - together) * s.wallX;
+        v.z += (AIR.wall.push - together) * s.wallZ;
+        const strength = clamp((tick - s.fatigueAt) / T.wallFatigue, 0, 1);
+        v.y = AIR.wall.minimumLaunch + (AIR.wall.launch - AIR.wall.minimumLaunch) * strength;
+        if (s.wallJumps++ > 0) m.stamina -= AIR.wall.repeatCost;
+        s.fatigueAt = tick;
+        s.wallAt = NEVER;
+        jump = 'wallJump';
+      } else if (jumpPressed && !s.airJumpUsed && m.stamina >= AIR.jumpCost) {
+        v.y = JUMP_SPEED;
+        s.airJumpUsed = true;
+        m.stamina -= AIR.jumpCost;
+        jump = 'airJump';
       }
+    }
+    if (jump !== null) {
+      emit(h.id, jump);
       endSlide(h, s);
       m.grounded = false;
+      m.dashing = false;
+      m.dashJumpReady = false;
+      s.dashUntil = NEVER;
+      s.dashStarted = NEVER;
       s.lastGroundTick = NEVER;
       s.jumpBufferUntil = NEVER;
-
+    } else if (canLeave && !m.grounded && (pressed & Button.Crouch) !== 0) {
+      if (tick <= s.lastCrouchPress + T.crouchTap && !s.downDashUsed && m.stamina >= DASH.down.cost) {
+        v.y = -DASH.down.speed;
+        s.downDashUsed = true;
+        m.stamina -= DASH.down.cost;
+        m.dashing = false;
+        s.dashStarted = NEVER;
+        s.dashUntil = NEVER;
+        emit(h.id, 'downDash');
+      }
+      s.lastCrouchPress = tick;
     }
 
     const airDash = m.dashing && !s.dashGround;
@@ -778,7 +884,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
       slideTick(h, s, crouchSpeed);
     } else if (m.grounded) {
       groundAccel(v, input, m.crouching ? crouchSpeed : run);
-    } else {
+    } else if (jump === null) {
       airControl(v, input, run, m.knockedUp ? 0 : s.displaced ? DISPLACE.airControl : 1);
     }
     if (!canMove && m.grounded) v.x = v.z = 0;
@@ -788,13 +894,28 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     D.x = v.x * dt;
     D.z = v.z * dt;
     D.y = airDash ? 0 : fall(h, v);
+    const wasGrounded = m.grounded;
     const r = move(h, m.grounded && v.y <= 0 && D.x === 0 && D.z === 0);
     settle(h, s, r, v.y > 0);
+    if (m.sliding && r.hasWall) {
+      v.x = r.moved.x / dt;
+      v.z = r.moved.z / dt;
+      s.slideSpeed = Math.hypot(v.x, v.z);
+      if (s.slideSpeed <= crouchSpeed) endSlide(h, s);
+      else {
+        s.slideX = v.x / s.slideSpeed;
+        s.slideZ = v.z / s.slideSpeed;
+      }
+    }
     if (!m.grounded && m.sliding) endSlide(h, s);
+    if (!wasGrounded && m.grounded && canMove && canSlide(h, s, Math.hypot(v.x, v.z))) {
+      startSlide(h, s, Math.hypot(v.x, v.z), crouchSpeed);
+    }
+    m.dashJumpReady = canLeave && dashJumpReady(h, s);
 
-    if (!canMove || egg) return;
-    if (r.hasWall && !s.displaced && tryMantle(h, s, r, input, Math.hypot(vx, vz), vx, vz)) return;
-    if (canLeave && !s.displaced && (tryUpdraft(h, s) || tryClimb(h, s, input))) return;
+    if (!canLeave || egg || s.displaced) return;
+    if (wantsMantle && r.hasWall && tryMantle(h, s, r.wall, input, vx, vz)) return;
+    if (tryUpdraft(h, s) || tryClimb(h, s, input)) return;
   };
 
   // ---- Scripted states. ----
@@ -813,10 +934,21 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     s.mantle = null;
     h.motor.mantling = false;
     h.motor.grounded = true;
+    const speed = Math.hypot(mt.exitX, mt.exitZ);
+    const crouching = (h.command.held & Button.Crouch) !== 0;
+    h.motor.crouching = crouching;
     h.vel = { x: mt.exitX, y: 0, z: mt.exitZ };
+    s.downhill = 0;
+    if (canSlide(h, s, speed)) {
+      startSlide(h, s, speed, slowed(h, GROUND.crouchSpeed));
+      emit(h.id, 'mantleGlide');
+    } else {
+      h.vel.x *= MANTLE.exitSpeedFraction;
+      h.vel.z *= MANTLE.exitSpeedFraction;
+    }
     s.lastGroundTick = clock.tick;
     s.groundY = y;
-    s.airTicks = 0;
+    land(h, s);
   };
 
   const dashTick = (h: HeroEntity, s: HeroState, d: ScriptedDash): void => {
@@ -834,6 +966,10 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const blocked = Math.hypot(r.moved.x, r.moved.z) < flatStep * HALF;
     const dir = flatStep > 0 ? { x: D.x / flatStep, y: 0, z: D.z / flatStep } : lookDir(h.yaw, 0);
     const stopped = (d.onHit.length > 0 || d.stopOnHit) && touch(h, d.cause, d.hit, d.onHit, dir) && d.stopOnHit;
+    if (d.cause.via === 'melee') {
+      if (r.hasWall && !h.motor.grounded) rememberWall(s, r.wall);
+      if ((h.command.pressed & Button.Jump) !== 0) s.jumpBufferUntil = clock.tick + T.buffer;
+    }
     if (d.t < d.n && !blocked && !stopped) return;
     s.dash = null;
     h.motor.dashing = false;
@@ -1025,6 +1161,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     if (m.stamina < maxStamina && recharge > 0) m.stamina = Math.min(maxStamina, m.stamina + dt / recharge);
     else if (m.stamina > maxStamina) m.stamina = maxStamina;
 
+    m.dashJumpReady = false;
     if (s.attach) return;
     if (s.mantle) mantleTick(h, s, s.mantle);
     else if (s.dash) dashTick(h, s, s.dash);
@@ -1084,6 +1221,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     startAbilityDash(h, d) {
       const s = states.get(h.id);
       if (!s) return;
+      if (d.cause.via === 'melee' && !h.motor.grounded) s.fatigueAt = clock.tick;
       interrupt(h);
       s.dash = { ...d, t: 0, hit: [] };
       h.motor.dashing = true;

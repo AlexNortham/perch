@@ -15,7 +15,6 @@ import type { CharacterCollision, Collider, KinematicCharacterController, Shape 
 import { LAYERS_SOLID, Layer } from '../core/contracts';
 import type {
   BlockoutPrim,
-  CharacterMove,
   CoreContext,
   EntityId,
   PhysicsService,
@@ -345,13 +344,18 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
     return result;
   };
 
-  const moveCharacter: PhysicsService['moveCharacter'] = (id, delta) => {
+  const moveCharacter: PhysicsService['moveCharacter'] = (id, delta, out = { pos: { x: 0, y: 0, z: 0 }, grounded: false, wall: null }) => {
     const e = store.get(id);
     if (!e) throw new Error(`physics: moveCharacter on unknown entity ${id}`);
     if (e.kind === 'hero' && heroes.has(id)) {
       const r = moveHero(id, e.pos, e.motor.crouching, delta);
-      const pos = { x: e.pos.x + r.moved.x, y: e.pos.y + r.moved.y, z: e.pos.z + r.moved.z };
-      return { pos, grounded: r.grounded, wall: r.hasWall ? { ...r.wall } : null };
+      out.pos.x = e.pos.x + r.moved.x;
+      out.pos.y = e.pos.y + r.moved.y;
+      out.pos.z = e.pos.z + r.moved.z;
+      out.grounded = r.grounded;
+      if (r.hasWall) setVec(out.wall ??= { x: 0, y: 0, z: 0 }, r.wall);
+      else out.wall = null;
+      return out;
     }
     // Cheap path (units): follow the cached ground; steps up to stepUp, snaps down by snapDown; no walls.
     syncStatic();
@@ -360,7 +364,12 @@ export async function createSpace(ctx: CoreContext): Promise<Space> {
     const y = e.pos.y + delta.y;
     const g = unitGround(x, z, Math.max(y, e.pos.y) + GROUND.stepUp);
     const grounded = g !== null && y <= g + GROUND.snapDown;
-    return { pos: { x, y: grounded ? g : y, z }, grounded, wall: null } satisfies CharacterMove;
+    out.pos.x = x;
+    out.pos.y = grounded ? g : y;
+    out.pos.z = z;
+    out.grounded = grounded;
+    out.wall = null;
+    return out;
   };
 
   return {

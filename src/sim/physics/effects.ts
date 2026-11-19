@@ -104,8 +104,8 @@ export function registerEffects(ctx: CoreContext, ctrl: Controller, service: Phy
     if (e.dir === 'aim') {
       dir = flat(mover.yaw, target.dir.x, target.dir.z);
       if (e.arcHeight === undefined) {
-        // Follow the aim pitch, at most DASH.aimMaxPitchUp upward, any angle down (Plunge).
-        const pitch = Math.min(Math.atan2(target.dir.y, Math.hypot(target.dir.x, target.dir.z)), DASH.aimMaxPitchUp);
+        const cap = e.maxPitchUpDeg === undefined ? DASH.aimMaxPitchUp : (e.maxPitchUpDeg * Math.PI) / 180;
+        const pitch = cap <= 0 ? 0 : Math.min(Math.atan2(target.dir.y, Math.hypot(target.dir.x, target.dir.z)), cap);
         dir = { x: dir.x * Math.cos(pitch), y: Math.sin(pitch), z: dir.z * Math.cos(pitch) };
       }
     } else if (e.dir === 'move') {
