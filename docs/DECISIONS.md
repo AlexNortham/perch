@@ -1212,3 +1212,13 @@ again.
   random baseline. The scores are re-learned in Stage 5 after balance changes.
 **Why:** the user wants every character to have a recommended build learned from at least 1,000 fast mock games, while
 bots still buy different but synergistic items every game.
+
+### D-EP-037 · 19/11/2026 — Build Lab runs until convergence; 1,000 matches is the minimum
+**Decision:** refines D-EP-036. The Build Lab runs at least 1,000 matches and then keeps adding rounds until all three
+of these hold:
+- each hero's recommended early, mid and late cores barely change between two consecutive rounds;
+- the confidence intervals on each hero's top item scores are narrow enough that their ranking can't plausibly flip;
+- in held-out matches, bots using the newest scores beat both last round's scores and random buying by a
+  statistically significant margin.
+`docs/BALANCE.md` records the match count, the convergence numbers and why it stopped.
+**Why:** the user said 1,000 is a minimum and to run more if needed.
