@@ -201,7 +201,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     render(frame, cameraPose) {
       const pose = devPose ? { ...cameraPose, ...devPose } : cameraPose;
       host.beforeRender?.(frame);
-      const structures = entities.sync(frame);
+      const structures = entities.sync(frame, pose.position);
       if (blockout) blockout.markers.visible = !structures;
 
       // Haze thins with height: the player camera gets the full density, the overview cameras see the whole map.

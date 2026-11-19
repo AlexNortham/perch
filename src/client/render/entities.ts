@@ -10,15 +10,52 @@
  * An instanced kit (fledglings) can return a bare Object3D proxy from create(), take an instance slot on 'added',
  * write the proxy's transform into it in pose(), and free the slot on 'removed'.
  */
-import type { Object3D } from 'three';
-import type { EntityId } from '../../sim/core/contracts';
+import { Mesh } from 'three';
+import type { Material, Object3D } from 'three';
+import type { EntityId, EntityView, PlayerTeam, Vec3 } from '../../sim/core/contracts';
+import { ViewFlag } from '../../sim/core/contracts';
+import { canSee } from '../../sim/core/vision';
 import type { Frame, ModelKit } from '../app/contracts';
+import { GHOST_OPACITY, LOCAL_FADE_M, LOCAL_HEAD_M } from './constants';
 import { interpolate } from '../app/loop';
 import { drawnByVfx } from '../app/drawn';
 
 export interface EntityLayer {
-  /** Create, pose and retire models for this frame. Returns whether any structure entity exists. */
-  sync(frame: Frame): boolean;
+  /**
+   * Create, pose and retire models for this frame. Returns whether any structure entity exists. `eye` (the camera
+   * position) drives the local hero's fade when the camera is within LOCAL_FADE_M of it.
+   */
+  sync(frame: Frame, eye?: Vec3): boolean;
+}
+
+const ORIGINAL = 'perchOriginalMaterials';
+
+/** Fade a model by swapping in per-mesh clones of its materials (the kit shares originals), restoring at opacity 1. */
+export function setOpacity(model: Object3D, opacity: number): void {
+  model.traverse((o) => {
+    if (!(o instanceof Mesh)) return;
+    const original = o.userData[ORIGINAL] as Material | Material[] | undefined;
+    if (opacity >= 1) {
+      if (original) {
+        o.material = original;
+        delete o.userData[ORIGINAL];
+      }
+      return;
+    }
+    if (!original) {
+      o.userData[ORIGINAL] = o.material;
+      o.material = Array.isArray(o.material) ? o.material.map((m: Material) => m.clone()) : o.material.clone();
+    }
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+      m.transparent = true;
+      m.opacity = opacity;
+    }
+  });
+}
+
+/** Enemies render only when the local flock can see them; the local hero's own flock always renders, allied ghosts faded. */
+function visible(e: EntityView, local: PlayerTeam): boolean {
+  return e.team === local || canSee(local, e);
 }
 
 export function createEntityLayer(parent: Object3D, kit: ModelKit): EntityLayer {
@@ -26,11 +63,13 @@ export function createEntityLayer(parent: Object3D, kit: ModelKit): EntityLayer 
   const spare = new Map<string, Object3D[]>();
   const seen = new Set<EntityId>();
   return {
-    sync(frame) {
+    sync(frame, eye) {
       seen.clear();
+      const localId = frame.curr.localHero;
+      const local = frame.curr.heroes.find((h) => h.id === localId)?.team ?? 'dawn';
       let structures = false;
       for (const e of frame.curr.entities) {
-        if (drawnByVfx(e)) continue;
+        if (drawnByVfx(e) || !visible(e, local)) continue;
         seen.add(e.id);
         if (e.kind === 'structure') structures = true;
         let slot = live.get(e.id);
@@ -44,6 +83,12 @@ export function createEntityLayer(parent: Object3D, kit: ModelKit): EntityLayer 
         slot.model.position.set(p.pos.x, p.pos.y, p.pos.z);
         slot.model.rotation.y = p.yaw;
         kit.pose(slot.model, e, frame);
+        let opacity = e.team === local && (e.flags & ViewFlag.Invisible) !== 0 ? GHOST_OPACITY : 1;
+        if (eye && e.id === localId) {
+          const d = Math.hypot(eye.x - p.pos.x, eye.y - (p.pos.y + LOCAL_HEAD_M), eye.z - p.pos.z);
+          opacity = Math.min(opacity, d / LOCAL_FADE_M);
+        }
+        setOpacity(slot.model, opacity);
       }
       for (const [id, slot] of live) {
         if (seen.has(id)) continue;

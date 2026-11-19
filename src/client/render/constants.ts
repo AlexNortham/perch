@@ -136,3 +136,9 @@ export const BACKDROP = {
 /** Shared geometry detail. */
 export const TRUNK_SEGMENTS = 7;
 export const TORUS_SEGMENTS = { radial: 4, tubular: 16 } as const;
+
+/** Allied invisible heroes (ghosts) draw at this opacity; the local hero fades out as the camera comes within LOCAL_FADE_M of its head. */
+export const GHOST_OPACITY = 0.35;
+export const LOCAL_FADE_M = 1;
+/** Height of the local hero's head above its feet for the fade distance. */
+export const LOCAL_HEAD_M = 1.6;
