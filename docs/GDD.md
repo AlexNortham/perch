@@ -2033,11 +2033,11 @@ The match setting picks one difficulty for all bots, or "Mixed" (allies Hunter, 
 |---|---|---|
 | **Lane** | Laning phase (before 10:00) or its lane's wave needs escort | Stays behind its own wave (within 25 m of its fledglings, never ahead of the front); last-hits when an enemy fledgling's HP ≤ its next shot's damage; shoots ripe pods (secure) and denies own pods; pokes the enemy hero when no last hit is due and its HP ≥ the enemy's; never stands in enemy tower range unless enemy fledglings are being hit by it |
 | **Fight** | An enemy hero is visible within 35 m and the local fight score (allied vs enemy effective HP × DPS within 30 m) ≥ 0.9 | Targets the enemy with the lowest effective HP in range, preferring supports and carries; uses abilities per difficulty; strafes and dashes between shots (Hunter+) |
-| **Retreat** | HP below the difficulty threshold, fight score < 0.6, or 2+ more enemies than allies in 30 m | Moves to the nearest allied tower, then the Home Roost if HP < 30%; uses escape abilities and Updrafts |
-| **Shop** | Unspent seeds ≥ next build item's price and (in a shop zone, or HP < 50%, or the Raptor 3,000-seed rule) | Walks to the nearest own shop, buys down the build list, spends AP |
-| **Farm** | Its lane is pushed past the centre or a Thicket within 60 m is up and no enemy hero is visible | Clears Thickets (tier matched to level: T3 from level 10), breaks Nests on the way |
-| **Objective** | Egg spawns within 60 s, a rune spawns within 40 m and 20 s, Roc conditions (below) | Moves to the objective with nearby allies |
-| **Push / siege** | After 20:00, or Ember active, or 2+ enemies dead, and an allied wave is near an enemy structure | Groups with 3+ allies and pushes with the wave; doesn't hit Brood-Warded structures unless no enemy heroes are visible |
+| **Retreat** | HP below the difficulty threshold, fight score < 0.6, or 2+ more enemies than allies in 30 m | Moves to the nearest allied tower, then the Home Roost if HP < 30%; uses escape abilities and Updrafts. Hunter+ breaks line of sight through the nearest building (§11.7) and uses a Hide within 20 m when chased below 30% HP |
+| **Shop** | Unspent seeds ≥ the price of the next item its policy picks (§11.4) and (in a shop zone, or HP < 50%, or the Raptor 3,000-seed rule) | Walks to the nearest usable shop (own stalls, the Home Roost or a Magpie Den), buys, spends AP |
+| **Farm** | Its lane is pushed past the centre, or a Thicket or Bell Feeder within 60 m is up, and no enemy hero is visible | Clears Thickets by tier: tier 1 at any level, tier 2 from level 5, tier 3 from level 12 alone or level 9 with an ally. Breaks Nests and collects drops on the way (§11.7). Works Bell Feeders from 8:00 when HP > 60% |
+| **Objective** | Egg lands within 60 s, a rune spawns within 50 m and 20 s, Roc conditions (below) | Moves to the objective with nearby allies |
+| **Push / siege** | After 20:00, or Rekindle active, or 2+ enemies dead, and an allied wave is near an enemy structure | Groups with 3+ allies and pushes with the wave; doesn't hit Brood-Warded structures unless no enemy heroes are visible |
 | **Defend** | An enemy group of 2+ heroes is attacking an allied structure | The 3 nearest bots rotate to defend |
 
 **Laning assignment:** two heroes per lane (2-2-2). The human picks first (hero select); bots fill lanes by
@@ -2047,61 +2047,124 @@ control) where possible.
 **Rotations:** a bot leaves its lane when its lane's enemy Hawk is down and its own Hawk is safe, when the Egg or
 a rune is due, or after 10:00 when its lane partner can hold the wave alone (Hunter+).
 
-**Golden Egg:** the 3 bots nearest the spawn go; the bot with the lowest net worth carries; the others escort
-within 10 m. Enemy bots treat the carrier as their top target. A bot carrier sets the Egg down (Melee) and fights if a
-lone enemy reaches it and it is healthy.
+**Golden Egg:** the 3 bots nearest the landing perch go; the bot with the lowest net worth picks it up with a light
+melee and carries; the others escort within 10 m and stay within 30 m of the Stone for the escort keepsake. The
+carrier takes the shortest nav route that avoids Updrafts, Springs and the Cellar Run, and walks into the Stone.
+Escorts then secure the hatched pods, leaving pods nearest the carrier to the carrier; enemy bots shoot pods to deny
+them. Enemy bots treat the carrier as their top target and open with melee or a displacement to make it drop. A bot
+carrier sets the Egg down (Melee) and fights if a lone enemy reaches it and it is healthy.
 
 **The Roc:** a flock's bots start the Roc when ≥ 4 allies are alive and within 40 m of the Hollow, and either 2+
-enemies are dead or no enemy hero has been seen within 80 m for 10 s. The healthiest melee-range bot claims the
-Ember with heavy melee. Bots contest an enemy Roc attempt they can see with all allies within 80 m.
+enemies are dead or no enemy hero has been seen within 80 m for 10 s. They fight from the Hollow floor (the only
+place the Roc can be hurt) and keep one Hunter+ bot on the bridge as a lookout. When the Embers fall, the three
+healthiest bots within 25 m each take the nearest unclaimed Ember with a heavy melee. Bots contest an enemy Roc
+attempt they can see with all allies within 80 m and try to steal its Embers.
+
+**Feather runes:** a bot claims with a heavy melee; it prefers Fierce or Swift if it's a gun carry, poke or
+skirmisher, Sage if it's a burst, control or support, and Stout if it's a tank.
 
 **Sieging:** from 20:00 bots group in fives or sixes behind a wave, take Hawk → Heron → Wardens → Shrines →
 Patron in order, focus the Patron's weak point in phase 2 (Hunter+), and fall back when 2+ allies die.
 
 ### 11.4 Buying and AP
 
-- Bots buy the next item on their hero's build list that they can afford, respecting components (an upgrade is
-  bought only after its component). When all slots are full, they sell the lowest-tier item that isn't a
-  component of the next purchase.
+- **Policy (D-EP-036).** Bots don't follow a fixed list. Each candidate item gets a score: score = base(hero, item)
+  + Σ synergy(item, each owned item, upgrade chains included) + phase(item, match phase). Bots sample their next
+  purchase from softmax(score / T) using the seeded bot stream, with temperature T = 1.0 for Chick, 0.5 for Hunter
+  and 0.2 for Raptor. Phases: early before 10:00, mid 10:00–21:59, late from 22:00.
+- **Prior until the Build Lab delivers (W6):** base is 1.0 for the first item on the hero's §11.5 list, falling
+  0.05 per position, and 0.2 for items not on it; synergy is +0.3 when the hero owns the item's component; phase is
+  +0.3 for an item in the archetype's §11.8 core for the current phase and +0.15 for its situational picks when
+  their condition holds. The Build Lab replaces all three terms with learned values.
+- Bots respect components (an upgrade is bought only after its component, or at full price into a free slot) and
+  the 4-active cap. When all slots are full, they sell the lowest-scoring item that isn't a component of the next
+  purchase.
 - Bots spend AP as soon as they get it, following the hero's AP priority: the ultimate's tiers whenever
   affordable, otherwise T1s in priority order, then T2s, then T3s.
 
 ### 11.5 Build lists and AP priority (one per hero)
 
-| Hero | Build list (in order) | AP priority (after the ultimate) |
-|---|---|---|
-| `shrike` | lilt-seed, quick-refrain, dew-drinker, carrying-voice, long-chorus, shade-ward, tempo-shift, rising-song, muting-whistle, iron-crest, boundless-song, gloom-curse, unbowed-crest, encore | 1 > 3 > 2 |
-| `albatross` | thick-quills, down-padding, dew-drinker, lilt-seed, talon-bulwark, shade-ward, stout-breast, covey-ward, iron-crest, healing-dew, thunderbird-heart, unbowed-crest, nestmother-mantle | 2 > 1 > 3 |
-| `kingfisher` | beak-whetstone, lilt-seed, featherlight, mocking-note, crescendo, second-wind, hawkeye-lens, rising-song, shade-ward, song-siphon, echo-chamber, second-clutch | 3 > 1 > 2 |
-| `lyrebird` | lilt-seed, quick-refrain, dew-drinker, down-padding, healing-dew, second-verse, covey-ward, tempo-shift, shade-ward, rising-song, nestmother-mantle, iron-crest, encore | 1 > 3 > 2 |
-| `owl` | beak-whetstone, quill-clip, long-fletching, lilt-seed, hawkeye-lens, featherlight, crescendo, tailwind-volley, shade-ward, apex-talon, rising-song, second-clutch | 1 > 2 > 3 |
-| `pelican` | quick-preen, quill-clip, close-talons, dew-drinker, flurry-feathers, bloodbeak, foragers-talon, tailwind-volley, pinion-shred, shade-ward, carrion-feast, apex-talon, talon-tempest | 2 > 3 > 1 |
-| `secretarybird` | featherlight, quick-preen, lilt-seed, close-talons, second-wind, flurry-feathers, crescendo, thick-quills, talon-bulwark, rising-song, skipping-stone, thunderclap-quills, second-clutch | 1 > 2 > 3 |
-| `starling` | lilt-seed, mocking-note, carrying-voice, quick-refrain, crescendo, second-verse, rising-song, tempo-shift, shade-ward, echo-chamber, boundless-song, encore | 1 > 2 > 3 |
-| `hornbill` | quick-preen, close-talons, quill-clip, down-padding, foragers-talon, flurry-feathers, long-fletching, pinion-shred, stout-breast, tailwind-volley, apex-talon, thunderclap-quills, talon-tempest | 1 > 2 > 3 |
-| `flamingo` | lilt-seed, dew-drinker, quick-refrain, featherlight, healing-dew, long-chorus, covey-ward, tempo-shift, second-wind, preening-rite, nestmother-mantle, rising-song | 1 > 2 > 3 |
-| `penguin` | thick-quills, down-padding, featherlight, lilt-seed, talon-bulwark, second-wind, shade-ward, stout-breast, iron-crest, whirlwind-knot, thunderbird-heart, unbowed-crest | 1 > 2 > 3 |
-| `puffin` | lilt-seed, quick-refrain, dew-drinker, long-chorus, carrying-voice, second-verse, tempo-shift, shade-ward, rising-song, iron-crest, boundless-song, nestmother-mantle | 1 > 2 > 3 |
-| `peacock` | lilt-seed, mocking-note, quick-refrain, crescendo, featherlight, rising-song, tempo-shift, song-siphon, second-wind, echo-chamber, encore, second-clutch | 1 > 2 > 3 |
-| `vulture` | lilt-seed, dew-drinker, thick-quills, quick-refrain, long-chorus, song-siphon, talon-bulwark, tempo-shift, rising-song, down-padding, stout-breast, thunderbird-heart, nestmother-mantle | 1 > 2 > 3 |
-| `swift` | featherlight, quick-preen, close-talons, quill-clip, second-wind, flurry-feathers, skipping-stone, bloodbeak, tailwind-volley, carrion-feast, apex-talon, talon-tempest | 3 > 1 > 2 |
-| `hummingbird` | featherlight, close-talons, lilt-seed, dew-drinker, second-wind, bloodbeak, healing-dew, song-siphon, skipping-stone, preening-rite, carrion-feast, second-clutch | 1 > 2 > 3 |
-| `cassowary` | thick-quills, down-padding, lilt-seed, featherlight, talon-bulwark, shade-ward, second-wind, stout-breast, iron-crest, whirlwind-knot, unbowed-crest, thunderbird-heart | 1 > 2 > 3 |
-| `toucan` | lilt-seed, carrying-voice, quill-clip, quick-refrain, long-fletching, crescendo, tempo-shift, rising-song, shade-ward, boundless-song, tailwind-volley, encore | 1 > 2 > 3 |
-| `woodpecker` | quick-preen, quill-clip, close-talons, thick-quills, flurry-feathers, pinion-shred, talon-bulwark, foragers-talon, tailwind-volley, apex-talon, thunderclap-quills, talon-tempest | 1 > 2 > 3 |
-| `nightjar` | lilt-seed, mocking-note, beak-whetstone, featherlight, muting-whistle, crescendo, second-wind, rising-song, hawkeye-lens, gloom-curse, echo-chamber, second-clutch | 1 > 2 > 3 |
-| `frigatebird` | quill-clip, beak-whetstone, long-fletching, featherlight, lilt-seed, hawkeye-lens, second-wind, tailwind-volley, pinion-shred, shade-ward, apex-talon, iron-crest | 1 > 3 > 2 |
-| `cockatoo` | lilt-seed, quick-refrain, mocking-note, crescendo, dew-drinker, second-verse, rising-song, tempo-shift, whirlwind-knot, healing-dew, echo-chamber, encore | 1 > 3 > 2 |
-| `swan` | lilt-seed, dew-drinker, down-padding, quick-refrain, healing-dew, covey-ward, long-chorus, preening-rite, stout-breast, tempo-shift, nestmother-mantle, thunderbird-heart | 1 > 2 > 3 |
-| `kiwi` | close-talons, lilt-seed, featherlight, mocking-note, crescendo, second-wind, song-siphon, skipping-stone, rising-song, muting-whistle, gloom-curse, second-clutch | 1 > 2 > 3 |
+| Hero | Build list (in order) | Stage 4 items (★) | AP priority (after the ultimate) |
+|---|---|---|---|
+| `shrike` | lilt-seed, quick-refrain, dew-drinker, carrying-voice, long-chorus, shade-ward, tempo-shift, rising-song, muting-whistle, iron-crest, boundless-song, gloom-curse, unbowed-crest, encore | nettle-sting, tangle-pod | 1 > 3 > 2 |
+| `albatross` | thick-quills, down-padding, dew-drinker, lilt-seed, talon-bulwark, shade-ward, stout-breast, covey-ward, iron-crest, healing-dew, thunderbird-heart, unbowed-crest, nestmother-mantle | grit-gizzard, heartwood-bark | 2 > 1 > 3 |
+| `kingfisher` | beak-whetstone, lilt-seed, featherlight, mocking-note, crescendo, second-wind, hawkeye-lens, rising-song, shade-ward, song-siphon, echo-chamber, second-clutch | hooked-spur, stoop-dive | 3 > 1 > 2 |
+| `lyrebird` | lilt-seed, quick-refrain, dew-drinker, down-padding, healing-dew, second-verse, covey-ward, tempo-shift, shade-ward, rising-song, nestmother-mantle, iron-crest, encore | rescue-call | 1 > 3 > 2 |
+| `owl` | beak-whetstone, quill-clip, long-fletching, lilt-seed, hawkeye-lens, featherlight, crescendo, tailwind-volley, shade-ward, apex-talon, rising-song, second-clutch | kestrel-eye | 1 > 2 > 3 |
+| `pelican` | quick-preen, quill-clip, close-talons, dew-drinker, flurry-feathers, bloodbeak, foragers-talon, tailwind-volley, pinion-shred, shade-ward, carrion-feast, apex-talon, talon-tempest | sourberry-rounds | 2 > 3 > 1 |
+| `secretarybird` | featherlight, quick-preen, lilt-seed, close-talons, second-wind, flurry-feathers, crescendo, thick-quills, talon-bulwark, rising-song, skipping-stone, thunderclap-quills, second-clutch | hooked-spur, stoop-dive | 1 > 2 > 3 |
+| `starling` | lilt-seed, mocking-note, carrying-voice, quick-refrain, crescendo, second-verse, rising-song, tempo-shift, shade-ward, echo-chamber, boundless-song, encore | nettle-sting, blight-spores | 1 > 2 > 3 |
+| `hornbill` | quick-preen, close-talons, quill-clip, down-padding, foragers-talon, flurry-feathers, long-fletching, pinion-shred, stout-breast, tailwind-volley, apex-talon, thunderclap-quills, talon-tempest | sourberry-rounds, kestrel-eye | 1 > 2 > 3 |
+| `flamingo` | lilt-seed, dew-drinker, quick-refrain, featherlight, healing-dew, long-chorus, covey-ward, tempo-shift, second-wind, preening-rite, nestmother-mantle, rising-song | grit-gizzard, rescue-call | 1 > 2 > 3 |
+| `penguin` | thick-quills, down-padding, featherlight, lilt-seed, talon-bulwark, second-wind, shade-ward, stout-breast, iron-crest, whirlwind-knot, thunderbird-heart, unbowed-crest | grit-gizzard, kite-lift, heartwood-bark | 1 > 2 > 3 |
+| `puffin` | lilt-seed, quick-refrain, dew-drinker, long-chorus, carrying-voice, second-verse, tempo-shift, shade-ward, rising-song, iron-crest, boundless-song, nestmother-mantle | tangle-pod, rookery-dirge | 1 > 2 > 3 |
+| `peacock` | lilt-seed, mocking-note, quick-refrain, crescendo, featherlight, rising-song, tempo-shift, song-siphon, second-wind, echo-chamber, encore, second-clutch | warblers-trill, skylark-cadence | 1 > 2 > 3 |
+| `vulture` | lilt-seed, dew-drinker, thick-quills, quick-refrain, long-chorus, song-siphon, talon-bulwark, tempo-shift, rising-song, down-padding, stout-breast, thunderbird-heart, nestmother-mantle | nettle-sting, rookery-dirge | 1 > 2 > 3 |
+| `swift` | featherlight, quick-preen, close-talons, quill-clip, second-wind, flurry-feathers, skipping-stone, bloodbeak, tailwind-volley, carrion-feast, apex-talon, talon-tempest | wasp-barbs, kite-lift | 3 > 1 > 2 |
+| `hummingbird` | featherlight, close-talons, lilt-seed, dew-drinker, second-wind, bloodbeak, healing-dew, song-siphon, skipping-stone, preening-rite, carrion-feast, second-clutch | hooked-spur, kite-lift | 1 > 2 > 3 |
+| `cassowary` | thick-quills, down-padding, lilt-seed, featherlight, talon-bulwark, shade-ward, second-wind, stout-breast, iron-crest, whirlwind-knot, unbowed-crest, thunderbird-heart | burr-coat, heartwood-bark | 1 > 2 > 3 |
+| `toucan` | lilt-seed, carrying-voice, quill-clip, quick-refrain, long-fletching, crescendo, tempo-shift, rising-song, shade-ward, boundless-song, tailwind-volley, encore | wasp-barbs, kestrel-eye | 1 > 2 > 3 |
+| `woodpecker` | quick-preen, quill-clip, close-talons, thick-quills, flurry-feathers, pinion-shred, talon-bulwark, foragers-talon, tailwind-volley, apex-talon, thunderclap-quills, talon-tempest | sourberry-rounds, wasp-barbs | 1 > 2 > 3 |
+| `nightjar` | lilt-seed, mocking-note, beak-whetstone, featherlight, muting-whistle, crescendo, second-wind, rising-song, hawkeye-lens, gloom-curse, echo-chamber, second-clutch | warblers-trill, stoop-dive | 1 > 2 > 3 |
+| `frigatebird` | quill-clip, beak-whetstone, long-fletching, featherlight, lilt-seed, hawkeye-lens, second-wind, tailwind-volley, pinion-shred, shade-ward, apex-talon, iron-crest | kite-lift, kestrel-eye | 1 > 3 > 2 |
+| `cockatoo` | lilt-seed, quick-refrain, mocking-note, crescendo, dew-drinker, second-verse, rising-song, tempo-shift, whirlwind-knot, healing-dew, echo-chamber, encore | warblers-trill, blight-spores | 1 > 3 > 2 |
+| `swan` | lilt-seed, dew-drinker, down-padding, quick-refrain, healing-dew, covey-ward, long-chorus, preening-rite, stout-breast, tempo-shift, nestmother-mantle, thunderbird-heart | grit-gizzard, rescue-call | 1 > 2 > 3 |
+| `kiwi` | close-talons, lilt-seed, featherlight, mocking-note, crescendo, second-wind, song-siphon, skipping-stone, rising-song, muting-whistle, gloom-curse, second-clutch | hooked-spur, stoop-dive, blight-spores | 1 > 2 > 3 |
 
-Every one of the 48 items appears in at least one list.
+Each Stage 4 item enters a hero's list just before the first listed item of a higher tier. Every one of the 64
+items appears in at least one list. These lists are the Build Lab's round-1 prior (§11.4), not fixed builds.
 
 ### 11.6 Hero picks for bots
 
 Bots pick after the player, one at a time, alternating flocks, choosing an archetype their flock lacks (order:
 support, tank/initiator, gun carry, area control, then any), and a random hero (seeded) of that archetype that
 isn't taken. A flock never has two heroes of the same archetype when another is free.
+
+### 11.7 Bots in the detailed map
+
+Bots see and move by the same rules as the player: walls and ivy curtains block their sight (§6.11), and they use
+doors, stairs, ladders, hatches, Springs and the Cellar Run through the nav links of §6.7.
+
+| Feature | Chick | Hunter | Raptor |
+|---|---|---|---|
+| **Interior routes** | Streets only, unless the street route is blocked | Takes an interior route when an enemy is visible on the street route and the interior route is at most 1.3× longer | As Hunter, plus fights from shot windows and gallery edges, and drops through hatches and skylights to escape |
+| **Breaking LOS when retreating** | Never | Through the nearest door within 15 m | As Hunter, and routes through ivy curtains so chasers lose sight |
+| **Nests** | Breaks Nests on its path with the gun | Detours up to 12 m to break a Nest and up to 10 m to collect any drop | As Hunter; breaks Woven Nests with heavy melee only when no enemy hero is visible |
+| **Thickets** | Tier 1 only | §11.3 tiers; pulls indoor camps to their doorway to fight them in the open | As Hunter; finishes a camp's last creature before leaving so it can respawn; leaves one creature of an enemy camp alive when it must leave |
+| **Bell Feeders** | Never | Lights to 180 HP, then a heavy hit on the beat: 50% full chimes | As Hunter: 90% full chimes |
+| **Berries** | Never | Detours up to 25 m when HP < 70% and out of combat | As Hunter, and plans its rotation past them |
+| **Hides** | Never | Retreats into a Hide within 20 m when chased below 30% HP | As Hunter, and waits in Hides beside lanes and Thickets to ambush (counts as an ambush spot) |
+| **Bough Springs** | Never | As nav links | As nav links, and to escape when chased |
+| **Lookouts** | Never | Never | Holds a Lookout while guarding an objective (Egg landing, Roc fight) if no enemy is visible |
+| **Updrafts** | Latches at stations | Latches anywhere under the cable | As Hunter, plus boosts and drop-attacks |
+| **Magpie Den** | Never | Shops there when it is the nearest usable shop | As Hunter |
+| **Feather runes** | Walks to them; claims with a heavy hit | Objective state (§11.3) | As Hunter; denies the enemy's preferred type by claiming it |
+
+Telemetry for the M3 gate counts per match: Nests broken, drops collected, camps cleared by tier, Feeder full
+chimes, keepsakes gained, Berries eaten, Hide entries, Spring launches, Cellar Run trips, runes claimed, Eggs
+delivered and pods secured or denied, Roc kills and Embers claimed by each flock, and Rekindle revives.
+
+### 11.8 Recommended builds per archetype (guidance for the Build Lab)
+
+The Build Lab (D-EP-036) learns each hero's recommended build; this table is the designer's prior and the shape
+every learned build takes: an **early core** bought by about 8:00 (about 3,200 seeds), a **mid core** by about
+20:00 (about 7,000 more), a **late core** of tier-4 items, and **situational** picks with the condition that calls
+for them. The Build Lab may substitute within a core, but each recommended build keeps this shape, respects the
+4-active cap and lists 3–4 items per core and 3–5 situational picks.
+
+| Archetype (heroes) | Early core | Mid core | Late core | Situational |
+|---|---|---|---|---|
+| **Gun carry** (pelican, hornbill, woodpecker) | quick-preen, quill-clip, close-talons, dew-drinker | flurry-feathers, foragers-talon, pinion-shred, sourberry-rounds ★ | apex-talon, talon-tempest, carrion-feast | grit-gizzard ★ → shade-ward vs Song burst · bloodbeak vs poke · preening-rite vs disables · thunderclap-quills vs divers · kestrel-eye ★ for hornbill's long lanes |
+| **Spirit burst** (starling, peacock, cockatoo) | lilt-seed, mocking-note, quick-refrain, warblers-trill ★ | crescendo, rising-song, tempo-shift | echo-chamber, boundless-song, skylark-cadence ★ | nettle-sting ★ → blight-spores ★ vs healers · grit-gizzard ★ vs burst · second-clutch when dived · muting-whistle vs channelled ultimates · encore for ultimate-heavy kits |
+| **Tank / initiator** (albatross, penguin, cassowary) | thick-quills, down-padding, grit-gizzard ★, featherlight | talon-bulwark, shade-ward, stout-breast, whirlwind-knot | heartwood-bark ★, unbowed-crest, thunderbird-heart | burr-coat ★ vs gun carries · iron-crest vs disables · kite-lift ★ to initiate from height · nestmother-mantle in grouped fights · rookery-dirge ★ for cassowary |
+| **Support** (lyrebird, flamingo, swan) | lilt-seed, dew-drinker, quick-refrain, grit-gizzard ★ | healing-dew, rescue-call ★, covey-ward, long-chorus | nestmother-mantle, encore, unbowed-crest | preening-rite vs disables · second-verse for charge kits · tangle-pod ★ to peel · iron-crest · tempo-shift |
+| **Assassin** (kingfisher, nightjar, kiwi) | hooked-spur ★, lilt-seed, featherlight, beak-whetstone | stoop-dive ★, crescendo, second-wind, mocking-note | echo-chamber, gloom-curse, second-clutch | hawkeye-lens for gun-leaning kits · blight-spores ★ vs healers · kite-lift ★ to escape · song-siphon for sustain · muting-whistle early |
+| **Area control** (shrike, puffin, vulture) | lilt-seed, quick-refrain, dew-drinker, carrying-voice | long-chorus, tangle-pod ★, tempo-shift, rising-song | rookery-dirge ★, boundless-song, nestmother-mantle | nettle-sting ★ vs healers · iron-crest vs disables · covey-ward in grouped fights · second-verse for charge kits |
+| **Long-range poke** (owl, toucan, frigatebird) | beak-whetstone, quill-clip, long-fletching, lilt-seed | hawkeye-lens, tailwind-volley, second-wind, wasp-barbs ★ | kestrel-eye ★, apex-talon, second-clutch | kite-lift ★ vs divers · grit-gizzard ★ → shade-ward vs burst · pinion-shred vs tanks · boundless-song for toucan |
+| **Mobility skirmisher** (secretarybird, swift, hummingbird) | featherlight, close-talons, quick-preen, hooked-spur ★ | second-wind → kite-lift ★, flurry-feathers, wasp-barbs ★, bloodbeak | carrion-feast, talon-tempest, thunderclap-quills | stoop-dive ★ for secretarybird · preening-rite vs disables · sourberry-rounds ★ vs healers · skipping-stone vs grouped enemies · second-clutch |
+
+Every Stage 4 item (★) appears at least once. The shop's Recommended strip (§12.6) shows the hero's learned build
+from W6; until then it shows this table's row for the hero's archetype.
 
 ---
 
@@ -2171,8 +2234,10 @@ Boot → Main menu ─┬─ Play → Match setup → Hero select → Loading �
 - **Top centre:** flock net worth totals, match timer, and per-lane structure pips for both flocks.
 - **Top right:** kill feed (§12.8). Below it: respawn timers of dead allies.
 - **Objective banners** (top centre, under the timer): Egg spawn countdown from 60 s before, Egg carrier
-  status, Roc spawn countdown and state, rune spawns.
-- **Status icons** above the portrait: buffs (teal border) and debuffs (red border) with timers.
+  status and its spoil timer, Roc spawn countdown and state, Embers landed and claimed, your flock's Rekindle
+  charges and time, rune spawns.
+- **Status icons** above the portrait: buffs (teal border) and debuffs (red border) with timers; runes and crumbs
+  show here. A **keepsake count** sits beside the level; hovering it (pointer free) lists the totals per type.
 - **World-space:** health bars over heroes (allies green, enemies red; level number on the bar), fledglings
   (thin bars), structures (wide bars with Brood Ward shield icon), pods (gold or grey-blue glow), ping markers,
   ability telegraphs, offscreen damage direction arcs (red), low-HP vignette below 25% HP.
@@ -2193,7 +2258,9 @@ shortcut. Releasing the modifier after the shortcut keeps the panel closed.
 - Shows: allied heroes (portrait dots ringed in flock colour), visible enemy heroes (red-ringed dots;
   last-seen ghosts fade over 6 s), fledgling waves (small flock-coloured dots), structures (icons with an HP
   ring), Thickets (icon when alive, grey when cleared), runes, Egg and carrier, Roc state, pings, your camera
-  cone. Visibility follows §11.1.
+  cone. Visibility follows §11.1. Stage 4 adds building outlines with the ▲ / ▼ storey markers (§6.11), Bell
+  Feeders (icon once seen, grey when broken), Magpie Dens, Hides and Bough Springs (static icons) and Embers on the
+  ground. Nests and Berries are not shown.
 - **Ping (middle mouse):** tap pings what is under the crosshair (or the minimap cursor): enemy → "Attack",
   objective → "Take", allied structure → "Defend", ground → "Go here". Hold opens a wheel: **Danger**,
   **On my way**, **Retreat**, **Need help**. Pings show in the world (icon and distance, 6 s), on the minimap
@@ -2210,15 +2277,17 @@ shortcut. Releasing the modifier after the shortcut keeps the panel closed.
   its component (cost shows the discounted price).
 - Hover: tooltip with every stat, the active (cooldown and effect), its component and what it upgrades into.
 - Left click buys (in a shop zone); right click an owned item sells it (refund shown). Outside shop zones the
-  shop is read-only with the banner "Visit a Magpie stall or your Home Roost to trade".
+  shop is read-only with the banner "Visit a Magpie stall, a Magpie Den or your Home Roost to trade". A fifth
+  active is refused with "You can carry four actives".
 - Right panel: your 12 slots + 4 flex slots (locked ones show what unlocks them), wallet and net worth, and a
-  "Suggested" strip from the hero's build list (§11.5). A search box filters by name or stat.
+  **Recommended** strip: the hero's early, mid and late cores and situational picks (§11.8, learned by the Build
+  Lab from W6, D-EP-036), with owned items ticked. A search box filters by name or stat.
 
 ### 12.7 Scoreboard (Tab)
 
 Two flock tables side by side: hero portrait, name (you highlighted), level, kills / deaths / assists, net worth,
-last hits / denies, item icons (16), and a dead marker with respawn time. Footer per flock: total net worth,
-structures destroyed, Eggs delivered, Ember claims. Header: match time and seed.
+last hits / denies, keepsakes, item icons (16), and a dead marker with respawn time. Footer per flock: total net
+worth, structures destroyed, Eggs delivered, Roc kills, Embers claimed. Header: match time and seed.
 
 ### 12.8 Kill feed and damage numbers
 
