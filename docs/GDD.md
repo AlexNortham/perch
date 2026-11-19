@@ -903,7 +903,7 @@ The game must stay at 60 FPS with 12 birds and about 150 fledglings (§16, M3 an
 | Map triangles drawn | ≤ 180,000 High · ≤ 110,000 Medium · ≤ 60,000 Low (Low draws no interior props) |
 | Map draw calls | Static geometry merged per material in 64 × 64 m cells: ≤ 60 map draw calls in any frame at Medium. The full-match ceiling of 248 (D-QA-BROWSER-002) stands |
 | Nests, Berries, Feeders | One instanced mesh per kind and variant, ≤ 80 triangles each (Feeders ≤ 300); broken or taken ones are hidden instances |
-| Thicket creatures | ≤ 72 at once; ≤ 300 triangles each, instanced per family |
+| Thicket creatures | ≤ 80 at once (76 with every camp up); ≤ 300 triangles each, instanced per family |
 | Lights | No new dynamic lights. Interiors use the hemisphere light and emissive lanterns; interior props cast no shadows |
 | Interior culling | Interior props, Nests and Berries are not drawn beyond 45 m |
 | Sim | Dormant camps and every static interactable cost no per-tick work beyond `ctx.spatial` overlap queries; all Stage 4 objectives together ≤ 0.1 ms per tick |
@@ -2429,8 +2429,11 @@ a louder, longer cue audible to enemies within 40 m.
 | Patron attacks / phase 2 | Raven caw or owl screech on each attack; phase 2: a long layered cry and a drum hit |
 | **Egg jingle** | Five-note rising glockenspiel motif (C6 E6 G6 C7 E7) on spawn, map-wide; a softer two-note version on pickup; a fanfare on delivery |
 | **Roc roar** | Layered: low formant growl (80–200 Hz) + distorted screech (1.5 kHz) + noise rumble, 2.5 s; on spawn (map-wide, quiet), on aggro and on enrage |
-| Ember claim | Whoosh + bright major choir chord |
-| Rune spawn / pickup | Wind chime / chime with a whoosh up |
+| Ember claim | Whoosh + bright major choir chord; Rekindle revive: a rising flame crackle and the same chord, heard within 60 m |
+| Rune spawn / claim | Wind chime / chime with a whoosh up |
+| Nest break / pickup | Twig snap (Woven: a heavier creak and snap) / soft seed rattle; a keepsake pickup adds a small bright glint |
+| Bell Feeder | A brass bell clang per hit (70 m; Bell Tower 120 m), a wooden knock on the swing-back, a three-bell peal on a full chime |
+| Berry / Hide / Spring | A juicy pop / a muffled hush on entering a Hide / a springy twang on launch |
 | Pings | Attack: sharp tick; Take: two rising notes; Defend: low bell; Go here: soft pop; Danger: double low beep; Help: three quick notes |
 | UI | Hover tick, click knock, buy = seed rattle + chime, sell = falling rattle, error = muted buzz |
 
@@ -2644,12 +2647,40 @@ An item fails if it can't be shown with a screenshot, a test or a telemetry numb
 ### M3 — Full roster
 
 - [ ] All 24 heroes castable with documented numbers; the 40 m line-up screenshot shows 24 distinct silhouettes.
-- [ ] All 48 items purchasable; all 11 actives work.
-- [ ] Golden Egg: carrier restrictions, reveal beam, drop on stun/death, delivery channel and payout.
-- [ ] The Roc: aggro, attacks, reset; Ember claimed only by heavy melee; Ember buff values.
-- [ ] Thickets respawn on schedule; Nests pay and drop crumbs; runes alternate types.
+- [ ] All 64 items purchasable with the §10 component chains; all 15 actives work; a fifth active is refused.
+- [ ] No Interact key anywhere (D-EP-039): latch an Updraft by holding Jump under the cable away from a station,
+      dismount with a fresh Jump press and with crouch; show that a tap never latches and the 3 s damage lockout.
+- [ ] Golden Egg: lands at 10:00 then on 5:00 marks on alternating perches; light-melee pickup; carrier limits,
+      buffs and reveal beam; drops on melee, stun, displacement and death; rolls after 180 s; spoils 45 + 45 s;
+      delivers on entering the Stone; six pods secured, split and denied; keepsakes to courier and escorts.
+- [ ] The Roc: wakes 20:00; takes damage only from heroes in the Hollow; nearest-hero aggro, attacks, enrage at
+      25%, reset; three Embers claimable by either flock with one heavy melee; Rekindle revives in place once per
+      hero; respawns 7:00, 6:00, 5:00.
+- [ ] Thickets: 24 camps with first spawns at 2:00 / 5:00 / 8:00; dormancy and the 35 m sniping rule; leash and
+      reset; payout split among recent damagers; respawn only after a full clear.
+- [ ] Nests: 100 in three variants; momentum breaks; Woven only by heavy melee; drops are pickups for either flock;
+      spawn and respawn times, including below ground and in the Hollow.
+- [ ] Keepsakes: weights, the halved repeat, strength by match time, caps; Bell Feeders: melee only, swing-back,
+      seeds per hit, full chime only on the lamp; runes: 5:00 cadence, heavy-melee claim, pair rules, scaling.
+- [ ] Detailed map: every §6.9 building enterable with at least two exits and its §6.8 routes; the Cellar Run and
+      Magpie Den; Berries, Hides, Bough Springs, Lookouts and ivy curtains behave per §7.15; the §6.12 budget is met
+      and the M4 FPS scene still holds 60 FPS with one hero inside the Warehouse and one on a Bell Tower.
 - [ ] Bots: 20 seeded headless matches, 11 bots, zero crashes; telemetry shows last hits, denies, Egg and Roc
-      attempts, and sieges.
+      attempts, sieges, and the §11.7 map counters.
+- [ ] Build Lab (D-EP-036, D-EP-037): at least 1,000 matches and convergence; every hero has a recommended build in
+      the §11.8 shape in the shop and the wiki; bot builds are varied but beat a random baseline on synergy.
+
+**M3 gate coverage** (STATUS.md M3 gate → where the GDD specifies it):
+
+| Gate item | GDD |
+|---|---|
+| All 24 heroes and 64 items | §9, §10 (gap review §10.4) |
+| Golden Egg, Roc/Ember, Thickets and runes work | §7.8, §7.10–§7.12, §15.2 |
+| Detailed map: enterable buildings with things to do in them, a jungle with Thicket camps, Nests throughout; 60 FPS | §6.5, §6.8–§6.12, §7.9, §7.13–§7.15 |
+| 11 bots finish 20 seeded headless matches | §11.3, §11.7 |
+| Build Lab and recommended builds; varied, synergistic bot buying | §11.4, §11.5, §11.8, §12.6 |
+| Launchable 1 + 11 bots with any of the 24 heroes | §9.0, §12.1–§12.3 |
+| No Interact key (D-EP-039) | §3.1, §3.7, §7.11 |
 
 ### M4 — Balance and polish
 
@@ -2687,21 +2718,30 @@ and have no one-to-one counterpart.
 | Nest Wardens | Base Guardians | Two per lane at the base | — |
 | Roost Shrines | Shrines | Two; both must fall before the Patron | — |
 | Brood Ward | Backdoor protection | Big damage reduction without attacking troopers nearby | ×0.35 value ours |
-| Thickets | Neutral camps | Tiered, respawning | Seeds to the last hitter (assumed) |
-| Nests | Breakable crates | Small payout, sometimes a small buff | — |
-| Feather runes | Bridge power-ups | Timed buffs from fixed spots | 90 s, four types (ours) |
-| Golden Egg, Hatching Stone | Soul Urn, drop-off | Carrier can't shoot or cast, revealed, team payout with a comeback bonus | 10:00 then 5:00 after delivery |
-| The Roc | Mid-Boss | Central pit boss | Spawns at 20:00 (assumed) |
-| Phoenix Ember | Rejuvenator | Claimed by melee; faster respawns, stronger troopers, team buff | Heavy melee only; 180 s |
-| The Magpie's Hoard (Talon / Plumage / Song) | Curiosity Shop (Weapon / Vitality / Spirit) | 3 columns × 4 tiers, components consumed, sell refunds, base and lane shops | 50% / 100%-in-20-s refund (assumed) |
+| Thickets | Neutral camps (Haunts) | Three tiers at 2:00 / 5:00 / 8:00, respawn after a full clear, dormant until approached, resists, seeds split among recent damagers, leash | Our families, values and indoor camps |
+| Nests (Twig, Woven, Keepsake) | Crates, tough crates, buff containers | Seed and boon pickups any hero can take; tough ones need heavy melee; momentum breaks; 3:00 spawn and respawn | Crumbs are a PERCH addition |
+| Keepsakes | Permanent stat buffs | Ten stat types, weighted draw, three strengths by match time, from breakables, the Urn and the boss | Our values, a halved-repeat rule, caps |
+| Bell Feeders | Sinner's Sacrifice machines | Melee-only, retaliate per hit, pay per hit, timed final hit gives boons | Our timing lamp and values |
+| Berries | Healing snacks | High pickups that heal over time from 2:30 | 15% over 4 s |
+| Hides | Steam vents | Hidden from enemies and faster regeneration while inside | A shed you enter, not a vent |
+| Bough Springs | Jump pads | Fixed launch arcs; damage early in the launch punishes | Slow instead of stun |
+| Ivy curtains, juke alcoves | Cosmic Veil, juke rooms | Sight-blocking curtains that don't block movement | Blocks both ways |
+| Cellar Run, Magpie Den | Tunnels, secret shops | A faster underground route; a shop both teams use | +30% speed, under the middle lane; no teleporters |
+| Lookouts | — | — | PERCH addition: +20 m sight |
+| Feather runes | Powerups | Two spots every 5:00 from 5:00, heavy-melee claim, four types, strength scales with time, lost on death | 150 s |
+| Golden Egg, Hatching Stone | Soul Urn, drop-off | Melee pickup, carrier can't shoot or cast, is revealed and moves faster, drops to melee and stuns, decays if held, delivers on arrival, payout as deniable orbs plus boons, comeback help | Escorts get a keepsake; spawns alternate between two centre perches |
+| The Roc | Mid-Boss | Central pit boss, hurt only from inside the pit, HP that grows over time, respawn 7/6/5 minutes | Wakes at 20:00 (deviation); our attack set |
+| Phoenix Embers, Rekindle | Rejuvenator crystals and credits | Three drops claimed by heavy melee by either team; full heal and seeds; in-place revives once per hero for 3 minutes | Our fledgling siege buff (deviation) |
+| The Magpie's Hoard (Talon / Plumage / Song) | Curiosity Shop (Weapon / Vitality / Spirit) | 3 columns × 4 tiers, components consumed, sell refunds, base and lane shops, at most 4 actives | 50% / 100%-in-20-s refund (assumed); no spend-based category bonuses |
 | Magpie stalls | Lane shops | Shopping outside base | — |
+| No Interact key | Ziplines latched by holding jump; urn picked up by melee | Every world object answers to movement, Jump, melee or shooting | — |
 | Flex slots | Flex slots | Unlocked by objectives, team-wide | 12 base + 4 flex (ours) |
 | Talon / Song damage, Talon / Song resist | Weapon / Spirit damage and resists | Two damage types with separate resists | Multiplicative resist stacking |
 | Song power (SP) | Spirit Power | Ability scaling stat | — |
 | Beak shot | Headshot | Real head hitbox, crit multiplier in data | ×1.65 default |
 | Level, AP, upgrade tiers 1/2/5 | Levels, Ability Points, ability upgrades | 4 abilities, three tiers each | Ultimate unlocks at level 6 (assumed) |
 | Molts | Boons | Per-level base stat growth | — |
-| Updrafts | Ziplines | Lane ziplines with boost and dismount | — |
+| Updrafts | Ziplines | Lane ziplines latched from below by holding Jump, with boost, dismount and a damage lockout | Our speeds and boost |
 | Chimneys, Vines | Vent shafts, ropes | Vertical traversal | — |
 | Dash, dash-jump, slide, mantle, stamina | Same movement set | Stamina-gated dash, dash-jump, slide, mantle | Values ours |
 | Light / heavy melee, parry | Light / heavy melee, parry | Parry stuns a melee attacker; heavy melee claims the boss drop | — |
