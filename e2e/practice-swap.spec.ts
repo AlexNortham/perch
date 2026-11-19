@@ -7,11 +7,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { DEFAULT_BINDINGS } from '../src/client/app/bindings';
 import { HEROES } from '../src/sim/heroes/registry';
 import { aimAtDummy, crouchKey, hero, lockPointer, open, pickHero, VIEWPORT, READY_TIMEOUT_MS } from './game';
-import { isPending, PENDING_REASON } from './pending';
 
 test.use({ viewport: VIEWPORT, actionTimeout: 8_000 });
 test.setTimeout(READY_TIMEOUT_MS * 2);
-test.skip(isPending, PENDING_REASON);
 
 const PRACTICE_AP = 32;
 const SPOT_TOLERANCE_M = 3;

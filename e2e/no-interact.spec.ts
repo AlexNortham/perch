@@ -5,11 +5,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { DEFAULT_BINDINGS } from '../src/client/app/bindings';
 import { open, READY_TIMEOUT_MS } from './game';
-import { isPending, PENDING_REASON } from './pending';
 
 test.use({ viewport: { width: 1280, height: 720 }, actionTimeout: 8_000 });
 test.setTimeout(READY_TIMEOUT_MS * 2);
-test.skip(isPending, PENDING_REASON);
 
 const STORAGE_KEY = 'perch.settings.v3';
 const keyButtons = (page: Page) => page.locator('button.pu-key[data-action]');

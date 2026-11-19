@@ -1,10 +1,10 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { DEFAULT_BINDINGS } from '../src/client/app/bindings';
-import { ViewFlag } from '../src/sim/core/contracts';
+
 import { CAMERA, TRAINING_TARGET } from '../src/sim/data/core';
 import { ECONOMY } from '../src/sim/data/economy';
 import { HEROES } from '../src/sim/heroes/registry';
-import { afterTicks, aimAtDummy, crouchKey, fire, shot, hero, lockPointer, open, pickHero, READY_TIMEOUT_MS, VIEWPORT } from './game';
+import { afterTicks, aimAtDummy, crouchKey, shot, hero, lockPointer, open, pickHero, READY_TIMEOUT_MS, VIEWPORT } from './game';
 
 const LYRE_ABILITIES = HEROES.lyrebird.def.abilities;
 const INSPECT = DEFAULT_BINDINGS.upgradeModifier;
@@ -14,9 +14,6 @@ const MAX_ACTION_TIMEOUT_MS = 5_000;
 const DAMAGE_FOR_RESET = 60;
 const AP = (page: Page) => page.locator('.pu-ap');
 const seeds = (page: Page) => page.locator('.pu-seeds');
-const tier = (page: Page, slot: number) => page.locator('.pu-slot').nth(slot).locator('.tiers .on');
-const upgradePanel = (page: Page) => page.getByRole('dialog', { name: /Ability Upgrades/i });
-const upgrade = (panel: Locator, ability: string) => panel.getByRole('button', { name: new RegExp(`^Upgrade ${ability}\\b`, 'i') });
 
 test.use({ viewport: VIEWPORT });
 test.setTimeout(READY_TIMEOUT_MS * 2);
@@ -109,87 +106,7 @@ test('Practice Hub from the menu: Lyrebird shoots and heals twice with a reset b
   await expect(page.getByRole('progressbar', { name: /dummy/i })).toHaveCount(0);
 });
 
-test('inspect upgrades: pointer release, descriptions, one AP transaction, quick chord and return to fire', async ({ page }) => {
-  await open(page);
-  await pickHero(page, 'Practice Hub', 'Lyrebird');
-  await lockPointer(page);
-  const before = await hero(page);
-  await page.keyboard.press(INSPECT);
-  const panel = upgradePanel(page);
-  await expect(panel, 'tapping Inspect opens Ability Upgrades').toBeVisible();
-  expect(await page.evaluate(() => document.pointerLockElement)).toBeNull();
-  await afterTicks(page, before.tick, 20);
-
-  for (const [n, ability] of LYRE_ABILITIES.entries()) {
-    const card = panel.getByRole('button', { name: new RegExp(ability.name, 'i') }).first();
-    const description = panel.getByText(ability.description, { exact: false });
-    const nextTier = panel.getByText(ability.upgrades[0]!.description, { exact: false });
-    await card.hover();
-    await expect(description, `${ability.name} description on hover`).toBeVisible();
-    await expect(nextTier, `${ability.name} first-tier effect on hover`).toBeVisible();
-    await expect(panel.locator('.pu-udesc:visible'), 'one description card, even with another row focused').toHaveCount(1);
-    await shot(page, `upgrades-hover-${n + 1}`);
-    await page.mouse.move(0, 0);
-    await card.focus();
-    await page.keyboard.press('Shift+Tab');
-    await page.keyboard.press('Tab');
-    await expect(card).toBeFocused();
-    await expect(description, `${ability.name} description on keyboard focus`).toBeVisible();
-    await expect(nextTier, `${ability.name} first-tier effect on keyboard focus`).toBeVisible();
-  }
-
-  const mended = LYRE_ABILITIES[0]!.name;
-  const purchase = upgrade(panel, mended);
-  await expect(AP(page).first()).toHaveText('AP 32');
-  await expect(purchase).toBeEnabled();
-  await expect(purchase).toContainText(/\b1\b/);
-  await purchase.click();
-  await afterTicks(page, (await hero(page)).tick, 16);
-  await expect(AP(page).first(), 'one click costs exactly one AP').toHaveText('AP 31');
-  await expect(tier(page, 0), 'one click buys exactly one tier').toHaveCount(1);
-  await expect(purchase).toContainText(/\b2\b/);
-  expect((await hero(page)).shotsFired, 'panel clicks never shoot').toBe(before.shotsFired);
-  await shot(page, 'ability-upgrades');
-
-  await page.keyboard.press('Escape');
-  await expect(panel).toBeHidden();
-  await lockPointer(page);
-  await page.mouse.down({ button: 'right' });
-  try {
-    await expect.poll(async () => (await hero(page)).flags & ViewFlag.Aiming, { message: 'aim input resumes' }).toBeTruthy();
-  } finally {
-    await page.mouse.up({ button: 'right' });
-  }
-  await fire(page);
-  await page.keyboard.press(`${INSPECT}+${DEFAULT_BINDINGS.ability1}`);
-  await expect(AP(page).first()).toHaveText('AP 29');
-  await expect(tier(page, 0)).toHaveCount(2);
-  await expect(panel, 'quick chord buys the next tier while keeping the panel closed').toBeHidden();
-  expect(await page.evaluate(() => document.pointerLockElement !== null)).toBe(true);
-
-  // Learn the last tier (2 + 5 more AP), then a click on the now locked "Fully upgraded" button does nothing.
-  await page.keyboard.press(INSPECT);
-  await expect(panel).toBeVisible();
-  await upgrade(panel, mended).click();
-  await expect(tier(page, 0)).toHaveCount(3);
-  await expect(AP(page).first()).toHaveText('AP 24');
-  await expect(upgrade(panel, mended), 'a maxed ability is locked').toBeDisabled();
-  await expect(panel.getByText('Fully upgraded').first()).toBeVisible();
-  await upgrade(panel, mended).click({ force: true });
-  await afterTicks(page, (await hero(page)).tick, 16);
-  await expect(AP(page).first(), 'a click on a locked upgrade spends nothing').toHaveText('AP 24');
-  await expect(tier(page, 0), 'and learns nothing').toHaveCount(3);
-  await shot(page, 'upgrades-locked-click');
-  await page.keyboard.press('Escape');
-  await expect(panel).toBeHidden();
-  await lockPointer(page);
-  await page.mouse.down({ button: 'right' });
-  try {
-    await expect.poll(async () => (await hero(page)).flags & ViewFlag.Aiming, { message: 'aim input resumes after the panel closes' }).toBeTruthy();
-  } finally {
-    await page.mouse.up({ button: 'right' });
-  }
-});
+// The tap-to-open Ability Upgrades panel is gone (D-EP-038); hold-upgrade.spec.ts covers hold, click, 1-4, hover and release.
 
 test('ordinary Play starts siege progression with zero AP and a locked ultimate', async ({ page }) => {
   await open(page);
@@ -201,19 +118,20 @@ test('ordinary Play starts siege progression with zero AP and a locked ultimate'
   await expect(page.getByText(/Elder Raven/i).first(), 'ordinary Play presents the actual Dusk Patron').toBeVisible();
 
   await lockPointer(page);
-  await page.keyboard.press(INSPECT);
-  const panel = upgradePanel(page);
-  await expect(panel).toBeVisible();
-  await expect(upgrade(panel, LYRE_ABILITIES[0]!.name), 'the normal match cannot buy a tier with zero AP').toBeDisabled();
-  await expect(upgrade(panel, LYRE_ABILITIES[3]!.name), 'ultimate is gated until level 6').toBeDisabled();
-  await expect(panel.getByText(/level 6/i).first()).toBeVisible();
-  await expect(panel.getByText(/not enough AP|insufficient AP|requires.*AP/i).first()).toBeVisible();
+  await page.keyboard.down(INSPECT);
+  const ability = (n: number) => page.getByRole('button', { name: new RegExp(`^Upgrade ${LYRE_ABILITIES[n]!.name}\\b`, 'i') });
+  await expect(ability(0), 'the normal match cannot buy a tier with zero AP').toHaveAttribute('aria-disabled', 'true');
+  await expect(ability(3), 'ultimate is gated until level 6').toHaveAttribute('aria-disabled', 'true');
+  await ability(3).hover();
+  await expect(page.getByText(/level 6/i).first()).toBeVisible();
+  await ability(0).hover();
+  await expect(page.getByText(/not enough AP|insufficient AP|requires.*AP/i).first()).toBeVisible();
   await afterTicks(page, start.tick, 30);
   await expect(AP(page).first()).toHaveText('AP 0');
   await expect.poll(async () => Number((await seeds(page).innerText()).replace(/[^\d]/g, '')), {
-    message: 'ordinary siege earns passive Seeds while the inspect panel is open', timeout: 60_000,
+    message: 'ordinary siege earns passive Seeds while the upgrade key is held', timeout: 60_000,
   }).toBeGreaterThan(ECONOMY.startSeeds);
-  await expect(panel).toBeVisible();
+  await page.keyboard.up(INSPECT);
 });
 
 test('Play picker exposes every implemented hero (the M2 twelve and any later batches)', async ({ page }) => {

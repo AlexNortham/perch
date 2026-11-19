@@ -14,11 +14,9 @@ import { DEFAULT_BINDINGS } from '../src/client/app/bindings';
 import { ViewFlag } from '../src/sim/core/contracts';
 import { HEROES } from '../src/sim/heroes/registry';
 import { hero, lockPointer, open, pickHero, VIEWPORT, READY_TIMEOUT_MS } from './game';
-import { isPending, PENDING_REASON } from './pending';
 
 test.use({ viewport: VIEWPORT, actionTimeout: 8_000 });
 test.setTimeout(READY_TIMEOUT_MS * 2);
-test.skip(isPending, PENDING_REASON);
 
 const ABILITIES = HEROES.lyrebird.def.abilities;
 const UPGRADE_KEY = DEFAULT_BINDINGS.upgradeModifier;
