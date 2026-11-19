@@ -1767,8 +1767,12 @@ expiry and spending, 7/6/5 respawns), `hides.ts`; vision gains Lookouts, ivy cur
 gain the siege flight (+40% HP, +30% vs structures while Rekindle holds). Numbers in `data/world.ts`, including the
 Seed values economy pays. Springs, the Cellar Run speed and carrier block are Physics' and the Magpie Den Items'
 (follow-ups). D-OBJ-009…014.
-**Verified:** `bash scripts/check.sh`: `PASS typecheck 12s · lint 5s · test 21s · perf 32s · sim 3s · e2e 125s · check
-198s` (820 unit tests, 57 e2e). New `neutrals.test.ts` (10, real map) and `interactables.test.ts` (8, fixture maps for
+**Verified:** `bash scripts/check.sh` on 1ceb7fc: typecheck, lint, test (820), perf and sim PASS; e2e failed once on
+`preview-regressions` (`page.goto` timeout) and once before on `match.spec` (damage-number sweep), each passing alone,
+then `npm run e2e` 57 passed, with 11 to 28 node, 85 browser and 25 Claude processes running. **World budget (EP
+request):** `world.perf.test.ts` "~150 fledglings" (neutrals off, the 0.5 ms test) measures 0.161 to 0.214 ms/tick on
+this branch and 0.250 to 0.279 on a trial merge with `integrate/w5` db86998 (Systems' interiors), same machine and load:
+no world regression, and nothing near 0.849; that test has no heroes, so Stage 4 vision does no raycasts in it. New `neutrals.test.ts` (10, real map) and `interactables.test.ts` (8, fixture maps for
 Feeders, Granary, Berries, Hides, Lookouts, ivy, indoor camps, Nest classes) drive claims with `melee` events as combat
 reports them. `npm run sim -- --seed 1 --minutes 35 --bots 12` twice: `56e1571ac513c9e4` both times. **Budget (GDD
 §6.12, 0.1 ms):** a whole 35-minute 12-bot match costs +0.028 and +0.032 ms/tick with neutrals on (two pairs of runs
