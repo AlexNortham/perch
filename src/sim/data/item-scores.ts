@@ -57,7 +57,6 @@ const HEROES: Readonly<Record<string, readonly [string, string, string]>> = {
 };
 
 const tierOf = new Map(ITEMS.map((i) => [i.id, i.tier]));
-const componentOf = new Map(ITEMS.map((i) => [i.id, i.component]));
 
 /** "Each Stage 4 item enters a hero's list just before the first listed item of a higher tier." */
 function withStage4(list: readonly ItemId[], extra: readonly ItemId[]): ItemId[] {
