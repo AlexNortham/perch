@@ -28,7 +28,7 @@ export function createTargeting(ctx: SimContext) {
     let bestCos = COS_CONE;
     for (const id of near(ctx, f, h.pos, range, scratch)) {
       const e = ctx.store.get(id);
-      if (!e || id === h.id || !matches(f, h.team, h.id, e) || e.stats?.conditions.has('intangible')) continue;
+      if (!e || id === h.id || !matches(f, h.team, h.id, e) || ('stats' in e && e.stats.conditions.has('intangible'))) continue;
       if (e.team !== h.team && !canSee(h.team, e)) continue;
       const c = centre(e);
       const v = sub(c, ray.origin);

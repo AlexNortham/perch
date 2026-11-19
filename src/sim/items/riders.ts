@@ -15,7 +15,8 @@ export function createRiders(ctx: SimContext): void {
 
   /** Raw Talon damage that lands as `amount` after the target's resist and amplification (GDD §5.2 steps 5 and 6). */
   const raw = (id: EntityId, amount: number): number => {
-    const s = ctx.store.get(id)?.stats?.final;
+    const t = ctx.store.get(id);
+    const s = t && 'stats' in t ? t.stats.final : undefined;
     if (!s) return amount;
     const resist = Math.min(COMBAT.resistMax, Math.max(COMBAT.resistMin, s.talonResist - s.talonShred));
     return amount / Math.max(MIN_FACTOR, (1 - resist) * (1 + Math.min(COMBAT.ampCap, s.talonAmp)));
