@@ -800,3 +800,87 @@ serially (median of 5) and is a step in `scripts/check.sh` after `test`. The thr
 `src/sim/abilities/fixtures.ts` so the perf test can share them; the physics determinism test moved with its timed
 `cityRun`. Serial numbers: world +0.339 ms/tick (budget 0.5), physics 0.34 ms (1), abilities 0.034 ms (0.3), combat
 0.088 ms (0.3). Budgets unchanged. (This supersedes "found, not fixed (a)" above.)
+
+### W3 · QA gate · 19/11/2026
+**Verdict: APPROVE** (`integrate/w3` at c5aeb33), with follow-ups for wave 4. Nothing found breaks a Stage 2 gate item
+or leaves a contract problem that would be expensive to fix later. One housekeeping item before the merge: PLAYABLE.md
+still has only the "Next, Stage 2" teaser (line 33), no "Stage 2 (M1)" section (D-EP-017, the EP's step).
+**Verified (my own runs, this checkout):**
+- `npm run check` → PASS typecheck 12 s, lint 8 s, test 13 s (45 files, 499 tests), perf 16 s (5 files, 6 tests), sim 6 s,
+  e2e 20 s (10 tests incl. `e2e/play.spec.ts` and `e2e/options.spec.ts`); check 76 s. Pods, fledglings and damage suites
+  are always on (no skips or `PERCH_PENDING` in `tests/rules`).
+- Determinism: `npm run sim -- --seed 1 --minutes 35 --bots 12` twice → hash 52196bc3abdb2fe3 both times (matches the
+  integration run); the 3-minute check sim hash is a8d14facda91c2fa.
+- Sim purity: no Math.random, clocks, console, DOM, Node APIs or client/three imports in `src/sim` outside tests; the
+  only RNG use is `ctx.rng.stream('combat')` (guns.ts:108, geometry.ts:120-122); no `Object.keys` or `for…in` order
+  dependence outside the sorted hash walk.
+- Ownership: every non-merge commit stays in its owner's paths. Exceptions, all recorded: `W3 integration (…)` commits
+  (D-EP-018), and `0a670e0` (EP, D-EP-022), which touched Build's files (`package.json`, `scripts/check.sh`, `vite.config.ts`,
+  `vitest.perf.config.ts`) and moved five timing tests in Combat, Physics, Abilities, World and map test files. Accepted.
+- Perf, Node, 35-minute run (126,000 ticks, 12 bots, ~150 fledglings): **0.234 ms/tick mean**, p50 0.202, p99 0.73,
+  p99.9 2.0 (budget 1.0 mean). By 5-minute window 0.214 to 0.252 ms: flat, no leak. Worst ticks: tick 0 is 193 ms (Rapier and
+  JIT warm-up, once); then 24 ticks over 3 ms, max 5.9 ms (tick 1800 = the 30 s wave spawn; others look like GC). The
+  worst-tick budget is 3 ms (ARCHITECTURE §8). The CLI run took 29.3 s each time against 13.4 s in the integration
+  entry: this machine was busier, the hash is identical. `npm run perf` (serial, median of 5): world 166 fledglings
+  +0.332 ms (budget 0.5), physics 0.274 ms (1), abilities 0.035 ms (0.3; 0.142 with 96 areas live), combat 0.083 ms (0.3).
+- Draw calls (Edge, 1920×1080, `window.__perchRender.info()`, lane at t=100 s with ~150 fledglings and the VFX layer):
+  25 low, 41 medium and high, about 57k triangles; 12 heroes in `?scene=match` at t=100 s: 113 low, 216 medium and high,
+  about 74k triangles. 120 fps in the headless Edge here (not a mid-range iGPU, so not proof of the 60 fps budget).
+- Lint: 117 warnings, 0 errors, all `no-magic-numbers`: `src/client/vfx` 57 (bound.ts 39, fx.ts 15, mapping.ts 3),
+  `src/sim/abilities` 34 (all in `fixtures.ts`), `src/client/ui` 24 (hud.ts 11, constants.ts 7, bindings, display,
+  options 2 each), `src/sim/economy` 2, `src/client/input` 1; nothing in camera, render, physics, combat, world or heroes.
+  The VFX count fell from about 240 to 57.
+- Screenshots read (out/qa/): menu.png (Play, Options over the lit map); heroselect.png (4 PICK, 20 COMING SOON, counted
+  in the page text too); options.png (every action with a key button, sliders, quality, Reset); lane-shrike, lane-albatross,
+  lane-kingfisher, lane-lyrebird.png (distinct bodies, HUD with four named slots and ammo); hitbox.png (`--param hitboxes=1`:
+  red head sphere inside the visible head, green body capsule); fled-fight2.png (`--t 100 --param renderCam=-95,10,-20,-95,0,6`:
+  Dawn and Dusk fledglings meeting in Hedgerow, a Slinger shot in flight). A hand run (Play, pick Kingfisher, W, 1, 2, 3,
+  fire): hero spawned at the Dawn gate, moved 30 m, `shotsFired` 3, no console errors (play-kingfisher.png).
+
+**Gate evidence**
+| Gate item | Proof | State |
+|---|---|---|
+| Run, jump | controller.test.ts:121, 164, 184; e2e/play.spec.ts (W moves more than 3 m) | proven |
+| Dash, dash-jump | controller.test.ts:200, 225, 268, 288 | proven in sim; the e2e holds Shift but would pass on W alone (play.spec.ts:38-41), so unproven in the browser |
+| Slide | controller.test.ts:307, 328, 343 | proven in sim |
+| Mantle | controller.test.ts:362, 383 | proven in sim |
+| Updrafts | controller.test.ts:453, 533 (mount, boost, dismount, climb) | proven in sim; no screenshot or browser run |
+| Beak shots | combat/guns.test.ts:72, 85; effects.test.ts:245; each hero's "×1.65 on the head" test (shrike.test.ts:49, albatross:53, kingfisher:52, lyrebird:56) | proven in sim; hitbox.png shows the head volume |
+| Four abilities | one runtime test per ability and tier for Shrike, Albatross, Kingfisher, Lyrebird (4 heroes × 4 abilities, none missing); hand run cast 1-3 as Kingfisher with no errors | proven. Lyrebird Echo Double T2 and T3 (fan of two, burst) is data-shape only (lyrebird.test.ts:162); the framework tests it generically (abilities/followups.test.ts:93, 105) |
+| Fledglings march and fight | tests/rules/fledglings.test.ts:131-309 (11 tests: waves, column, march, targeting, leash, damage); world.perf.test.ts; fled-fight2.png | proven |
+| Pods secured, denied | tests/rules/pods.test.ts:133 (secure), :148 (deny), :185 (wither), :233 (a real bullet secures) | proven in sim; pods were not looked at in a screenshot |
+| Options, rebinding, persists after restart | e2e/options.spec.ts:28 (rebind, swap, Esc, reload), :54 (rebound Pause), :67 (rebound Jump); options.png | proven (a reload in one context = localStorage; no cold restart) |
+| Launchable from the menu | hand run through Play and the hero card; heroselect.png | proven by hand; no committed e2e clicks Play and picks a hero |
+| PLAYABLE.md "Stage 2 (M1)" | not written | open (EP) |
+
+**Findings by owner** (none blocks)
+- *Rendering & VFX:* `src/client/vfx/bound.ts:11`, `constants.ts:2`, `mapping.ts:6` import `render/palette`, and `vfx/index.ts:12`
+  imports `render/host`, while `render/entities.ts:17` imports `vfx/drawn`: a render-vfx import cycle, against
+  `app/contracts.ts:3`. Move palette and `drawnByVfx` into `app/` or a shared client folder. 57 magic-number warnings
+  (bound.ts 39, fx.ts 15). `render/index.ts:248` dev hook is fine (DEV only). No renderer test asserts a draw-call budget
+  (my W2 follow-up, still open; the numbers above are the baseline).
+- *UI/HUD:* `src/client/ui/bindings.ts:3` imports `rebind` from `../input` (the one swap rule, deliberate in d522c02, but still
+  a module reaching into another's internals) and `ui/constants.ts:3` imports `render/palette`; 24 magic-number warnings
+  (hud.ts 11, constants.ts 7). Esc-to-pause reports twice and relies on a 100 ms dedupe (integration note c).
+- *Ability Systems / EP:* `src/sim/abilities/fixtures.ts` is a test fixture under a lint-scoped file name, so its 34 gameplay-number
+  warnings count; move it under `tests/helpers/` or exclude it in eslint.
+- *Economy:* `src/sim/economy/index.ts:57` bare `60` (seconds per minute) in the fledgling value growth; use a named constant.
+  Pod orb radius is 0.25 m (data/economy.ts:35): a real-bullet test passes, but nobody has tried it by hand at lane range
+  inside the 1.4 s ripe window; check before wave 4 builds item effects on securing.
+- *Objectives:* `src/sim/world/fledglings.ts:33` reads Character Controller's `data/movement` (AIR, GROUND); acceptable as data, but
+  say so in INTERFACES or copy the two numbers into `data/world.ts`.
+- *Architect:* `app/contracts.ts:3` says modules never import each other's internals, but camera, render and vfx all import
+  `app/loop` (`entityById`, `interpolate`), and `app/settings.ts:1` imports `input`. Document `app/loop` as shared, or move it
+  under `contracts`. Client code also imports `sim/heroes/registry` (8 files) beyond the list in contracts.ts:3-5.
+- *Core / Combat / Controller:* worst tick is 5.9 ms against the 3 ms budget, 24 ticks in 126,000 (wave spawn at tick 1800 and
+  probably GC); the mean is 0.234 ms. Worth a look when W4 adds structures and items; the first tick costs 193 ms (warm-up).
+- *Hero A:* Lyrebird Echo Double T2/T3 has no runtime test through the hero (lyrebird.test.ts:162). Hero smoke tests are
+  otherwise complete: every ability and tier of all four heroes.
+- *QA (me), wave 4 start:* (1) strengthen play.spec.ts so the dash is measured (distance in 150 ms above run speed);
+  (2) an e2e for Play, hero card, lane; (3) an Updraft browser or screenshot check; (4) renderer draw-call budget test and
+  an `npm run sim` worst-tick check (from the W2 follow-ups); (5) the wave 4 suites deferred by D-EP-021 (structures, levels,
+  AP, shop) before the implementers start.
+- *EP:* PLAYABLE.md "Stage 2 (M1)" before the fast-forward; STATUS "Now" still says W3 running.
+**Blocked:** nothing. Nothing under `src/`, `tests/` or `e2e/` was changed; my scratch scripts live in the session scratchpad and
+`out/qa/` (gitignored).
+**Next:** EP writes PLAYABLE.md and fast-forwards `main`; QA writes the wave 4 test-first suites first thing in wave 4.
