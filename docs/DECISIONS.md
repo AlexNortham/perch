@@ -1285,3 +1285,31 @@ Porting the same algorithm Node uses keeps old hashes and costs about 2× per ca
 budget. Rapier is the same WASM on both sides and matched tick for tick, so the deterministic Rapier build
 (D-ARCH-007's fallback) is not needed. Large arguments (|x| > 2^19·π/2) skip Payne–Hanek reduction: still
 deterministic, less accurate, and the sim never gets there (marked `ponytail:` in dmath).
+
+### D-EP-038 · 19/11/2026 — Hold to upgrade on the HUD ability bar
+**Decision:** supersedes the tap-to-open Ability Upgrades panel from D-EP-028 and D-ARCH-019.
+- **Holding** the upgrade binding (Left Alt by default) enters upgrade mode. Aiming pauses and a cursor appears
+  over the HUD.
+- While it is held, clicking an ability icon on the existing HUD bar, or pressing that ability's key (1–4), unlocks
+  or upgrades it when affordable.
+- Hovering an icon shows its description, the next tier's effect, the AP cost and unspent AP, or why it is locked or
+  maxed.
+- Releasing the key resumes aiming immediately.
+- There is **no separate menu**. Holding the key frees the mouse: the real cursor where the browser allows an instant
+  re-lock, otherwise a game-drawn cursor with pointer lock kept. Releasing the key locks the mouse back into aiming
+  immediately, with no extra click. The engineer proves which route each of Edge, Chrome and Firefox gets.
+- The accessible names QA relies on carry over to the HUD icons (`Upgrade <ability>` with the unavailable reason).
+- The Practice Hub keeps its 32 AP and uses the same mechanism.
+- Ships with Stage 4 (UI/HUD and Camera & Input in wave 5) and is a Stage 4 gate item.
+**Why:** the user's instructions: the upgrade menu should be a hold that frees the mouse to click the existing ability
+icons, or press the ability button, to unlock and upgrade; releasing it locks the mouse again; it is not a separate menu.
+
+### D-EP-039 · 19/11/2026 — No Interact key
+**Decision:** the Interact binding (E) is removed. Updrafts are mounted by holding Jump near the cable (anywhere along
+it, within a reach the Director sets), the Golden Egg is picked up by melee, Egg delivery is automatic in the delivery
+zone, the Phoenix Ember stays a heavy-melee claim, and climbs and interior interactables use movement, jump, melee or
+shooting. The Director writes the exact rules (including how to leave an Updraft) into the GDD in W4.5, the Architect
+retires the command bit and migrates saved bindings, and Input, Physics, Objectives, UI and the wiki implement it in
+wave 5. It is a Stage 4 gate item; the Stage 3 release keeps E until then.
+**Why:** the user's instruction: there should be no interact key; the Egg is picked up by melee, and getting on a
+zipline is triggered by holding Jump near it.
