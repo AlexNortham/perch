@@ -30,6 +30,7 @@ async function landed() {
   sb.step(2);
   advanceBy(sb, LANDING_S + 0.5);
   const egg = eggOf(sb)!;
+  expect(egg, '§7.11 the Egg has landed by 10:10').toBeDefined();
   return { sb, courier, escort, foe, egg };
 }
 
