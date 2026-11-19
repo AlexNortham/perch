@@ -158,7 +158,9 @@ describe('W4 earnings and AP', () => {
 describe('W4 shop transactions', () => {
   it('§§8.7–8.8 the 16-item catalogue spans four tiers and trades validate own zone, funds, ownership and uniqueness', async () => {
     const { sb, buyer, enemy } = await market(2 * ITEM_COST);
-    expect(sb.sim.itemCatalogue.map((item) => item.id).sort()).toEqual([...ITEMS].sort());
+    const catalogue = sb.sim.itemCatalogue.map((item) => item.id);
+    expect(catalogue, 'the 16 Stage 3 items are still sold').toEqual(expect.arrayContaining([...ITEMS]));
+    expect(catalogue, 'W5: the full 64-item catalogue (D-EP-034)').toHaveLength(64);
     expect(new Set(sb.sim.itemCatalogue.map((item) => item.tier))).toEqual(new Set([1, 2, 3, 4]));
     const h = sb.hero(buyer);
     const stall = ownShop(sb, 'dawn', 'stall');

@@ -1,6 +1,7 @@
 /** Earned Seeds, Molts, bounties and flock unlocks (GDD §8). */
 import type { EntityId, HeroEntity, PlayerTeam, SeedReason, SystemFactory, Team } from '../core/contracts';
 import { distSq } from '../core/math';
+import * as dmath from '../core/dmath';
 import { TICK_RATE } from '../data/core';
 import { ECONOMY } from '../data/economy';
 
@@ -206,7 +207,7 @@ export const createEconomySystem: SystemFactory = (ctx) => {
       const n = ECONOMY.egg.pods;
       for (let i = 0; i < n; i++) {
         const a = (i / n) * 2 * Math.PI;
-        const pos = { x: e.pos.x + Math.sin(a) * ECONOMY.egg.ringM, y: e.pos.y + POD.riseM, z: e.pos.z + Math.cos(a) * ECONOMY.egg.ringM };
+        const pos = { x: e.pos.x + dmath.sin(a) * ECONOMY.egg.ringM, y: e.pos.y + POD.riseM, z: e.pos.z + dmath.cos(a) * ECONOMY.egg.ringM };
         const pod = store.spawn({ kind: 'pickup', team: e.team, pos, vel: { x: 0, y: POD.riseM / POD.riseS, z: 0 }, yaw: 0, radius: POD.radius,
           pickup: { type: 'pod', variant: 'golden', value: e.value / n, expiresAt: clock.tick + LIFE_TICKS, carrier: null } });
         pods.set(pod.id, { spawn: clock.tick, value: e.value / n, team: e.team, y0: pos.y, golden: { courier: e.hero, flock: e.team } });
