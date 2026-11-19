@@ -1,6 +1,6 @@
 // Fledgling rules suite, written test-first from GDD §7.1 and the unit contracts (entity.ts UnitInfo, events.ts
-// wave.spawned, damage.applied; SimContext.objectives) (D-EP-006). Pending until Objectives lands (W3):
-// `PERCH_PENDING=1 npx vitest run tests/rules/fledglings.test.ts`.
+// wave.spawned, damage.applied; SimContext.objectives) (D-EP-006). Always on since the wave 3
+// integration (the 20-minute test costs about 2 s, so it stays in).
 //
 // Real waves on the real map. Heroes are sandbox heroes placed relative to a fledgling every tick; their damage is a
 // `damage` effect. Targeting is re-picked every 0.5 s (§7.1), so each check allows that long.
@@ -11,7 +11,6 @@ import { laneOf, offset, progress, project } from '../helpers/lanes';
 import { createSandbox } from '../helpers/sandbox';
 import type { Sandbox, SandboxHero } from '../helpers/sandbox';
 
-const PENDING = process.env.PERCH_PENDING === '1';
 const TIMEOUT_MS = 120_000;
 const LONG_TIMEOUT_MS = 600_000;
 
@@ -128,7 +127,7 @@ function hitsOver(sb: Sandbox, n: number, each: () => void, source: EntityId, ta
   return out;
 }
 
-describe.runIf(PENDING)('fledgling waves (GDD §7.1)', () => {
+describe('fledgling waves (GDD §7.1)', () => {
   it('§7.1: the first wave spawns at 0:30, then every 30 s, and ObjectiveState.nextWaveAt announces it', async () => {
     const sb = await match();
     sb.step();
@@ -208,7 +207,7 @@ describe.runIf(PENDING)('fledgling waves (GDD §7.1)', () => {
   }, TIMEOUT_MS);
 });
 
-describe.runIf(PENDING)('fledgling targeting and attacks (GDD §7.1)', () => {
+describe('fledgling targeting and attacks (GDD §7.1)', () => {
   /** A Dawn hero, a Dusk hero and the first wave; returns the Dawn Hedgerow leader 2 s after it spawned. */
   async function lead(): Promise<{ sb: Sandbox; ally: EntityId; foe: EntityId; f: UnitEntity; w: Wave }> {
     const sb = await match([
@@ -306,7 +305,7 @@ describe.runIf(PENDING)('fledgling targeting and attacks (GDD §7.1)', () => {
   }, TIMEOUT_MS);
 });
 
-describe.runIf(PENDING)('wave composition over a match (GDD §7.1; slow: 20 sim minutes)', () => {
+describe('wave composition over a match (GDD §7.1; slow: 20 sim minutes)', () => {
   it('§7.1: 24 per wave until 9:59, 30 from 10:00, 36 from 20:00; HP scaling fixed at spawn', async () => {
     const sb = await match();
     const waves: { wave: number; tick: number; scrapper: number; slinger: number; hp: number[] }[] = [];

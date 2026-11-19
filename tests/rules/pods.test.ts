@@ -1,6 +1,6 @@
 // Seed pod rules suite, written test-first from GDD §8.1–§8.2 and the pickup/pod contracts (entity.ts PickupInfo,
-// events.ts projectile.impact, melee, pod.resolved, seeds.gained) (D-EP-006). Pending until Economy lands (W3):
-// `PERCH_PENDING=1 npx vitest run tests/rules/pods.test.ts`.
+// events.ts projectile.impact, melee, pod.resolved, seeds.gained) (D-EP-006). Always on since
+// the wave 3 integration.
 //
 // Fledglings are sandbox dummies on the Riverbank lane, killed with a `damage` effect from a hero. Pod hits are fake
 // combat events (`projectile.impact` / `melee` with the pod as target, exactly what sim/combat reports) so the rules
@@ -12,7 +12,6 @@ import { laneLength, laneOf, offset, pointAt } from '../helpers/lanes';
 import { createSandbox } from '../helpers/sandbox';
 import type { Sandbox } from '../helpers/sandbox';
 
-const PENDING = process.env.PERCH_PENDING === '1';
 const TIMEOUT_MS = 120_000;
 
 /** GDD §8.2: fledgling base values and growth. */
@@ -95,15 +94,17 @@ function paid(sb: Sandbox, hero: EntityId, reasons: readonly SeedReason[] = PAYO
     .reduce((sum, e) => sum + e.amount, 0);
 }
 
-/** What sim/combat reports when a bullet passes through a pod (entity.ts PickupInfo, events.ts). */
-function shootPod(sb: Sandbox, by: EntityId, pod: EntityId): void {
-  const pos = { ...sb.entity(pod).pos };
-  sb.ctx.bus.emit({ type: 'projectile.impact', owner: by, pos, normal: { x: 0, y: 1, z: 0 }, target: pod, beakShot: false });
+/**
+ * What sim/combat reports when a bullet passes through a pod (entity.ts PickupInfo, events.ts). `pos` is where the pod
+ * was: a resolved pod despawns, so a shot at it afterwards can't read its position and must be given the old one.
+ */
+function shootPod(sb: Sandbox, by: EntityId, pod: EntityId, pos: Vec3 = sb.entity(pod).pos): void {
+  sb.ctx.bus.emit({ type: 'projectile.impact', owner: by, pos: { ...pos }, normal: { x: 0, y: 1, z: 0 }, target: pod, beakShot: false });
 }
 
 const ticks = (s: number): number => Math.round(s * TICK_RATE);
 
-describe.runIf(PENDING)('seed pods (GDD §8.2)', () => {
+describe('seed pods (GDD §8.2)', () => {
   it('§8.2: a last hit pays the killer the instant share, 50% of V, rounded down (§8.1)', async () => {
     const l = await riverbank();
     const { diedAt } = killFledgling(l, 'scrapper', l.killer);
@@ -151,12 +152,13 @@ describe.runIf(PENDING)('seed pods (GDD §8.2)', () => {
     const id = (pod as PickupEntity).id;
     l.sb.step(ticks(RISE_S) + 1);
     l.sb.clearEvents();
-    shootPod(l.sb, l.denier, id);
+    const at = { ...l.sb.entity(id).pos };
+    shootPod(l.sb, l.denier, id, at);
     l.sb.step();
     expect(l.sb.eventsOf('pod.resolved')).toMatchObject([{ pod: id, by: l.denier, outcome: 'denied' }]);
     expect(paid(l.sb, l.denier)).toBe(Math.floor(value('scrapper', diedAt) / 4));
     l.sb.clearEvents();
-    shootPod(l.sb, l.killer, id);
+    shootPod(l.sb, l.killer, id, at);
     l.sb.step();
     expect(l.sb.eventsOf('pod.resolved')).toHaveLength(0);
     expect(paid(l.sb, l.killer)).toBe(0);
