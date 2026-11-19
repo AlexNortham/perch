@@ -61,9 +61,22 @@ export interface Req {
   shot: GunShot | null;
   /** A gun hit on the Patron's weak point. */
   weak: boolean;
-  /** Conditional bonuses, missing-HP part and execute, for `damage` effects. */
+  /** Conditional bonuses, %HP parts and execute, for `damage` effects. */
   effect: DamageEffect | null;
+  /** A heavy melee swing (StructureInfo.breakable 'heavyMelee', its `heavy` amount). */
+  heavy: boolean;
+  /** A repeat of an earlier hit on this target (D-SYS-014): the final amount, which skips steps 1–7; else −1. */
+  repeat: number;
   readonly point: Vec3;
+}
+
+/** The hit whose `damage.applied` is being handled, for `triggerPct` (D-SYS-014). */
+interface TriggerHit {
+  readonly target: EntityId;
+  /** After step 5, before the target's resists. */
+  readonly preResist: number;
+  /** After step 7: what the event reports. */
+  readonly amount: number;
 }
 
 export interface Damage {
@@ -79,6 +92,11 @@ export interface Damage {
   shield(fx: ShieldEffect, target: EffectTarget, cause: EffectCause): void;
   /** `cause` healed, shielded or buffed `e` (assist ledger). */
   supported(cause: EffectCause, e: Damageable): void;
+  /**
+   * A status was applied with `cause`: if that happened while a hit's `damage.applied` was being handled, `triggerPct`
+   * damage in the status's onExpire effects later refers to that hit (a delayed repeat, Echo Chamber, D-SYS-014).
+   */
+  bind(cause: EffectCause): void;
   inCombat(e: HeroEntity): void;
   levelUp(hero: EntityId, level: number): void;
   /** Statuses phase: heals over time, shield expiry and recharge, regeneration, level-up heals, respawns. */
@@ -134,6 +152,14 @@ export function createDamage(
   const supporters = new Map<EntityId, Map<EntityId, number>>();
   const headScratch = { x: 0, y: 0, z: 0 };
   const interval = EFFECT_TICK_SECONDS * TICK_RATE;
+  /** The hit being reported on the bus right now, or null (D-SYS-014). */
+  let live: TriggerHit | null = null;
+  /** Causes of statuses applied while a hit was reported → that hit (delayed repeats). */
+  const bound = new WeakMap<EffectCause, TriggerHit>();
+  /** GDD §7.12 Rekindle: hero → the `until` of the buff it already revived under. */
+  const revivedUnder = new Map<EntityId, number>();
+  /** Heroes waiting to revive → where they fell. */
+  const revivals = new Map<EntityId, Vec3>();
 
   const note = (ledger: Map<EntityId, Map<EntityId, number>>, key: EntityId, who: EntityId): void => {
     let m = ledger.get(key);
@@ -259,10 +285,20 @@ export function createDamage(
     const now = ctx.clock.tick;
     const assisters = e.kind === 'hero' ? assistsFor(e, credit) : [];
     e.health.hp = 0;
+    let revives = false;
     if (e.kind === 'hero') {
       e.health.dead = true;
       const ember = ctx.teams[e.team].emberUntil > now;
-      e.health.respawnAt = now + ticks(e.hero.training ? COMBAT.trainingResetS : respawnSeconds(ctx.clock.seconds, ember));
+      // GDD §7.12: with a Rekindle charge, once per hero per buff, the hero revives where it fell.
+      const rk = ctx.teams[e.team].rekindle;
+      revives = !e.hero.training && rk !== undefined && rk.charges > 0 && rk.until > now && revivedUnder.get(e.id) !== rk.until;
+      if (revives && rk) {
+        revivedUnder.set(e.id, rk.until);
+        revivals.set(e.id, copy(e.pos));
+      }
+      e.health.respawnAt = now + ticks(
+        e.hero.training ? COMBAT.trainingResetS : revives ? COMBAT.reviveS : respawnSeconds(ctx.clock.seconds, ember),
+      );
       e.weapon.reloading = false;
       e.weapon.firing = false;
       delete e.weapon.meleePose;
@@ -292,10 +328,62 @@ export function createDamage(
       via: cause.via,
       beakShot,
       pos: copy(e.pos),
+      ...(revives && { revives: true }),
     });
     statuses.clear(e);
     dropHealth(e.id);
   };
+
+  /** GDD §7.8, §7.12: inside a neutral unit's damage region (a sphere, cut off above maxY). */
+  const inRegion = (r: NonNullable<UnitEntity['unit']['damageFrom']>, p: Vec3): boolean =>
+    (r.maxY === undefined || p.y <= r.maxY) &&
+    (p.x - r.centre.x) ** 2 + (p.y - r.centre.y) ** 2 + (p.z - r.centre.z) ** 2 <= r.radius * r.radius;
+
+  /**
+   * Steps 1–7 of GDD §5.2 for a hit on `e`. Returns the damage and writes the amount before the target's resists
+   * (after step 5) into `pre[0]`.
+   */
+  const pipeline = (r: Req, e: Damageable, src: Entity | undefined, pre: number[]): number => {
+    const st = e.stats.final;
+    const ss = src && 'stats' in src ? src.stats.final : null;
+    const via = r.cause.via;
+    const talon = r.type === 'talon';
+    const fx = r.effect;
+    const max = st.maxHealth;
+    // 1. Base (+ % of missing, current and max hp).
+    let dmg = r.base;
+    if (fx?.missingHpPct !== undefined) dmg += ctx.effects.magnitude(fx.missingHpPct, r.cause) * Math.max(0, max - e.health.hp);
+    if (fx?.currentHpPct !== undefined) dmg += ctx.effects.magnitude(fx.currentHpPct, r.cause) * e.health.hp;
+    if (fx?.maxHpPct !== undefined) dmg += ctx.effects.magnitude(fx.maxHpPct, r.cause) * max;
+    // 2. Falloff.
+    dmg *= r.falloff;
+    // 3. Beak shot (head hitbox only, so never on units or structures).
+    if (r.beak === Beak.Gun) dmg = dmg * (r.beakMult + (ss?.beakShotBonus ?? 0)) + (r.shot?.beakFlat ?? 0);
+    else if (r.beak === Beak.Ability) dmg *= r.beakMult;
+    // 4. Outgoing bonuses: additive within the step, applied once.
+    let out = 0;
+    if (via === 'weapon') out += (ss?.gunDamage ?? 0) + r.gunBonus;
+    if (ss && !talon) out += ss.songDamage;
+    if (fx?.bonus) for (const b of fx.bonus) if (bonusHolds(b, e, src, r.cause)) out += b.mult - 1;
+    dmg *= 1 + out;
+    // 5. Incoming amplification, capped, plus the melee-taken bonus for light and heavy melee: additive in the step.
+    const melee = via === 'melee' ? st.meleeDamageTaken : 0;
+    dmg *= Math.max(0, 1 + Math.min(COMBAT.ampCap, talon ? st.talonAmp : st.songAmp) + melee);
+    pre[0] = dmg;
+    // 6. Resist: stacked (by the stat model) minus shred, clamped.
+    const resist = talon ? st.talonResist - st.talonShred : st.songResist - st.songShred;
+    dmg *= 1 - clamp(resist, COMBAT.resistMin, COMBAT.resistMax);
+    // 7. Structure rules.
+    dmg *= st.damageTaken;
+    if (e.kind === 'structure') {
+      if (via === 'area' || via === 'status') dmg = 0;
+      else if (via === 'melee') dmg *= COMBAT.structureMeleeMult;
+      else if (!talon) dmg *= COMBAT.structureSongMult;
+      if (via === 'weapon' && r.weak) dmg *= COMBAT.weakPointMult;
+    }
+    return dmg;
+  };
+  const preScratch = [0];
 
   const dropHealth = (id: EntityId): void => {
     let n = 0;
@@ -328,36 +416,28 @@ export function createDamage(
     const max = st.maxHealth;
     const firstPhase = e.kind === 'structure' && e.structure.type === 'patron' && e.structure.phase === 1;
     if (firstPhase && depletedPatrons.has(e)) return;
-
-    // 1. Base (+ % of missing hp).
-    let dmg = r.base;
-    // Magnitudes (D-ARCH-015): numbers today, value names once the W3.5 round widens the types.
-    if (fx?.missingHpPct !== undefined) dmg += ctx.effects.magnitude(fx.missingHpPct, r.cause) * Math.max(0, max - e.health.hp);
-    // 2. Falloff.
-    dmg *= r.falloff;
-    // 3. Beak shot (head hitbox only, so never on units or structures).
-    if (r.beak === Beak.Gun) dmg = dmg * (r.beakMult + (ss?.beakShotBonus ?? 0)) + (r.shot?.beakFlat ?? 0);
-    else if (r.beak === Beak.Ability) dmg *= r.beakMult;
-    // 4. Outgoing bonuses: additive within the step, applied once.
-    let out = 0;
-    if (via === 'weapon') out += (ss?.gunDamage ?? 0) + r.gunBonus;
-    if (ss && !talon) out += ss.songDamage;
-    if (fx?.bonus) for (const b of fx.bonus) if (bonusHolds(b, e, src, r.cause)) out += b.mult - 1;
-    dmg *= 1 + out;
-    // 5. Incoming amplification, capped.
-    dmg *= 1 + Math.min(COMBAT.ampCap, talon ? st.talonAmp : st.songAmp);
-    // 6. Resist: stacked (by the stat model) minus shred, clamped.
-    const resist = talon ? st.talonResist - st.talonShred : st.songResist - st.songShred;
-    dmg *= 1 - clamp(resist, COMBAT.resistMin, COMBAT.resistMax);
-    // 7. Structure rules.
-    dmg *= st.damageTaken;
-    if (cond.has('invulnerable')) dmg = 0;
-    if (e.kind === 'structure') {
-      if (via === 'area' || via === 'status') dmg = 0;
-      else if (via === 'melee') dmg *= COMBAT.structureMeleeMult;
-      else if (!talon) dmg *= COMBAT.structureSongMult;
-      if (via === 'weapon' && r.weak) dmg *= COMBAT.weakPointMult;
+    // Neutral units: a hit counts only while its credited hero stands inside the unit's region (the Roc's Hollow,
+    // a dormant camp's 35 m; GDD §§7.8, 7.12).
+    if (e.kind === 'unit' && e.unit.damageFrom) {
+      const by = creditOf(r.cause.source);
+      const hero = by === null ? undefined : ctx.store.getKind(by, 'hero');
+      if (hero && !inRegion(e.unit.damageFrom, hero.pos)) return;
     }
+    // Breakables (Nests, Bell Feeders, GDD §§7.9, 7.14): only what `by` allows; a melee hit may deal a fixed amount.
+    const brk = e.kind === 'structure' ? e.structure.breakable : undefined;
+    if (brk && brk.by !== 'any' && (via !== 'melee' || (brk.by === 'heavyMelee' && !r.heavy))) return;
+    const fixed = brk && via === 'melee' ? (r.heavy ? brk.heavy : brk.light) : undefined;
+
+    // Steps 1–7, except for a fixed breakable amount and a repeat (both already final).
+    let dmg: number;
+    let preResist: number;
+    if (r.repeat >= 0) dmg = preResist = r.repeat;
+    else if (fixed !== undefined) dmg = preResist = fixed;
+    else {
+      dmg = pipeline(r, e, src, preScratch);
+      preResist = preScratch[0] ?? dmg;
+    }
+    if (cond.has('invulnerable')) dmg = 0;
     if (!(dmg > 0)) return;
     if (r.beak === Beak.Gun && r.shot) r.shot.beakFlat = 0;
     // 8. Shields.
@@ -390,6 +470,9 @@ export function createDamage(
         if (creditHero.team !== e.team) note(damagers, e.id, creditHero.id);
       }
     }
+    // Effects applied while this event is handled (item and ability triggers) can refer to this hit (triggerPct).
+    const outer = live;
+    live = { target: e.id, preResist, amount: dmg };
     ctx.bus.emit({
       type: 'damage.applied',
       source: r.cause.source,
@@ -408,6 +491,7 @@ export function createDamage(
       lethal,
       pos: copy(r.point),
     });
+    live = outer;
     if (depleted) ctx.bus.emit({ type: 'patron.depleted', structure: e.id });
     if (saved?.def.onLethal) {
       const dir = { x: dmath.sin(e.yaw), y: 0, z: dmath.cos(e.yaw) };
@@ -430,16 +514,20 @@ export function createDamage(
     s.trainingResetAt = null;
     h.weapon.ammo = Math.round(h.stats.final.magazine);
     h.weapon.reloading = false;
-    h.pos.x = s.spawn.pos.x;
-    h.pos.y = s.spawn.pos.y;
-    h.pos.z = s.spawn.pos.z;
+    // Rekindle revives where the hero fell (GDD §7.12); everyone else respawns at the Home Roost.
+    const fell = revivals.get(h.id);
+    revivals.delete(h.id);
+    const at = fell ?? s.spawn.pos;
+    h.pos.x = at.x;
+    h.pos.y = at.y;
+    h.pos.z = at.z;
     h.vel.x = 0;
     h.vel.y = 0;
     h.vel.z = 0;
     s.nextFire = now;
     s.lockout = now;
     s.parryReady = Math.min(s.parryReady, now);
-    ctx.bus.emit({ type: 'hero.respawned', hero: h.id, pos: copy(h.pos) });
+    ctx.bus.emit({ type: 'hero.respawned', hero: h.id, pos: copy(h.pos), ...(fell && { revived: true }) });
   };
 
   const flushLevelHeal = (s: HeroState): void => {
@@ -454,7 +542,10 @@ export function createDamage(
   const request = (target: EntityId, cause: EffectCause, type: DamageType, base: number, point: Vec3): Req => {
     let r = reqs[count];
     if (!r) {
-      r = { target, cause, type, base, falloff: 1, beak: Beak.None, beakMult: 1, gunBonus: 0, shot: null, weak: false, effect: null, point: copy(point) };
+      r = {
+        target, cause, type, base, falloff: 1, beak: Beak.None, beakMult: 1, gunBonus: 0, shot: null, weak: false, effect: null,
+        heavy: false, repeat: -1, point: copy(point),
+      };
       reqs.push(r);
     } else {
       r.target = target;
@@ -468,6 +559,8 @@ export function createDamage(
       r.shot = null;
       r.weak = false;
       r.effect = null;
+      r.heavy = false;
+      r.repeat = -1;
       r.point.x = point.x;
       r.point.y = point.y;
       r.point.z = point.z;
@@ -490,8 +583,20 @@ export function createDamage(
     effect(fx, target, cause, scale) {
       const e = target.entity === null ? undefined : ctx.store.get(target.entity);
       if (!isDamageable(e)) return;
-      const r = request(e.id, cause, fx.type, ctx.effects.magnitude(fx.amount, cause) * scale, target.point);
+      let base = ctx.effects.magnitude(fx.amount, cause) * scale;
+      let repeat = -1;
+      // triggerPct (D-SYS-014): a share of the hit being reported (or the one a status bound). On another entity it is
+      // a new hit worth that share of the hit before its target's resists; on the same target it repeats the hit: that
+      // share of the damage it dealt, resisted once (no second pass through steps 1–7).
+      const hit = fx.triggerPct === undefined ? null : (live ?? bound.get(cause) ?? null);
+      if (hit && fx.triggerPct !== undefined) {
+        const pct = ctx.effects.magnitude(fx.triggerPct, cause);
+        if (hit.target === e.id) repeat = base + pct * hit.amount;
+        else base += pct * hit.preResist;
+      }
+      const r = request(e.id, cause, fx.type, base, target.point);
       r.effect = fx;
+      r.repeat = repeat;
       if (fx.beakShot) {
         const hr = hb.head(e, headScratch);
         const p = target.point;
@@ -541,6 +646,9 @@ export function createDamage(
       supported(cause, e);
     },
     supported,
+    bind(cause) {
+      if (live) bound.set(cause, live);
+    },
     inCombat,
     levelUp(hero, level) {
       const s = heroes.get(hero);
@@ -608,6 +716,8 @@ export function createDamage(
       dropHealth(id);
       damagers.delete(id);
       supporters.delete(id);
+      revivedUnder.delete(id);
+      revivals.delete(id);
     },
     hash(h) {
       for (const e of ctx.store.list('structure')) {
@@ -626,6 +736,8 @@ export function createDamage(
       }
       h.value(damagers);
       h.value(supporters);
+      h.value(revivedUnder);
+      h.value(revivals);
     },
   };
 }

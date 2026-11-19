@@ -1408,7 +1408,7 @@ describe('wave 5: movement modes, steering and surface dashes', () => {
     ...(endOn ? { endOn } : {}),
   });
 
-  it('endOn: Jump ends a hover, landing ends a flight; a stun ends a cling; without endOn a hover ignores Jump', async () => {
+  it('endOn: Jump ends a hover or a cling, landing ends a flight; without endOn a hover ignores Jump', async () => {
     const b = await bench(null, { x: -20, y: 0, z: -30 });
     b.apply(mode('hover'));
     b.step({ pressed: Button.Jump });
@@ -1422,12 +1422,11 @@ describe('wave 5: movement modes, steering and surface dashes', () => {
     expect(b.h.motor.mode, 'landed').toBeNull();
     expect(b.h.motor.grounded).toBe(true);
     b.place({ x: -20, y: 3, z: -30 });
-    b.apply(mode('cling'));
+    b.apply(mode('cling', ['jump']));
     b.step({}, 10);
     expect(b.h.motor.mode).toBe('cling');
     expect(b.h.pos.y).toBeCloseTo(3, 6);
-    b.sim.ctx.stats.set(b.h.id, 'test', { conditions: ['stunned'] });
-    b.step();
+    b.step({ pressed: Button.Jump });
     expect(b.h.motor.mode).toBeNull();
   });
 

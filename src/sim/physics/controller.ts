@@ -327,6 +327,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
   const { store, bus, map, clock } = ctx;
   const states = new Map<EntityId, HeroState>();
   const lines = updrafts.lines;
+  const hasUpdrafts = lines.length > 0;
   const springs = map.springs ?? [];
   const tunnels = (map.rooms ?? []).filter((r) => r.tag === 'tunnel').map((r) => volume(r.volume));
   const W = { x: 0, y: 0, z: 0 };
@@ -1191,8 +1192,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const held = canMove ? h.command.held : 0;
     const climb = (held & Button.Jump) !== 0 ? mode.vertical : (held & Button.Crouch) !== 0 ? -mode.vertical : 0;
     const jumped = canMove && (h.command.pressed & Button.Jump) !== 0;
-    // A stun drops a clinging hero (Tree Cling, GDD §9.19).
-    if ((jumped && mode.endOn?.includes('jump') === true) || (mode.kind === 'cling' && cond.has('stunned'))) {
+    if (jumped && mode.endOn?.includes('jump') === true) {
       endMode(h);
       return;
     }
@@ -1279,7 +1279,7 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     if (h.health.dead) {
       // Dead heroes stay where they fell; nothing they were doing survives (no onEnd effects).
       interrupt(h);
-      m.updraftInReach = null;
+      if (hasUpdrafts) m.updraftInReach = null;
       s.spring = null;
       s.mode = null;
       if (m.mode !== null) clearMode(h);
@@ -1296,9 +1296,9 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
 
     m.dashJumpReady = false;
     s.jumpHeld = (h.command.held & Button.Jump) !== 0 ? s.jumpHeld + 1 : 0;
-    // The HUD prompt and bots read the cable in reach; physics latches from it (D-EP-039).
-    const inReach = s.ride === null && s.attach === null && updrafts.reach(h.pos, REACH);
-    m.updraftInReach = inReach ? REACH.updraft : null;
+    // The HUD prompt and bots read the cable in reach; physics latches from it (D-EP-039). No Updrafts, nothing to say.
+    const inReach = hasUpdrafts && s.ride === null && s.attach === null && updrafts.reach(h.pos, REACH);
+    if (hasUpdrafts) m.updraftInReach = inReach ? REACH.updraft : null;
     s.tunnel = tunnels.some((v) => within(v, h.pos));
     if (s.attach) return;
     if (s.mantle) mantleTick(h, s, s.mantle);
