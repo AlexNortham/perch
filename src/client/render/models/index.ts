@@ -3,12 +3,13 @@
  * fledglings, and the old team-coloured box for everything else (structures, Patrons, pickups, areas, projectiles
  * and the other units wait for their own models). Rigs and animation live in ../rigs. Owner: Technical Artist.
  */
+import type { Object3D } from 'three';
 import { BoxGeometry, DoubleSide, Mesh, MeshBasicMaterial, MeshLambertMaterial } from 'three';
 import { HERO_IDS, ViewFlag } from '../../../sim/core/contracts';
-import type { HeroId, PlayerTeam, StructureType } from '../../../sim/core/contracts';
+import type { EntityView, HeroId, PlayerTeam, StructureType } from '../../../sim/core/contracts';
 import { STRUCTURE_RADIUS } from '../../../sim/data/world';
 import { HEROES } from '../../../sim/heroes/registry';
-import type { ModelKit } from '../../app/contracts';
+import type { Frame, ModelKit } from '../../app/contracts';
 import { entityById, interpolate } from '../../app/loop';
 import { TEAM_COLOURS } from '../palette';
 import { BirdRig } from '../rigs/bird-rig';
@@ -33,6 +34,10 @@ const PLACEHOLDER_COLOURS = { dawn: 0xe8a33c, dusk: 0x6d6be0, neutral: 0x9a9a9a 
 /** Placeholder box height as a multiple of the entity's radius. */
 const HEIGHT_PER_RADIUS = 4;
 const MIN_SIZE = 0.2;
+const DEBUG_STRUCTURE_SPACING = 12;
+const DEBUG_PATRON_SPACING = 26;
+const DEBUG_ROW_Z = 14;
+const DEBUG_ID_BASE = 900;
 
 export interface ModelKitDebug extends ModelKit {
   /** Show or hide the head sphere and body capsule on every hero model (also on those already created). */
@@ -53,7 +58,7 @@ const isFledgling = (id: string): id is FledglingType => id === 'scrapper' || id
 
 export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitDebug {
   const dev = import.meta.env.DEV && typeof location !== 'undefined' ? readDebugOptions(location.search) : null;
-  const opt: DebugOptions = { hitboxes: false, lineup: [], wave: 0, yaw: 0, states: [], team: 'dawn', ...dev, ...overrides };
+  const opt: DebugOptions = { hitboxes: false, lineup: [], wave: 0, yaw: 0, states: [], team: 'dawn', structures: [], ...dev, ...overrides };
 
   const material = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
   const builds = new Map<string, BirdBuild>();
@@ -65,15 +70,10 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
     dusk: new MeshLambertMaterial({ color: PLACEHOLDER_COLOURS.dusk }),
     neutral: new MeshLambertMaterial({ color: PLACEHOLDER_COLOURS.neutral }),
   };
-  const glow = (hex: number): MeshBasicMaterial => new MeshBasicMaterial({ color: hex });
-  const structureMaterials = (team: PlayerTeam): StructureMaterials => ({
+  const structureMats: StructureMaterials = {
     lit: material,
-    glowOn: glow(TEAM_COLOURS[team].light),
-    glowOff: glow(STRUCTURE.glowOff),
-    glowRaged: glow(STRUCTURE.ragedGlow),
     heart: new MeshBasicMaterial({ color: STRUCTURE.heartColour, side: DoubleSide }),
-  });
-  const structureMats = { dawn: structureMaterials('dawn'), dusk: structureMaterials('dusk') };
+  };
   const domes = new DomeGroup(new MeshBasicMaterial({ color: STRUCTURE.domeColour, transparent: true, opacity: STRUCTURE.domeOpacity, depthWrite: false }));
   const structureBuilds = new Map<string, StructureBuild>();
   const markerMaterial = new MeshBasicMaterial({ vertexColors: true });
@@ -137,6 +137,40 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
       ? createDebugScene(opt, (id) => heroRig(id, opt.team), (type, team) => new FledglingProxy(fledglingGroup(type, team)), syncHitboxes)
       : null;
 
+  /** Dev display row of structures (modelStructure=…), posed through the same rigs as the real ones. */
+  let structRow: { rig: StructureRig; e: EntityView }[] | null = null;
+  const poseStructureRow = (parent: Object3D, at: Object3D, frame: Frame, t: number): void => {
+    if (!structRow) {
+      let x = 0;
+      structRow = opt.structures.map((token) => {
+        const [type = '', states = ''] = token.split(':');
+        const flags = states.split('+');
+        if (!isStructure(type)) return null;
+        const body = { radius: STRUCTURE_RADIUS[type], height: STRUCTURE.hawkColumn };
+        const step = type === 'patron' ? DEBUG_PATRON_SPACING : DEBUG_STRUCTURE_SPACING;
+        x += step / 2;
+        const e = {
+          id: DEBUG_ID_BASE + x, kind: 'structure', team: opt.team, type, pos: { x: at.position.x + x, y: at.position.y, z: at.position.z + DEBUG_ROW_Z },
+          vel: { x: 0, y: 0, z: 0 }, yaw: Math.PI, pitch: 0, radius: body.radius, hp: 1, maxHp: 1, shield: 0, flags: 0, mode: null, seenBy: 3,
+          structure: {
+            type, lane: null, phase: flags.includes('p2') ? 2 : 1, body, target: flags.includes('target') ? 1 : null, broodWard: flags.includes('ward'),
+            ...(flags.includes('tr') && { transitionUntil: Number.MAX_SAFE_INTEGER }),
+            weakPoint: flags.includes('p2') ? { centre: { x: at.position.x + x, y: at.position.y + STRUCTURE.patronHeartUp, z: at.position.z + DEBUG_ROW_Z - STRUCTURE.patronHeartForward }, radius: 1 } : null,
+          },
+        } as EntityView;
+        x += step / 2;
+        const rig = kit.create(e) as StructureRig;
+        parent.add(rig);
+        return { rig, e };
+      }).filter((s): s is { rig: StructureRig; e: EntityView } => s !== null);
+    }
+    for (const { rig, e } of structRow) {
+      rig.position.set(e.pos.x, e.pos.y, e.pos.z);
+      rig.rotation.y = e.yaw;
+      rig.animate(e, frame.dt, t, frame.curr);
+    }
+  };
+
   const kit: ModelKitDebug = {
     create(entity) {
       if (entity.kind === 'hero' && isHero(entity.type) && entity.team !== 'neutral') {
@@ -155,7 +189,7 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
           build = buildStructure(entity.type, entity.team, TEAM_COLOURS[entity.team], body);
           structureBuilds.set(key, build);
         }
-        return new StructureRig(build, structureMats[entity.team], domes);
+        return new StructureRig(build, structureMats, domes);
       }
       const mesh = new Mesh(boxGeometry, boxMaterials[entity.team]);
       const size = Math.max(MIN_SIZE, entity.radius * 2);
@@ -174,6 +208,7 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
         const hidden = (entity.flags & ViewFlag.Invisible) !== 0 && (entity.flags & ViewFlag.Revealed) === 0;
         const viewer = frame.curr.localHero === null ? undefined : entityById(frame.curr, frame.curr.localHero);
         model.visible = !hidden || viewer?.team === entity.team;
+        if (opt.structures.length > 0 && model.parent && entity.id === (frame.curr.localHero ?? entity.id)) poseStructureRow(model.parent, model, frame, t);
         if (debugScene && model.parent) {
           if (opt.lineup.length > 0) model.visible = false;
           if (entity.id === (frame.curr.localHero ?? entity.id)) debugScene.update(model.parent, model, frame, t);

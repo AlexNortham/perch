@@ -1,14 +1,15 @@
 /**
- * A structure's model: merged static geometry, a small glow mesh (eyes, crystals; unlit, bright while the structure
- * has a target), Heron legs that step and stomp, and for the Patron a heart-feather and a phase look. The Brood Ward
- * dome is an instanced eggshell shared by every structure (one draw call in all); when the ward breaks the dome
- * swells and vanishes. Everything is read from EntityView.structure: phase, transitionUntil, broodWard, target,
- * weakPoint. Nothing here allocates per frame.
+ * A structure's model: ONE mesh (merged geometry, one draw call, frustum-culled), whose geometry is swapped between
+ * prebuilt variants for the eye glow (off, lit while it has a target, raged for the Patron) and the Heron's leg pose
+ * (standing, stepping, stomping). The Patron adds a heart-feather mesh from its transition on. The Brood Ward dome
+ * is one instanced eggshell shared by every structure (a single draw call while any ward stands); when a ward
+ * breaks its dome swells and vanishes. Everything is read from EntityView.structure: phase, transitionUntil,
+ * broodWard, target, weakPoint. Nothing here allocates per frame.
  */
 import { Euler, Group, InstancedMesh, Matrix4, Mesh, Quaternion, SphereGeometry, Vector3 } from 'three';
 import type { Material } from 'three';
 import type { EntityView, SimView } from '../../../sim/core/contracts';
-import type { StructureBuild } from '../models/structures';
+import type { Glow, StructureBuild } from '../models/structures';
 import { STRUCTURE as S } from '../models/constants';
 
 const DOME_SEGMENTS: readonly [number, number] = [S.domeSegments, S.domeSegments / 2];
@@ -23,6 +24,8 @@ export class DomeGroup {
   readonly mesh: InstancedMesh;
   private readonly freed: number[] = [];
   private next = 0;
+  /** Slots whose dome is showing: the mesh is only drawn while there is one. */
+  private readonly up = new Set<number>();
 
   constructor(material: Material, readonly capacity = S.domeCapacity) {
     this.mesh = new InstancedMesh(new SphereGeometry(1, DOME_SEGMENTS[0], DOME_SEGMENTS[1]), material, capacity);
@@ -40,6 +43,9 @@ export class DomeGroup {
 
   set(slot: number, at: Vector3, radius: number): void {
     if (slot < 0) return;
+    if (radius > 0) this.up.add(slot);
+    else this.up.delete(slot);
+    this.mesh.visible = this.up.size > 0;
     quat.setFromEuler(eulerNone);
     this.mesh.setMatrixAt(slot, matrix.compose(at, quat, size.set(radius, radius * S.domeSquash, radius)));
     this.mesh.instanceMatrix.needsUpdate = true;
@@ -47,6 +53,8 @@ export class DomeGroup {
 
   release(slot: number): void {
     if (slot < 0) return;
+    this.up.delete(slot);
+    this.mesh.visible = this.up.size > 0;
     this.mesh.setMatrixAt(slot, hidden);
     this.mesh.instanceMatrix.needsUpdate = true;
     this.freed.push(slot);
@@ -55,16 +63,12 @@ export class DomeGroup {
 
 export interface StructureMaterials {
   readonly lit: Material;
-  readonly glowOn: Material;
-  readonly glowOff: Material;
-  readonly glowRaged: Material;
   readonly heart: Material;
 }
 
 export class StructureRig extends Group {
   private readonly inner = new Group();
-  private readonly glow: Mesh;
-  private readonly legs: Mesh[] = [];
+  private readonly main: Mesh;
   private readonly heart: Mesh | null = null;
   private slot = -1;
   /** Ward bookkeeping: whether the dome is up, and seconds since it broke (null while it stands). */
@@ -75,19 +79,8 @@ export class StructureRig extends Group {
   constructor(private readonly build: StructureBuild, private readonly mat: StructureMaterials, private readonly domes: DomeGroup) {
     super();
     this.add(this.inner);
-    const main = new Mesh(build.main, mat.lit);
-    main.castShadow = true;
-    this.glow = new Mesh(build.glow, mat.glowOff);
-    this.inner.add(main, this.glow);
-    if (build.legs && build.legPivot) {
-      for (const s of [1, -1]) {
-        const leg = new Mesh(build.legs, mat.lit);
-        leg.castShadow = true;
-        leg.position.set(s * build.legPivot[0], build.legPivot[1], build.legPivot[2]);
-        this.legs.push(leg);
-        this.inner.add(leg);
-      }
-    }
+    this.main = new Mesh(build.geometry(0, 0), mat.lit);
+    this.inner.add(this.main);
     if (build.heart) {
       this.heart = new Mesh(build.heart, mat.heart);
       this.heart.visible = false;
@@ -114,16 +107,15 @@ export class StructureRig extends Group {
     const phase2 = patron && info?.phase === 2;
     const dead = e.hp <= 0 && e.maxHp > 0;
 
-    this.glow.material = phase2 || transition ? this.mat.glowRaged : hasTarget ? this.mat.glowOn : this.mat.glowOff;
-
-    // Heron legs: stomp while it has a target, otherwise a slow step in place.
-    if (this.legs.length === 2) {
-      const [a, c] = this.legs as [Mesh, Mesh];
+    const glow: Glow = phase2 || transition ? 2 : hasTarget ? 1 : 0;
+    // Heron: stomps while it has a target, otherwise steps slowly in place; one leg up at a time.
+    let pose = 0;
+    if (e.type === 'heron') {
       const rate = hasTarget ? S.stompRate : S.stepRate;
-      const lift = hasTarget ? S.stompLift : S.stepLift;
-      a.rotation.x = -Math.max(0, Math.sin(t * rate)) * lift;
-      c.rotation.x = -Math.max(0, Math.sin(t * rate + Math.PI)) * lift;
+      const swing = Math.sin(t * rate);
+      pose = Math.abs(swing) < S.stepDeadZone ? 0 : swing > 0 ? 1 : 2;
     }
+    this.main.geometry = b.geometry(glow, pose);
 
     // Patron: breathes, shakes through the transition, a little larger and angrier in phase 2; heart-feather shows
     // from the transition on, at the world weak point once it exists.

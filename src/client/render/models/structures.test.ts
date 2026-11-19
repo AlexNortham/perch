@@ -40,14 +40,14 @@ const height = (m: Object3D): number => {
 describe('structure models', () => {
   const kit = createModelKit();
 
-  it('gives every structure type a rig for both flocks, with at most four draw calls of its own', () => {
+  it('gives every structure type a rig for both flocks, with one draw call (two for a Patron's heart-feather)', () => {
     for (const type of TYPES) {
       for (const team of ['dawn', 'dusk'] as const) {
         const model = kit.create(structure(type, team));
         expect(model, type).toBeInstanceOf(StructureRig);
         let meshes = 0;
         model.traverse((o) => o instanceof Mesh && meshes++);
-        expect(meshes, type).toBeLessThanOrEqual(4);
+        expect(meshes, type).toBe(type === 'patron' ? 2 : 1);
       }
     }
   });

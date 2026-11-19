@@ -9,6 +9,8 @@
  *   modelState=a,b,c    poses for the lineup, cycled over its models: idle run sprint air dash slide crouch shoot
  *                       reload cast channel stun dead updraft mantle climb glide
  *   modelTeam=dawn|dusk lineup team, default dawn
+ *   modelStructure=a,b  a row of structure models 14 m in front of the human: hawk heron warden shrine patron, each with
+ *                       optional :states joined by + (target ward tr p2), e.g. patron:ward, patron:tr, patron:p2+target
  */
 import { HERO_IDS, ViewFlag } from '../../../sim/core/contracts';
 import type { HeroId, PlayerTeam } from '../../../sim/core/contracts';
@@ -21,6 +23,8 @@ export interface DebugOptions {
   yaw: number;
   states: readonly string[];
   team: PlayerTeam;
+  /** Structure display models, 'type' or 'type:state+state'. */
+  structures: readonly string[];
 }
 
 export interface StatePose {
@@ -63,5 +67,6 @@ export function readDebugOptions(search: string): DebugOptions {
     yaw: ((Number(q.get('modelYaw')) || 0) * Math.PI) / 180,
     states: list('modelState').filter((s) => s in STATES),
     team: q.get('modelTeam') === 'dusk' ? 'dusk' : 'dawn',
+    structures: list('modelStructure'),
   };
 }

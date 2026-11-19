@@ -228,9 +228,10 @@ export const STRUCTURE = {
   shakeAmp: 0.18,
   shakeRate: 55,
   stompRate: 3.2,
-  stompLift: 1.1,
+  /** Raised-leg angle (rad), and how long each leg rests flat between lifts (|sin| below this). */
+  stompLift: 0.9,
+  stepDeadZone: 0.25,
   stepRate: 1.1,
-  stepLift: 0.25,
   pulseRate: 3,
   breathe: 0.012,
   domeSegments: 18,
