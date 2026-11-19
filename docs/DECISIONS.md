@@ -903,3 +903,12 @@ Kingfisher as the single-shot control.
 
 **Why:** the M1 mapper displays only hit rays once a pellet strikes something. A shallow downward Albatross shot
 can have a correct centre while all visible rays point towards the ground.
+
+### D-QA-008 · 19/11/2026 — M2 fit checks use ordinary commands and production rule outcomes
+**Decision:** Gate baseline-missing siege, economy, shop and Practice reset rules with `PERCH_PENDING=1` until
+integration. Use authored anchors, real structure spawns and Combat resolution, ordinary shop buy/sell and AP
+commands, and normal shots or support casts. Keep current Practice entry progression and 18 m secure/deny proofs
+always enabled.
+**Why:** Event and transaction assertions detect regressions in credit, lifetime earnings, upgrades and objective
+state. Sandbox placement and amplified damage isolate rule boundaries and keep the siege runs short. A full
+player-controlled match at normal damage remains a separate integration gate.

@@ -242,4 +242,22 @@ describe('seed pods (GDD §8.2)', () => {
     l.sb.stepUntil(() => l.sb.eventsOf('pod.resolved').length > 0, ticks(RIPE_S) - 2);
     expect(l.sb.eventsOf('pod.resolved')).toMatchObject([{ pod: id, by: l.killer, outcome: 'secured' }]);
   }, TIMEOUT_MS);
+
+  it.each(['secured', 'denied'] as const)('§8.2: the ripe pod can be %s with a normal shot from 18 m', async (outcome) => {
+    const l = await riverbank();
+    const { pod, diedAt } = killFledgling(l, 'scrapper', l.second);
+    expect(pod).toBeDefined();
+    const id = pod!.id;
+    const by = outcome === 'secured' ? l.killer : l.denier;
+    const previousWorth = l.sb.hero(by).progress.netWorth;
+    const laneRange = 18;
+    l.sb.place(by, offset(l.at, l.dir, outcome === 'secured' ? laneRange : -laneRange));
+    l.sb.step(ticks(RISE_S) + 1);
+    l.sb.clearEvents();
+    l.sb.aimAt(by, id);
+    l.sb.fire(by);
+    expect(l.sb.stepUntil(() => l.sb.eventsOf('pod.resolved').length > 0, ticks(RIPE_S) - 2)).not.toBeNull();
+    expect(l.sb.eventsOf('pod.resolved')).toMatchObject([{ pod: id, by, outcome }]);
+    expect(l.sb.hero(by).progress.netWorth - previousWorth).toBe(Math.floor(value('scrapper', diedAt) / (outcome === 'secured' ? 2 : 4)));
+  }, TIMEOUT_MS);
 });

@@ -8,6 +8,7 @@
  */
 import { ABILITY_BUTTONS, Button, IDLE_COMMAND } from '../../src/sim/core/contracts';
 import type {
+  Controller,
   Effect,
   EffectCause,
   EffectTarget,
@@ -18,6 +19,7 @@ import type {
   HeroCommand,
   HeroEntity,
   HeroId,
+  ItemId,
   LaneId,
   MapId,
   ModifierSet,
@@ -43,6 +45,7 @@ export interface SandboxHero {
   readonly hero: HeroId;
   /** Default: the first hero is Dawn, the rest Dusk. */
   readonly team?: PlayerTeam;
+  readonly controller?: Controller;
   /** Feet position; default: the map's spawn. */
   readonly at?: Vec3;
   readonly yaw?: number;
@@ -89,6 +92,8 @@ interface Controls {
   held: number;
   pressed: number;
   upgrade: number | null;
+  buy?: ItemId;
+  sell?: ItemId;
 }
 
 export interface Sandbox {
@@ -131,6 +136,7 @@ export interface Sandbox {
   cast(id: EntityId, slot: number, target?: Target, part?: AimPart): void;
   /** Spend AP on ability slot 0–3 on the next step. */
   upgrade(id: EntityId, slot: number): void;
+  trade(id: EntityId, request: { buy: ItemId } | { sell: ItemId }): void;
 
   step(ticks?: number): void;
   /** Step until `done()` holds (checked after each step); returns the ticks taken, or null after maxTicks. */
@@ -159,7 +165,7 @@ export async function createSandbox(config: SandboxConfig): Promise<Sandbox> {
   const sim = await createSim({
     seed,
     map: config.map ?? 'arena',
-    roster: specs.map((s, i) => ({ team: s.team ?? 'dawn', hero: s.hero, controller: i === 0 ? 'human' : 'normal' })),
+    roster: specs.map((s, i) => ({ team: s.team ?? 'dawn', hero: s.hero, controller: s.controller ?? (i === 0 ? 'human' : 'normal') })),
     options: { ...DEFAULT_OPTIONS, ...config.options },
   });
   const ctx = sim.ctx;
@@ -355,6 +361,10 @@ export async function createSandbox(config: SandboxConfig): Promise<Sandbox> {
       control(id).upgrade = slot;
     },
 
+    trade(id, request) {
+      Object.assign(control(id), request);
+    },
+
     step(n = 1) {
       for (let i = 0; i < n; i++) {
         const commands: HeroCommand[] = heroes.map((id) => {
@@ -370,12 +380,16 @@ export async function createSandbox(config: SandboxConfig): Promise<Sandbox> {
               held: c.held | c.pressed,
               pressed: c.pressed,
               upgrade: c.upgrade,
+              buy: c.buy ?? null,
+              sell: c.sell ?? null,
             },
           };
         });
         for (const c of controls.values()) {
           c.pressed = 0;
           c.upgrade = null;
+          delete c.buy;
+          delete c.sell;
         }
         sim.step(commands);
         log.push(...sim.drainEvents());

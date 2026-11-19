@@ -964,3 +964,20 @@ read-only test hook, and add `weapon.traces` for the full hitscan endpoint set. 
 production before promoting them into the normal gate.
 
 **Gate.** npm run check passed all six steps in 144 s. Unit tests 506 passed, 1 pending. Serial perf 6 passed. The three-minute sim hash was a8d14facda91c2fa. Edge e2e 10 passed, 5 pending. Lint retained the baseline 117 warnings and zero errors.
+
+### W4 · QA rules · 19/11/2026
+**Done** `w4/tests` from `9d9e974`. D-QA-008 covers production-backed siege rules, both flocks and all three
+Updraft lanes, real Combat bounties and growth, normal shop and ability commands, and repeatable Practice
+targets. The 18 m Riverbank pod secure/deny and the fresh Practice AP checks run by default.
+**Verified** `PERCH_PENDING=1 npx vitest run tests/rules/{siege,market,practice}.test.ts` produced 31 expected
+failures and one pass. Siege sees zero of 30 structures and zero Roost healing. Market sees level 1 instead
+of 5, zero bounty instead of the expected 480-Seed shutdown, and an empty catalogue. Practice delivers both
+weapon damage and Mended Song healing before failing to reset each target. Evidence is in
+`out/check/w4-rules-red.log`.
+**Default gate** Git Bash `VITEST_MAX_WORKERS=1 npm run check` passed all six steps in 156 s. Unit tests
+506 passed, 31 gated. Perf 6/6, with the world at +0.344 ms/tick for 166 fledglings. The 10,800-tick sim
+produced `4e8cc26604dd382e`. Browser tests 11/11. Lint reported 117 inherited warnings. The parallel run hit
+the existing 5 s concession timeout, preserved in `out/check/w4-parallel-test.log`. Reviewed
+`out/shots/review/practice.png` at 1920 × 1080 and confirmed both targets and the 32 AP HUD.
+**Limits** Sandbox placement and damage amplification isolate siege boundaries. The integrated manual siege
+at normal damage, visible tower clearance and browser interaction evidence are separate gates. No contract change requested.
