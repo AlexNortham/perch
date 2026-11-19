@@ -1847,3 +1847,43 @@ From `docs/reference/feel-reference.md`: G01–G04, G06–G10, G13, G15 and G30 
 G19 and G20 to the Level Designer; G16 (Updraft ride visuals) and G18 (team identification) to Rendering & VFX in wave
 5b; G22 (hero bots that fight) to Bot AI in wave 5b; G23 (600-Seed starting purse) to the integration round. The
 Stage 5 gaps (G05, G11, G12, G14, G17, G21, G24–G29) feed the Stage 5 style guide and balancing.
+
+### W5a · Systems (Controller, Combat, Ability Systems) · 19/11/2026
+**Done:** branch `worktree-agent-a110c2bfcbfc8aefb` from `integrate/w5` 926bd47. Every W5 follow-up for the three owners,
+plus interiors and the EP's framework gaps. Decisions D-SYS-006 to D-SYS-016.
+- **Physics:** Updrafts latch on Jump held 0.2 s anywhere along the cable (`PhysicsService.updraftInReach`,
+  `Motor.updraftInReach`), 30 m/s pull-up or 0.15 s air attach, 3 s damage and 1 s leave lockouts, fresh-press jump-off,
+  Crouch drop; `Button.Interact` is never read. Ladders climb as Vines. `blocks: 'movement'` prims stop heroes and
+  units only; `'sight'` prims stop only queries that ask for `PHYSICS_LAYERS.sight`. `solid: false` structures get no
+  collider. `blocksEggCarrier` openings stop the carrier only. Tunnel rooms ×1.3 run speed. Bough Springs (arc, 1 s
+  limit, 30% control after the apex, clip and slow). `MovementModeEffect.endOn`. Interiors tested on a kit building:
+  door, 26.6° stairs, upper floor, shot window, ivy arch, ladder to the roof.
+- **Combat:** melee hits `PickupInfo.melee` pickups (reported, no damage, the swing carries on); `breakable` (by, fixed
+  light/heavy); `damageFrom`; `meleeDamageTaken` in step 5; `currentHpPct`, `maxHpPct`, `triggerPct` with repeats
+  (D-SYS-014); duration ≤ 0 applies nothing; Rekindle revives (`revives`, `revived`); spin-down 0.5 s and full spin.
+- **Abilities:** the floor under the crosshair (never through a ceiling); `selfFallback`; ivy blocks `unit` targeting
+  beyond 3 m; 3 m cylinders; areas never reach through a floor.
+- **Framework gaps landed (data shapes):** Drumroll: give its statMod `id: COMBAT.fullSpinStatus`. Wall and tree
+  targeting: `values.surface: 1` (`SURFACE_VALUE`) on Branch Swing and Tree Cling; cling `endOn: ['jump']`. Rampage:
+  `values.steerDeg: 30` (`STEER_VALUE`). Bristle: a `trigger` (`on: 'damaged'`, `heroesOnly`, `withinM: 15`, `target:
+  'other'`) of `{ damage, amount: 0, type: 'song', triggerPct: 0.2 }`. Crescendo: that damage with `triggerPct: 0.2` on
+  the hit's target; Echo Chamber: a 1 s status whose `onExpire` holds it with `triggerPct: 0.25`. **Not landed:** Gape's
+  heal and Tree Cling's stun end need contract fields (D-SYS-016); their stand-ins stay.
+**Verified:** `VITEST_MAX_WORKERS=1 npm run check`: `PASS typecheck 11s · lint 5s · FAIL test 61s` (987 passed, 3 failed:
+the three `siege.test.ts` rides that press Interact, expected under D-EP-039; the check stops there). Run separately:
+`npm run perf` 7/7 (physics 0.237 ms/tick with 12 heroes + 0.048 ms for 150 units; abilities 0.048 ms at 96 areas;
+combat 0.034 ms firing); `npm run sim -- --seed 1 --minutes 3 --bots 12` 10,800 ticks in 2.0 s, hash `c87c7cfe2e2bea0a`;
+`npm run e2e` 35 passed, 28 skipped, 1 failed (`play.spec.ts` mounts with E). `PERCH_PENDING=1`: no-interact 13/15
+(the two left are the bots and the default bindings); items 100/105 (Blight's reading below, and four Economy/QA
+cases); the world suites fail at setup on missing Egg, Roc, camps and rooms, none in these systems. New tests:
+physics 72, combat stage4 15, abilities stage4 8, framework-gaps 3 (end to end through items' triggers).
+**Interface requests:**
+- Architect (W5.5): `Layer` bits for sight and movement prims (now `PHYSICS_LAYERS`); `AbilityDef.surface` and a dash
+  steer field for the two value names; `endOn: 'stun'`; `HealEffect.triggerPct` (Gape); make `updraftInReach` required.
+- QA: `tests/rules/siege.test.ts:83` and `e2e/play.spec.ts:81` still mount with Interact / E; hold Jump instead. The
+  Blight test takes HP at application, while the contract reads current HP at each tick (8.3 below over 4 s, ±5).
+- Objectives: add `PHYSICS_LAYERS.sight` to the vision ray (with the 3 m rule); spend Rekindle on `entity.died.revives`.
+  Units walking through `moveCharacter` still pass walls (fledgling steering relies on it); keep indoor camps in.
+- Docs & Wiki: `tools/wiki/mechanics.ts` prints `UPDRAFT.stationRadius` / `airMountRadius` and "press the interact
+  key" (both kept as deprecated for it). Bot AI: hold Jump while `motor.updraftInReach` (no-interact bot test).
+**Next:** hero and item owners switch to the shapes above; QA flips the no-interact suite on once bots ride.
