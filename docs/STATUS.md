@@ -1621,3 +1621,10 @@ but it must be root-caused before the Stage 4 Build Lab relies on headless resul
 - Upgrade panel: `upgrades-hover-2.png` shows exactly one description card; the m2 hover assertion passed in all three runs.
 - Spot-check, no regressions: 12 pickable birds (m2 e2e), Practice Hub (m2/keys e2e), pose sheet `pose-melee` looks right, wiki home renders with no page errors or failed requests.
 - Note, not a gate box: the Node/browser replay-hash difference is logged by the EP as a W4.5 item.
+
+### Stage 4 · EP note · 19/11/2026 · bug reported by the user
+**Hero select layout shift (UI/HUD, wave 5):** hovering a card shows its description inside the grid, and the
+descriptions differ in length, so the other cards move on every hover and are hard to click. Fix: the description
+must take no space in the grid (a fixed-size detail panel or a floating hover card); every card keeps its size and
+position whatever is hovered or focused. Regression e2e: hover and focus every card in turn and assert that no card's
+bounding box moves by even 1 px.
