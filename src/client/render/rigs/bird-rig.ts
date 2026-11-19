@@ -305,19 +305,26 @@ export class BirdRig extends Group {
       this.leap * CAST_POSE.leapLean + this.brace * CAST_POSE.aimLean + this.throwing * CAST_POSE.throwLean + this.recoil * HOLD.recoilChest;
     rig.rotation.x = this.pitch + lean + (this.flinch / RIG.flinchTime) * RIG.flinchPitch;
     rig.position.z = strike ? (lunge - back * strike.back * MELEE.pullBack) * strike.reach * H : 0;
-    rig.position.x = Math.sin(t * MELEE.charge.shakeRate) * MELEE.charge.shake * this.charge;
-    rig.rotation.z = Math.sin(this.phase) * this.build.sway * this.run + this.dead * RIG.deathRoll;
+    rig.position.x = 0;
+    // Waddle, the charge-hold tremble and the death roll.
+    rig.rotation.z = Math.sin(this.phase) * this.build.sway * this.run + Math.sin(t * MELEE.charge.shakeRate) * MELEE.charge.shake * this.charge + this.dead * RIG.deathRoll;
     rig.position.y = this.pivotY + bob - (sliding ? RIG.slideDrop * this.pivotY : 0) - this.dead * (this.pivotY - RIG.deadClearance * H) - this.sink - this.charge * MELEE.charge.drop * H;
+    // A cast pulses through the torso, swelling it sideways (not the limbs, which must still reach the gun and the
+    // ground, nor its height, which carries the head).
     const pulse = 1 + Math.sin(t * RIG.castRate) * RIG.castPulse * this.cast;
-    rig.scale.set(pulse, pulse, pulse);
+    this.bones.body.scale.set(pulse, 1, pulse);
 
-    // Planted hips: whatever the lean, the hips sit at standing height (less the run, landing and leap drops), so
-    // the feet reach the ground.
+    // Planted hips: whatever the lean or roll, the higher hip sits at standing height (less the run, landing and
+    // leap drops) and never higher than the legs reach, and the hips stay centred over the feet (a waddle rocks
+    // the body above them), so both feet reach the ground.
     const planted = (this.legW[LEG.planted] ?? 0) / sum;
     const drop = GAIT.runDrop * Math.min(1, this.run) + GAIT.landDrop * smooth(this.landing) + CAST_POSE.leapDrop * this.leap;
+    const hipTop = Math.min(this.hipY * (1 - drop) + bob, this.build.leg.ankle + this.legReach * LEG_IK.reach);
     this.frame();
-    hipRoot.copy(at.legL1).add(at.legR1).multiplyScalar(1 / 2).applyMatrix4(M);
-    rig.position.y += ((this.hipY * (1 - drop) + bob) * this.crouch - hipRoot.y) * planted / this.crouch;
+    hipRoot.copy(at.legL1).applyMatrix4(M);
+    part.copy(at.legR1).applyMatrix4(M);
+    rig.position.y += (hipTop * this.crouch - Math.max(hipRoot.y, part.y)) * planted / this.crouch;
+    rig.position.x -= ((hipRoot.x + part.x) / 2) * planted;
     this.frame();
     Minv.copy(M).invert();
     qRigInv.copy(rig.quaternion).invert();

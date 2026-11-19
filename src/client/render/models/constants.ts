@@ -167,6 +167,8 @@ export const LEG_IK = {
   ankle: 1.2,
   /** Each segment as a share of the hip-to-ankle height, so the knee stays bent at rest. */
   bend: 0.56,
+  /** Planted hips never rise above this share of the legs' full reach above the ankles. */
+  reach: 0.97,
   /** Feet tucked under the body in the air, forward on a slide, trailing when dead (shares of leg reach: down, forward). */
   tuck: { down: 0.5, fwd: -0.3 },
   slide: { down: 0.5, fwd: 0.65 },
@@ -234,7 +236,7 @@ export const CAST_POSE = {
 export const MELEE = {
   light: { dur: 0.3, pitch: 0.55, reach: 0.14, windup: 0.22, back: 0.25 },
   heavy: { dur: 0.65, pitch: 0.95, reach: 0.3, windup: 0.4, back: 0.6 },
-  /** Charging hold: lean back, gun raised (HOLD), head drawn back. */
+  /** Charging hold: lean back, gun raised (HOLD), head drawn back, a trembling roll (`shake` rad at `shakeRate`). */
   charge: { pitch: -0.45, head: -0.5, shake: 0.03, shakeRate: 38, drop: 0.06 },
   /** Parry: gun across the chest (HOLD), body braced. */
   parry: { pitch: -0.12, head: 0.35 },
