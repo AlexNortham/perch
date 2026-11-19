@@ -9,7 +9,7 @@ export const ECONOMY = {
   passivePerSecond: 1,
   passiveFromS: 30,
   secondsPerMinute: 60,
-  levels: { max: 30, baseCost: 400, costGrowth: 50, doubleApEvery: 10, ultimate: 6 },
+  levels: { max: 30, baseCost: 400, costGrowth: 50, doubleApEvery: 10, ultimate: 6, ultimateSlot: 3 },
   bounty: {
     base: 120, worthFraction: 0.03, freeKills: 2, perStreakKill: 60, streakCap: 360,
     comebackRate: 2, comebackCap: 0.5, shareRange: 40,

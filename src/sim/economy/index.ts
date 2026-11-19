@@ -37,7 +37,7 @@ export const createEconomySystem: SystemFactory = (ctx) => {
       const growth = ctx.heroes[h.hero.heroId].def.growth;
       ctx.stats.set(h.id, 'economy:molts', { stats: growth.map((g) => ({ ...g, value: g.value * p.molts })) });
       bus.emit({ type: 'hero.level', hero: h.id, level: p.level, ap: p.level % rules.doubleApEvery === 0 ? 2 : 1,
-        unlockSlot: p.level === rules.ultimate ? 3 : null });
+        unlockSlot: p.level === rules.ultimate ? rules.ultimateSlot : null });
     }
   };
 
