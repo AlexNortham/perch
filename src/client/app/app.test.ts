@@ -48,13 +48,12 @@ describe('scene router', () => {
     expect(at('match').roster.length).toBe(12);
   });
 
-  it('starts the practice match from Play and from ?scene=lane', () => {
-    // The practice match unlocks all four abilities (levels arrive in wave 4); matches with bots keep the real rules.
-    const practice = { map: 'main', roster: [{ team: 'dawn', hero: 'kiwi', controller: 'human' }], options: { unlockAbilities: true } };
+  it('starts the structure match from Play and from ?scene=lane', () => {
+    const practice = { map: 'main', roster: [{ team: 'dawn', hero: 'kiwi', controller: 'human' }], options: { structures: true, waves: true, neutrals: false } };
     expect(sceneConfig(parseScene('?scene=lane&hero=kiwi&seed=3'))).toEqual({ seed: 3, ...practice });
     expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3 })).toEqual({ seed: 3, ...practice });
     expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3, bots: 11 }).roster.length).toBe(12);
-    expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3, bots: 11 }).options).toBeUndefined();
+    expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3, bots: 11 }).options?.structures).toBe(true);
   });
 });
 
@@ -65,11 +64,19 @@ describe('settings store', () => {
     saveSettings(changed, store);
     expect(loadSettings(store)).toEqual(changed);
     expect(loadSettings(null)).toEqual(DEFAULT_SETTINGS);
-    store.setItem('perch.settings.v1', '{not json');
+    store.setItem('perch.settings.v2', '{not json');
     expect(loadSettings(store)).toEqual(DEFAULT_SETTINGS);
     const throwing = { ...memoryStorage(), getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('full'); } };
     expect(loadSettings(throwing)).toEqual(DEFAULT_SETTINGS);
     expect(() => saveSettings(changed, throwing)).not.toThrow();
+  });
+
+  it('migrates old default bindings around customised codes', () => {
+    const store = memoryStorage();
+    store.setItem('perch.settings.v1', JSON.stringify({ bindings: { crouch: 'ControlLeft', item3: 'KeyC', melee: 'KeyN' } }));
+    const settings = loadSettings(store);
+    expect(settings.bindings).toMatchObject({ crouch: 'KeyC', item3: 'KeyH', melee: 'KeyN' });
+    expect(loadSettings(store)).toEqual(settings);
   });
 
   it('keeps well-formed fields and clamps the rest', () => {

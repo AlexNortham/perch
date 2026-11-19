@@ -97,6 +97,8 @@ export interface HeroInfo {
   /** Index into SimConfig.roster. */
   readonly slot: number;
   readonly controller: Controller;
+  /** Practice target reset point and HP, set by core and honoured by Combat. */
+  readonly training?: { readonly pos: Vec3; readonly hp: number };
 }
 
 /**
@@ -124,6 +126,8 @@ export interface Motor {
   attachedTo: EntityId | null;
   /** Current stamina (dash charges, fractional while regenerating). Max is the `stamina` stat. */
   stamina: number;
+  /** True exactly while Jump can convert the current dash. */
+  dashJumpReady?: boolean;
 }
 
 /**
@@ -135,7 +139,7 @@ export interface WeaponState {
   /** True on ticks the gun is in its fire cycle (for animation and audio). */
   firing: boolean;
   /** Combat keeps this set during the melee swing. */
-  meleeing?: boolean;
+  meleePose?: 'charging' | 'light' | 'heavy' | 'parry';
 }
 
 /** One ability slot's state. */
@@ -337,6 +341,7 @@ export type AreaDimensions =
 export interface AreaInfo {
   /** Resolved geometry: half extents in metres, cosHalf is cosine of the cone half-angle. */
   readonly dimensions?: AreaDimensions;
+  readonly concealsAlliesOutside?: boolean;
   readonly owner: EntityId | null;
   readonly ability: AbilityId | null;
   readonly shape: AreaShape['kind'];

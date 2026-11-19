@@ -1,5 +1,6 @@
-import { aimRay } from '../../sim/core/aim';
-import type { EntityId, HeroId, Ping, Sim, SimConfig, SimView, Vec3 } from '../../sim/core/contracts';
+import { aimRay, pivotHeight } from '../../sim/core/aim';
+import { ViewFlag } from '../../sim/core/contracts';
+import type { EntityId, HeroId, Ping, Sim, SimConfig, SimView, SightLine, Vec3 } from '../../sim/core/contracts';
 import { CAMERA, TICK_RATE } from '../../sim/data/core';
 import { HEROES } from '../../sim/heroes/registry';
 import { createSim } from '../../sim/index';
@@ -10,11 +11,12 @@ import { createInput } from '../input';
 import { createRenderer } from '../render';
 import { createUi } from '../ui';
 import { createVfx } from '../vfx';
-import type { AppActions, CameraPreset, Frame, Screen, Settings, UiAction } from './contracts';
+import type { AppActions, CameraPose, CameraPreset, Frame, HudIntent, Screen, Settings, UiAction } from './contracts';
 import { createFixedStep, entityById } from './loop';
-import { matchConfig, sceneConfig } from './router';
+import { matchConfig, practiceConfig, sceneConfig } from './router';
 import type { SceneName, SceneRequest } from './router';
 import { loadSettings, saveSettings } from './settings';
+import { projectPoint, targetPing } from './targeting';
 
 declare global {
   interface Window {
@@ -62,22 +64,34 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   let screen: Screen = 'menu';
   let session: Session;
   let shotsFired = 0;
+  let mode: 'siege' | 'practice' = req.scene === 'practice' ? 'practice' : 'siege';
+  let pose: CameraPose | null = null;
+  let sight: SightLine | undefined;
+  let pointerReleased = false;
+  let openPanel: UiAction | null = null;
+  let sessionRequest = 0;
+  const intents: HudIntent[] = [];
   /** Set by the pause menu's Concede; sent with the next command. */
   let concedeNext = false;
 
   const actions: AppActions = {
-    play: () => show('heroSelect'),
+    play: (next = 'siege') => { mode = next; audio.resume(); show('heroSelect'); },
+    submit: (intent) => { if (screen === 'match') intents.push(intent); },
+    capturePointer: (release) => {
+      if (screen !== 'match') return;
+      pointerReleased = release;
+      if (!release) openPanel = null;
+      input.setEnabled(!release && session.hero !== null);
+    },
+    project: (point) => pose && projectPoint(point, pose, root.clientWidth, root.clientHeight),
+    crosshairPing: () => resolvePing(),
     startMatch: (setup) => {
-      void startSession(matchConfig(setup), 'player', 0).then((s) => {
-        session = s;
-        show('match');
-      });
+      audio.resume();
+      void switchSession(mode === 'practice' ? practiceConfig(setup.seed, setup.hero) : matchConfig(setup), 'player', 'match');
     },
     toMenu: () => {
-      void startSession(sceneConfig({ ...req, scene: 'menu' }), 'overview', 0).then((s) => {
-        session = s;
-        show('menu');
-      });
+      mode = 'siege';
+      void switchSession(sceneConfig({ ...req, scene: 'menu' }), 'overview', 'menu');
     },
     resume: () => show('match'),
     concede: () => {
@@ -95,48 +109,102 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   };
   const ui = createUi(overlay, actions);
   const onUiAction = (action: UiAction, down: boolean): void => {
-    if (action !== 'pause') ui.onUiAction(action, down);
+    if (action !== 'pause') {
+      if (screen !== 'match') return;
+      if (action === 'shop' || action === 'upgrades' || action === 'pingWheel') {
+        if (down && !openPanel) {
+          openPanel = action;
+          actions.capturePointer(true);
+          ui.onUiAction(action, true);
+        }
+        return;
+      }
+      ui.onUiAction(action, down);
+    } else if (down && pointerReleased) closePanel();
     else if (down && screen === 'match') show('pause');
     else if (down && screen === 'pause') show('match');
   };
   const input = createInput(stage, settings, onUiAction);
   // A tap of the ping button pings the world point under the crosshair (GDD §12.5: the ground tap is "go here").
-  input.setPingResolver((): Ping | null => {
+  const resolvePing = (): Ping | null => {
     const s = session;
     const view = s.curr;
     const hero = view.heroes.find((h) => h.id === s.hero);
     const me = s.hero === null ? undefined : entityById(view, s.hero);
     if (!hero || !me) return null;
-    const ray = aimRay(me.pos, input.look.yaw, input.look.pitch, hero.shoulder, HEROES[hero.heroId].def.body, false);
-    const pos = rayWorldPoint(loadMap(view.map), ray.origin, ray.dir, CAMERA.aimRange, ray.start);
-    return pos && { kind: 'goHere', pos, target: null };
-  });
+    const body = HEROES[hero.heroId].def.body;
+    const crouch = !!(me.flags & (ViewFlag.Crouching | ViewFlag.Sliding));
+    const ray = sight ? { ...sight, start: Math.max(0, (me.pos.x - sight.origin.x) * sight.dir.x +
+      (me.pos.y + pivotHeight(body, crouch) - sight.origin.y) * sight.dir.y + (me.pos.z - sight.origin.z) * sight.dir.z + CAMERA.aimStartPad) }
+      : aimRay(me.pos, input.look.yaw, input.look.pitch, hero.shoulder, body, crouch);
+    const range = HEROES[hero.heroId].def.weapon.aimRange ?? CAMERA.aimRange;
+    const pos = rayWorldPoint(loadMap(view.map), ray.origin, ray.dir, range, ray.start);
+    return targetPing(view, hero.team, ray.origin, ray.dir, ray.start, range, pos);
+  };
+  input.setPingResolver(resolvePing);
+
+  function closePanel(): void {
+    const panel = openPanel;
+    actions.capturePointer(false);
+    if (panel && panel !== 'pause') ui.onUiAction(panel, false);
+  }
+  // Input is disabled while a cursor panel is open; let its bound key close it.
+  document.addEventListener('keydown', (event) => {
+    const binding = openPanel === 'shop' ? 'shop' : openPanel === 'upgrades' ? 'upgradeModifier' : null;
+    if (!event.repeat && binding && event.code === settings.bindings[binding]) {
+      event.preventDefault(); event.stopImmediatePropagation(); closePanel();
+    }
+  }, true);
   session = await startSession(firstConfig, req.cam, req.t);
 
   function show(next: Screen): void {
+    openPanel = null;
+    pointerReleased = false;
     screen = next;
     input.setEnabled(next === 'match' && session.hero !== null);
     if (next === 'match') audio.resume();
     const telemetry = next === 'end' ? session.sim.telemetry() : null;
-    ui.show(next, { view: session.curr, settings, seed: session.seed, telemetry });
+    ui.show(next, { view: session.curr, settings, seed: session.seed, telemetry, catalogue: session.sim.itemCatalogue, mode });
+  }
+
+  async function switchSession(config: SimConfig, cam: CameraPreset, next: Screen): Promise<void> {
+    const id = ++sessionRequest;
+    const fresh = await startSession(config, cam, 0);
+    if (id !== sessionRequest) return;
+    session = fresh;
+    activateSession();
+    show(next);
+  }
+
+  function activateSession(): void {
+    renderer.setMap(loadMap(session.curr.map));
+    step.reset();
+    intents.length = 0;
+    shotsFired = 0;
+    pose = null;
+    sight = undefined;
+    concedeNext = false;
+    vfx.reset?.();
+    audio.reset?.();
+    const me = session.hero === null ? undefined : entityById(session.curr, session.hero);
+    if (me) input.setLook({ yaw: me.yaw, pitch: me.pitch });
+    const zoom = session.curr.heroes.find((h) => h.id === session.hero)?.aimZoom;
+    if (zoom !== undefined) input.setAimZoom?.(zoom);
   }
 
   async function startSession(config: SimConfig, cam: CameraPreset, fastForwardS: number): Promise<Session> {
     const sim = await createSim(config);
     for (let i = 0, n = Math.round(fastForwardS * TICK_RATE); i < n && !sim.isOver; i++) sim.step();
     sim.drainEvents();
-    renderer.setMap(loadMap(config.map ?? 'main'));
-    step.reset();
     const hero = sim.view.localHero;
     const heroId = sim.view.heroes.find((h) => h.id === hero)?.heroId ?? null;
-    const me = hero === null ? undefined : entityById(sim.view, hero);
-    if (me) input.setLook({ yaw: me.yaw, pitch: me.pitch });
     return { sim, seed: config.seed, hero, heroId, cam, prev: sim.view, curr: sim.view };
   }
 
   const resize = (): void => renderer.resize(root.clientWidth, root.clientHeight);
   window.addEventListener('resize', resize);
   resize();
+  activateSession();
   show(req.scene === 'menu' ? 'menu' : 'match');
 
   let frames = 0;
@@ -157,8 +225,8 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     const s = session;
     const running = (screen === 'match' || screen === 'menu') && !s.sim.isOver;
     const steps = running ? step.advance(dt) : 0;
-    for (let i = 0; i < steps; i++) {
-      const command = { ...input.sample(), concede: concedeNext };
+    for (let i = 0; i < steps && !s.sim.isOver; i++) {
+      const command = { ...input.sample(), ...(sight && { sight }), ...intents.shift(), concede: concedeNext };
       concedeNext = false;
       s.sim.step(s.hero === null ? [] : [{ hero: s.hero, command }]);
       s.prev = s.curr;
@@ -180,7 +248,12 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     }
     if (screen === 'match' && s.sim.isOver) show('end');
     const f: Frame = { prev: s.prev, curr: s.curr, alpha: running ? step.alpha : 1, dt };
-    const pose = camera.update(f, s.heroId, input.look, s.cam);
+    pose = camera.update(f, s.heroId, input.look, s.cam);
+    if (s.cam === 'player' && screen === 'match') {
+      const dx = pose.target.x - pose.position.x, dy = pose.target.y - pose.position.y, dz = pose.target.z - pose.position.z;
+      const length = Math.hypot(dx, dy, dz);
+      sight = length ? { origin: { ...pose.position }, dir: { x: dx / length, y: dy / length, z: dz / length } } : undefined;
+    } else sight = undefined;
     renderer.render(f, pose);
     vfx.update(f);
     ui.update(f);

@@ -1,7 +1,8 @@
-import { DEFAULT_BINDINGS } from '../input';
+import { DEFAULT_BINDINGS } from './bindings';
 import type { BindAction, Bindings, Quality, Settings } from './contracts';
 
-const STORAGE_KEY = 'perch.settings.v1';
+const STORAGE_KEY = 'perch.settings.v2';
+const LEGACY_KEY = 'perch.settings.v1';
 const QUALITIES: readonly Quality[] = ['low', 'medium', 'high'];
 const FOV_MIN = 75;
 const FOV_MAX = 110;
@@ -17,6 +18,7 @@ export const DEFAULT_SETTINGS: Settings = {
   bindings: DEFAULT_BINDINGS,
   volume: { master: 0.8, sfx: 1, music: 0.6 },
   quality: 'medium',
+  damageNumbers: true,
 };
 
 /** localStorage, or null where it is blocked (privacy modes, some file:// pages). */
@@ -60,6 +62,7 @@ export function sanitizeSettings(raw: unknown): Settings {
       sfx: num(vol['sfx'], d.volume.sfx, 0, 1),
       music: num(vol['music'], d.volume.music, 0, 1),
     },
+    damageNumbers: typeof r['damageNumbers'] === 'boolean' ? r['damageNumbers'] : true,
     quality: QUALITIES.includes(r['quality'] as Quality) ? (r['quality'] as Quality) : d.quality,
   };
 }
@@ -68,7 +71,29 @@ export function sanitizeSettings(raw: unknown): Settings {
 export function loadSettings(store: Storage | null = storage()): Settings {
   try {
     const raw = store?.getItem(STORAGE_KEY);
-    return raw ? sanitizeSettings(JSON.parse(raw)) : DEFAULT_SETTINGS;
+    if (raw) return sanitizeSettings(JSON.parse(raw));
+    const legacy = store?.getItem(LEGACY_KEY);
+    if (!legacy) return DEFAULT_SETTINGS;
+    const old = obj(JSON.parse(legacy));
+    const bindings = { ...obj(old['bindings']) };
+    // Reserve custom codes first. Only legacy defaults are candidates for migration.
+    const migrateCrouch = bindings['crouch'] === 'ControlLeft' || !bindings['crouch'];
+    const migrateSlot = bindings['item3'] === 'KeyC' || !bindings['item3'];
+    const reserved = new Set((Object.keys(DEFAULT_BINDINGS) as BindAction[])
+      .filter((a) => !(a === 'crouch' && migrateCrouch) && !(a === 'item3' && migrateSlot))
+      .map((a) => bindings[a] ?? DEFAULT_BINDINGS[a]));
+    const free = (preferred: string): string => {
+      const code = [preferred, 'KeyH', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((c) => 'Key' + c),
+        ...'0123456789'.split('').map((c) => 'Digit' + c)].find((candidate) => !reserved.has(candidate));
+      if (!code) throw new Error('No free gameplay binding');
+      reserved.add(code);
+      return code;
+    };
+    if (migrateCrouch) bindings['crouch'] = free(DEFAULT_BINDINGS.crouch);
+    if (migrateSlot) bindings['item3'] = free(DEFAULT_BINDINGS.item3);
+    const migrated = sanitizeSettings({ ...old, bindings });
+    saveSettings(migrated, store);
+    return migrated;
   } catch {
     return DEFAULT_SETTINGS;
   }

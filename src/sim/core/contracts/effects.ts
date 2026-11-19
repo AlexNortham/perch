@@ -279,7 +279,9 @@ export interface AreaEffect {
   readonly intervalS?: number;
   readonly attach: 'point' | 'source' | 'target';
   /** A moving area (Rogue Wave): travels along the target direction at `speed` m/s, optionally carrying the units it hits. */
-  readonly move?: { readonly speed: number; readonly carry: boolean };
+  readonly move?: { readonly speed: number; readonly carry: boolean; readonly maxCarry?: number; readonly onWall?: readonly Effect[] };
+  /** Fog Bank grants concealment only against observers outside its footprint. */
+  readonly concealsAlliesOutside?: boolean;
   readonly affects: TargetFilter;
   readonly effects: readonly Effect[];
   readonly onEnter?: readonly Effect[];
@@ -300,6 +302,9 @@ export interface SummonEffect {
   readonly durationS: Magnitude;
   /** The oldest of this source's summons with the same behaviour despawns beyond this. */
   readonly maxCount: number;
+  /** Tier-resolved cap increment for Burrow Colony. */
+  readonly extraCount?: Magnitude;
+  readonly preferHeroes?: boolean;
   /** Behaviour id: sim/abilities' built-ins ('trap', 'decoy', 'wall', 'turret') or a hero hook's name. */
   readonly behaviour: string;
   /** Traps: fire when an entity matching `affects` comes within `radius`. */
@@ -379,6 +384,8 @@ export interface TriggerDef {
   /** Fire on every Nth such event (default 1). */
   readonly count?: number;
   /** 0..1; 1 always fires. */
+  /** Restrict the other party of a hit (e.g. Mocking Note only shreds heroes). */
+  readonly heroesOnly?: boolean;
   readonly chance: number;
   /** Internal cooldown (seconds); 0 for none. */
   readonly cooldownS: number;

@@ -199,6 +199,8 @@ export interface EntityDiedEvent {
    * victims (economy shares those among heroes within 40 m).
    */
   readonly assisters: readonly EntityId[];
+  /** Credited lethal hit was a beak shot; kill feed can retain this after despawn. */
+  readonly beakShot?: boolean;
   readonly via: EffectVia;
   readonly pos: Vec3;
 }
@@ -212,6 +214,10 @@ export interface HeroRespawnedEvent {
 
 export type MovementAction =
   | 'jump'
+  | 'airJump'
+  | 'wallJump'
+  | 'downDash'
+  | 'mantleGlide'
   | 'dashJump'
   | 'dash'
   | 'land'
@@ -362,6 +368,12 @@ export interface StructureStateEvent {
   readonly state: 'phase2' | 'wardUp' | 'wardDown' | 'vulnerable';
 }
 
+export interface PatronDepletedEvent {
+  /** Combat floors phase-one Patron HP at one and emits once; world immediately gates and starts transition. */
+  readonly type: 'patron.depleted';
+  readonly structure: EntityId;
+}
+
 export interface StructureAttackEvent {
   readonly type: 'structure.attack';
   readonly structure: EntityId;
@@ -435,6 +447,7 @@ export type SimEvent =
   | HeroLevelEvent
   | FlexSlotsEvent
   | WaveSpawnedEvent
+  | PatronDepletedEvent
   | StructureAttackEvent
   | StructureStateEvent
   | ObjectiveEvent

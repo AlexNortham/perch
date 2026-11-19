@@ -57,7 +57,14 @@ export interface Ping {
   readonly target: EntityId | null;
 }
 
+export interface SightLine {
+  readonly origin: Vec3;
+  readonly dir: Vec3;
+}
+
 export interface PlayerCommand {
+  /** Centre ray of the last rendered player camera. Bots and headless callers use deterministic rig geometry. */
+  readonly sight?: SightLine;
   /** Strafe axis, −1 (left) to 1 (right). */
   readonly right: number;
   /** Forward axis, −1 (back) to 1 (forward). */

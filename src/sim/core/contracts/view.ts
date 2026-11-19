@@ -5,7 +5,7 @@
  */
 import type { Controller, EntityId, HeroId, ItemId, PlayerTeam, StatusId, Team, Tick, Vec3 } from './base';
 import type { MovementModeKind } from './effects';
-import type { AbilitySlotState, AreaInfo, EntityKind, ObjectiveState, OwnedItem, ProjectileInfo, StructureInfo } from './entity';
+import type { WeaponState, AbilitySlotState, AreaInfo, EntityKind, ObjectiveState, OwnedItem, ProjectileInfo, StructureInfo } from './entity';
 import type { MapId } from './map';
 
 /** Animation and state bits on EntityView.flags. */
@@ -81,6 +81,7 @@ export interface EntityView {
   readonly flags: number;
   /** Heroes: Motor.mode (glide, flight, cling, toboggan, burrow) or null. */
   readonly mode: MovementModeKind | null;
+  readonly meleePose?: WeaponState['meleePose'];
   /** SeenBy bits: which flocks can see it (minimap, outlines). */
   readonly seenBy: number;
   /** Full minimap visibility (world-visible bits plus map-only reveals). */
@@ -123,12 +124,13 @@ export interface HeroView {
   readonly aimZoom?: number;
   readonly stamina: number;
   readonly staminaMax: number;
+  readonly dashJumpReady?: boolean;
   readonly respawnAt: Tick | null;
   readonly talonShield: number;
   readonly songShield: number;
   readonly barrier: number;
   readonly shoulder: 1 | -1;
-  readonly abilities: readonly Readonly<AbilitySlotState>[];
+  readonly abilities: readonly (Readonly<AbilitySlotState> & { readonly nextUpgradeCost?: number | null })[];
   readonly items: readonly Readonly<OwnedItem>[];
   readonly actives: readonly (ItemId | null)[];
   readonly statuses: readonly StatusView[];

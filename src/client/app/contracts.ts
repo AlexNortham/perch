@@ -1,14 +1,15 @@
 /**
  * Client module contracts. Owner: Technical Architect. src/client/app wires these modules; each module's owner
- * implements its interface in its own folder (see docs/INTERFACES.md, "Client"). Modules never import each other's
- * internals, and nothing in src/client reads the sim except through SimView, the drained events and the pure helpers
- * in src/sim/core (aim.ts, math.ts) and src/sim/world/map (map data).
+ * implements its interface in its own folder (see docs/INTERFACES.md, "Client"). Public shared modules are app/bindings, palette, render-host, drawn and loop; sim/core helpers, sim/heroes/registry and sim/world/map supply read-only definitions. The app delivers the sim view and event stream.
  */
 import type { Object3D } from 'three';
 import type {
   BotDifficulty,
   EntityView,
   HeroId,
+  ItemDef,
+  ItemId,
+  Ping,
   MapData,
   MatchTelemetry,
   PlayerCommand,
@@ -96,10 +97,15 @@ export interface Settings {
   /** 0..1 each. */
   readonly volume: { readonly master: number; readonly sfx: number; readonly music: number };
   readonly quality: Quality;
+  /** Show floating damage/heal amounts. Defaults on for existing saves. */
+  readonly damageNumbers?: boolean;
 }
 
 /** Keys the UI handles rather than the sim. */
-export type UiAction = 'pause' | 'shop' | 'scoreboard' | 'bigMap';
+export type UiAction = 'pause' | 'shop' | 'scoreboard' | 'bigMap' | 'pingWheel' | 'upgrades';
+
+/** Each UI action produces one ordinary command on the next available tick. */
+export type HudIntent = { buy: ItemId } | { sell: ItemId } | { upgrade: number } | { ping: Ping };
 
 /**
  * src/client/input: `createInput(target, settings, onUiAction)`. Pointer lock on `target`; `onUiAction` reports the
@@ -110,6 +116,8 @@ export interface InputController {
   readonly look: Look;
   /** Set the look (match start, respawn). */
   setLook(look: Look): void;
+  /** Effective zoom scale used for aimed mouse look. */
+  setAimZoom?(scale: number): void;
   /** Build this tick's command for the local hero and clear the presses gathered since the last sample. */
   sample(): PlayerCommand;
   /** Off while paused or in menus: no pointer lock, sample() returns no input. */
@@ -153,6 +161,7 @@ export interface ModelKit {
 
 /** src/client/vfx: `createVfx(renderer)`. */
 export interface Vfx {
+  reset?(): void;
   /** This step's events (tracers, impacts, hit flashes, ability effects). */
   onEvents(events: readonly SimEvent[], view: SimView): void;
   update(frame: Frame): void;
@@ -162,6 +171,8 @@ export interface Vfx {
 /** src/client/audio: `createAudio(settings)`. WebAudio starts on the first user gesture (`resume`). */
 export interface AudioOut {
   onEvents(events: readonly SimEvent[], view: SimView): void;
+  /** Clear the old match voices, loops and music on entering a new scene. */
+  reset?(): void;
   update(frame: Frame, listener: CameraPose): void;
   resume(): void;
   setSettings(settings: Settings): void;
@@ -189,7 +200,14 @@ export interface MatchSetup {
 /** What the UI may ask the app to do. */
 export interface AppActions {
   /** menu → heroSelect */
-  play(): void;
+  play(mode?: 'siege' | 'practice'): void;
+  submit(intent: HudIntent): void;
+  /** For a pointer-driven match overlay. The sim keeps stepping. */
+  capturePointer(release: boolean): void;
+  /** Project a world point to overlay CSS pixels, null behind the camera. */
+  project(point: Vec3): { x: number; y: number } | null;
+  /** World point or entity under the actual crosshair. */
+  crosshairPing(): Ping | null;
   /** heroSelect → match */
   startMatch(setup: MatchSetup): void;
   /** heroSelect → menu, end → menu, pause → menu (quit the match) */
@@ -210,6 +228,8 @@ export interface ScreenContext {
   readonly seed: number;
   /** Set on the end screen: the match summary, scoreboard, graphs and item timelines (GDD §12.11). */
   readonly telemetry: MatchTelemetry | null;
+  readonly catalogue: readonly ItemDef[];
+  readonly mode: 'siege' | 'practice';
 }
 
 /** src/client/ui: `createUi(root, actions)`. DOM/CSS overlay above the canvas. */

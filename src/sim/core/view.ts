@@ -12,6 +12,7 @@ import type {
   StatusInstance,
   StatusView,
 } from './contracts';
+import { AP_COSTS } from '../data/abilities';
 import { DEFAULT_AIM_ZOOM } from '../data/core';
 import { copy } from './math';
 import type { TelemetryCollector } from './telemetry';
@@ -42,7 +43,7 @@ function flagsOf(e: Entity): number {
       if (m.knockedUp) f |= ViewFlag.KnockedUp;
       if (e.abilities.casting !== null) f |= ViewFlag.Casting;
       if (e.abilities.channelling) f |= ViewFlag.Channelling;
-      if (e.weapon.meleeing) f |= ViewFlag.Meleeing;
+      if (e.weapon.meleePose && e.weapon.meleePose !== 'parry') f |= ViewFlag.Meleeing;
       if (e.command.held & Button.Aim) f |= ViewFlag.Aiming;
       if (e.weapon.firing) f |= ViewFlag.Firing;
       if (e.weapon.reloading) f |= ViewFlag.Reloading;
@@ -101,6 +102,7 @@ function entityView(e: Entity): EntityView {
     maxHp: 'stats' in e ? e.stats.final.maxHealth : 0,
     shield: health ? health.talonShield + health.songShield + health.barrier : 0,
     flags: flagsOf(e),
+    ...(e.kind === 'hero' && e.weapon.meleePose && { meleePose: e.weapon.meleePose }),
     mode: e.kind === 'hero' ? e.motor.mode : null,
     seenBy: e.seenBy,
     mapSeenBy: e.seenBy | (e.mapOnlySeenBy ?? 0),
@@ -134,6 +136,7 @@ function heroView(ctx: SimContext, h: HeroEntity, scores: TelemetryCollector): H
     magazine: h.stats.final.magazine,
     stamina: h.motor.stamina,
     staminaMax: h.stats.final.stamina,
+    dashJumpReady: h.motor.dashJumpReady ?? false,
     respawnAt: h.health.respawnAt,
     talonShield: h.health.talonShield,
     songShield: h.health.songShield,
@@ -141,7 +144,7 @@ function heroView(ctx: SimContext, h: HeroEntity, scores: TelemetryCollector): H
     shoulder: h.shoulder,
     shopZone: h.inventory.shopZone ?? null,
     aimZoom: ctx.heroes[h.hero.heroId].def.weapon.aimZoom ?? DEFAULT_AIM_ZOOM,
-    abilities: h.abilities.slots.map((slot) => ({ ...slot })),
+    abilities: h.abilities.slots.map((slot) => ({ ...slot, nextUpgradeCost: AP_COSTS[slot.tier] ?? null })),
     items: h.inventory.items.map((item) => ({ ...item })),
     actives: [...h.inventory.actives],
     statuses: h.statuses.map(statusView),

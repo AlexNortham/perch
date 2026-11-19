@@ -9,3 +9,8 @@ import type { PlayerTeam } from './contracts';
 export function canSee(team: PlayerTeam, entity: { readonly seenBy: number }): boolean {
   return (entity.seenBy & SeenBy[team]) !== 0;
 }
+
+/** World and map-only reveals both put an icon on the minimap. */
+export function canSeeOnMap(team: PlayerTeam, entity: { readonly seenBy: number; readonly mapSeenBy?: number }): boolean {
+  return ((entity.mapSeenBy ?? entity.seenBy) & SeenBy[team]) !== 0;
+}
