@@ -1631,3 +1631,19 @@ GDD §4.1, §8.1, §8.9, §12.4–§12.8 and §15 change in the next Director GD
 **Why:** D-EP-046 asks for PERCH to feel as close as possible to the reference. The frames show the reference's HUD,
 camera, density and pacing differ from PERCH in these specific, measurable ways. Each fix keeps D-EP-002: layout,
 pacing and mechanics, with no names, art or map layout copied.
+
+### D-EP-047 · 19/11/2026 — Production-level art from Stage 4: no placeholder shapes
+**Decision:** the visual bar moves forward into Stage 4.
+- **Style guide first.** The Game Director and Technical Artist write it at the start of wave 5b, using the user's
+  gameplay videos as the visual guide (frames captured under `out/reference/`, never committed).
+- **New role: Environment Artist (#22).** Owns `src/client/render/environment/**`. Builds the visual layer over the
+  Level Designer's collision geometry: detailed facades, roofs, windows, doors, trims, chimneys and balconies;
+  furnished interiors; jungle foliage; props; Nests and Thicket camps; structure and Patron dressing. All of it is
+  procedural (generated textures, materials, ambient occlusion, instancing and LOD) and within the 60 FPS budget.
+- **Birds.** The 12 new birds are modelled to the style guide in waves 5b and 6. The 12 existing birds are reworked
+  to it in wave 6 by a second Technical Artist, moved forward from Stage 5.
+- **Art roles run on Opus** (D-EP-019 escalation for quality-critical work).
+- **Stage 4 gate:** no placeholder shapes are visible in normal play.
+- **Stage 5 keeps** the VFX production pass, animation polish, lighting mood and final art polish (D-EP-042).
+**Why:** the user's instruction: incredible attention to detail in model design, map and characters; use the videos
+as visual guides; no placeholder cuboids; everything should look incredible.

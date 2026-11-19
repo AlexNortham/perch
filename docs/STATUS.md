@@ -187,13 +187,16 @@ Gate M3:
 - [ ] Always-on top scoreboard bar replaces the Tab scoreboard (no keybind): timer and flock Seed totals in the
   centre, six portraits per side with health bars, Seeds, respawn countdowns and vision dimming; kill feed with
   callouts; objective status in a strip below and on the minimap (D-EP-041)
+- [ ] No placeholder shapes in normal play (D-EP-047): every building (facade, roof, interior), prop, Nest, Thicket
+  camp, structure, Patron and bird is built to the style guide and checked side by side against the reference frames;
+  still 60 FPS on the budget scenes
 - [ ] Bots buy varied, synergistic builds from item scores (a starter table from GDD §11 until the Build Lab
   converges): over 20 matches no two builds of a hero are near-identical, and synergy beats a random baseline (D-EP-036)
 - [ ] Launchable: a 1 + 11 bots match with any of the 24 heroes starts from the menu; PLAYABLE.md "Stage 4 (M3)" written
 
 ### M4 — Balance and polish
 
-- **W6.5** (before W7): Game Director and Technical Artist write the **style guide**, a one-page target look for
+- **Style guide moved to the start of W5b (D-EP-047).** (Was W6.5.) Game Director and Technical Artist write the **style guide**, a one-page target look for
   models and effects that every art and VFX task in W7 is judged against (D-EP-042)
 - **W7**: Balance & Data (headless matches and focused skirmish scenarios at whatever scale the statistics need,
   10× or 100× the baseline if necessary; per-ability assessment, ablation tests and reworks with the Game Director and
