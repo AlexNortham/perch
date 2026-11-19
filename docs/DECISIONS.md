@@ -943,3 +943,8 @@ Artist, Hero A (A2) and Hero B (B1) start fresh from main; Audio starts when a s
 merge because it touches every owner's files. Models follow D-EP-019. ChatGPT's worktrees under `~\.codex\` are left
 untouched.
 **Why:** the user asked Claude to pick development back up from ChatGPT; resuming its branches keeps its work.
+
+### D-ART-002 - 19/11/2026 - Structures are one swapped-geometry mesh; shared instanced Brood Ward dome
+Each structure is a single mesh whose geometry is swapped between prebuilt variants (eye glow, Heron leg pose) instead of
+separate glow and leg meshes, and towers do not cast shadows. A structure stays at one draw call, so the lane scenes stay
+under QA's ceilings (24 and 41 against 32 and 48). The dome is one InstancedMesh for all wards.

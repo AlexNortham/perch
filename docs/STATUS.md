@@ -1006,3 +1006,24 @@ and visible siege progression.
 **Interface requests:** sent stable accessible names for the upgrade dialog, ability controls, and labelled
 dummy HP bars through the EP. The W3 worst-tick follow-up and production-browser regressions are tracked
 outside this browser acceptance suite.
+
+### W4 - Technical Artist - 19/11/2026
+**Done:** (1) Eight new birds in `models/heroes-b.ts` from GDD 9.5 to 9.12 (owl, pelican, secretarybird, starling with a
+spinning 8-bird halo, hornbill, flamingo with a one-leg idle, penguin, puffin); every size read from `HEROES[id].def.body`
+at runtime, head on the head hitbox, gun tip on the muzzle. (2) Melee in `bird-rig.ts` from `EntityView.meleePose`: charge
+hold, light and heavy swings (windup, lunge, recovery) and parry; timings in `MELEE` (constants.ts). (3) Structures in
+`models/structures.ts` + `rigs/structure-rig.ts`: Hawk, Heron, Warden, Shrine, Elder Raven, Great Owl. Each is ONE mesh
+(one draw call, frustum-culled) whose geometry swaps between cached variants for eye glow (target) and Heron leg pose.
+Patron: heart-feather from the transition, at `weakPoint` in phase two, raged eyes, shake. Brood Ward = one shared instanced
+dome (`DomeGroup`, drawn only while a ward stands; swells and vanishes when it breaks). Towers are at most 10 m and are not
+shadow casters (draw budget). (4) Practice Hub dummies (controller 'dummy') get rings on the real head and body hitboxes:
+red, X and bullseye for the enemy; teal and plus for the ally (`models/dummy.ts`). (5) Dev options `modelStructure=`,
+`modelState=charge|light|heavy|parry`.
+**Verified:** `npm run check` all six PASS (one e2e Riverbank Updraft run was flaky under load; passed alone and on
+re-run). Draw-budget e2e peaks on this branch: lane/low 24 (ceiling 32), lane/medium 41 (ceiling 48), match/medium 218
+(ceiling 248). Updraft clearance: every tower at the real `main` anchors is under 12 m (test); Patrons are 24 m from any
+line. Looked at PNGs in `out/art/`: a-front, b-front (eight birds), s-towers1/2, p-dawn (Raven ward and transition),
+p-dusk-p2 (Owl phase two), melee-side, practice-close.
+**Limitations:** body plans on main were still placeholders for the eight birds, so proportions follow GDD fractions;
+Heron stomp is a discrete 3-pose swap; ward crack is a swell, not shards; Patron heart sits partly inside the chest until
+the real weakPoint offset lands. **Interface requests:** none. D-ART-002.
