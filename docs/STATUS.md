@@ -1850,3 +1850,34 @@ From `docs/reference/feel-reference.md`: G01–G04, G06–G10, G13, G15 and G30 
 G19 and G20 to the Level Designer; G16 (Updraft ride visuals) and G18 (team identification) to Rendering & VFX in wave
 5b; G22 (hero bots that fight) to Bot AI in wave 5b; G23 (600-Seed starting purse) to the integration round. The
 Stage 5 gaps (G05, G11, G12, G14, G17, G21, G24–G29) feed the Stage 5 style guide and balancing.
+
+### Stage 4 · Style guide · 19/11/2026
+**Done:** `docs/art/style-guide.md` (D-EP-042, D-EP-047, D-EP-048; D-DIR-015, D-DIR-016) on
+`worktree-agent-a01321a99e8a56fe6` from `integrate/w5` 96e0c6a. Its first principle is the user's "somewhere birds
+would be", with numbered rules for architecture, street life, the jungle and scale. It then covers shape language,
+the architecture kit (facades, windows, doors, roofs, balconies, signage-free storefronts, rooftops, weathering,
+interiors, minimum detail and LOD0 triangles per building type), nature and five-layer jungle density, procedural
+material recipes and palettes per district and flock, birds (proportions, feathers, eyes, beaks, talons, gear, guns
+per archetype, readability at 10, 40 and 80 m), structures and Patrons (states, phase two), lighting, LOD and
+performance budgets for a mid-range iGPU, and a gate checklist and 0–4 rubric with reference frames per category.
+All wording is mine; no frames or images are in the repo.
+**How:** I studied 22 single frames and a board across all five videos (streets, facades, rooftops, interiors,
+structures, Patron chambers, heroes close up and at distance, golden-hour and night light), then PERCH now with
+`npm run shots` (`menu`, `lane --t 45`, `practice`, and `sandbox` with `modelLineup` and `modelStructure`).
+**Findings for the EP:**
+- Of the 2,023 files in `out/reference/`, 54 are reference frames and boards, 47 are PERCH captures and 12 are logs;
+  1,910 are the capture browser's profile data. The guide lists the frames to use.
+- The guide replaces GDD §14.1's flat-shaded look, the §14.5 sun and fog, the §14.6 model budgets and the §6.12 map
+  triangle row (now 450k at Medium, 70 map draw calls, ≤ 240 per frame under the 248 ceiling). GDD §6.12 and §14
+  follow in my next GDD pass.
+- The reference shows no forest; jungle density is judged against the guide's own layer table.
+**Verified:** Git Bash `VITEST_MAX_WORKERS=1 npm run check`: `PASS typecheck 37s · lint 17s · test 63s · perf 10s · sim
+4s · e2e 136s · check 269s`. An earlier run failed only the world perf test (0.846 ms per tick against 0.5) while
+other agents loaded the machine; it passed on the re-run. No `src/` change.
+**Interface requests:**
+- QA: raise the map triangle and draw-call test ceilings to the guide's §11.3 numbers as the art lands, and add the
+  §12.3 shot list to the gate captures.
+- Rendering & VFX: the material infrastructure in §7.1–§7.5 (generated atlases, packed ORM, a sky-derived environment
+  map, baked vertex AO, decals, the bird rim term) and the §10 lighting values.
+- Level Designer: collision for landing boards and perch beams deeper than 0.5 m (§2.6), and no lines or poles across
+  lanes or within 3 m of an Updraft (§1.1).
