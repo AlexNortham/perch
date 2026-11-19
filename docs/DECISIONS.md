@@ -1277,8 +1277,8 @@ and V8's `Math.hypot` builtin, ported to plain `+ − × ÷` and `Math.sqrt`. In
 commit across the owners' files (the brief's "fix it at its owner"; no logic changed). `dmath.test.ts` fails on any
 new banned call under `src/sim`. `e2e/determinism.spec.ts` (with `e2e/hash-trace.ts`, imported by both sides) runs
 the siege script and a seed-1 12-bot match in the Playwright runner and in the app's page, and compares the hash
-after every tick for the first 30 s and 15 s, then every 10 s to 5 and 2.5 minutes. Pointing dmath back at `Math`
-makes it fail at tick 3 (siege) and by tick 1,800 (bots).
+after every tick for the first 30 s and 10 s, then every 10 s and 5 s to 2 minutes and 1 minute. Pointing dmath back
+at `Math` makes it fail at tick 3 (siege) and by tick 1,800 (bots).
 **Why:** the W4 replay split at tick 3. ECMAScript leaves these functions to the engine, and V8 has changed them:
 Edge 156 differs from Node 22 in the last bit on 3–18 % of inputs for every one of them (sqrt and `x ** 2` agree).
 Porting the same algorithm Node uses keeps old hashes and costs about 2× per call (≈ 25 ns), far inside the tick
@@ -1313,3 +1313,43 @@ retires the command bit and migrates saved bindings, and Input, Physics, Objecti
 wave 5. It is a Stage 4 gate item; the Stage 3 release keeps E until then.
 **Why:** the user's instruction: there should be no interact key; the Egg is picked up by melee, and getting on a
 zipline is triggered by holding Jump near it.
+
+### D-ARCH-022 · 19/11/2026 — Interact is deprecated now and deleted in W5.5; saved bindings drop on load
+**Decision:** `Button.Interact` and the `'interact'` binding carry `@deprecated` TSDoc and stay until wave 5 has
+stopped reading them; `RETIRED_BIND_ACTIONS` (app/bindings) names `'interact'` so Input maps no key to it and
+Options hides it. The W5.5 round deletes the bit, the action, its default and UI's label line; bit 0x20000 is never
+reused. Saved settings need no version bump: `sanitizeSettings` keeps only known actions, so once `'interact'` leaves
+`BindAction` a saved code is dropped on the next load and every other binding is untouched (`app.test.ts`). The new
+rules need no new input: the Updraft latch is `held` Jump for 0.2 s and the dismount a fresh `pressed` Jump. The
+contracts gain `PhysicsService.updraftInReach` (optional until Physics lands it), `Motor.updraftInReach`,
+`HeroView.updraftInReach`, and `PickupInfo.melee` with `claimableAt` (combat reports melee-claimable pickups as
+`melee.target`; world claims them).
+**Why:** deleting now breaks Physics, Input, UI and two tests that still read the bit or the binding, and the rule
+is to keep contract changes additive within a wave. Deprecating keeps `integrate/w5` green and leaves a dated, owned
+deletion.
+
+### D-ARCH-023 · 19/11/2026 — Stage 4 contract shapes kept additive
+**Decision:** INTERFACES §14 lands the Stage 4 contracts as optional fields reconciled with the Director's GDD:
+- **Breakables are structures of type `'nest'`**, told apart by `StructureInfo.variant` ('twig', 'woven', 'keepsake',
+  'feeder'), with `breakable` (who can damage it, fixed melee damage), `solid` and `lit`. A new `'feeder'` type
+  broke four owners' tower tables keyed on `Exclude<StructureType, 'nest'>`.
+- **A Bough Spring nav link is a 'walk' link with `spring`**, not a new `NavLinkKind` (Level Designer's exhaustive
+  SVG table); ladders use 'vine' links.
+- **Mute is `Settings.mute`**, not a field of `volume` (UI iterates the volume numbers).
+- **Seeds stay with economy:** it owns seed sprigs (pickups like pods) and every Seed payout from camps, Feeders, the
+  Roc, Embers and the Egg's golden pods; world owns the objectives, their pickups for crumbs, keepsakes, runes,
+  Embers, Berries and the Egg, and Rekindle charges. Combat revives and marks `entity.died.revives`.
+- **Learned builds** are `BuildData` in `src/sim/data/builds.ts` (Bot AI creates the round-0 prior in W5, Balance &
+  Data owns it from W6), read by sim/ai, the shop UI and the wiki; `SimOptions.botShopping` lets one seeded match pit
+  two score sets or random buying.
+- **Source-position damage rules** (the Roc's Hollow, dormant camps' 35 m) are `UnitInfo.damageFrom`, applied by
+  combat; neutral units otherwise use the normal pipeline.
+**Why:** every one of these compiles against today's code unchanged, which lets wave 5's owners land in any order.
+
+### D-ARCH-024 · 19/11/2026 — `meleeDamageTaken` moves every hash once
+**Decision:** the Director's melee items need an incoming-melee stat, so `STAT_DEFAULTS` gains `meleeDamageTaken`
+(default 0; "+x % melee damage" is op 'pct' on the existing `meleeDamage`). Stat blocks hash every stat, so every
+`sim.hash()` changes once, identically in Node and Edge; gameplay is unchanged (same ticks, same events). The new
+references are in the W4.5 Architect STATUS entry.
+**Why:** a stat is how items express it everywhere else; a one-time hash move in a contract round is cheaper than a
+special case in the hash.

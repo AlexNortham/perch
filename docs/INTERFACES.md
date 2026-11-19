@@ -475,9 +475,11 @@ truth; this section says who does what. Reconciled with the Director's W4.5 GDD 
   offset; sim/ai samples softmax(score / temperature) over affordable, buyable items from the stream
   `'ai/<heroId>/shop'`, so shopping never shifts another stream. Temperature comes from the difficulty (data/ai).
 - **Builds.** `RecommendedBuild`: early, mid and late cores in buying order plus situational picks with a short
-  reason. `BuildData` = { round, matches, phases { midFromS, lateFromS }, scores, builds }, exported as `BUILDS` from
-  `src/sim/data/builds.ts`. Round 0 (no learned data) falls back to GDD §11.5's lists. Readers: sim/ai, the Magpie's
-  Hoard (client/ui may import `src/sim/data/builds.ts`, ARCHITECTURE §5) and tools/wiki.
+  reason (and a `condition` id bots evaluate). `BuildData` = { round, matches, phases { midFromS 600, lateFromS
+  1320 }, scores, builds }, exported as `BUILDS` from `src/sim/data/builds.ts`. Round 0 is GDD §11.4's designer
+  prior (scores from the §11.5 list order, component synergy and the §11.8 archetype cores; builds = the §11.8 rows),
+  so bots, the shop's Recommended strip and the wiki work before the Build Lab. Readers: sim/ai, the Magpie's Hoard
+  (client/ui may import `src/sim/data/builds.ts`, ARCHITECTURE §5) and tools/wiki.
 - **Build Lab.** `SimOptions.botShopping` per flock: replacement `scores`, a `temperature`, or `random` buying, so one
   seeded match plays round N against round N−1 or against random (D-EP-037's held-out test). Outcomes come from
   `sim.telemetry()` (`itemsBought` has each purchase's second). Headless results equal the browser's (D-ARCH-021).
@@ -492,16 +494,17 @@ truth; this section says who does what. Reconciled with the Director's W4.5 GDD 
 | Keepsakes | `HeroEntity.keepsakes` { count, totals }, stat source `'world:keepsakes'` | `objective` keepsakeGained (`value`, `variant`) | `HeroView.keepsakes` |
 | Bell Feeders | Structure `'nest'` with variant `'feeder'`, `breakable` { by: 'melee', light: 60, heavy: 120 }, `lit`; `MapData.interactables` kind 'feeder' (`camp` for the Granary hybrid); `ObjectiveState.interactableAt` | swing-back is world damage; `entity.died`; keepsakeGained | `ViewFlag.Lit` |
 | Feather runes | Pickup `rune`, `melee: 'heavy'`; `ObjectiveState.runeAt` per spot | `objective` runeSpawned / runeTaken (`variant`) | type, variant |
-| Golden Egg | Pickup `egg`, `melee: 'any'`, `claimableAt` (lowering; 1 s after a drop); `ObjectiveState.egg` { pickup, perch, rollsAt, coolsAt, deliverUntil, value } | `objective` eggSpawned / eggTaken / eggDropped / eggRolling / eggSpoiled / eggDelivered (`value`; economy hatches the golden pods) | `ViewFlag.Carried`, `EggCarrier` |
+| Golden Egg | Pickup `egg`, `melee: 'any'`, `claimableAt` (lowering; 1 s after a drop); `ObjectiveState.egg` { pickup, perch, rollsAt, coolsAt, value }. The carrier's own Melee sets it down; entering the Stone delivers it | `objective` eggSpawned / eggTaken / eggDropped / eggRolling / eggSpoiled / eggDelivered (`value`; economy hatches the golden pods) | `ViewFlag.Carried`, `EggCarrier` |
 | Roc | Unit `roc`, `asleep`, `enraged`; `ObjectiveState.rocAt` | `objective` rocSpawned; `unit.attack` rake / flap / shriek; `unit.state` enraged | `ViewFlag.Asleep`, `Enraged` |
 | Embers and Rekindle | Three pickups `ember`, `melee: 'heavy'`, `claimableAt`; `TeamState.rekindle` { until, charges } | `objective` emberDropped / emberClaimed; `entity.died.revives`; `hero.respawned.revived` | `TeamView.rekindle` |
 | Berries | Pickup `berry`, eaten within 1.2 m; anchors in `MapData.interactables` | `objective` berryEaten | type |
 | Hides, Lookouts, ivy, Cellar Run, Springs | `Room.tag` 'hide' / 'tunnel', interactable 'lookout', `Opening.curtain` plus a `blocks: 'sight'` prim, `MapData.springs` | none new (hidden and lookout are statuses) | statuses |
 
-Writers: sim/world for all of the above except pods (economy, including the Egg's golden pods) and the revive itself
-(combat sets `entity.died.revives` and revives; world spends the charge on that event). Combat honours `breakable`
-and includes `melee` pickups in its melee hit test (they take no damage). Physics builds no collider for a
-structure with `solid: false`. A Bell Feeder is a `'nest'` variant so the tower tables keyed on
+Writers: sim/world for all of the above except Seeds and their pickups (economy: pods, the Egg's golden pods and Nest
+seed sprigs, plus every Seed payout from camps, Feeders, the Roc and Embers) and the revive itself (combat sets
+`entity.died.revives` and revives; world spends the charge on that event). Combat honours `breakable`, drops damage
+from heroes outside a unit's `damageFrom` (the Roc's Hollow, a dormant camp's 35 m) and includes `melee` pickups in
+its melee hit test (they take no damage). Physics builds no collider for a structure with `solid: false`. A Bell Feeder is a `'nest'` variant so the tower tables keyed on
 `Exclude<StructureType, 'nest'>` stay valid (D-ARCH-023).
 
 ### 14.3 The detailed map (D-EP-033, GDD §§6.5–6.12)
@@ -525,8 +528,28 @@ and walk links; no stair record is needed.
 - **Updrafts:** `PhysicsService.updraftInReach(pos)` (optional until Physics lands it) gives the nearest cable point
   in reach anywhere along the cable; physics writes `Motor.updraftInReach` each tick and mounts on held Jump;
   `HeroView.updraftInReach` drives the HUD prompt.
+- **Updraft latch and dismount (GDD §3.7):** no new input. Physics reads `held & Button.Jump` for the 0.2 s latch and
+  a fresh `pressed` Jump (released since latching) to jump off; Crouch drops off. Hold time, reach and lockouts are
+  physics data.
 - **Egg, runes, Embers:** `PickupInfo.melee` ('any' for the Egg, 'heavy' for runes and Embers); combat reports the
-  pickup as `melee.target`; world claims it. Delivery is automatic in the Stone's circle (`EggState.deliverUntil`).
+  pickup as `melee.target`; world claims it. The carrier's own Melee sets the Egg down 1 m ahead; delivery happens
+  the moment the carrier enters the Stone's circle.
 - **Saved settings:** until W5.5 a saved `interact` code is kept but inert. Once `'interact'` leaves `BindAction`,
   `sanitizeSettings` keeps only known actions, so the saved code is dropped on the next load and every other binding
   is untouched; no storage-key bump. `app.test.ts` covers the drop.
+
+### 14.5 The Director's W4.5 requests (GDD §§3, 6, 7, 10)
+
+| # | Request | Decision | Landed as |
+|---|---|---|---|
+| 1 | Map schema: storeys, openings (door, shot window, leap window), ladders, hatches, interior volume ids, ivy curtains, Hides, Lookouts, Bough Springs with an arc, Berries, Bell Feeders, Magpie Dens, the Cellar Run speed volume | A | §14.3: `Storey`, `Opening` kinds and `curtain`, `Climb.kind 'ladder'`, `Room` (+ `tag` hide / tunnel), `NavGraph.nodeRoom`, `InteractableAnchor` (berry, feeder, lookout), `Spring` (pad, landing, apex), `ShopAnchor.neutral` |
+| 2 | A `spring` nav link | M | `NavLink.spring` on a 'walk' link: a new `NavLinkKind` would break the exhaustive tables keyed on it |
+| 3 | Pickups for seed sprigs, crumbs and keepsakes | A | `PickupType` 'sprig', 'crumb', 'keepsake' (and 'berry') |
+| 4 | Keepsake stats as one source per type | A | World sets one source, `'world:keepsakes'`, holding one summed modifier per stat (= per keepsake type), so each type stacks once in §5.3 and the CDR stack; `HeroEntity.keepsakes.totals` |
+| 5 | `statMod` stats `meleeDamage` and `meleeDamageTaken` | M | `meleeDamage` already exists (light melee damage): "+x% melee damage" is op 'pct' on it. New stat `meleeDamageTaken` (bonus, step 5). Every `sim.hash()` moves once because stat blocks hash all stats (D-ARCH-024) |
+| 6 | `damage` by % of current HP | A | `DamageEffect.currentHpPct`; also `maxHpPct` (Rookery Dirge) and `triggerPct` (Burr Coat's 15% return) |
+| 7 | A cast-granted trigger on the next N gun hits | A | `TriggerDef.uses` with the `trigger` effect's duration (Warbler's Trill 1 in 5 s, Skylark Cadence 3 in 6 s); also `via` and `withinM` filters |
+| 8 | Ally `unit` targeting with a self fallback | A | `selfFallback` on AbilityDef and ItemActive; `ItemActive.affects` (Rescue Call, Stoop Dive) |
+| 9 | The hidden state | A | Condition `'hidden'`: world sets it and folds it into `seenBy` (§7.15) |
+| 10 | Remove the Interact command; a held-Jump latch input | M | Interact deprecated now, deleted in W5.5 (§14.4); the latch needs no new input: `held`/`pressed` Jump already carry it |
+| 11 | (from §10, not listed) item auras | A | `ItemDef.aura` (Nestmother's Mantle, Rookery Dirge) |

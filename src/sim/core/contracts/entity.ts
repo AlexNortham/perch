@@ -279,6 +279,11 @@ export interface UnitInfo {
   asleep?: boolean;
   /** The Roc: below its enrage threshold (GDD §7.12). */
   enraged?: boolean;
+  /**
+   * Neutral units: sim/combat drops damage whose credited hero stands outside this region (a sphere, cut off above
+   * `maxY` when set). World sets it: the Hollow below y −2 for the Roc, 35 m around a dormant camp's anchor.
+   */
+  damageFrom?: { readonly centre: Vec3; readonly radius: number; readonly maxY?: number } | null;
 }
 
 export interface UnitEntity extends EntityBase {
