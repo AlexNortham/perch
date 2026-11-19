@@ -9,7 +9,7 @@ import type { EntityId, EntityView, PlayerTeam, SimView } from '../../sim/core/c
 import { HEROES } from '../../sim/heroes/registry';
 import type { Renderer, Vfx } from '../app/contracts';
 import { entityById } from '../app/loop';
-import { hostOf } from '../render/host';
+import { hostOf } from '../app/render-host';
 import { Bound } from './bound';
 import type { Source } from './bound';
 import { MARKER_BITS, STATUS_MARKERS, TRACER } from './constants';

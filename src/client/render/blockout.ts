@@ -56,7 +56,7 @@ import {
   VINE_WIDTH,
   WATER_EMISSIVE,
 } from './constants';
-import { ENV_COLOURS, LANE_COLOURS, MATERIAL_COLOURS, TEAM_COLOURS } from './palette';
+import { ENV_COLOURS, LANE_COLOURS, MATERIAL_COLOURS, TEAM_COLOURS } from '../app/palette';
 
 export interface Blockout {
   /** Everything built from the map; add it to the scene. */

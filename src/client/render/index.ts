@@ -24,8 +24,8 @@ import type { CameraPose, Quality, Renderer } from '../app/contracts';
 import { buildBlockout } from './blockout';
 import type { Blockout } from './blockout';
 import { createEntityLayer } from './entities';
-import { registerHost } from './host';
-import type { RenderHost } from './host';
+import { registerHost } from '../app/render-host';
+import type { RenderHost } from '../app/render-host';
 import {
   FAR_MAX,
   FAR_MIN,
@@ -51,9 +51,9 @@ import {
 } from './constants';
 import { FIXTURE_MAP } from './fixture';
 import { createModelKit } from './models';
-import { LIGHT_COLOURS, SKY_COLOURS } from './palette';
+import { LIGHT_COLOURS, SKY_COLOURS } from '../app/palette';
 
-export { DAWN_COLOURS, DUSK_COLOURS, TEAM_COLOURS } from './palette';
+export { DAWN_COLOURS, DUSK_COLOURS, TEAM_COLOURS } from '../app/palette';
 
 declare global {
   interface Window {

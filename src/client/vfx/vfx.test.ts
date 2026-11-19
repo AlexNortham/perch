@@ -7,7 +7,7 @@ import { Bound } from './bound';
 import type { Source } from './bound';
 import { CAPACITY, TRACER, TRANSIENT_CAPACITY } from './constants';
 import type { BurstKind } from './constants';
-import { drawnByVfx } from './drawn';
+import { drawnByVfx } from '../app/drawn';
 import { createDraw, Transients } from './fx';
 import { mapEvents } from './mapping';
 import type { FxSink, Lookup } from './mapping';

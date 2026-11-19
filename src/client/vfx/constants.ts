@@ -1,5 +1,5 @@
 /** VFX presentation constants (D-EP-009). Colours are 0xRRGGBB sRGB; sizes in metres, times in seconds. */
-import { ALLY_TEAL, ENEMY_RED } from '../render/palette';
+import { ALLY_TEAL, ENEMY_RED } from '../app/palette';
 
 export type Shape = 'box' | 'sphere' | 'cylinder' | 'cone' | 'ring';
 

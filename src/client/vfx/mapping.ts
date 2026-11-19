@@ -3,7 +3,7 @@
  * `FxSink`, so the mapping is unit-tested without a GPU.
  */
 import type { EntityId, EntityView, PlayerTeam, SimEvent, Team, Vec3 } from '../../sim/core/contracts';
-import { ENEMY_RED, NEUTRAL_COLOUR, TEAM_COLOURS } from '../render/palette';
+import { ENEMY_RED, NEUTRAL_COLOUR, TEAM_COLOURS } from '../app/palette';
 import { CHEST, RANGED_DISTANCE, RANGED_TYPES, TRACER } from './constants';
 import type { BurstKind } from './constants';
 

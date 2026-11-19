@@ -14,7 +14,7 @@ import type { Object3D } from 'three';
 import type { EntityId } from '../../sim/core/contracts';
 import type { Frame, ModelKit } from '../app/contracts';
 import { interpolate } from '../app/loop';
-import { drawnByVfx } from '../vfx/drawn';
+import { drawnByVfx } from '../app/drawn';
 
 export interface EntityLayer {
   /** Create, pose and retire models for this frame. Returns whether any structure entity exists. */

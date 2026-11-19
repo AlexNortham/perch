@@ -8,13 +8,13 @@ import type { EntityId, EntityView, PlayerTeam } from '../../sim/core/contracts'
 import { ViewFlag } from '../../sim/core/contracts';
 import type { Frame } from '../app/contracts';
 import { entityById } from '../app/loop';
-import { ALLY_TEAL, ENEMY_RED, NEUTRAL_COLOUR, TEAM_COLOURS } from '../render/palette';
+import { ALLY_TEAL, ENEMY_RED, NEUTRAL_COLOUR, TEAM_COLOURS } from '../app/palette';
 import {
   AREA, HEAD, HIT_FLASH, HIT_FLASH_CAPACITY, MARKER, MARKER_BITS, MAX_TETHERS, PROJECTILE, POD, SLIDE_SPARK_EVERY, SUMMON, TETHER,
   WIND_EVERY,
 } from './constants';
 import { chestHeight } from './mapping';
-import { drawnByVfx } from './drawn';
+import { drawnByVfx } from '../app/drawn';
 import { faceZ, identity, rgb } from './fx';
 import type { Draw, Transients } from './fx';
 
