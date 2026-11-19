@@ -1750,3 +1750,28 @@ e2e 102s · check 141s`.
 **Notes:** the existing `siege.test.ts` and `controller.test.ts` still press Interact; the Physics owner moves them to
 held Jump with the latch. If a suite misreads the GDD, say so here rather than editing it (README rule). **Blocked:**
 nothing. **Interface requests:** none.
+
+### W5a · Hero Engineer A (batch A3) · 19/11/2026
+**Done:** branch from `integrate/w5` 8891822. Peacock, Vulture, Swift and Hummingbird ship with GDD 9.13-9.16 body plan,
+stats, gun, all four abilities with every tier, player-facing text with numbers, a swatch (0x1C8F9E, 0x8A5A3C, 0x6B5D54,
+0x3EC45A) and `implemented: true`. Each has a test file: gun (damage, head x1.65, magazine, fire rate, reload), a smoke
+test for every ability (base, and a later tier where it adds something), and the ultimate locked until level 6. Hooks only
+where data cannot say it: Peacock (Hundred Eyes fan and the three-hits cap, Strut's next-cast bonus), Swift (Slipstream
+T3 pass-through damage, Wing Scythe return-pass stun, Sky Stitch 25 m ceiling and T3 ground slam), Hummingbird (Hover,
+Nectar Sip's tier-based break distance and T3 slow, Thousand Beats Dart damage, silence and refund). Vulture has no hooks.
+
+**Verified:** `bash scripts/check.sh`: typecheck, lint (zero warnings after the last commit), test, perf and sim PASS;
+e2e FAILS one spec, `e2e/m2.spec.ts:219` ("twelve selectable M2 hero cards" expects 12 enabled cards, now 16). That count
+is stale by design: it moves with every batch (20 with B2's four, 24 at the end). The spec is QA's, so I left it; update
+it at integration. Two other e2e tests (`options.spec` Jump rebind, `preview-regressions` side buttons) timed out once
+under load with other agents running and pass alone. Models are the Technical Artist's (wave 5b); the generic bird
+stands in.
+
+**Limits:** Dart aims along the camera (`dir: 'aim'`), not "movement keys if held" (a dash has one direction source).
+Thermal's glide ends as Owl's does (landing or Jump). Death Spiral's pull is a 1.5 m hop every 0.5 s (3 m/s), because a
+pull is a launch toward the area centre. Wing Scythe's stun reads "second hit on a hero" as the return pass, so a hero
+first touched on the way back is not stunned. Strut's bonus lasts 0.8 s after the cast it is spent on, so a dart in
+flight still gets it.
+**Interface requests:** Combat: `applyStatus` of 0 s lasts a tick (already W5 follow-up). Abilities: an upgrade tier
+that adds to a dash's `onHit` or changes a tether's `breakDistance`, and a hook callback for any landed cast (today only
+`hook: true` abilities call `onCast`, so Strut marks Dazzle and Full Display `hook: true`).
