@@ -2592,3 +2592,83 @@ Feeders, Berries, Springs and climbs; tuning for all 24 heroes with the Build La
   - It adds 1.2–1.5 s of load and 75.5 MB of vertex memory.
   - The third pass and worker-based generation go to wave 6.
 - **Build Lab** (simulation track, D-EP-044): Phase A, the lab and a pilot, starts now (brief `docs/briefs/W5-buildlab.md`). Phase B, the 1,000+ match run, starts once the match-ending fix and the integration round are merged.
+
+### W5c · Technical Artist · sculpt pipeline v2 (implicit bodies) · 20/11/2026
+**Done:** an implicit (SDF) body pipeline, and Peacock, Swift and Cassowary converted to it. Branch
+`worktree-agent-ab2171eba079ed25b`, with `integrate/w5` merged at 373506f (Rendering's materials and lighting, Bot AI,
+the environment second pass). D-ART-008 (pipeline), D-ART-009 (meshoptimizer, bake only), D-ART-010 (how to convert a
+bird).
+- **Pipeline:**
+  - `models/bodies.ts` describes each bird as signed-distance masses: back, breast pectorals and keel, belly, mantle,
+    tail coverts, scapulars, wing roots, thighs, a neck chain, and a head with brow, cheeks, nape, throat, bill base and
+    eye sockets. It also gives the anchors the rig hangs from.
+  - `models/sdf.ts` is the field: smooth union and subtraction with a blend radius per mass, bone and paint ownership,
+    and surface probes for gear and feathers.
+  - `models/mesher.ts` bakes it: surface nets, then meshoptimizer's attribute-aware levels of detail.
+    `models/skin.ts` decodes and paints the result.
+  - Bake with `npx tsx tests/anim/bake-skins.ts` (1–4 s a bird). `skins.test.ts` re-bakes and requires the committed
+    skins to be byte-identical.
+- **Skinning:** sculpted builds are now in the model frame with real bind matrices, so a skin vertex blends up to four
+  bones. Necks hand from the body to the head, wing roots to the wings, and thighs to the legs. Rigid parts, sockets,
+  IK, morphs, levels of detail and Rendering's identity overlays are unchanged.
+- **Texturing:** skin vertices take the bird atlas tiles world-aligned (triplanar on the bind pose) and blend region
+  colours softly. Paint-only "mark" volumes draw sharp markings.
+- **Per bird:**
+  - Peacock: a level pear body with a pectoral breast and keel, buff scapulars, raised tail coverts, and an S-neck that
+    flows into a hooded nape. It has a stern brow, white face stripes and dark feathered thighs.
+  - Swift: a forward-leaning torpedo with a broad chest and a waist, and short feathered thighs with a fringe. Its flat,
+    scowling head has pale brows, a pale throat, and a goggle strap round the back.
+  - Cassowary: a domed haystack over a sculpted shag (two tiers of hanging locks) under the hair blades, and heavy
+    thighs with hair fringes. A bare blue neck carries a skin fold, wattles and a red nape that grades into the head,
+    under a tall horn casque.
+- `tests/anim/frame.ts` takes `fov=`, to inspect far line-ups at the level of detail their distance picks.
+
+**Evidence** (git-ignored; reproduce with `npx tsx tests/anim/posesheets.ts --out=out/art/after --frame="name=<bird>&mode=triptych&hero=<bird>"`):
+- Before and after triptychs (three-quarter, front, back from the player camera, neutral light):
+  `out/art/before/<bird>.png` and `out/art/after/<bird>.png`. Player camera: `out/art/after/<bird>-player.png`.
+- Line-ups with Vulture and Toucan at 10, 40 and 80 m: `out/art/after/lineup-{10,40,80}.png`. The 40 and 80 m levels of
+  detail, zoomed: `lineup-{40,80}-zoom.png`.
+- In the real game renderer (sandbox, front and back): `out/art/after/game-lineup.png` and `game-lineup-back.png`.
+- I judged them beside `HP8-yBieQK8\t2010.jpg`.
+
+| Bird | Level 0 / 1 / 2 / 3 triangles (of which skin) | Player camera: bird / gun | Honest score |
+|---|---|---|---|
+| Peacock | 8,890 / 3,374 / 1,134 / 376 (2,300 / 900 / 300 / 120) | 3.6 % / 0.24 % | 3 |
+| Swift | 8,962 / 3,232 / 1,196 / 394 (2,900 / 950 / 300 / 110) | 4.9 % / 0.39 % | 3 |
+| Cassowary | 8,872 / 3,410 / 1,144 / 374 (2,500 / 850 / 280 / 120) | 5.3 % / 0.38 % | 2.5 (3 from the front and three-quarter) |
+
+All are within 9,000 / 3,500 / 1,200 / 400, with at most three draw calls. Before, the scores were 2, 2 and 1.
+
+**Load and memory:**
+- Nothing is generated at load. A skin decodes once in about 2 ms, then paints per team. A bird still builds in about
+  20–30 ms (Node, median of 7, the same as before within 4 ms). A 12-bird match adds well under 0.1 s, against the
+  ≤ 1 s allowance and today's 2.5 s page load.
+- Geometry per bird and team, all four levels: Peacock 2,103 → 2,105 KB, Swift 1,926 → 2,109 KB, Cassowary 2,026 →
+  2,038 KB. Most of this is the three morph targets' position and normal deltas, which are zero on the skin. A
+  per-layer morph range would save about a third (wave 6).
+- Bundle: +229 KB of base64 source for three birds, about 75 KB a bird (about 1.8 MB for all 24 before gzip).
+
+**Verified:** the model, render, skin and attachment tests pass (111): budgets, the head on its hitbox, the body
+meeting the head, grips held in every state, the muzzle on the sim's muzzle point, feet planted, and every vertex's
+weights summing to 1. `npm run check`, each step run, with 373506f merged (this branch changes nothing in `src/sim`):
+- **typecheck, lint and sim:** pass. The sim is seed 1, 3 minutes, 12 bots, hash 41b6ba755b99c3c1.
+- **test:** 1,117 pass and 6 fail. Five are the known Objectives sim tests. Wiki coverage timed out under load and
+  passes alone (10/10).
+- **perf:** the objectives budget fails (known). The fledgling world budget failed under load and passes alone.
+- **e2e:** 55 pass and 7 fail in parallel under load. Run serially, draw-budget (3/3), hero-select and options pass. Two
+  still fail, neither from this branch:
+  - `preview-regressions` "binds side buttons" (the EP's open item from the page-load regression);
+  - `match.spec` "Seeds levelled the hero up" (Bot AI's interface request: bots now take the structure payouts).
+
+**Still short:**
+- Peacock: from the player camera, the neck is still a long smooth column, and a soft crease marks the hood at the nape.
+- Swift: the sickle wings are thin dark blades that read weakly from behind.
+- Cassowary: from the player camera, the back of the head is a plain blue ball (the hitbox floors its size), and the
+  coat is still mostly hair blades; the sculpted shag shows at the hem.
+- Fine markings follow mesh vertices, so they soften from level 1 up. At level 2 (40 m) the Cassowary keeps few hair
+  blades, so its shag and casque carry the haystack read.
+
+**Time to convert one more bird:** about 1.5–2 hours with renders, following D-ART-010. The pipeline and helpers are
+shared, and a bake takes seconds.
+**Blocked:** nothing.
+**Next:** the EP's review, then the other 21 birds in parallel batches.
