@@ -65,6 +65,11 @@ export interface BirdBuild {
   readonly idleLeg?: number;
   /** Sculpted birds (D-ART-004): drawn with the bird materials, with morph targets display, jaw and blink. */
   readonly sculpted?: boolean;
+  /**
+   * Geometry in the model frame at the bind pose, with bind matrices that undo each bone's rest position, so a
+   * vertex may blend several bones (D-ART-008). Otherwise each part is in its own bone's frame (identity bind).
+   */
+  readonly modelSpace?: boolean;
   /** Sculpted birds: the alpha-tested feather cards at full detail (a second draw call). */
   readonly cards?: BufferGeometry;
   /** Sculpted birds: lower levels of detail, each from a camera distance (m). */

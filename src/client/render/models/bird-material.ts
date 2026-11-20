@@ -33,11 +33,15 @@ const VERTEX_HEAD = /* glsl */ `
 attribute vec4 fx;
 varying vec4 vFx;
 varying vec2 vRawUv;
+varying vec3 vBindPos;
+varying vec3 vBindNormal;
 `;
 
 const FRAGMENT_HEAD = /* glsl */ `
 varying vec4 vFx;
 varying vec2 vRawUv;
+varying vec3 vBindPos;
+varying vec3 vBindNormal;
 uniform vec3 rimColour;
 uniform float rimStrength;
 uniform float rimPower;
@@ -48,9 +52,17 @@ vec3 hueShift(vec3 c, float a) {
   float ca = cos(a);
   return c * ca + cross(k, c) * sin(a) + k * dot(k, c) * (1.0 - ca);
 }
+vec4 tileTap(sampler2D atlas, vec2 raw, vec2 dx, vec2 dy, vec2 origin, vec2 count, float inset) {
+  vec2 inTile = inset + fract(raw) * (1.0 - 2.0 * inset);
+  return textureGrad(atlas, (origin + inTile) / count, dx / count, dy / count);
+}
 `;
 
-/** The solid atlas: pick the tile in fx.w, repeat it with fract, keep mip selection from the unwrapped uv. */
+/**
+ * The solid atlas: pick the tile in fx.w, repeat it with fract, keep mip selection from the unwrapped uv. Implicit
+ * body skins (a negative u: minus repeats per metre) have no uv; they take the tile world-aligned from three
+ * projections of the bind-pose position, blended by the bind-pose normal (D-ART-008).
+ */
 const TILE_SAMPLE = /* glsl */ `
 #ifdef USE_MAP
   vec2 tileCount = vec2(${TILE_GRID.cols}.0, ${TILE_GRID.rows}.0);
@@ -58,9 +70,24 @@ const TILE_SAMPLE = /* glsl */ `
   float tileStrength = 1.0 - clamp((vFx.w - tileIndex) / ${PATTERN_FADE}, 0.0, 1.0);
   vec2 tileOrigin = vec2(mod(tileIndex, tileCount.x), floor(tileIndex / tileCount.x));
   float inset = ${BIRD_SHADING.tileInset} / ${TILE_GRID.px}.0;
-  vec2 inTile = inset + fract(vRawUv) * (1.0 - 2.0 * inset);
-  vec2 atlasUv = (tileOrigin + inTile) / tileCount;
-  vec4 sampledDiffuseColor = textureGrad(map, atlasUv, dFdx(vRawUv) / tileCount, dFdy(vRawUv) / tileCount);
+  vec3 bpDx = dFdx(vBindPos);
+  vec3 bpDy = dFdy(vBindPos);
+  vec2 uvDx = dFdx(vRawUv);
+  vec2 uvDy = dFdy(vRawUv);
+  vec4 sampledDiffuseColor;
+  if (vRawUv.x < 0.0) {
+    float rep = -vRawUv.x;
+    vec3 bp = vBindPos * rep;
+    bpDx *= rep;
+    bpDy *= rep;
+    vec3 bw = pow(abs(normalize(vBindNormal)), vec3(4.0));
+    bw /= bw.x + bw.y + bw.z;
+    sampledDiffuseColor = bw.x * tileTap(map, bp.zy, bpDx.zy, bpDy.zy, tileOrigin, tileCount, inset)
+      + bw.y * tileTap(map, bp.xz, bpDx.xz, bpDy.xz, tileOrigin, tileCount, inset)
+      + bw.z * tileTap(map, bp.xy, bpDx.xy, bpDy.xy, tileOrigin, tileCount, inset);
+  } else {
+    sampledDiffuseColor = tileTap(map, vRawUv, uvDx, uvDy, tileOrigin, tileCount, inset);
+  }
   diffuseColor *= mix(vec4(1.0), sampledDiffuseColor, tileStrength);
 #endif
 `;
@@ -82,7 +109,7 @@ function patch(m: MeshStandardMaterial, tiled: boolean): MeshStandardMaterial {
     shader.uniforms['rimPower'] = { value: BIRD_SHADING.rimPower };
     shader.uniforms['iriMax'] = { value: BIRD_SHADING.iridescence };
     shader.uniforms['glossRoughness'] = { value: BIRD_SHADING.glossRoughness };
-    shader.vertexShader = VERTEX_HEAD + shader.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\n  vFx = fx;\n  vRawUv = uv;');
+    shader.vertexShader = VERTEX_HEAD + shader.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\n  vFx = fx;\n  vRawUv = uv;\n  vBindPos = position;\n  vBindNormal = normal;');
     let f = FRAGMENT_HEAD + shader.fragmentShader;
     if (tiled) f = f.replace('#include <map_fragment>', TILE_SAMPLE);
     f = f
