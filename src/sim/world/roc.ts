@@ -228,8 +228,12 @@ export function createRoc(ctx: SimContext, keepsakes: Keepsakes): Roc {
       for (const h of ctx.store.list('hero')) if (h.team === killer.team) keepsakes.grant(h, ROC.reward.keepsakes);
     }
     // Each lies on its landing spot from the start; the client drops it from the sky until `claimableAt` (D-OBJ-010).
+    // It lands on whatever is there: (10, −10, 0) is under the east ramp, so a floor-height Ember sat inside it.
     for (const spot of EMBERS.spots) {
-      const e = spawnPickup(ctx, 'ember', { x: home.x + spot.x, y: home.y + spot.y + EMBERS.radius, z: home.z + spot.z }, EMBERS.radius,
+      const x = home.x + spot.x;
+      const z = home.z + spot.z;
+      const y = ctx.physics.groundHeight(x, z, home.y + spot.y + EMBERS.fallFromM) ?? home.y + spot.y;
+      const e = spawnPickup(ctx, 'ember', { x, y: y + EMBERS.radius, z }, EMBERS.radius,
         { melee: 'heavy', claimableAt: now + ticks(EMBERS.fallS), expiresAt: now + ticks(EMBERS.fallS + EMBERS.burnS) });
       embers.push({ e, landAt: now + ticks(EMBERS.fallS), landed: false });
     }
