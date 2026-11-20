@@ -561,6 +561,57 @@ export function penguinBody(plan: BodyPlan): Body {
   };
 }
 
+// =================================================================================================================
+// Puffin: short and chunky, a round belly, a stout neck into a big round head with full white cheeks, a tall bill base
+// for the striped triangle, a white belly and face marked on a black body, a black collar and a dark eye streak.
+
+export function puffinAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.45;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.78, 0.95 * s, -0.01 * s], hip: [R * 0.36, plan.height * 0.12, 0.03 * s], tail: [0, 0.44 * s, -0.3 * s],
+    legLen: plan.height * 0.12, legThick: 0.035 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export const PUFFIN_HEAD: HeadShape = {
+  skull: [1.08, 1.06, 1.12], skullAt: [0, 0.04, -0.08], face: [0.74, 0.7, 0.62], faceAt: [0, -0.1, 0.42],
+  cheek: [0.56, 0.54, 0.56], cheekAt: [0.5, -0.3, 0.26], brow: [0.42, 0.15, 0.36], browAt: [0.5, 0.36, 0.5], browTilt: 0.4,
+  nape: [0.86, 0.72, 0.66], napeAt: [0, -0.48, -0.42], throat: [0.66, 0.5, 0.58], throatAt: [0, -0.72, 0.22],
+  eye: [0.6, 0.16, 0.56], socket: 0.2, bill: [0, -0.08, 0.9], billW: 0.24, billH: 0.3,
+};
+
+export function puffinBody(plan: BodyPlan): Body {
+  const a = puffinAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  const hr = a.hr;
+  return {
+    tris: [2300, 820, 260, 110],
+    ops: [
+      // A squat, round body carried nearly upright, full at the belly.
+      ell([0, 0.68 * s, -0.04 * s], [0.3 * s, 0.42 * s, 0.28 * s], 'body', 'back', { rot: [0.06, 0, 0], k: 0.06 }),
+      ell([0, 0.46 * s, 0.04 * s], [0.32 * s, 0.26 * s, 0.3 * s], 'body', 'belly', { k: 0.09 }),
+      ...pair(ell([0.09 * s, 0.8 * s, 0.13 * s], [0.19 * s, 0.26 * s, 0.18 * s], 'body', 'breast', { k: 0.07, rot: [-0.1, 0.25, 0] })),
+      ell([0, 0.76 * s, 0.2 * s], [0.08 * s, 0.26 * s, 0.11 * s], 'body', 'breast', { k: 0.05 }),
+      ell([0, 0.98 * s, -0.1 * s], [0.23 * s, 0.12 * s, 0.18 * s], 'body', 'mantle', { k: 0.06, rot: [-0.15, 0, 0] }),
+      cone([0, 0.5 * s, -0.24 * s], [0, 0.38 * s, -0.32 * s], 0.1 * s, 0.05 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.17 * s, 0.95 * s, -0.07 * s], scapularR: [0.1 * s, 0.08 * s, 0.17 * s], root: 0.065 * s }),
+      ...thighs(a, { r: 0.085 * s, rKnee: 0.055 * s, reach: 0.5, root: [0.12 * s, 0.34 * s, 0.02 * s] }),
+      // A stout neck the head bone takes from just above the shoulders, so the head owns the skin round its hitbox.
+      ...neck([[0, 0.96 * s, 0.02 * s], [0, 1.05 * s, 0.03 * s], [0, 1.13 * s, 0.03 * s], [0, hc[1] - 0.09 * s, 0.02 * s]], [0.22 * s, 0.19 * s, 0.17 * s, 0.15 * s], 'neck', 0.4),
+      ...head(hc, hr, PUFFIN_HEAD),
+      // Markings: the white belly, the black collar across the throat, and the dark streak back from each eye.
+      ell([0, 0.6 * s, 0.18 * s], [0.25 * s, 0.42 * s, 0.26 * s], 'body', 'bib', { mark: true, soft: 0.006 }),
+      ell([0, 1.06 * s, 0.13 * s], [0.2 * s, 0.06 * s, 0.14 * s], 'head', 'collar', { mark: true, soft: 0.01 }),
+      // The white face: from the bill base back past the eyes, under a black cap.
+      ell(at(hc, hr, [0, -0.12, 0.5]), mulS([1.02, 0.64, 0.78], hr), 'head', 'mask', { mark: true, soft: 0.008 }),
+      ...pair(ell(at(hc, hr, [0.72, 0.1, 0.1]), mulS([0.1, 0.07, 0.42], hr), 'head', 'streak', { mark: true, rot: [-0.25, 0.35, 0], soft: 0.004 })),
+    ],
+  };
+}
+
 /** The birds with implicit bodies, by hero id. */
 export const BODIES = {
   peacock: peacockBody,
@@ -571,6 +622,7 @@ export const BODIES = {
   owl: owlBody,
   pelican: pelicanBody,
   penguin: penguinBody,
+  puffin: puffinBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */

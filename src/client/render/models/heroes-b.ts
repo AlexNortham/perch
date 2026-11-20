@@ -160,44 +160,4 @@ const flamingo: Build = (plan, team) => {
   });
 };
 
-/** Puffin: squat and chunky, a huge triangular bill striped blue-grey, yellow and orange, three silver fish. */
-const puffin: Build = (plan, team) => {
-  const { H, R, hc, hr, top } = dims(plan);
-  const legLen = H * 0.12;
-  const y0 = legLen * 0.9;
-  const cy = (y0 + top) / 2;
-  const ry = (top - y0) / 2;
-  const body = new Parts()
-    .ell(C.puffinBlack, [R * 1.0, ry, R * 1.1], [0, cy, -R * 0.1])
-    .ell(C.puffinWhite, [R * 0.85, ry * 0.8, R * 0.85], [0, cy - ry * 0.1, R * 0.25])
-    .ell(team.primary, [hr * 1.3, H * 0.03, hr * 1.3], [0, hc - hr * 0.95, 0]);
-  const head = headShell(new Parts(), C.puffinWhite, hr).ell(C.puffinBlack, [hr * 0.15, hr * 0.12, hr * 0.5], [hr * 0.95, hr * 0.15, hr * 0.1]).ell(C.puffinBlack, [hr * 0.15, hr * 0.12, hr * 0.5], [-hr * 0.95, hr * 0.15, hr * 0.1]);
-  const bill = hr * 2.4;
-  const base = hr * 0.8;
-  const stripe = (hex: number, from: number, grow: number): void => {
-    const r = hr * 1.1 * (1 - from / bill) * grow;
-    head.cone(hex, r, bill - from, [0, -hr * 0.1, base + from], [0, 0, 0], 4, [0.4, 1, 1]);
-  };
-  stripe(C.puffinBlue, 0, 1);
-  stripe(C.puffinYellow, bill * 0.3, 1.1);
-  stripe(C.puffinOrange, bill * 0.62, 1.2);
-  eyes(head, hr, 0.2, 0.55);
-  for (let i = 0; i < 3; i++) {
-    const z = base + bill * (0.25 + i * 0.22);
-    const y = -hr * 0.4 - hr * 0.5;
-    head.rod(C.puffinFish, [0, -hr * 0.4, z], [0, y - hr * 0.5, z], 0.008).ell(C.puffinFish, [0.02, hr * 0.55, 0.03], [0, y - hr * 0.55, z]);
-  }
-  const tail = new Parts().box(C.puffinBlack, [R * 0.6, H * 0.02, H * 0.14], [0, 0, -H * 0.07]);
-  return assemble(plan, {
-    body, head, tail,
-    wing: { hex: C.puffinBlack, len: H * 0.4, chord: R * 1.1, thick: R * 0.12, trim: team.primary },
-    leg: { hex: C.puffinOrange, len: legLen, thick: H * 0.035, foot: R * 0.6 },
-    gun: { length: 0.5, thick: 0.06 },
-    pivot: pivots({ sy: cy + ry * 0.5, legLen, R, legX: R * 0.4, tailY: cy, tailZ: -R * 1.1 }),
-    // Burrow Colony, Sea Spray, Fog Bank, Rogue Wave.
-    casts: ['throw', 'sweep', 'raise', 'throw'],
-    sway: 0.08, castTail: -0.4,
-  });
-};
-
-export const BIRD_BUILDS_B: Readonly<Record<string, Build>> = { secretarybird, starling, hornbill, flamingo, puffin };
+export const BIRD_BUILDS_B: Readonly<Record<string, Build>> = { secretarybird, starling, hornbill, flamingo };
