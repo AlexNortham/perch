@@ -1,7 +1,7 @@
 // Pose sheet page (served by Vite, captured by tests/anim/posesheets.ts): one hero in every animation state, each
 // from a three-quarter view (front right) and a side view (its right, the gun side), posed by the real rig through
 // the model kit. URL: /tests/anim/sheet.html?hero=<id>[&states=a,b][&cols=n][&size=px]
-import { Color, DirectionalLight, GridHelper, HemisphereLight, Mesh, MeshBasicMaterial, MeshLambertMaterial, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, SphereGeometry, Vector3, WebGLRenderer } from 'three';
+import { Color, DirectionalLight, GridHelper, HemisphereLight, Mesh, MeshBasicMaterial, MeshLambertMaterial, NeutralToneMapping, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, SphereGeometry, Vector3, WebGLRenderer } from 'three';
 import { HERO_IDS, ViewFlag } from '../../src/sim/core/contracts';
 import type { EntityView, HeroId } from '../../src/sim/core/contracts';
 import { HEROES } from '../../src/sim/heroes/registry';
@@ -48,16 +48,20 @@ sheet.appendChild(renderer.domElement);
 const plan = HEROES[hero].def.body;
 const H = plan.height;
 const scene = new Scene();
-scene.background = new Color(0xd9dde3);
-scene.add(new HemisphereLight(0xffffff, 0x8a8f99, 1.6));
-const sun = new DirectionalLight(0xffffff, 2.2);
-sun.position.set(-3, 8, 4);
+// look=golden: the style guide's light (§10.1: sun #FFD9A0 at 24°, sky #8FA6C9, ground #4A4A3A) on a mid-dark ground,
+// so birds are judged as they will read in the world; the default is the flat review light.
+const golden = q.get('look') === 'golden';
+if (golden) renderer.toneMapping = NeutralToneMapping;
+scene.background = new Color(golden ? 0x6f6878 : 0xd9dde3);
+scene.add(golden ? new HemisphereLight(0x8fa6c9, 0x4a4a3a, Math.PI * 0.75) : new HemisphereLight(0xffffff, 0x8a8f99, 1.6));
+const sun = new DirectionalLight(golden ? 0xffd9a0 : 0xffffff, golden ? Math.PI * 1.6 : 2.2);
+sun.position.set(-3, golden ? 3.2 : 8, 4);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 const half = H * 1.2;
 Object.assign(sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half, near: 0.5, far: 20 });
 scene.add(sun);
-const ground = new Mesh(new PlaneGeometry(H * 4, H * 4), new MeshLambertMaterial({ color: 0xb8bcc4 }));
+const ground = new Mesh(new PlaneGeometry(H * 4, H * 4), new MeshLambertMaterial({ color: golden ? 0x6e6253 : 0xb8bcc4 }));
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);

@@ -235,10 +235,10 @@ export const BURSTS = {
   ],
   slideSpark: [{ shape: 'sphere', count: 2, speed: 3, spread: 0.7, s0: 0.07, s1: 0.01, life: 0.18, colour: 0xffd27a, gravity: 10 }],
   /** Axis = up: rising streaks. */
-  wind: [{ shape: 'box', count: 2, speed: 7, spread: 0, s0: 0.05, s1: 0.02, len: 1.8, life: 0.5, colour: 0xdfeeff, scatter: WIND_RADIUS }],
+  wind: [{ shape: 'box', count: 2, speed: 7, spread: 0, s0: 0.025, s1: 0.01, len: 1.2, life: 0.5, colour: 0x6f7780, scatter: WIND_RADIUS }],
   updraftBoost: [
     { shape: 'ring', count: 1, speed: 0, spread: 0, s0: 0.3, s1: 2.4, life: 0.3, colour: 0xdfeeff },
-    { shape: 'box', count: 8, speed: 9, spread: 0.1, s0: 0.06, s1: 0.02, len: 2, life: 0.4, colour: 0xdfeeff, scatter: 1 },
+    { shape: 'box', count: 8, speed: 9, spread: 0.1, s0: 0.03, s1: 0.01, len: 1.4, life: 0.4, colour: 0x8a8f98, scatter: 1 },
   ],
   wallSlam: [
     { shape: 'sphere', count: 6, speed: 4, spread: 1, s0: 0.3, s1: 0.8, life: 0.4, colour: 0x8a826c },

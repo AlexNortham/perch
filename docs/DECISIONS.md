@@ -1697,6 +1697,60 @@ outline red and teal stay off the environment). Checklist item A1 asks the quest
 and a "no" blocks.
 **Why:** the user's instruction via the EP: the map should feel like somewhere birds would be, in every area, while
 staying readable in combat.
+
+### D-ART-004 · 20/11/2026 — Sculpted birds: lofted forms, feather cards, two draw calls, four levels on one skeleton
+**Decision:** birds built to the style guide (from wave 5b: Peacock, Vulture, Swift, Hummingbird, Cassowary, Toucan,
+Woodpecker, Nightjar) are sculpted, not stacked from primitives. `models/sculpt.ts` lofts smooth forms through control
+rings (bodies, necks, heads, bills, legs, toes, claws, straps, barrels), adds three.js solids and bevelled extrusions,
+and lays alpha-tested feather cards. Every vertex carries a painted colour and a finish (iridescence, glow, gloss and a
+pattern tile from a procedural atlas: feather scales, barred, mottled, wood, leather, weave, tarsus scutes). A bird is
+two skinned meshes on the D-ART-003 skeleton, plus a `spin` bone for a gun's feed: the opaque body, gear and gun, and
+the cut-out feather cards. Three morph targets ride on it: `display` (each bird's signature cast pose: the Peacock's
+fan, the Vulture's coat, the Cassowary's bristling hair, the Toucan's cocked tail and gaping bill, the Woodpecker's
+crest, the Nightjar's gape, the Swift's flaring blades, the Hummingbird's gorget), `jaw` (the lower mandible opens on
+each shot, a cast and death) and `blink` (the lids meet every 3–6 s). Each bird is built at four levels of detail
+(9,000 / 3,500 / 1,200 / 400 triangles with the gun, from 0 / 15 / 40 / 80 m, 10 % hysteresis) under a three.js
+`LOD`, all on the one skeleton. Sizes are read from the BodyPlan at runtime, so the head stays on its hitbox and the
+muzzle on the sim's muzzle point.
+**Why:** D-EP-047 retires placeholder shapes; the style guide (§8, §11.3) asks for smooth sculpted forms, layered
+feathers with readable edges, real eyes, beaks, feet and talons, at most three draw calls per bird and these budgets.
+Morph targets give signature cast poses without extra bones or draw calls.
+
+### D-ART-005 · 20/11/2026 — Birds keep their own materials, written to the shared library's conventions
+**Decision:** sculpted birds use `models/bird-material.ts`: two shared MeshStandardMaterials with a fresnel rim
+(#FFE6C0 at 0.25), up to 40° of view-angle iridescence, per-vertex glow and gloss, and the bird pattern and feather
+atlases, generated once per session. The Rendering engineer's shared material library (first version on its branch,
+not yet on `integrate/w5`) is a texture-array material for static environment geometry, with no rim, iridescence or
+feather cards, and the style guide (§11.5) budgets hero-bird textures apart from the environment atlases. The bird
+materials follow the library's conventions (sRGB albedo times vertex colour, cut out at 0.5, no blending), so the
+switch-over once it merges is small: take its quality tier (Lambert at Low), its sky environment map for brass and
+glass, and its cut-out depth material for card shadows.
+**Why:** the brief asks to write against the library and switch when it lands; it had not reached the integration
+branch, and birds need shading the environment library does not offer.
+
+### D-ART-006 · 20/11/2026 — The Hummingbird perches on its feet; its wings beat as discs
+**Decision:** GDD §9.16 says the Hummingbird always hovers 0.3 m off the ground with its legs tucked. The model
+stands on tiny planted feet in every grounded state, with its wings as two shimmering blur discs at each shoulder in
+every state; the legs tuck when it is airborne or using Hover. Its 40 m read (§9.24.1, "hover discs") is kept.
+**Why:** D-EP-035 and the brief require planted feet and nothing floating in every grounded state, which a permanent
+0.3 m hover breaks. The Director may restore a visual hover as an explicit exception to the attachment tests.
+
+### D-ART-007 · 20/11/2026 — Feathers are solid tapered geometry; heads are one loft from neck to bill
+**Decision:** (second pass, after the EP art review.) This replaces the alpha-tested cards of D-ART-004 and D-ART-005.
+- Feathers are cut in the mesh: a tapered blade with a raised rachis, made from the outline of its shape. Each takes an
+  opaque pattern (bars, spots, eyespots, mottle), with no alpha test and no dithered fringe. Edges stay clean at every
+  distance, and the feather layer is still one draw call. There are fewer, larger feathers, each placed deliberately.
+- `anatomy.headForm` lofts each head as one J-shaped form. It runs from inside the body's neck through the nape, crown,
+  brow and cheeks, and tapers into the beak base. Floors keep the hitbox sphere inside it.
+- The wing arms are broad panels with coverts, graduated secondaries, and primaries spread as fingers round the grip.
+- A loft's pattern repeats a whole number of times round its widest ring, and every ring uses that count. On tapering
+  rings the pattern compresses and fades at the closed ends instead of shearing into streaks or rings, and it meets
+  itself at the seam.
+
+**Why:** the EP review (D-EP-047's bar) found dithered card edges, ball heads on tube necks, and wings that read as
+arms. A solid blade costs about the same triangles as a cut-out strip with the same rows, and it needs no cut-out
+depth material for shadows.
+
 ### D-SYS-006 · 19/11/2026 — The Updraft latch, read exactly (GDD §3.7, D-EP-039)
 **Decision:** `updraftInReach` is the nearer of two tests per segment: the column (feet within 2.5 m of the cable's
 ground line, the cable 0.5–14 m above them, at the point straight above the feet's nearest spot) and a 1.5 m sphere
@@ -1994,3 +2048,75 @@ look yaw; snapping to the yaw bent every Rampage off the crosshair point and mad
 hitbox (a pickup included) a sweep radius ahead, and stays 3.5 m when nothing is there (GDD §5.7 "up to 3.5 m").
 **Why:** pickups have no collider, so a hero 1 m from a rune, an Ember or the Egg lunged 3.5 m past it before the hit
 landed 0.6 s after the press, and every heavy claim whiffed.
+### D-RENDER-010 · 20/11/2026 — Materials are seeded texture arrays drawn by two shared materials
+**Decision:** the style guide's §7 materials are 37 layers of three `DataArrayTexture`s (sRGB albedo with card alpha,
+packed AO/roughness/metalness, normals on High), generated at load by pure typed-array code with integer hashing
+(`src/client/render/materials`). Geometry carries `uv` in tiles, a `matLayer` attribute and vertex colours (baked AO,
+tints, per-piece variation); one opaque and one alpha-tested material, patched with `onBeforeCompile`, draw every
+layer, with world-space macro variation in the shader. The recipes in `materials/data/` are authored art data and,
+like map data, exempt from the magic-number rule.
+**Why:** texture arrays wrap per layer with proper mipmaps (no atlas bleeding or fract seams), so a 64 m cell of mixed
+brick, timber, roof and stone is one draw call, inside §11.3's 70 map calls. Pure code is byte-identical in every
+browser and runs in Node tests, so screenshots compare and recipes are unit-tested.
+
+### D-RENDER-011 · 20/11/2026 — Texture tiers: 128², 256² and 512²
+**Decision:** Low generates 128² albedo (Lambert); Medium 256² albedo with 128² ORM (128 px/m on a 2 m tile); High
+512² with 256² ORM and normal maps. GPU texture memory: 3.1, 15.4 and 111 MB against §11.5's 32, 80 and 160 MB.
+**Why:** generation runs synchronously before the first frame (screenshots must be deterministic at
+`__perch.ready`), so its time is load time. 256² at Medium generates in about 0.55 s; 512² for all 37 layers would
+take four times as long. Detail is in the painted shapes, which read at play distances; High keeps the guide's 256 px/m.
+
+### D-RENDER-012 · 20/11/2026 — The map layer: prims to architecture, per 64 m cell, AO on one shared grid
+**Decision:** every MapData prim becomes bevelled (§4.3), painted architecture chosen by district (nearest lane, or
+a Home Roost): plinths, string courses and cornices on stone and brick masses, mossy wall tops, stairs on stair-pitch
+ramps (each step one tread deep, risers cut through the middle by the collision slope), hedges with leaf fringes,
+bark trunks with flared roots and leaf-card crowns, canopy clumps from foliage cylinders. Lanes are paved with sett
+kerbs between the Roosts. Features follow §1.4 (Updraft masts with pulley and pennant, framed flowering Vines, chimney
+shimmer, seed stalls). Kit structure models stand at the map's anchors before a match spawns structures (no
+placeholder markers). Pieces merge per 64 m cell, material kind and distance band (`CellBatch`); ray AO is baked
+once on a shared bit-packed voxel grid (`bakeAOAll`). Low builds without geometric bevels, trims or fringes and with
+sparser cards; a quality change rebuilds the layer. Nothing here collides.
+**Why:** D-EP-047's bar before the Environment Artist dresses the map, inside §11.3's budgets; per-cell AO with each
+cell re-voxelising its neighbours cost 0.8 s of load, the shared grid 0.4 s.
+
+### D-RENDER-013 · 20/11/2026 — Draw-budget ceilings from the style guide (acting for QA)
+**Decision:** `e2e/draw-budget.spec.ts` ceilings: lane 100 calls at Low and 120 at Medium, the full match 240 (the
+guide's whole frame, under D-QA-BROWSER-002's 248); triangles, all passes, ≤ 330k at Low and ≤ 1.02M at Medium (§11.3
+map + birds + fledglings + structures, plus a shadow pass of at most half); material texture memory ≤ 32 and 80 MB.
+Measured at QA's camera after this wave: 46 / 84 / 105 calls.
+**Why:** the brief's item 3; the art lands against the guide's numbers, not the blockout's 32 and 48.
+
+### D-RENDER-014 · 20/11/2026 — Lighting and post: the guide's values, bloom on lights only, one grade pass
+**Decision:** the renderer keeps the §10 light and sky values (`render/constants.ts` LIGHT, SKY), superseding the GDD
+§14.5 values still in `app/palette.ts`. Sun #FFD9A0 at 24° from the south-west, hemisphere #8FA6C9/#4A4A3A, lavender
+fog #A99BB0 at 0.0060, a sky with sun glow and cloud bands, a PMREM environment from it at 0.4 on metal and glass.
+Medium and High render to a HalfFloat target (2× MSAA at Medium, 4× at High), bloom with a scene-linear threshold of
+2.8 (above a sunlit white bird) while emissive layers are scaled ×8, and fold the split tone and vignette into the
+OutputPass. Low renders straight to the canvas.
+**Why:** on an Intel Arc 140T at 1080p the first version ran 80 fps at Medium; the extra grade pass and 4× MSAA on
+the HDR target were the cost. Now Low and Medium hold the 120 fps cap headless and High runs 65–95. The guide's 0.9
+threshold is display-referred; in scene-linear light sunlit birds would bloom.
+
+### D-RENDER-015 · 20/11/2026 — The local Updraft ride is drawn in screen space (G16)
+**Decision:** the local rider gets screen-space speed lines (`render/ride.ts`): outside the central 50 % of the screen,
+at most 3 px wide, 25 % strong and 15 % of the height long; boosting adds lines, speed and warmth. World-space wind
+and boost streaks are skipped for the local hero and thinned for other riders. The camera keeps its FOV kick.
+**Why:** world-space streaks around a bird the camera follows at 3 m become screen-filling slabs; screen space holds
+the feel gap's pixel limits exactly, and unit tests check them.
+
+### D-RENDER-016 · 20/11/2026 — Friend-or-foe overlays and the rim live in the entity layer (G18)
+**Decision:** the entity layer adds two skinned overlays to each hero model, sharing its geometry and skeleton: a red
+2 px clip-space inverted hull for enemies in sight, and an x-ray silhouette (fresnel, additive, `GreaterDepth`,
+drawn after the world and before bodies by `renderOrder`) for allies behind walls and revealed enemies. Each hero's
+body material is swapped for a rim-lit copy (§8.7, #FFE6C0, 0.25; 0.15 at Low). Dev `?renderTeams` places three a side
+for captures.
+**Why:** GDD §14.4 and the feel gap, without touching the Technical Artists' models; one extra draw call per bird, no
+shadow casting; structures and the environment get no rim (§10.5).
+
+### D-RENDER-017 · 20/11/2026 — Portraits are rendered from the kit models into data URLs
+**Decision:** `render/portraits.ts` renders a bird's kit model (idle, head and shoulders, three-quarter view, key and
+rim light, transparent background) into a 128 px target with the live context on first request, caches a PNG data
+URL, and registers with the UI's `setPortraitProvider` (`face()` returns an image; the UI placeholder remains when no
+renderer runs). About 20 ms a portrait.
+**Why:** D-EP-041: portraits from the in-game models at match start, with no image files, so the single-file build
+works offline.
