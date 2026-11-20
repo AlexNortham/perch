@@ -46,3 +46,9 @@ export const CELL = 32;
 
 /** Visual pieces may project this far beyond a collision face (§5 intro); skins sit just proud of the prims. */
 export const PROUD = { skin: 0.03, max: 0.25 } as const;
+
+/**
+ * Camera clearance (the player's first sight): visual-only dressing stays out of a cylinder round every spawn and shop
+ * (boom plus shoulder plus `margin` wide, `height` tall), and fades within `fade` of the camera-to-hero line at runtime.
+ */
+export const CAMERA_CLEAR = { margin: 2.5, height: 9, fade: { near: 1.0, far: 1.4, dither: 0.25 } } as const;

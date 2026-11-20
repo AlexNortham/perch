@@ -116,6 +116,13 @@ export class Mesher {
   ambient = 1;
   /** Chamfers smaller than this are left to the texture (§4.3: LOD1 paints the edge instead). */
   minBevel = 0;
+  /** World-space keep-out test for visual-only cards and clumps (the camera space at spawns and shops). */
+  keepOut: ((p: Vector3, r: number) => boolean) | null = null;
+
+  /** Is a sphere at local (x, y, z) of radius r inside a keep-out volume? */
+  blocked(x: number, y: number, z: number, r: number): boolean {
+    return this.keepOut !== null && this.keepOut(new Vector3(x, y, z).applyMatrix4(this.frame), r);
+  }
 
   get triangles(): number {
     return this.idx.n / XYZ;
@@ -428,6 +435,7 @@ export class Mesher {
 
   /** A card (alpha-tested in the cutout material): centre c, half-axes u and v (local), uv 0..1. */
   card2(c: Vector3, u: Vector3, v: Vector3): void {
+    if (this.blocked(c.x, c.y, c.z, Math.max(u.length(), v.length()))) return;
     const a = c.clone().sub(u).sub(v);
     const b = c.clone().add(u).sub(v);
     const d = c.clone().add(u).add(v);

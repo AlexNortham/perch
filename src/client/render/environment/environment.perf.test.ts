@@ -1,11 +1,14 @@
 // Serial (npm run perf, D-EP-022): building the whole map's environment twice is seconds of CPU.
-import { Box3, Frustum, Matrix4, PerspectiveCamera, Vector3 } from 'three';
+import { Box3, Frustum, Matrix4, PerspectiveCamera, Ray, Vector3 } from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { loadMap } from '../../../sim/world/map';
 import type { MapData } from '../../../sim/core/contracts';
 import { generate } from './index';
 import { BAND_REACH } from './constants';
 import type { World } from './world';
+import { HEROES } from '../../../sim/heroes/registry';
+import { aimRay, pivotHeight } from '../../../sim/core/aim';
+import { inPrim } from './data/buildings';
 
 const main = loadMap('main');
 let world: World;
@@ -83,4 +86,58 @@ describe('environment layer', () => {
     generate(main);
     expect(performance.now() - t0).toBeLessThan(6_000);
   });
+});
+
+describe("camera clearance (the player's first sight)", () => {
+  it('leaves nothing of the layer between the camera and a standing hero at every spawn, for every body size', () => {
+    const bodies = [...new Map(Object.values(HEROES).map((h) => [h.def.body.height, h.def.body])).values()];
+    // Triangles near any spawn.
+    const area = new Box3();
+    for (const s of main.spawns) area.expandByPoint(new Vector3(s.pos.x, s.pos.y, s.pos.z));
+    area.expandByScalar(8);
+    const tris: [Vector3, Vector3, Vector3][] = [];
+    const solids = main.prims.filter((pr) => pr.solid && !pr.blocks);
+    for (const b of world.buckets.values()) {
+      const g = b.mesher.build();
+      if (!g?.boundingBox?.intersectsBox(area) || !g.index) continue;
+      const pos = g.getAttribute('position');
+      const idx = g.index;
+      for (let t = 0; t < idx.count; t += 3) {
+        const v: [Vector3, Vector3, Vector3] = [0, 1, 2].map((k) => new Vector3().fromBufferAttribute(pos, idx.getX(t + k))) as [Vector3, Vector3, Vector3];
+        // Skins and bark on collision (within 0.35 m: wall skins, trunk ridges) are the solids themselves, not dressing.
+        const mid = v[0].clone().add(v[1]).add(v[2]).divideScalar(3);
+        if (v.some((p) => area.containsPoint(p)) && !solids.some((pr) => inPrim(pr, mid, 0.35))) tris.push(v);
+      }
+    }
+    const hit = new Vector3();
+    let rays = 0;
+    for (const s of main.spawns) {
+      for (const body of bodies) {
+        for (const shoulder of [1, -1] as const) {
+          for (const pitch of [-0.35, 0, 0.35]) {
+            const cam = aimRay(s.pos, s.yaw, pitch, shoulder, body, false).origin;
+            // The rig pulls the camera in before it meets collision (camera/collide.ts): march out to the first solid.
+            const p = new Vector3(s.pos.x, s.pos.y + pivotHeight(body, false), s.pos.z);
+            const want = new Vector3(cam.x, cam.y, cam.z);
+            const o = p.clone();
+            for (let t = 0.05; t <= 1.001; t += 0.05) {
+              const q = p.clone().lerp(want, t);
+              if (solids.some((pr) => inPrim(pr, q, 0.2))) break;
+              o.copy(q);
+            }
+            const len = o.distanceTo(p);
+            const ray = new Ray(o, p.clone().sub(o).normalize());
+            rays++;
+            const blocking = tris.find(([a, b, c]) => {
+              const at = ray.intersectTriangle(a, b, c, false, hit);
+              return (at !== null && at.distanceTo(o) <= len) || [a, b, c].some((q) => q.distanceTo(o) < 1);
+            });
+            const at = blocking ? blocking.map((q) => `${q.x.toFixed(1)},${q.y.toFixed(1)},${q.z.toFixed(1)}`).join(" ") : "";
+            expect(blocking, `${s.team} spawn ${s.pos.x},${s.pos.z}, body ${body.height} m, pitch ${pitch}, shoulder ${shoulder}: ${at}`).toBeUndefined();
+          }
+        }
+      }
+    }
+    expect(rays).toBeGreaterThan(0);
+  }, 300_000);
 });

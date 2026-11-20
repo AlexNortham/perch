@@ -17,7 +17,8 @@ import type { MapData } from '../../../sim/core/contracts';
 import type { Quality } from '../../app/contracts';
 import { getMaterialLibrary } from '../materials';
 import type { MaterialLibrary } from '../materials';
-import { BAND_REACH, LOD_HYSTERESIS } from './constants';
+import { CAMERA } from '../../../sim/data/core';
+import { BAND_REACH, CAMERA_CLEAR, LOD_HYSTERESIS } from './constants';
 import type { Band } from './constants';
 import { PASSES, World } from './world';
 import type { Pass } from './world';
@@ -68,10 +69,77 @@ export function generate(map: MapData): World {
   return world;
 }
 
-function batch(pass: Pass, geos: readonly { g: BufferGeometry; band: Band }[], lib: MaterialLibrary): { mesh: BatchedMesh; entries: Entry[] } {
+// ── Camera fade (visual-only dressing never sits between the camera and the hero) ───────────────────────────────
+
+/**
+ * The third-person camera looks along its boom past the hero: everything of this layer within `fade.near` m of the
+ * camera, widening to `fade.far` m at the boom's far end (the hero, beside the view line by the shoulder offset),
+ * is discarded, with a dithered rim so it fades rather than pops. The layer adds no collision, so anything there is
+ * dressing the camera can pass through; the camera's own collision keeps walls out of that space.
+ */
+const FADE_UNIFORMS = {
+  uFadeCam: { value: new Vector3() },
+  uFadeDir: { value: new Vector3(0, 0, -1) },
+  uFadeLen: { value: CAMERA.boomMax + 1 },
+};
+const FADE_DECL = /* glsl */ `
+uniform vec3 uFadeCam;
+uniform vec3 uFadeDir;
+uniform float uFadeLen;
+`;
+const FADE_FRAG = /* glsl */ `
+{
+  vec3 fd = vMatWorld - uFadeCam;
+  float ft = clamp( dot( fd, uFadeDir ), 0.0, uFadeLen );
+  float fr = length( fd - uFadeDir * ft );
+  float fR = mix( ${CAMERA_CLEAR.fade.near.toFixed(2)}, ${CAMERA_CLEAR.fade.far.toFixed(2)}, ft / uFadeLen );
+  if ( dot( fd, uFadeDir ) < uFadeLen && fr < fR ) {
+    float edge = clamp( ( fR - fr ) / ${CAMERA_CLEAR.fade.dither.toFixed(2)}, 0.0, 1.0 );
+    float n = fract( sin( dot( floor( gl_FragCoord.xy ), vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
+    if ( n < edge ) discard;
+  }
+}
+#include <alphatest_fragment>
+`;
+const fadeCache = new WeakMap<Material, Material>();
+
+/** The library material with the camera fade added (one clone per library material, shared by every batch). */
+function fading(base: Material): Material {
+  const hit = fadeCache.get(base);
+  if (hit) return hit;
+  const m = base.clone();
+  m.defines = { ...base.defines };
+  m.userData = { ...base.userData };
+  const inner = base.onBeforeCompile.bind(base);
+  m.onBeforeCompile = (shader, renderer) => {
+    inner(shader, renderer);
+    Object.assign(shader.uniforms, FADE_UNIFORMS);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>\n${FADE_DECL}`)
+      .replace('#include <alphatest_fragment>', FADE_FRAG);
+  };
+  m.customProgramCacheKey = () => `${base.customProgramCacheKey()}:fade`;
+  fadeCache.set(base, m);
+  baseOf.set(m, base);
+  return m;
+}
+
+/** Aim the fade along this frame's camera; keep the clone's environment map in step with the library's. */
+function aimFade(camera: Camera, material: Material): void {
+  FADE_UNIFORMS.uFadeCam.value.setFromMatrixPosition(camera.matrixWorld);
+  FADE_UNIFORMS.uFadeDir.value.set(0, 0, -1).transformDirection(camera.matrixWorld);
+  const base = baseOf.get(material);
+  if (base && 'envMap' in base && 'envMap' in material && material.envMap !== base.envMap) {
+    material.envMap = base.envMap;
+    material.needsUpdate = true;
+  }
+}
+const baseOf = new WeakMap<Material, Material>();
+
+function batch(pass: Pass,geos: readonly { g: BufferGeometry; band: Band }[], lib: MaterialLibrary): { mesh: BatchedMesh; entries: Entry[] } {
   const verts = geos.reduce((s, { g }) => s + g.getAttribute('position').count, 0);
   const index = geos.reduce((s, { g }) => s + (g.index?.count ?? 0), 0);
-  const mesh = new BatchedMesh(Math.max(1, geos.length), Math.max(1, verts), Math.max(1, index), pass === 'cutout' ? lib.cutout : lib.opaque);
+  const mesh = new BatchedMesh(Math.max(1, geos.length), Math.max(1, verts), Math.max(1, index), fading(pass === 'cutout' ? lib.cutout : lib.opaque));
   mesh.name = `environment-${pass}`;
   mesh.castShadow = pass === 'cast';
   mesh.receiveShadow = true;
@@ -113,6 +181,7 @@ export function buildEnvironment(map: MapData, quality: Quality): Environment {
     // Per-cell LOD before the batch's own culling (the shadow pass reuses the last frame's choice).
     mesh.onBeforeRender = (renderer, scene, camera: Camera, geometry, material: Material, group) => {
       cam.setFromMatrixPosition(camera.matrixWorld);
+      aimFade(camera, mesh.material as Material);
       for (const e of entries) {
         if (e.band === 2 && (pass !== 'cutout' || reach.cards === Infinity)) continue;
         const d = e.box.distanceToPoint(cam);
@@ -148,7 +217,7 @@ export function buildEnvironment(map: MapData, quality: Quality): Environment {
       lib = getMaterialLibrary(q);
       reach = BAND_REACH[q];
       for (const m of meshes) {
-        m.material = m.name.endsWith('cutout') ? lib.cutout : lib.opaque;
+        m.material = fading(m.name.endsWith('cutout') ? lib.cutout : lib.opaque);
         if (m.customDepthMaterial) m.customDepthMaterial = lib.cutoutDepth;
       }
     },
