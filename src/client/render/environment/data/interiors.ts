@@ -25,8 +25,13 @@ interface Blocker {
   readonly r: number;
   readonly y0: number;
   readonly y1: number;
-  /** A hole in the floor (hatch, grate, skylight, stair, Chimney): interior floors leave it open. */
-  readonly hole?: boolean;
+}
+
+/** What a room's dressing keeps clear of: everything, the holes in floors and ceilings, and the openings in walls. */
+interface Clearances {
+  readonly blockers: readonly Blocker[];
+  readonly holes: readonly Blocker[];
+  readonly gaps: readonly Blocker[];
 }
 
 const TIMBER = { mat: 'timber' } as const;
@@ -38,17 +43,35 @@ export function dressInteriors(w: World): void {
   const buildings = map.buildings ?? [];
   // Everything an interior piece must keep clear of, as vertical discs.
   const blockers: Blocker[] = [];
+  // Holes in floors and ceilings (hatches, grates, skylights, Chimneys, stairwells): floors and joists leave them open.
+  const holes: Blocker[] = [];
+  // The openings themselves, tight: wainscot breaks only where a doorway or arch cuts the wall.
+  const gaps: Blocker[] = [];
   for (const o of map.openings ?? []) {
+    const hole = o.kind === 'hatch' || o.kind === 'skylight' || o.kind === 'grate';
     const passable = o.kind !== 'window';
-    blockers.push({ x: o.centre.x, z: o.centre.z, r: Math.max(o.width, o.kind === 'hatch' || o.kind === 'skylight' ? 2.2 : 0) / 2 + (passable ? 1.4 : 0.4), y0: o.centre.y - o.height / 2 - 4.2, y1: o.centre.y + o.height / 2 + 0.2, hole: o.kind === 'hatch' || o.kind === 'skylight' || o.kind === 'grate' });
+    // Only a hole in a floor or ceiling keeps the climb below it clear; a door or window blocks its own height.
+    const b = { x: o.centre.x, z: o.centre.z, r: Math.max(o.width, hole ? 2.2 : 0) / 2 + (passable ? 1.4 : 0.4), y0: o.centre.y - o.height / 2 - (hole ? 4.2 : 0.2), y1: o.centre.y + o.height / 2 + 0.2 };
+    blockers.push(b);
+    if (hole) holes.push(b);
+    else gaps.push({ ...b, r: o.width / 2 + 0.1 });
   }
-  for (const c of map.climbs) blockers.push({ x: c.bottom.x, z: c.bottom.z, r: c.kind === 'chimney' ? 2.4 : 1.6, y0: c.bottom.y - 0.5, y1: c.top.y + 0.5, hole: c.kind === 'chimney' });
+  for (const c of map.climbs) {
+    const b = { x: c.bottom.x, z: c.bottom.z, r: c.kind === 'chimney' ? 2.4 : 1.6, y0: c.bottom.y - 0.5, y1: c.top.y + 0.5 };
+    blockers.push(b);
+    if (c.kind === 'chimney') holes.push(b);
+  }
   for (const d of map.dressing?.buildings ?? []) {
     for (const s of d.stairs) {
       const n = Math.max(2, Math.ceil(Math.hypot(s.to.x - s.from.x, s.to.z - s.from.z) / 1.5));
       for (let k = 0; k <= n; k++) {
         const t = k / n;
-        blockers.push({ x: s.from.x + (s.to.x - s.from.x) * t, z: s.from.z + (s.to.z - s.from.z) * t, r: s.width / 2 + 0.9, y0: Math.min(s.from.y, s.to.y) - 0.5, y1: Math.max(s.from.y, s.to.y) + 3, hole: true });
+        const x = s.from.x + (s.to.x - s.from.x) * t;
+        const z = s.from.z + (s.to.z - s.from.z) * t;
+        const y = s.from.y + (s.to.y - s.from.y) * t;
+        // Furniture keeps head room over each step; the stairwell is open from each step up to the stair's top.
+        blockers.push({ x, z, r: s.width / 2 + 0.9, y0: y - 0.5, y1: y + 3 });
+        holes.push({ x, z, r: s.width / 2 + 0.9, y0: y - 0.5, y1: Math.max(s.from.y, s.to.y) + 0.3 });
       }
     }
   }
@@ -63,7 +86,8 @@ export function dressInteriors(w: World): void {
     // Only what is near the room matters: keeps the per-slot checks short (load time).
     const reach = Math.hypot(room.volume.size.x, room.volume.size.z) / 2 + 6;
     const near = (x: number, z: number): boolean => Math.hypot(x - room.volume.centre.x, z - room.volume.centre.z) < reach;
-    furnish(w, room, b.archetype, 6100 + ri * 41, blockers.filter((k) => near(k.x, k.z)), solids.filter((q) => near(q.centre.x, q.centre.z) || (q.shape !== 'cylinder' && Math.max(q.size.x, q.size.z) > reach)));
+    const by = (k: Blocker): boolean => near(k.x, k.z);
+    furnish(w, room, b.archetype, 6100 + ri * 41, { blockers: blockers.filter(by), holes: holes.filter(by), gaps: gaps.filter(by) }, solids.filter((q) => near(q.centre.x, q.centre.z) || (q.shape !== 'cylinder' && Math.max(q.size.x, q.size.z) > reach)));
   });
   map.climbs.forEach((c, i) => {
     if (c.kind === 'ladder') ladder(w, c.bottom, c.top, c.out, 6000 + i);
@@ -74,7 +98,7 @@ function clear(blockers: readonly Blocker[], x: number, y: number, z: number, r:
   return !blockers.some((b) => y > b.y0 && y < b.y1 && Math.hypot(b.x - x, b.z - z) < b.r + r);
 }
 
-function furnish(w: World, room: Room, archetype: string, seed: number, blockers: readonly Blocker[], solids: readonly import('../../../../sim/core/contracts').BlockoutPrim[]): void {
+function furnish(w: World, room: Room, archetype: string, seed: number, { blockers, holes, gaps }: Clearances, solids: readonly import('../../../../sim/core/contracts').BlockoutPrim[]): void {
   const v: BoxVolume = room.volume;
   const floor = v.centre.y - v.size.y / 2;
   const ceil = v.centre.y + v.size.y / 2;
@@ -107,7 +131,7 @@ function furnish(w: World, room: Room, archetype: string, seed: number, blockers
     for (let t = -span + 0.6; t < span; t += 1.2) {
       const [x, z] = alongX ? [0, t] : [t, 0];
       const p = world(x, z);
-      if (!clear(blockers.filter((b) => b.r > 1.5), p.x, ceil - 0.2, p.z, 0)) continue;
+      if (!clear(holes, p.x, ceil - 0.2, p.z, 0)) continue;
       if (alongX) g.span(-hx, hx, ceil - 0.24, ceil - 0.02, t - 0.1, t + 0.1);
       else g.span(t - 0.1, t + 0.1, ceil - 0.24, ceil - 0.02, -hz, hz);
     }
@@ -119,7 +143,7 @@ function furnish(w: World, room: Room, archetype: string, seed: number, blockers
     const stone = /stone|belfry|dovecote|brick/.test(style);
     const c = Math.cos(v.yaw);
     const s = Math.sin(v.yaw);
-    const holes = blockers.filter((b) => b.hole === true && b.y0 < floor + 0.5 && b.y1 > floor + 0.2).map((b) => {
+    const open = holes.filter((b) => b.y0 < floor + 0.5 && b.y1 > floor + 0.2).map((b) => {
       const dx = b.x - v.centre.x;
       const dz = b.z - v.centre.z;
       const lx = dx * c - dz * s;
@@ -130,11 +154,11 @@ function furnish(w: World, room: Room, archetype: string, seed: number, blockers
     const gf = M(1);
     gf.ambient = SHADE.interior;
     gf.paint(stone ? { mat: 'flagstone', tint: 0xe8e0d0 } : { mat: 'boards', tint: 0xd8c4a8 }, seed);
-    for (const r of carve(rect(-hx, hx, -hz, hz), holes)) {
+    for (const r of carve(rect(-hx, hx, -hz, hz), open)) {
       gf.poly([new Vector3(r.x0, floor + 0.012, r.z0), new Vector3(r.x1, floor + 0.012, r.z0), new Vector3(r.x1, floor + 0.012, r.z1), new Vector3(r.x0, floor + 0.012, r.z1)], new Vector3(0, 1, 0));
     }
   }
-  // Timber wainscot panelling (1.1 m) round the walls, broken at doors.
+  // Timber wainscot panelling (1.1 m) round the walls, broken at doorways and arches (window sills sit above it).
   {
     const gw = M(1);
     gw.paint({ mat: 'timber', tint: 0xc8a888 }, seed + 1);
@@ -143,7 +167,7 @@ function furnish(w: World, room: Room, archetype: string, seed: number, blockers
       for (let u = a + 0.05; u < b - 0.4; u += 1.2) {
         const [x, z] = alongX ? [u + 0.6, at] : [at, u + 0.6];
         const p = world(x, z);
-        if (!clear(blockers.filter((bl) => bl.r < 2.5), p.x, floor + 0.6, p.z, 0.3)) continue;
+        if (!clear(gaps, p.x, floor + 0.6, p.z, 0.6)) continue;
         const e = Math.min(u + 1.18, b);
         if (alongX) gw.poly([new Vector3(u, floor, at + dir * 0.035), new Vector3(e, floor, at + dir * 0.035), new Vector3(e, floor + 1.1, at + dir * 0.035), new Vector3(u, floor + 1.1, at + dir * 0.035)], new Vector3(0, 0, dir));
         else gw.poly([new Vector3(at + dir * 0.035, floor, u), new Vector3(at + dir * 0.035, floor, e), new Vector3(at + dir * 0.035, floor + 1.1, e), new Vector3(at + dir * 0.035, floor + 1.1, u)], new Vector3(dir, 0, 0));
@@ -164,6 +188,22 @@ function furnish(w: World, room: Room, archetype: string, seed: number, blockers
     const g = M(1);
     g.paint(ROPE, seed).tube([new Vector3(0.6, ceil - 0.24, 0), new Vector3(0.6, ceil - 0.9, 0)], 0.012, 3);
     lantern(g, 0.6, ceil - 0.9, 0, seed);
+  }
+  // Nest baskets slung from the joists on three ropes in two corners, high over the floor (birds live here).
+  if (height > 3.2 && hx > 2.2 && hz > 2.2) {
+    const g = M(1);
+    const y = ceil - 1.25;
+    for (const [sx, sz] of [[-1, -1], [1, 1], [1, -1], [-1, 1]].filter((_, i) => hash2(seed, 40 + i) < 0.5).slice(0, 2)) {
+      const x = sx * (hx - 1.2);
+      const z = sz * (hz - 1.2);
+      if (!free(x, z, 0.4, y)) continue;
+      g.paint(ROPE, seed);
+      for (let k = 0; k < 3; k++) {
+        const a = (k / 3) * Math.PI * 2;
+        g.tube([new Vector3(x, ceil - 0.24, z), new Vector3(x + Math.cos(a) * 0.3, y + 0.2, z + Math.sin(a) * 0.3)], 0.01, 3);
+      }
+      nest(g, x, y, z, 0.34, 0.24, seed + sx * 3 + sz, hash2(seed, sx + sz * 7) < 0.4 ? 1 : 0, 6);
+    }
   }
 
   // Wall dressing: walk each wall in 1.6 m slots.
@@ -189,8 +229,11 @@ function furnish(w: World, room: Room, archetype: string, seed: number, blockers
       const [x, z] = wall.at(u, 0.45);
       if (!free(x, z, 0.7)) continue;
       const pick = hash2(s, 1);
+      // A tall piece also needs its top clear (window sills sit at 1.2 m); otherwise a low one stands there instead.
+      let kind = choose(archetype, pick);
+      if (TALL[kind] !== undefined && !free(x, z, 0.6, floor + Math.min(TALL[kind], height - 0.3))) kind = low(archetype, pick);
       const g1 = M(pick < 0.5 ? 0 : 1);
-      g1.within(placed(...pos3(wall.at(u, 0), floor), wall.yaw), () => wallPiece(g1, archetype, pick, height, s, M));
+      g1.within(placed(...pos3(wall.at(u, 0), floor), wall.yaw), () => wallPiece(g1, kind, height, s, M));
     }
   }
 }
@@ -198,8 +241,7 @@ function furnish(w: World, room: Room, archetype: string, seed: number, blockers
 const pos3 = ([x, z]: [number, number], y: number): [number, number, number] => [x, y, z];
 
 /** One piece against a wall, in a frame at the wall's foot facing into the room (+z). */
-function wallPiece(g: Mesher, archetype: string, pick: number, height: number, seed: number, M: (band: Band, pass?: Pass) => Mesher): void {
-  const kind = choose(archetype, pick);
+function wallPiece(g: Mesher, kind: Piece, height: number, seed: number, M: (band: Band, pass?: Pass) => Mesher): void {
   switch (kind) {
     case 'shelf': {
       g.paint(TIMBER, seed);
@@ -347,9 +389,18 @@ const BY_ARCHETYPE: Readonly<Record<string, readonly Piece[]>> = {
   dovecote: ['cubbies', 'nestbed', 'roost'],
 };
 
+/** Tops of the pieces that rise past a window sill (m above the floor); the rest stay under 1.1 m. */
+const TALL: Partial<Record<Piece, number>> = { shelf: 2.1, pegs: 1.7, rail: 1.2, bin: 1.2, hearth: 3, kegs: 1.6, crates: 1.4, cubbies: 2, roost: 2.1, produce: 2.4 };
+
 function choose(archetype: string, pick: number): Piece {
   const list = BY_ARCHETYPE[archetype] ?? ['shelf', 'rail', 'pegs', 'bin'];
   return list[Math.min(list.length - 1, Math.floor(pick * list.length))] ?? 'shelf';
+}
+
+/** A low piece for a slot under a window: the archetype's own if it has one, else sacks. */
+function low(archetype: string, pick: number): Piece {
+  const list = (BY_ARCHETYPE[archetype] ?? []).filter((k) => TALL[k] === undefined);
+  return list[Math.min(list.length - 1, Math.floor(pick * list.length))] ?? 'sacks';
 }
 
 /** A ladder: two rails and rungs every 0.3 m at the hatch edge it climbs. */
