@@ -43,6 +43,19 @@ export interface Shared {
   readonly policy: (team: PlayerTeam, heroId: HeroId) => ShopPolicy;
   /** The lane a flock groups on to siege: the one whose enemy defences are furthest down (GDD §11.3 Sieging). */
   readonly pushLane: (team: PlayerTeam) => LaneId;
+  /** The flock's siege: committed or not, and what it is taking (D-AI-009). */
+  readonly siege: (team: PlayerTeam) => Siege;
+  /** An open Shrine or Patron of the flock with enemies inside the base, or null. */
+  readonly homeThreat: (team: PlayerTeam) => { readonly structure: StructureEntity; readonly defenders: number } | null;
+}
+
+/** A flock's siege (index.ts `siege`). */
+export interface Siege {
+  /** Every bot goes (GDD §11.3 Sieging); else only pushes by the ordinary rules. */
+  readonly commit: boolean;
+  /** The push lane's outermost enemy tower, then the open Shrine nearest its gate, then the open Patron. */
+  readonly target: StructureEntity | null;
+  readonly lane: LaneId;
 }
 
 export interface Bot {
@@ -115,11 +128,24 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
   const gunRange = Math.min(def.weapon.range, def.weapon.falloff.end + FIGHT.pastFalloffM);
   const sweet = Math.min(gunRange, Math.max(FIGHT.minSweetM, def.weapon.falloff.start || FIGHT.defaultRangeM));
   const uses = def.abilities.map((a) => useOf(a.targeting, [a.effects, a.selfEffects ?? []], a.affects?.teams === 'allies'));
+  /** Ally casts that heal or shield (else they buff): who needs them is judged by HP. */
+  const healing = def.abilities.map((a) => { const k = kindsIn([a.effects, a.selfEffects ?? []], new Set()); return k.has('heal') || k.has('shield'); });
   const apOrder = AP_PRIORITY[h.hero.heroId];
   const minCost = Math.min(...[...w.catalogue.values()].map((i) => i.cost));
   /** Tower anchors on the nav graph: a waypoint there counts as reached at the tower's edge. */
   const anchors = ctx.map.structures.map((s) => ({ pos: s.pos, r: STRUCTURE_RADIUS[s.type] + NAV.structureClearM }));
   const ripeTicks = ticks(ECONOMY.pod.ripeS);
+  /** Memos: how each item active is used, and each waypoint's arrival radius. */
+  const itemUses = new Map<ItemId, Use>();
+  const arrive = new WeakMap<Vec3, number>();
+  /**
+   * Known to the flock: what it sees (GDD §11.1), and every structure, whose place is on the map and minimap for
+   * everyone. A shot still needs a clear line (lineOfSight).
+   */
+  const known = (e: Entity): boolean => e.kind === 'structure' || canSee(team, e);
+  /** The Brood Ward is up and still cuts damage (GDD §7.6; the 35:00 lever's multiplier may lift it, §15.2). */
+  const warded = (s: StructureEntity): boolean =>
+    !!s.structure.broodWard && (clock.seconds < DEFENCE.ward.lateAtS ? DEFENCE.ward.early : DEFENCE.ward.late) < 1;
 
   const aim = createAim(h.yaw);
   const cmd: Mutable<PlayerCommand> = { ...IDLE_COMMAND, yaw: h.yaw };
@@ -167,6 +193,10 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
   const lastSeen = new Map<EntityId, { pos: Vec3; at: Tick }>();
   /** Enemy heavy swings already judged for a parry. */
   const swings = new Set<EntityId>();
+  /** The stand chosen for the current base siege target (siegeStand). */
+  let stand: { id: EntityId; p: Vec3 } | null = null;
+  /** An ally cast waiting for the crosshair to reach its ally (castOn). */
+  let assist: { button: number; ally: EntityId; until: Tick } | null = null;
   let lastEnemyNearAt: Tick = 0;
   /** Enemy heroes seen at the last decision (positions stay live). */
   let seen: HeroEntity[] = [];
@@ -294,13 +324,13 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       }
     }
     for (const s of ctx.store.list('structure')) {
-      if (s.team === team || !alive(s) || reach(s) > gunRange || !canSee(team, s)) continue;
+      if (s.team === team || !alive(s) || reach(s) > gunRange || !known(s)) continue;
       if (s.structure.type === 'nest') {
         if (s.structure.breakable?.by === 'any' && reach(s) <= OBJECTIVE.nestShootM) offer(s, TARGET.nest - reach(s) / gunRange);
         continue;
       }
       if (s.stats.conditions.has('invulnerable') && !s.structure.weakPoint) continue;
-      if (s.structure.broodWard && foes.length > 0) continue;
+      if (warded(s) && foes.length > 0) continue;
       const t = s.structure.target === null ? undefined : ctx.store.get(s.structure.target);
       const onWave = !!t && t.kind === 'unit' && t.team === team;
       // A tower busy with our wave is the siege moment: it outranks pokes and the enemy wave.
@@ -393,10 +423,11 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
 
   function decide(): void {
     const now = clock.tick;
-    // From 20:00 (or with Rekindle) the flock groups on one lane to siege it (GDD §11.3 Sieging).
+    // From 20:00, with Rekindle, or when the flock commits to a siege, it groups on one lane (GDD §11.3 Sieging).
     const rekindle = (ctx.teams[team].rekindle?.until ?? 0) > now;
-    const group = clock.seconds >= OBJECTIVE.pushFromS || rekindle;
-    const played = group ? w.pushLane(team) : homeLane;
+    const sg = w.siege(team);
+    const group = sg.commit || clock.seconds >= OBJECTIVE.pushFromS || rekindle;
+    const played = group ? sg.lane : homeLane;
     if (played !== lane) {
       lane = played;
       geom = w.lanes.get(lane);
@@ -434,15 +465,33 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       return;
     }
     // Retreat (GDD §11.3): HP under the threshold → the Home Roost until healed; outnumbered or losing → fall back.
-    if ((homeRetreat && hp < RETREAT.healedHp) || hp < d.retreatHp) {
+    // Committed to an open base, a bot stays in until a lower threshold ("commit everyone to the push").
+    const atBase = sg.commit && sg.target !== null && sg.target.structure.lane === null;
+    if ((homeRetreat && hp < RETREAT.healedHp) || hp < (atBase ? RETREAT.committedHp : d.retreatHp)) {
       homeRetreat = true;
       mode = 'retreat';
       goal = { ...home };
       return;
     }
     homeRetreat = false;
-    if (near.length - alliesNear.length >= FIGHT.outnumberedBy || score < FIGHT.retreatScore ||
-      (was === 'retreat' && near.length > 0 && score < FIGHT.regroupScore)) {
+    // Defend at home: the base entered → the 3 nearest bots, or one more than the heroes inside (GDD §11.3 Defend).
+    const threat = w.homeThreat(team);
+    if (threat && among(friends, threat.structure.pos, threat.defenders)) {
+      mode = 'defend';
+      const s0 = threat.structure;
+      const dx = h.pos.x - s0.pos.x;
+      const dz = h.pos.z - s0.pos.z;
+      const len = dmath.hypot(dx, dz) || 1;
+      const back = s0.structure.body.radius + OBJECTIVE.homeStandM;
+      goal = len > back ? { x: s0.pos.x + (dx / len) * back, y: s0.pos.y, z: s0.pos.z + (dz / len) * back } : null;
+      const prey = fightTarget(foes);
+      target = prey?.id ?? laneTarget(foes, true)?.id ?? null;
+      strafe = d.strafe && prey !== null;
+      return;
+    }
+    // A committed flock only falls back from a fight it is clearly losing; the flock-level rule pulls it out.
+    const outnumbered = near.length - alliesNear.length >= FIGHT.outnumberedBy + (sg.commit ? 1 : 0);
+    if (outnumbered || (!sg.commit && (score < FIGHT.retreatScore || (was === 'retreat' && near.length > 0 && score < FIGHT.regroupScore)))) {
       mode = 'retreat';
       goal = geom ? lanePoint(Math.max(0, myProgress() - FIGHT.fallBackM)) : { ...home };
       const e = fightTarget(near);
@@ -451,7 +500,8 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
     }
     // Fight: an enemy hero within 35 m and the fight score at least 0.9.
     const prey = fightTarget(foes);
-    if (prey && score >= FIGHT.engageScore) {
+    // Committed to an open enemy base, only an enemy this close stops the walk; others are shot on the way (siegeOn).
+    if (prey && score >= FIGHT.engageScore && !(atBase && flat(prey.pos, h.pos) > FIGHT.siegeEngageM)) {
       mode = 'fight';
       target = prey.id;
       strafe = d.strafe;
@@ -478,8 +528,15 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       return;
     }
     if (order) w.orders.delete(h.id);
+    // Committed to a siege: everyone to the target, nothing else on the way but Embers (GDD §11.3 Sieging).
+    if (sg.commit && sg.target) {
+      if (objectives(foes, friends, eggEntity, true)) return;
+      mode = 'push';
+      siegeOn(sg.target, foes);
+      return;
+    }
     // Objectives: the Egg, runes, Embers and the Roc.
-    if (objectives(foes, friends, eggEntity)) return;
+    if (objectives(foes, friends, eggEntity, false)) return;
     // Shop trips (GDD §11.3 Shop; §11.2 shopping by difficulty).
     const stall = shopTrip(near.length > 0);
     if (stall) {
@@ -492,9 +549,32 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
     const push = group || deadEnemies >= OBJECTIVE.pushDeadEnemies;
     if (!push && foes.length === 0 && farm()) return;
     mode = push ? 'push' : 'lane';
-    goal = siegeGoal(push) ?? laneStand();
+    if (push && sg.target && sg.target.structure.lane === null) {
+      siegeOn(sg.target, foes);
+      return;
+    }
+    goal = laneStand();
     target = laneTarget(foes, true)?.id ?? null;
     rideOk = true;
+  }
+
+  /**
+   * Push on a siege target (GDD §11.3 Sieging, §7.6 Brood Ward). A lane tower or an unwarded base structure: from its
+   * stand, shooting it (a Warded one only while no enemy hero is in sight). A Warded base structure: escort the wave in
+   * behind its front, clearing the defenders' fledglings, until one of ours is within the Ward's 30 m.
+   */
+  function siegeOn(t: StructureEntity, foes: readonly HeroEntity[]): void {
+    rideOk = true;
+    if (t.structure.lane === null && warded(t)) {
+      goal = laneStand();
+      target = laneTarget(foes, true)?.id ?? null;
+      return;
+    }
+    goal = siegeStand(t);
+    const shootable = reach(t) <= gunRange && !(warded(t) && foes.length > 0);
+    // On the way in: an enemy hero in gun range, else nothing (no fledglings, pods or Nests to stop for).
+    const prey = shootable ? null : fightTarget(foes);
+    target = shootable ? t.id : prey && reach(prey) <= gunRange ? prey.id : t.structure.lane === null ? null : (laneTarget(foes, true)?.id ?? null);
   }
 
   /** A point straight away from p, for backing off. */
@@ -519,29 +599,52 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
     return d.shops === 'own' && seeds >= SHOP.tripSeeds && flat(best.pos, h.pos) <= SHOP.tripM ? best : null;
   }
 
-  /** The next inner structure to besiege (Shrines, then the Patron) once this lane's towers are down. */
-  function siegeGoal(push: boolean): Vec3 | null {
-    if (!push || !geom) return null;
-    const open = w.towers.filter((s) => s.team !== team);
-    if (open.some((s) => s.structure.lane === lane)) return null;
-    // Shrines first (the Patron stays gated until both fall), nearest first.
-    let best: StructureEntity | null = null;
-    const rank = (s: StructureEntity): number => (s.structure.type === 'shrine' ? 0 : 1);
-    for (const s of open) {
-      if (s.structure.lane !== null) continue;
-      if (!best || rank(s) < rank(best) || (rank(s) === rank(best) && flat(s.pos, h.pos) < flat(best.pos, h.pos))) best = s;
+  /**
+   * Where to stand to shoot a siege target (GDD §11.3 Sieging, D-AI-009). A lane tower: on the lane, within gun range
+   * (a committed flock takes the tower's attention in turns; towerOnMe steps each one out). A Shrine or the Patron: the
+   * first of a fan of points round it, facing the push lane's gate, at gun range but outside the Shrine pulse, from
+   * which a chest-high ray reaches its aim point (the base walls hide most of it); else the siege proof's sightline
+   * through the Riverbank gate. Cached per target.
+   */
+  function siegeStand(t: StructureEntity): Vec3 {
+    const r = Math.min(SIEGE.maxM, Math.max(SIEGE.minM, gunRange - SIEGE.slackM)) + t.structure.body.radius;
+    if (t.structure.lane !== null && geom) return lanePoint(Math.max(0, geom.forward(team, geom.project(t.pos).s) - r));
+    if (stand && stand.id === t.id) return stand.p;
+    const gate = geom ? lanePoint(geom.length) : home;
+    const base = dmath.atan2(gate.x - t.pos.x, gate.z - t.pos.z);
+    const aimAt = aimPoint(t, false);
+    let pick: Vec3 | null = null;
+    for (const k of SIEGE.fan) {
+      for (const ring of SIEGE.rings) {
+        const x = t.pos.x + dmath.sin(base + k) * r * ring;
+        const z = t.pos.z + dmath.cos(base + k) * r * ring;
+        const y = ctx.physics.groundHeight(x, z, t.pos.y + SIEGE.probeUpM);
+        if (y === null || r * ring < SIEGE.minM) continue;
+        const from = { x, y: y + body.muzzle.up, z };
+        const dx = aimAt.x - from.x;
+        const dy = aimAt.y - from.y;
+        const dz = aimAt.z - from.z;
+        const len = dmath.hypot(dx, dy, dz);
+        const hit = ctx.physics.raycast(from, { x: dx / len, y: dy / len, z: dz / len }, len, LAYERS_SOLID, h.id);
+        if (!hit || hit.entity === t.id || hit.distance > len - TARGET.losSlackM) {
+          pick = { x, y, z };
+          break;
+        }
+      }
+      if (pick) break;
     }
-    if (!best) return null;
-    // On the sightline the siege proof found (through the Riverbank gate), as close as the gun needs.
-    const shrine = best.structure.type === 'shrine';
-    const stand = shrine
-      ? { x: -Math.sign(best.pos.x) * SIEGE.shrine.x, z: Math.sign(best.pos.z) * SIEGE.shrine.z }
-      : { x: 0, z: Math.sign(best.pos.z) * SIEGE.patronZ };
-    const dx = stand.x - best.pos.x;
-    const dz = stand.z - best.pos.z;
-    const len = dmath.hypot(dx, dz) || 1;
-    const back = Math.min(len, Math.max(best.structure.body.radius + SIEGE.minM, gunRange - SIEGE.slackM));
-    return { x: best.pos.x + (dx / len) * back, y: 0, z: best.pos.z + (dz / len) * back };
+    if (!pick) {
+      const line = t.structure.type === 'shrine'
+        ? { x: -Math.sign(t.pos.x) * SIEGE.shrine.x, z: Math.sign(t.pos.z) * SIEGE.shrine.z }
+        : { x: 0, z: Math.sign(t.pos.z) * SIEGE.patronZ };
+      const dx = line.x - t.pos.x;
+      const dz = line.z - t.pos.z;
+      const len = dmath.hypot(dx, dz) || 1;
+      const back = Math.min(len, r);
+      pick = { x: t.pos.x + (dx / len) * back, y: 0, z: t.pos.z + (dz / len) * back };
+    }
+    stand = { id: t.id, p: pick };
+    return pick;
   }
 
   /** Is this bot among the n bots of its flock nearest to p? */
@@ -557,10 +660,10 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
   }
 
   /** GDD §11.3 Objective and §11.7: the Egg, runes, Embers and the Roc. Sets the mode and returns true when one applies. */
-  function objectives(foes: readonly HeroEntity[], friends: readonly HeroEntity[], egg: PickupEntity | undefined): boolean {
+  function objectives(foes: readonly HeroEntity[], friends: readonly HeroEntity[], egg: PickupEntity | undefined, embersOnly: boolean): boolean {
     const now = clock.tick;
     // The Golden Egg: the nearest bots go; the poorest of them takes it with a light melee, the rest escort.
-    if (egg && alive(egg)) {
+    if (!embersOnly && egg && alive(egg)) {
       const carrier = egg.pickup.carrier === null ? undefined : ctx.store.getKind(egg.pickup.carrier, 'hero');
       if (carrier && carrier.team === team) {
         if (among(friends, carrier.pos, OBJECTIVE.eggBots)) {
@@ -592,7 +695,7 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
     }
     // Feather runes and Phoenix Embers: heavy melee claims.
     for (const p of ctx.store.list('pickup')) {
-      if (p.pickup.type !== 'rune' && p.pickup.type !== 'ember') continue;
+      if ((p.pickup.type !== 'rune' || embersOnly) && p.pickup.type !== 'ember') continue;
       const range = p.pickup.type === 'rune' ? OBJECTIVE.runeM : OBJECTIVE.emberM;
       if (flat(p.pos, h.pos) > range || !among(friends, p.pos, p.pickup.type === 'rune' ? 1 : OBJECTIVE.emberBots)) continue;
       mode = 'objective';
@@ -600,6 +703,7 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       if ((p.pickup.claimableAt ?? 0) <= now) claim = { id: p.id, heavy: true };
       return true;
     }
+    if (embersOnly) return false;
     // A rune due soon at a spot within reach: wait there.
     for (const [i, at] of (ctx.objectives.runeAt ?? []).entries()) {
       const spot = ctx.map.runeSpots[i];
@@ -661,8 +765,10 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       const r = s.structure.body.radius + NAV.structureClearM;
       const cx = s.pos.x - h.pos.x;
       const cz = s.pos.z - h.pos.z;
+      const far = r + NAV.avoidAheadM;
+      if (cx * cx + cz * cz > far * far) continue;
       const c = dmath.hypot(cx, cz);
-      if (c > r + NAV.avoidAheadM || c === 0 || s.pos.y > h.pos.y + body.height || s.pos.y + s.structure.body.height < h.pos.y) continue;
+      if (c === 0 || s.pos.y > h.pos.y + body.height || s.pos.y + s.structure.body.height < h.pos.y) continue;
       if (c < r) {
         x -= (cx / c) * NAV.avoidPush;
         z -= (cz / c) * NAV.avoidPush;
@@ -686,8 +792,13 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
 
   /** A waypoint at a tower's anchor counts as reached at the tower's edge. */
   function arriveRadius(p: Vec3): number {
-    for (const a of anchors) if (flat(a.pos, p) < NAV.arriveM) return NAV.arriveM + a.r;
-    return NAV.arriveM;
+    let r = arrive.get(p);
+    if (r === undefined) {
+      r = NAV.arriveM;
+      for (const a of anchors) if (flat(a.pos, p) < NAV.arriveM) r = NAV.arriveM + a.r;
+      arrive.set(p, r);
+    }
+    return r;
   }
 
   /** The nearest node to p that can be seen from p at chest height (walls between are what strand bots). */
@@ -708,15 +819,17 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
     return cands.find((id) => !skip?.has(id)) ?? cands[0] ?? -1;
   }
 
+  /** Straight at p on foot, or null when there. */
+  function straight(p: Vec3): Step | null {
+    const dx = p.x - h.pos.x;
+    const dz = p.z - h.pos.z;
+    const len = dmath.hypot(dx, dz);
+    return len < NAV.arriveM ? null : { x: dx / len, z: dz / len, kind: 'walk' };
+  }
+
   /** World direction toward `to` along the nav graph, and the link being crossed. */
   function steer(to: Vec3): Step | null {
     const now = clock.tick;
-    const straight = (p: Vec3): Step | null => {
-      const dx = p.x - h.pos.x;
-      const dz = p.z - h.pos.z;
-      const len = dmath.hypot(dx, dz);
-      return len < NAV.arriveM ? null : { x: dx / len, z: dz / len, kind: 'walk' };
-    };
     if (w.nav.size === 0 || (flat(to, h.pos) <= NAV.directM && Math.abs(to.y - h.pos.y) < NAV.arriveDy)) return straight(to);
     if (!route || !routeGoal || flat(routeGoal, to) > NAV.goalMovedM || now - routeAt > ticks(NAV.replanS)) {
       route = w.nav.route(nodeNear(h.pos, badStart), nodeNear(to), costs, blocked);
@@ -764,6 +877,8 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
   function ride(now: Tick, danger: boolean): boolean {
     const updraft = w.updraftOf.get(lane);
     if (!geom || updraft === undefined || !goal) return false;
+    // Nothing to do unless riding, latching, or under this lane's cable (the common case, so check it first).
+    if (h.motor.updraft === null && latchFrom === null && h.motor.updraftInReach !== updraft) return false;
     const me = geom.project(h.pos);
     const left = geom.project(goal).s - me.s;
     const sign = Math.sign(left) || 1;
@@ -818,8 +933,10 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       case 'nova':
         return foe !== null && gap <= CAST.novaM;
       case 'heal':
+        return hpFrac() < CAST.healHp && h.health.inCombatUntil > now;
       case 'ally':
-        return hpFrac() < CAST.healHp && h.health.inCombatUntil > now && (use === 'heal' || selfFallback);
+        // Ally casts go through `beneficiary` (cast below); this is only the self case for callers without one.
+        return selfFallback && hpFrac() < CAST.healHp && h.health.inCombatUntil > now;
       case 'mobility':
         return (mode === 'retreat' && foe !== null && gap <= RETREAT.escapeM) ||
           (mode === 'fight' && gap > sweet && gap <= range + sweet && hpFrac() > CAST.healHp);
@@ -827,8 +944,46 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
         return mode === 'fight' && foe !== null && gap <= gunRange;
     }
   }
+  /**
+   * Who an ally cast should land on (GDD §11.2 supports): for heals and shields, the ally hero (self included when the
+   * kit falls back to the caster) in combat, in range and in sight, with the lowest HP fraction under CAST.allyHp; for
+   * other buffs, the ally in combat nearest an enemy hero. Null when nobody needs it.
+   */
+  function beneficiary(range: number, canSelf: boolean, heals: boolean): HeroEntity | null {
+    const now = clock.tick;
+    // Who needs it, cheapest checks first; the line-of-sight ray only for them, best first.
+    const needy: { a: HeroEntity; v: number }[] = [];
+    for (const a of ctx.store.list('hero')) {
+      if (a.team !== team || !alive(a) || a.health.inCombatUntil <= now) continue;
+      if (a.id === h.id ? !canSelf : flat(a.pos, h.pos) > range) continue;
+      let v: number;
+      if (heals) {
+        v = fraction(a);
+        if (v >= CAST.allyHp) continue;
+      } else {
+        v = Infinity;
+        for (const e of seen) if (alive(e)) v = Math.min(v, flat(e.pos, a.pos));
+        if (v > FIGHT.engageM) continue;
+      }
+      needy.push({ a, v });
+    }
+    needy.sort((x, y) => x.v - y.v || x.a.id - y.a.id);
+    return needy.find(({ a }) => a.id === h.id || clear(a, aimPoint(a, false)))?.a ?? null;
+  }
+
+  /** Press an ability or item key now, or turn onto the ally it is for and press it once the crosshair is there. */
+  function castOn(button: number, ally: HeroEntity | null, now: Tick): void {
+    castAt = now + ticks(CAST.everyS);
+    if (ally && ally.id !== h.id) {
+      assist = { button, ally: ally.id, until: now + ticks(CAST.assistS) };
+      return;
+    }
+    cmd.held |= button;
+    cmd.pressed |= button;
+  }
+
   function cast(now: Tick, foe: HeroEntity | null): void {
-    if (now < castAt || h.abilities.casting !== null || h.stats.conditions.has('silenced') || h.motor.updraft !== null) return;
+    if (now < castAt || assist || h.abilities.casting !== null || h.stats.conditions.has('silenced') || h.motor.updraft !== null) return;
     const onTarget = foe !== null && aim.target === foe.id && now >= aim.fireFrom;
     const last = ABILITY_BUTTONS.length - 1;
     for (let i = 0; i < ABILITY_BUTTONS.length; i++) {
@@ -836,7 +991,16 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       const a = def.abilities[i]!;
       if (!s.unlocked || s.readyAt > now || s.charges <= 0) continue;
       const use = uses[i]!;
-      let go = wants(use, a.range > 0 ? a.range : CAST.defaultRangeM, foe, onTarget, a.selfFallback === true);
+      const range = a.range > 0 ? a.range : CAST.defaultRangeM;
+      if (use === 'ally') {
+        if ((now + h.id) % TARGET.losEveryTicks !== 0) continue;
+        // "An ally in your sights, you if none": `selfFallback` or `affects.self` (the framework honours either).
+        const ally = beneficiary(range, a.selfFallback === true || a.affects?.self === true, healing[i]!);
+        if (!ally) continue;
+        castOn(ABILITY_BUTTONS[i]!, ally, now);
+        return;
+      }
+      let go = wants(use, range, foe, onTarget, a.selfFallback === true);
       // Raptor holds its ultimate for two or more heroes or a likely kill (GDD §11.2).
       if (go && i === last && d.abilities === 'chain' && foe && (use === 'enemy' || use === 'nova')) {
         const grouped = enemyHeroes().filter((e) => flat(e.pos, foe.pos) <= CAST.holdRadiusM).length;
@@ -854,11 +1018,22 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       const owned = id ? h.inventory.items.find((o) => o.item === id) : undefined;
       const active = id ? w.catalogue.get(id)?.active : null;
       if (!active || !owned || owned.readyAt > now) continue;
-      const use = useOf(active.targeting, active.effects, active.affects?.teams === 'allies');
-      if (!wants(use, active.range || CAST.defaultRangeM, foe, onTarget, active.selfFallback === true)) continue;
-      cmd.held |= ITEM_BUTTONS[i]!;
-      cmd.pressed |= ITEM_BUTTONS[i]!;
-      castAt = now + ticks(CAST.everyS);
+      let use = itemUses.get(id!);
+      if (use === undefined) {
+        use = useOf(active.targeting, active.effects, active.affects?.teams === 'allies');
+        itemUses.set(id!, use);
+      }
+      const range = active.range || CAST.defaultRangeM;
+      if (use === 'ally') {
+        if ((now + h.id) % TARGET.losEveryTicks !== 0) continue;
+        const k = kindsIn(active.effects, new Set());
+        const ally = beneficiary(range, active.selfFallback === true || active.affects?.self === true, k.has('heal') || k.has('shield'));
+        if (!ally) continue;
+        castOn(ITEM_BUTTONS[i]!, ally, now);
+        return;
+      }
+      if (!wants(use, range, foe, onTarget, active.selfFallback === true)) continue;
+      castOn(ITEM_BUTTONS[i]!, null, now);
       return;
     }
   }
@@ -948,7 +1123,7 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
 
     // Aim: a claim, else the target, else along the way.
     let t = target === null ? undefined : ctx.store.get(target);
-    if (target !== null && (!alive(t) || !canSee(team, t))) {
+    if (target !== null && (!alive(t) || !known(t))) {
       target = null;
       t = undefined;
     }
@@ -956,7 +1131,17 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
     if (claim && !alive(c)) claim = null;
     const foe = t && t.kind === 'hero' ? t : null;
     let moveTo = goal;
-    if (claim && c) {
+    const buddy = assist === null ? undefined : ctx.store.getKind(assist.ally, 'hero');
+    if (assist && (!alive(buddy) || now > assist.until)) assist = null;
+    if (assist && buddy) {
+      // An ally cast: put the crosshair on the ally, then press (the 6° 'unit' cone picks it).
+      if (aim.target !== buddy.id) acquire(aim, buddy.id, false, now, d, rng);
+      if (track(aim, h, body, aimPoint(buddy, false), 0, buddy.radius / Math.max(1, dist3(buddy.pos, h.pos)), now, d, rng)) {
+        cmd.held |= assist.button;
+        cmd.pressed |= assist.button;
+        assist = null;
+      }
+    } else if (claim && c) {
       // Melee pickups: walk onto it, look at it, swing (tap for light, hold for heavy).
       moveTo = { ...c.pos };
       if (aim.target !== c.id) acquire(aim, c.id, false, now, d, rng);
@@ -986,7 +1171,7 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       }
     } else {
       aim.target = null;
-      if (mode === 'retreat') cast(now, null);
+      cast(now, null);
       // Top up the magazine between fights.
       if (h.weapon.ammo < h.stats.final.magazine * FIGHT.reloadBelow && !h.weapon.reloading) cmd.pressed |= Button.Reload;
     }
