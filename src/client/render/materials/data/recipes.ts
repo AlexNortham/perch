@@ -171,9 +171,9 @@ function plaster(colour: number): (seed: number) => Sampler {
     const cracks = fbm(W, W, 0.5, 0.5, 3, seed + 8);
     return (X, Y, px) => {
       const patch = patches(X, Y);
-      if (patch > 0.7) {
+      if (patch > 0.76) {
         under(X, Y, sub);
-        const rim = smooth(0.7, 0.73, patch);
+        const rim = smooth(0.76, 0.785, patch);
         px.r = mix(base[0] * 1.06, sub.r, rim);
         px.g = mix(base[1] * 1.06, sub.g, rim);
         px.b = mix(base[2] * 1.06, sub.b, rim);

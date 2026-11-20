@@ -72,6 +72,7 @@ import { FIXTURE_MAP } from './fixture';
 import { getMaterialLibrary } from './materials';
 import { createModelKit } from './models';
 import { GRADE_FRAGMENT, GRADE_VERTEX } from './grade';
+import { RideOverlay } from './ride';
 
 export { DAWN_COLOURS, DUSK_COLOURS, TEAM_COLOURS } from '../app/palette';
 
@@ -298,6 +299,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   setMap(map);
 
   const host: RenderHost = { scene, beforeRender: null };
+  const ride = new RideOverlay();
 
   let shadowHalf = 0;
   const target = new Vector3();
@@ -358,6 +360,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       fitShadow(pose);
       if (composer) composer.render();
       else gl.render(scene, camera);
+      ride.render(gl, frame, size.width, size.height);
     },
     setMap,
     setQuality(q) {
@@ -386,6 +389,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     },
     dispose() {
       blockout?.dispose();
+      ride.dispose();
       composer?.dispose();
       env?.dispose();
       gl.dispose();

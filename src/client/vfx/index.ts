@@ -27,6 +27,9 @@ class World implements Lookup, Source {
   entities: readonly EntityView[] = NO_ENTITIES;
   readonly statusBits = new Map<EntityId, number>();
   localTeam: PlayerTeam = 'dawn';
+  get localHero(): EntityId | null {
+    return this.view?.localHero ?? null;
+  }
   now: number | null = null;
   podBorn: ReadonlyMap<EntityId, number> | null = null;
   timeScale = 1;

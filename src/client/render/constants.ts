@@ -226,7 +226,7 @@ export const ART = {
   canopyTintSalt: 3,
   coreTint: 0x5a6e4c,
   /** A bare trunk prim gets a crown: radius × this, height × crownHeight, centred crownLift radii above the top. */
-  crownOfTrunk: 2.6,
+  crownOfTrunk: 4.5,
   crownHeight: 0.9,
   crownLift: 0.15,
   /** §7.6 faded flock tints for base dressing (saturation ≤ 45 %, value ≤ 60 % after the albedo). */
@@ -343,6 +343,42 @@ export const BACKDROP = {
   shimmerSides: 16,
   shimmerColour: 0xffc890,
   shimmerStrength: 0.22,
+} as const;
+
+/**
+ * The local Updraft ride (G16): screen-space speed lines. Feel gap limits: lines at most 3 px wide, 25 % strength,
+ * 15 % of the screen height long, never inside the central 50 % of the screen. Speeds are in box-edge lengths per
+ * second; a line runs from the central box edge out to (1 + reach) × it, then respawns.
+ */
+export const RIDE = {
+  /** m/s: riding is 11, boosting 18 (sim UPDRAFT); above this the line counts as boosted. */
+  boostSpeed: 14.5,
+  colour: 0xdfeeff,
+  boostColour: 0xffe2b8,
+  count: 22,
+  max: 44,
+  width: 3,
+  length: 0.15,
+  alpha: 0.25,
+  speedMin: 0.6,
+  speedMax: 1.4,
+  reach: 1.2,
+  lengthMin: 0.4,
+  stretch: 0.5,
+  boostSpeedUp: 1.2,
+  fadeIn: 0.25,
+  fadeOut: 0.4,
+  maxDt: 0.1,
+  flicker: 0.5,
+  /** The central 50 %: a box of half the width and height, so its half-size is a quarter of each. */
+  boxDiv: 4,
+  eps: 1e-3,
+  segments: 8,
+  rgb: 3,
+  seed: 4711,
+  lcgMul: 1664525,
+  lcgAdd: 1013904223,
+  lcgRange: 4294967296,
 } as const;
 
 /** Allied invisible heroes (ghosts) draw at this opacity; the local hero fades out as the camera comes within LOCAL_FADE_M of its head. */
