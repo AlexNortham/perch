@@ -3362,3 +3362,28 @@ settle issue QA's spec now waits out.
 **Verified:** `npm run check -- --release` (Git Bash): `PASS typecheck 17s · lint 9s · test 138s · perf 76s · sim 10s ·
 e2e 667s · check 919s`. `e2e/draw-budget.spec.ts` 3/3 alone (35 s); camera, render and app unit tests 86/86.
 **Interface requests:** none (the two one-line fixes outside my paths are in this commit, for the owners to review).
+
+### W8 · Technical Architect (acting for Systems, Bot AI, UI) · lane assignment and the zipline start · 21/11/2026
+**Branch:** `worktree-agent-a50ff70aae49c2854` from `integrate/w5` 6038d86, with ca4ac26 merged (the dt clamp is kept).
+D-ARCH-034, D-ARCH-035; INTERFACES §17; GDD §3.7 (Match start row), §6.6, §11.3.
+**Done:**
+- **Lanes (core):** `core/lanes.ts` assigns each flock's lanes at match start: two per lane for six birds, the human first on a
+  seeded lane, then the bots through the cheapest split (two of one archetype costs 10, two of one line 3). The same seed
+  gives the same lanes. Lanes are stored in `HeroInfo.lane` and shown in `HeroView.lane`.
+- **Zipline start (physics):** with `SimOptions.laneStart` (on by default with `structures`), every hero except dummies
+  starts at tick 0 riding its lane's Updraft, at the station nearest its own spawn (read from `MapData.updrafts`) and
+  heading out. The normal ride rules apply. Respawns start on foot. `?scene=lane`, the replay, test sandboxes and
+  on-foot fixtures opt out.
+- **Bots** take their lane from `HeroInfo.lane`. Rotations, grouping and sieges are unchanged.
+- **UI:** a "You're on <lane>" banner shows for 5 s, with how to drop off; the minimap lane glows for 30 s.
+**Verified:**
+- Tests: `core/lanes.test.ts` (deterministic, 2-2-2, line pairing as the split allows, never two supports); sim
+  tests (tick 1: every hero rides its own lane out from its own end; on foot on respawn, with `laneStart: false`, for
+  dummies and in the Practice Hub); UI model test; `e2e/lane-start.spec.ts` (Play: riding with no input, banner
+  shows, 1/1).
+- `npm run release-matches`: 20 completed, 0 crashed, 0 without a winner; Dawn 9, Dusk 11; 35.5–58.4 min.
+- `npm run check -- --release`: typecheck, lint and test (1,451) PASS. Perf FAILED on the world and objectives budgets
+  while another agent loaded the machine ("without" 0.62–1.6 ms/tick against 0.31 quiet). Neither benchmark uses the
+  start: the world test has no heroes and the objectives test uses dummies. The rerun passed `ai.perf`. sim and e2e
+  were then run by hand: sim PASS (3 min, no crash); e2e 80 passed, 3 failed. All three were specs that assumed Play starts at the base spawn (`play.spec` x2, `match.spec`). With `?zipline=0`, a new Play-on-foot switch for those suites, they pass: 4/4 with `lane-start`.
+**Blocked:** nothing.

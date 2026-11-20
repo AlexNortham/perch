@@ -35,7 +35,7 @@ test('Play → Shrike card → Dawn lane: pointer lock, measured walk and dash, 
   });
   page.on('pageerror', (err) => errors.push(err.message));
 
-  await open(page);
+  await open(page, '/?zipline=0');
   await pickHero(page, 'Play', 'Shrike');
   const spawn = loadMap('main').spawns.find((s) => s.team === 'dawn')!;
   const start = await hero(page);
@@ -65,7 +65,7 @@ test('Play → Shrike card → Dawn lane: pointer lock, measured walk and dash, 
 });
 
 test('Riverbank Updraft: mount at the real gate, ride, boost, shoot and jump off', async ({ page }, info) => {
-  await open(page);
+  await open(page, '/?zipline=0');
   await pickHero(page, 'Play', 'Shrike');
   await lockPointer(page);
   const riverbank = loadMap('main').updrafts.find(({ lane }) => lane === 'riverbank')!;

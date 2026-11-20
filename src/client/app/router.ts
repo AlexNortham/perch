@@ -26,6 +26,8 @@ export interface SceneRequest {
   readonly cam: CameraPreset;
   readonly quality: Quality | null;
   readonly t: number;
+  /** `?zipline=0`: Play starts on foot at the base, for the browser suites that measure from the spawn (D-ARCH-035). */
+  readonly onFoot?: true;
 }
 
 const DEFAULT_HERO: HeroId = 'shrike';
@@ -48,6 +50,7 @@ export function parseScene(search: string): SceneRequest {
     cam: oneOf(CAMERA_PRESETS, q.get('cam')) ?? (scene === 'menu' || scene === 'blockout' ? 'overview' : 'player'),
     quality: QUALITIES.includes(q.get('quality') ?? '') ? (q.get('quality') as Quality) : null,
     t: Number.isFinite(t) ? Math.min(MAX_FAST_FORWARD_S, Math.max(0, t)) : 0,
+    ...(q.get('zipline') === '0' && { onFoot: true as const }),
   };
 }
 
@@ -96,4 +99,4 @@ export function sceneConfig(req: SceneRequest): SimConfig {
  * Play and `?scene=match` start on the zipline (D-ARCH-035). `?scene=lane` (the browser suites' base start) and the
  * replay (the siege-proof Owl walks from the base) start on foot.
  */
-const onFoot = (c: SimConfig): SimConfig => ({ ...c, options: { ...c.options, laneStart: false } });
+export const onFoot = (c: SimConfig): SimConfig => ({ ...c, options: { ...c.options, laneStart: false } });
