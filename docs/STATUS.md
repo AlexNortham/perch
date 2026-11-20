@@ -2802,3 +2802,9 @@ convergence; duels; then the one-line switch of `src/sim/data/builds.ts` to `LEA
 
 **Next:** the EP's review, then the 21 batch conversions with D-ART-010 and D-ART-011.
 **Blocked:** nothing.
+
+### EP · 21/11/2026 · sculpt v2.1 merged (5351ce1); bird batches launched
+- v2.1 adds a feather surface along a baked flow field, a standard for the player-camera view and wings that wrap the grip.
+- EP sees Peacock, Swift and Cassowary at about 3 from the player camera. One defect remains: aliased edge speckle on the feathers at distance (Batch A fixes it first).
+- 17 birds convert in three parallel batches (`docs/briefs/W5-birds-batch.md`).
+- The four B3 birds (Frigatebird, Cockatoo, Swan, Kiwi) are built straight on v2.1 in wave 6, with their kits.
