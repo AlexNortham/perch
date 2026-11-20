@@ -47,6 +47,7 @@ import type { Environment } from './environment';
 import type { Blockout } from './blockout';
 import { createEntityLayer } from './entities';
 import { registerHost } from '../app/render-host';
+import { deferWork } from '../app/stages';
 import type { RenderHost } from '../app/render-host';
 import {
   FAR_MAX,
@@ -326,24 +327,35 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   let layer: Environment | null = null;
   let layerQuality = quality;
   let current: MapData | null = null;
+  // The first map's scenery is generated after the first screen, as its own deferred job (D-ARCH-031); a later map
+  // (quality change, map switch) is built at once. `dressed` counts maps so a superseded job does nothing.
+  let dressLater = true;
+  let dressed = 0;
   const setMap = (m: MapData): void => {
     const next = m.id === 'main' && dev?.has('renderFixture') ? FIXTURE_MAP : m;
     if (next === current) return;
     current = next;
-    if (blockout) {
-      scene.remove(blockout.root);
-      blockout.dispose();
-    }
-    if (layer) scene.remove(layer.root);
-    layer?.dispose();
-    layer = buildEnvironment(next, layerQuality);
-    scene.add(layer.root);
-    blockout = buildBlockout(layer.blockoutMap, lib);
-    blockout.root.traverse((o) => {
-      if (off.includes('backdrop') && o.name.startsWith('backdrop')) o.visible = false;
-      if (off.includes('cards') && o instanceof Mesh && o.material === lib.cutout) o.visible = false;
-    });
-    scene.add(blockout.root);
+    const mine = ++dressed;
+    const dress = (): void => {
+      if (mine !== dressed) return;
+      if (blockout) {
+        scene.remove(blockout.root);
+        blockout.dispose();
+      }
+      if (layer) scene.remove(layer.root);
+      layer?.dispose();
+      layer = buildEnvironment(next, layerQuality);
+      scene.add(layer.root);
+      blockout = buildBlockout(layer.blockoutMap, lib);
+      blockout.root.traverse((o) => {
+        if (off.includes('backdrop') && o.name.startsWith('backdrop')) o.visible = false;
+        if (off.includes('cards') && o instanceof Mesh && o.material === lib.cutout) o.visible = false;
+      });
+      scene.add(blockout.root);
+    };
+    if (dressLater) deferWork('environment', dress);
+    else dress();
+    dressLater = false;
     anchors.clear();
     anchorModels = next.structures.map((_, i) => anchorView(next, i)).filter((v): v is EntityView => v !== null).map((view) => {
       const model = kit.create(view);
