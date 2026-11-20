@@ -85,3 +85,21 @@ describe('settings maths', () => {
     expect([master!.value, sfx!.value, music!.value]).toEqual([0, 1, 0.5]);
   });
 });
+
+describe('non-finite values', () => {
+  it('never reach the listener AudioParams, even from a NaN camera pose', () => {
+    const { ctx } = fakeContext();
+    const writes: number[] = [];
+    const param = () => ({ set value(v: number) { writes.push(v); } });
+    const keys = ['positionX', 'positionY', 'positionZ', 'forwardX', 'forwardY', 'forwardZ', 'upX', 'upY', 'upZ'];
+    (ctx as unknown as { listener: object }).listener = Object.fromEntries(keys.map((k) => [k, param()]));
+    const a = createAudio(settings(1, 1, 0), { ctx });
+    const v = view();
+    const frame = { curr: v, prev: v, alpha: 1, dt: 0.016 };
+    a.update(frame, pose);
+    a.update(frame, { position: { x: NaN, y: 0, z: 0 }, target: { x: 0, y: Infinity, z: -1 }, fovDeg: 90 });
+    a.update(frame, { position: { x: 1, y: 2, z: 3 }, target: { x: 1, y: 2, z: 3 }, fovDeg: 90 }); // zero-length look vector
+    expect(writes.length).toBeGreaterThan(0);
+    expect(writes.every(Number.isFinite)).toBe(true);
+  });
+});

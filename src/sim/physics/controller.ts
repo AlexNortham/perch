@@ -20,6 +20,7 @@ import type {
   HeroEntity,
   Hasher,
   MovementAction,
+  MovementModeEffect,
   MovementModeKind,
   PhysicsService,
   Vec3,
@@ -114,7 +115,7 @@ interface Mode {
   readonly onCollide: readonly Effect[];
   readonly onEnd: readonly Effect[];
   /** MovementModeEffect.endOn, or null for the mode's own rule (glide: land and Jump; toboggan: Jump with a hop). */
-  readonly endOn: readonly ('land' | 'jump')[] | null;
+  readonly endOn: NonNullable<MovementModeEffect['endOn']> | null;
   readonly cause: EffectCause;
   readonly hit: EntityId[];
 }

@@ -85,6 +85,12 @@ export interface HealEffect {
   readonly kind: 'heal';
   readonly amount: Magnitude;
   readonly overS?: Magnitude;
+  /**
+   * Trigger effects only: fraction of the triggering hit's damage dealt (what its `damage.applied` reports) added to
+   * the heal (Gape heals 0.3 of its bite through a brief 'abilityHit' trigger, D-ARCH-027). Combat reads it like
+   * `DamageEffect.triggerPct` (D-SYS-014); with no hit being reported it adds nothing.
+   */
+  readonly triggerPct?: Magnitude;
 }
 
 /** Apply a status (GDD §5.9), including stat buffs. Owner: sim/combat. */
@@ -113,7 +119,10 @@ export interface StatModEffect {
   readonly maxStacks?: number;
 }
 
-/** Remove statuses: every negative one, every positive one, or the listed ids. Owner: sim/combat. */
+/**
+ * Remove statuses: every negative one, every positive one, or the listed ids (and shields whose `id` is listed).
+ * Owner: sim/combat.
+ */
 export interface CleanseEffect {
   readonly kind: 'cleanse';
   readonly remove: 'negative' | 'positive' | readonly StatusId[];
@@ -122,6 +131,12 @@ export interface CleanseEffect {
 /** Talon shield, Song shield or barrier (GDD §5.10). Owner: sim/combat. */
 export interface ShieldEffect {
   readonly kind: 'shield';
+  /**
+   * Names the shield (D-ARCH-027): applying a shield with an id the holder already has replaces that one, and a
+   * `cleanse` that lists the id removes it (Items take an item's shield back on sale, e.g. `'item:<itemId>'`).
+   * Absent: an anonymous shield that stacks and only drains or expires.
+   */
+  readonly id?: string;
   readonly absorbs: 'talon' | 'song' | 'barrier';
   readonly amount: Magnitude;
   /** Lifetime; omitted lasts until drained. */
@@ -215,7 +230,15 @@ export interface DashEffect {
   readonly passThrough?: boolean;
   /** Stops at the first enemy touched. */
   readonly stopOnHit?: boolean;
-  /** Applied to each enemy touched during the dash. */
+  /**
+   * dir 'aim' only: the dash follows the caster's aim while it runs, at most this many degrees either side of where it
+   * started (Rampage 30). Absent or ≤ 0: a straight dash. Replaces the `steerDeg` value name (D-ARCH-027).
+   */
+  readonly steerDeg?: Magnitude;
+  /**
+   * Applied to each enemy touched during the dash. A tier adds a hit by raising a value from 0: damage that resolves
+   * to 0 and a status of ≤ 0 s apply nothing (D-ARCH-027).
+   */
   readonly onHit?: readonly Effect[];
   /** Applied at the end point when the dash ends. */
   readonly onArrive?: readonly Effect[];
@@ -257,10 +280,12 @@ export interface MovementModeEffect {
   /** Applied to the hero (at its position) when the mode ends. */
   readonly onEnd?: readonly Effect[];
   /**
-   * Besides its duration, the mode ends when the hero lands and/or presses Jump. Absent keeps physics' per-mode
-   * default (glide ends on both, D-CTRL-009; toboggan on Jump, with its hop). Lets kits say it without a hook.
+   * Besides its duration, the mode ends when the hero lands, presses Jump and/or is stunned ('stun': the 'stunned'
+   * condition, D-ARCH-027; `onEnd` still runs, so Tree Cling's cleanse of its gun bonus is data). Absent keeps
+   * physics' per-mode default (glide ends on both, D-CTRL-009; toboggan on Jump, with its hop). Lets kits say it
+   * without a hook.
    */
-  readonly endOn?: readonly ('land' | 'jump')[];
+  readonly endOn?: readonly ('land' | 'jump' | 'stun')[];
 }
 
 /** Attach the target to the source's socket for a while (Pelican's Gulp). Owner: sim/physics. */
@@ -412,6 +437,8 @@ export interface TriggerDef {
   readonly via?: EffectVia;
   /** Only when the other party is within this many metres (Burr Coat 20 m). */
   readonly withinM?: number;
+  /** Only when the other party is at least this many metres away (Kestrel's Eye 25 m, D-ARCH-027). */
+  readonly beyondM?: number;
 }
 
 /** Give the target a trigger for a while (item procs use the same TriggerDef permanently). Owner: sim/items. */
@@ -526,6 +553,12 @@ export interface EffectTarget {
   readonly point: Vec3;
   /** Unit direction (the aim direction for aimed effects). */
   readonly dir: Vec3;
+  /**
+   * The point lies on a wall, tree or other surface rather than the floor below it: sim/abilities sets it for a
+   * `surface` cast that took the surface under the crosshair, and a 'target' dash to it flies straight there
+   * (D-ARCH-027). Absent: an ordinary point.
+   */
+  readonly surface?: boolean;
 }
 
 export type EffectHandler<K extends EffectKind> = (

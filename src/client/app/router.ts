@@ -1,5 +1,5 @@
 import { HERO_IDS } from '../../sim/core/contracts';
-import type { HeroId, SimConfig } from '../../sim/core/contracts';
+import type { HeroId, SimConfig, SimOptions } from '../../sim/core/contracts';
 import { SIEGE_HERO } from '../../sim/ai/siege-proof.testkit';
 import { humanRoster } from '../../sim/index';
 import { CAMERA_PRESETS } from './contracts';
@@ -60,7 +60,8 @@ export function matchConfig(setup: MatchSetup): SimConfig {
   return { seed, map: 'main', roster, options: { structures: true, waves: true, neutrals: false } };
 }
 
-export function practiceConfig(seed: number, hero: HeroId): SimConfig {
+/** The Practice Hub; `start` puts the player there instead of the spawn (Swap bird, D-EP-040). */
+export function practiceConfig(seed: number, hero: HeroId, start?: SimOptions['practiceStart']): SimConfig {
   const candidates = (['shrike', 'albatross', 'lyrebird'] as const).filter((id) => id !== hero);
   const [ally, enemy] = candidates;
   if (!ally || !enemy) throw new Error('Practice needs two distinct target heroes');
@@ -68,7 +69,7 @@ export function practiceConfig(seed: number, hero: HeroId): SimConfig {
     { team: 'dawn', hero, controller: 'human' },
     { team: 'dawn', hero: ally, controller: 'dummy' },
     { team: 'dusk', hero: enemy, controller: 'dummy' },
-  ], options: { practiceHub: true, unlockAbilities: true, waves: false, neutrals: false, structures: false } };
+  ], options: { practiceHub: true, unlockAbilities: true, waves: false, neutrals: false, structures: false, ...(start && { practiceStart: start }) } };
 }
 
 /** The sim each scene runs. The menu shows the real map, empty, as its backdrop (D-EP-017). */
