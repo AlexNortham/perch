@@ -19,6 +19,8 @@ const meshes = (root: Object3D): Mesh[] => {
 const layers = (g: BufferGeometry): Set<number> => new Set(Array.from(g.getAttribute('matLayer')?.array ?? []));
 const uses = (root: Object3D, id: MaterialId): boolean => meshes(root).some((m) => !(m instanceof InstancedMesh) && layers(m.geometry).has(layerOf(id)));
 const map = (prims: BlockoutPrim[]): MapData => ({ ...loadMap('arena'), prims });
+/** The full map builds in about 1.5 s alone; give it room under a parallel test run. */
+const FULL_MAP_MS = 30_000;
 
 describe('map layer', () => {
   for (const m of [loadMap('arena'), loadMap('main'), FIXTURE_MAP]) {
@@ -38,7 +40,7 @@ describe('map layer', () => {
       const colours = all.filter((x) => x.name.endsWith(':opaque:far')).flatMap((x) => Array.from(x.geometry.getAttribute('color').array));
       expect(colours.reduce((a, c) => Math.min(a, c), 1), 'baked AO darkens somewhere').toBeLessThan(0.8);
       b.dispose();
-    });
+    }, FULL_MAP_MS);
   }
 
   it('paints the fixture with its features: paved lanes, rope cables, Vines with leaves, stalls, chimney shimmer', () => {
@@ -94,5 +96,5 @@ describe('map layer', () => {
     expect(trims.length).toBeGreaterThan(0);
     expect(trims.every((x) => !x.visible)).toBe(true);
     b.dispose();
-  });
+  }, FULL_MAP_MS);
 });

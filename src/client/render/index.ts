@@ -75,7 +75,8 @@ import { createModelKit } from './models';
 import { gradeOutput } from './grade';
 import { RideOverlay } from './ride';
 import { identityResolution, rimStrength } from './identity';
-import { portraits, registerPortraitSource } from './portraits';
+import { portraits, registerPortraitSource, uiPortraits } from './portraits';
+import { placeholderPortraits, setPortraitProvider } from '../ui/portraits';
 
 export { DAWN_COLOURS, DUSK_COLOURS, TEAM_COLOURS } from '../app/palette';
 
@@ -304,6 +305,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   const kit: ModelKit = createModelKit();
   const entities = createEntityLayer(scene, kit);
   registerPortraitSource({ gl: () => gl, kit });
+  setPortraitProvider(uiPortraits);
   /** The real structure models at the map's anchors, shown until a match spawns structures. */
   const anchors = new Group();
   anchors.name = 'structure-anchors';
@@ -430,6 +432,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     },
     dispose() {
       registerPortraitSource(null);
+      setPortraitProvider(placeholderPortraits);
       blockout?.dispose();
       ride.dispose();
       composer?.dispose();

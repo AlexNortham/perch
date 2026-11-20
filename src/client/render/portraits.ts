@@ -3,9 +3,8 @@
  * view, warm key and rim light, transparent background (the UI frames it in team colour). Rendered on first request
  * with the live WebGL context and cached as PNG data URLs, so the offline single-file build needs no image files.
  *
- *   import { portraits } from '../render/portraits';
- *   img.src = portraits.get('owl', 'dusk') ?? placeholder;   // null until the renderer exists
- *   portraits.prepare(roster);                               // optional: render a match's roster up front
+ * The renderer registers `uiPortraits` with the UI's `setPortraitProvider` (ui/portraits.ts), so the top bar and
+ * the kill feed show them; `portraits.get(hero, team)` gives the data URL directly.
  */
 import {
   AmbientLight,
@@ -22,6 +21,8 @@ import type { WebGLRenderer } from 'three';
 import type { EntityView, HeroId, PlayerTeam, SimView } from '../../sim/core/contracts';
 import { HEROES } from '../../sim/heroes/registry';
 import type { Frame, ModelKit } from '../app/contracts';
+import { placeholderPortraits } from '../ui/portraits';
+import type { PortraitProvider as UiPortraits } from '../ui/portraits';
 import { PORTRAIT } from './constants';
 
 export interface PortraitProvider {
@@ -120,5 +121,19 @@ export const portraits: PortraitProvider = {
   },
   prepare(roster) {
     for (const r of roster) portraits.get(r.hero, r.team);
+  },
+};
+
+/** The UI scoreboard's provider (ui/portraits.ts): an image of the rendered portrait, the placeholder without one. */
+export const uiPortraits: UiPortraits = {
+  face(hero, team) {
+    const url = portraits.get(hero, team);
+    if (!url) return placeholderPortraits.face(hero, team);
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = '';
+    img.draggable = false;
+    img.style.cssText = 'display:block;width:100%;height:100%;object-fit:cover';
+    return img;
   },
 };

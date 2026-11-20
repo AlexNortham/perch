@@ -57,6 +57,8 @@ export interface BoxOptions {
   readonly bottom?: boolean;
   /** Extra horizontal loops (metres above the bottom) for the damp and contact gradients. */
   readonly loops?: readonly number[];
+  /** Subdivide faces to at most this many metres (default SHAPE.segment). */
+  readonly segment?: number;
 }
 
 /** A box sx × sy × sz centred on the origin with chamfered edges and subdivided faces (non-indexed, flat normals). */
@@ -64,9 +66,10 @@ export function chamferBox(sx: number, sy: number, sz: number, opts: BoxOptions 
   const c = Math.max(0, Math.min(opts.chamfer ?? 0, Math.min(sx, sy, sz) * SHAPE.maxChamferShare));
   const [hx, hy, hz] = [sx / 2, sy / 2, sz / 2];
   const loops = (opts.loops ?? []).map((l) => -hy + l);
-  const xs = stops(-hx + c, hx - c, SHAPE.segment);
-  const ys = stops(-hy + c, hy - c, SHAPE.segment, loops);
-  const zs = stops(-hz + c, hz - c, SHAPE.segment);
+  const seg = opts.segment ?? SHAPE.segment;
+  const xs = stops(-hx + c, hx - c, seg);
+  const ys = stops(-hy + c, hy - c, seg, loops);
+  const zs = stops(-hz + c, hz - c, seg);
   const s = new Soup();
   const grid = (us: number[], vs: number[], at: (u: number, v: number) => number[], out: Vector3): void => {
     for (let i = 0; i + 1 < us.length; i++) {
@@ -136,7 +139,8 @@ export function wedge(sx: number, sy: number, sz: number): BufferGeometry {
 }
 
 /**
- * Stairs filling a ramp's box: risers of about SHAPE.riser, each step a chamfered block one tread deep, set
+ * Stairs filling a ramp's box: risers of about SHAPE.riser, each step a plain block one tread deep (the nosing is
+ * painted), set
  * half a riser down so the collision slope cuts through the middle of every riser (feet never float more than half
  * a riser). Same frame as wedge().
  */
@@ -149,7 +153,7 @@ export function stairs(sx: number, sy: number, sz: number): BufferGeometry[] {
     const top = -sy / 2 + (i + 1) * rise - rise / 2;
     const h = top + sy / 2;
     if (h <= 0) continue;
-    const g = chamferBox(sx, h, run, { chamfer: SHAPE.stepChamfer, bottom: false });
+    const g = chamferBox(sx, h, run, { bottom: false, segment: Math.max(sx, h, run) });
     g.translate(0, -sy / 2 + h / 2, -sz / 2 + (i + 1 / 2) * run);
     out.push(g);
   }

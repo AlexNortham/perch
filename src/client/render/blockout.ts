@@ -164,7 +164,7 @@ function trims(ctx: Ctx, p: BlockoutPrim & { shape: 'box' }, seed: number, stone
   const { x: sx, y: sy, z: sz } = p.size;
   const bottom = p.centre.y - sy / 2;
   const band = (y0: number, h: number, out: number, id: MaterialId, k: number): void => {
-    const g = chamferBox(sx + 2 * out, h, sz + 2 * out, { chamfer: ART.trimChamfer });
+    const g = chamferBox(sx + 2 * out, h, sz + 2 * out, { chamfer: ART.trimChamfer, segment: ART.hugeSegment });
     put(ctx, place(g, { x: p.centre.x, y: y0 + h / 2, z: p.centre.z }, p.yaw), id, { seed: seed + k, band: 'mid', ...(tint !== undefined && { tint }), cast: false, ground: y0 });
   };
   band(bottom, ART.plinth.height, ART.plinth.out, stone, 1);
@@ -180,7 +180,8 @@ function boxPrim(ctx: Ctx, p: BlockoutPrim & { shape: 'box' }, i: number): void 
   const bottom = p.centre.y - sy / 2;
   const big = Math.max(sx, sz) > ART.hugePiece;
   const chamfer = Math.max(ART.chamferMin, Math.min(ART.chamferMax, minDim * ART.chamferShare));
-  const geo = (): BufferGeometry => place(chamferBox(sx, sy, sz, { chamfer, bottom: bottom > ART.groundEps, loops: [ART.contactLoop, ART.dampLoop] }), p.centre, p.yaw);
+  const loops = sy >= ART.loopMinHeight ? [ART.contactLoop, ART.dampLoop] : [];
+  const geo = (): BufferGeometry => place(chamferBox(sx, sy, sz, { chamfer, bottom: bottom > ART.groundEps, loops, ...(big && { segment: ART.hugeSegment }) }), p.centre, p.yaw);
   const tag: MaterialTag = p.material;
   const slab = sy < ART.slabHeight && footprint > ART.slabFootprint;
   const common = { seed: i, yaw: p.yaw, ground: bottom, ...(big && { rays: false }) } as const;
