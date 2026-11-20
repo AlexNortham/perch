@@ -560,6 +560,57 @@ export function penguinBody(plan: BodyPlan): Body {
   };
 }
 
+// =================================================================================================================
+// Hornbill: upright and heavy-chested, a thick neck, a black face under a helmet casque that rides the top of a deep
+// down-curved bill and doubles the head's height, a broad back and a long tail.
+
+export function hornbillAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.95;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.68, 1.27 * s, -0.06 * s], hip: [R * 0.34, plan.height * 0.2, -0.04 * s], tail: [0, 0.74 * s, -0.3 * s],
+    legLen: plan.height * 0.2, legThick: 0.03 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export function hornbillBody(plan: BodyPlan): Body {
+  const a = hornbillAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2150, 820, 250, 110], cell: 0.008,
+    ops: [
+      // Upright, the breast deep and broad, tapering to a low belly over short feathered thighs.
+      ell([0, 1.0 * s, -0.1 * s], [0.24 * s, 0.42 * s, 0.21 * s], 'body', 'back', { rot: [0.2, 0, 0], k: 0.05 }),
+      ...pair(ell([0.1 * s, 1.15 * s, 0.09 * s], [0.19 * s, 0.26 * s, 0.2 * s], 'body', 'breast', { k: 0.06, rot: [0.18, 0.22, 0] })),
+      ell([0, 1.1 * s, 0.2 * s], [0.08 * s, 0.24 * s, 0.11 * s], 'body', 'breast', { k: 0.05, rot: [0.2, 0, 0] }),
+      ell([0, 0.72 * s, 0.02 * s], [0.18 * s, 0.24 * s, 0.17 * s], 'body', 'belly', { k: 0.07, rot: [0.1, 0, 0] }),
+      ell([0, 1.2 * s, -0.16 * s], [0.21 * s, 0.26 * s, 0.09 * s], 'body', 'mantle', { k: 0.06, rot: [0.28, 0, 0] }),
+      cone([0, 0.76 * s, -0.2 * s], [0, 0.68 * s, -0.36 * s], 0.14 * s, 0.07 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.17 * s, 1.24 * s, -0.1 * s], scapularR: [0.1 * s, 0.17 * s, 0.09 * s], root: 0.075 * s, inset: 0.08 }),
+      ...thighs(a, { r: 0.072 * s, rKnee: 0.042 * s, reach: 0.4, root: [0.08 * s, 0.58 * s, -0.02 * s] }),
+      // A thick neck, the cream ruff of it round the back of the head.
+      ...neck([[0, 1.32 * s, 0.02 * s], [0, 1.46 * s, 0.03 * s], [0, hc[1] - 0.09 * s, 0.0]], [0.17 * s, 0.155 * s, 0.15 * s], 'neck', 0.5),
+      ...head(hc, a.hr, HORNBILL_HEAD),
+      // The casque: a tall helmet on the top of the bill from the brow forward, sloping to the bill at mid-length, its
+      // front turned up in a horn, two ridges along its crown.
+      ell(at(hc, a.hr, [0, 0.72, 0.98]), mulS([0.38, 0.6, 1.0], a.hr), 'head', 'casque', { k: 0.05 * s, rot: [0.25, 0, 0] }),
+      ell(at(hc, a.hr, [0, 1.12, 1.15]), mulS([0.3, 0.5, 0.78], a.hr), 'head', 'casque', { k: 0.04 * s, rot: [0.35, 0, 0] }),
+      ell(at(hc, a.hr, [0, 1.18, 1.85]), mulS([0.26, 0.4, 0.3], a.hr), 'head', 'casque', { k: 0.04 * s, rot: [-0.5, 0, 0] }),
+      ...pair(ell(at(hc, a.hr, [0.17, 1.4, 1.05]), mulS([0.11, 0.18, 0.7], a.hr), 'head', 'casque', { k: 0.03 * s, rot: [0.3, 0, 0] })),
+      // The black rim where the casque meets the brow.
+      ell(at(hc, a.hr, [0, 0.6, 0.32]), mulS([0.4, 0.4, 0.14], a.hr), 'head', 'rim', { mark: true, soft: 0.006 }),
+    ],
+  };
+}
+
+export const HORNBILL_HEAD: HeadShape = {
+  skull: [1.1, 1.06, 1.14], skullAt: [0, 0.0, -0.08], face: [0.74, 0.66, 0.64], faceAt: [0, -0.1, 0.44],
+  brow: [0.5, 0.2, 0.42], browAt: [0.5, 0.42, 0.5], browTilt: 0.3, nape: [0.86, 0.74, 0.66], napeAt: [0, -0.45, -0.5],
+  eye: [0.74, 0.16, 0.52], socket: 0.26, bill: [0, -0.12, 0.98], billW: 0.34, billH: 0.4,
+};
+
 /** The birds with implicit bodies, by hero id. */
 export const BODIES = {
   peacock: peacockBody,
@@ -570,6 +621,7 @@ export const BODIES = {
   owl: owlBody,
   pelican: pelicanBody,
   penguin: penguinBody,
+  hornbill: hornbillBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */

@@ -18,7 +18,7 @@ import { SKIN as KINGFISHER_SKIN } from './data/skins/kingfisher';
 import { SKIN as SHRIKE_SKIN } from './data/skins/shrike';
 import { CARD } from './feathers';
 import { band, bead, block, BRASS, buckle, carve, GEAR, LEATHER, lathe, pouch, ring, sash, WOOD } from './gear';
-import { BIRD_BUILDS_B } from './heroes-b';
+import { BIRD_BUILDS_B, SCULPTED_B } from './heroes-b';
 import { sculptedBuild } from './sculpted';
 import type { Detail, SculptedBird, SculptedSpec } from './sculpted';
 import { SCULPTED_BUILDS } from './sculpted-birds';
@@ -527,6 +527,6 @@ const sculpt = (birds: Readonly<Record<string, SculptedBird>>): Record<string, B
   Object.fromEntries(Object.entries(birds).map(([id, bird]) => [id, (plan: BodyPlan, team: TeamColours) => sculptedBuild(plan, team, bird)]));
 
 /** Hand-built heroes by id. */
-export const HERO_BUILDS: Readonly<Record<string, Build>> = { albatross, lyrebird, ...BIRD_BUILDS_B, ...sculpt(SCULPTED_HERE), ...SCULPTED_BUILDS };
+export const HERO_BUILDS: Readonly<Record<string, Build>> = { albatross, lyrebird, ...BIRD_BUILDS_B, ...sculpt(SCULPTED_B), ...sculpt(SCULPTED_HERE), ...SCULPTED_BUILDS };
 /** Every hero sculpted to the style guide (D-ART-004, D-ART-010). */
-export const SCULPTED_IDS = [...Object.keys(SCULPTED_BUILDS), ...Object.keys(SCULPTED_HERE)] as HeroId[];
+export const SCULPTED_IDS = [...Object.keys(SCULPTED_BUILDS), ...Object.keys(SCULPTED_HERE), ...Object.keys(SCULPTED_B)] as HeroId[];
