@@ -3264,7 +3264,7 @@ follow-ups in `docs/briefs/W5-contract-followups.md` § W6.
 fields); `abilities/kit.ts`, `data/heroes/cockatoo.ts`, `data/heroes/kiwi.ts` (channelS).
 **Verified:** `npm run check -- --release` on 03f5ad7 (integrate/w5 4600955 merged, quiet machine): `PASS typecheck 14s ·
 lint 8s · test 79s (1,440 passed) · perf 34s (14/14; objectives +0.115 ms, without 0.307; world +0.173 ms) · sim 5s
-(hash 7e4573f109a34daf; Bot AI's merge moved it, my changes don't) · e2e 522s (90 passed) · check 662s`. Earlier, one
+(hash 7e4573f109a34daf; Bot AI's merge moved it, my changes don't) · e2e 522s (112 passed) · check 662s`. Earlier, one
 loaded run had `draw-budget` lane/low at 340k triangles against 330k, which passed alone (3/3) and is the
 settle issue QA's spec now waits out.
 **Interface requests:** none. **Blocked:** nothing.
