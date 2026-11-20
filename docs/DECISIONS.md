@@ -2458,6 +2458,20 @@ use it, and `CHANNEL_EXTRA_VALUE` is deleted (behaviour unchanged; both suites p
 `TetherEffect.breakDistance` as a Magnitude: Swan's Grace Link doesn't need it (Hero B3) and Hummingbird's hook covers
 Nectar Sip.
 **Why:** a typed field over a value name the framework reads (D-ARCH-027); a contract widening with no user is churn.
+
+### D-ARCH-033 · 21/11/2026 — `__perch.hero` waits on the match fast-forward; frames pause while a session loads
+**Decision:** the EP's stability blocker (`match.spec` and one `scoreboard-bar` case timing out on `__perch.hero`) is
+not a view bug. The local hero is in `view.entities` on every tick: in Node over a 900 s idle Kingfisher match (seed 1,
+11 bots, the e2e setup) and in the browser, polled every 100 ms through the switch and on each of the next 600 frames.
+`__perch.hero` is null while the previous session (the menu) is still current, and Play's 12-bot match is fast-forwarded
+before it replaces it: `?t=900` (match.spec) is 54,000 ticks and `?t=600` (scoreboard-bar) 36,000, which took 36–45 s
+and 20–27 s here with the screen still on hero select, so a busier machine passes pickHero's 60 s wait. The failure
+snapshot is taken after the switch, which is why it shows a live match. The app now draws nothing (no render, UI, audio
+or VFX update) while a session is being created or fast-forwarded, so the sim gets the main thread: `?t=900` went to
+26–30 s on the same machine. `src/sim/index.test.ts` pins the invariant: the local hero stays in its own view every
+tick through death and respawn.
+**Why:** a fix at the root has to fix the cause that was measured. The fast-forward length and the wait are QA's
+(follow-up); the sim's tick cost with 12 bots is Bot AI's and Systems'.
 ### D-EP-050 · 21/11/2026 — Stage 4 ships in two pushes: functionality first, art when done; no Stage 5
 **Decision:** the user said art must not hold up pushes to `main`, and stability matters most. Stage 4 therefore ships
 in two releases.

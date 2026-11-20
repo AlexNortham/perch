@@ -161,7 +161,9 @@ every tick's hash must match (D-ARCH-021). The rules:
   (`app/loop.ts interpolate`). The local camera uses the live look angles from input every frame, so mouse look is
   never 60 Hz-quantised.
 - The app loop runs at most `MAX_STEPS_PER_FRAME` (5) sim steps per frame and drops a longer backlog rather than
-  spiralling. Pausing stops stepping (single-player, GDD §12.10).
+  spiralling. Pausing stops stepping (single-player, GDD §12.10). While a new session is created or fast-forwarded
+  (`?t=`), frames draw nothing so the sim gets the main thread, and `__perch.hero` stays the old session's (null from
+  the menu) until the new one replaces it (D-ARCH-033).
 - Start-up is staged (D-ARCH-031, `app/stages.ts`). `window.__perch.stage` goes `'boot'` → `'menu'` (the sim, UI,
   input and audio are up and the first screen has drawn 3 frames over the page background) → `'world'` (the deferred
   work queue is empty and the full scene has drawn 3 more). `__perch.ready` is true from `'world'`; the screenshot

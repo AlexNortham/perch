@@ -307,6 +307,10 @@ use it (D-ARCH-032). The W5.5 line "`TetherEffect.breakDistance` becomes a `Magn
   main thread is busy right after `'menu'`, so clicks wait for the world anyway.
 - `preview-regressions` "binds side buttons" can leave the serial project once the time to `'world'` drops (D-BUILD-011);
   it hasn't yet (8.9 s median here, under load).
+- `pickHero` (e2e/game.ts) waits 60 s for `__perch.hero`, but Play with `?t=600` or `?t=900` first fast-forwards the
+  12-bot match (36,000 or 54,000 ticks; 20–45 s here before D-ARCH-033's frame pause, 26–30 s after for `t=900`). The
+  hero is null only until that session replaces the menu's (D-ARCH-033). Scale the wait with `t` (for example wait on
+  `__perch.state.screen === 'match'` with a longer timeout first), or fast-forward less.
 - A page-load check worth adding: the `perch:menu` mark (performance marks `perch:boot`, `perch:sim`, `perch:menu`,
   `perch:world`, and a `perch:job:<label>` measure per deferred job) within a few seconds of navigation on a production
   build.
