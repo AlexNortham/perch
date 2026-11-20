@@ -43,19 +43,22 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = PCFShadowMap;
 root.appendChild(renderer.domElement);
 
+// look=neutral: a white turntable light on mid grey, for judging form, colour and value apart from the game's light.
+const neutral = q.get('look') === 'neutral' || mode === 'triptych';
 const scene = new Scene();
-const backdrop = new Color(0xa99bb0);
+const backdrop = new Color(neutral ? 0x8a8d93 : 0xa99bb0);
 scene.background = backdrop;
-scene.fog = new FogExp2(0xa99bb0, 0.006);
-scene.add(new HemisphereLight(0x8fa6c9, 0x4a4a3a, Math.PI * 0.75));
-const sun = new DirectionalLight(0xffd9a0, Math.PI * 1.6);
+if (!neutral) scene.fog = new FogExp2(0xa99bb0, 0.006);
+scene.add(neutral ? new HemisphereLight(0xffffff, 0x6a6a6a, Math.PI * 0.55) : new HemisphereLight(0x8fa6c9, 0x4a4a3a, Math.PI * 0.75));
+const sun = new DirectionalLight(neutral ? 0xffffff : 0xffd9a0, Math.PI * (neutral ? 1.3 : 1.6));
 const elev = (24 * Math.PI) / 180;
-sun.position.set(-Math.cos(elev) * 30, Math.sin(elev) * 30, -Math.cos(elev) * 12);
+if (neutral) sun.position.set(-12, 22, 18);
+else sun.position.set(-Math.cos(elev) * 30, Math.sin(elev) * 30, -Math.cos(elev) * 12);
 sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096);
 Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, near: 1, far: 120 });
 scene.add(sun, sun.target);
-const ground = new Mesh(new PlaneGeometry(600, 600), new MeshLambertMaterial({ color: 0x7d7262 }));
+const ground = new Mesh(new PlaneGeometry(600, 600), new MeshLambertMaterial({ color: neutral ? 0x6c6f75 : 0x7d7262 }));
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
@@ -159,6 +162,31 @@ if (mode === 'player') {
   camera.lookAt(0, 1.0, dist);
   renderer.render(scene, camera);
   label(`Line-up at ${dist} m (${stateName}): ${ids.join(', ')}`, 16, 12);
+} else if (mode === 'triptych') {
+  // Three panels: three-quarter close-up, front, and the back from the player camera's boom (style guide review).
+  const hero = q.get('hero') ?? 'peacock';
+  if (!isHero(hero)) throw new Error(`unknown hero ${hero}`);
+  const plan = HEROES[hero].def.body;
+  place(hero, 0, teamParam === 'dusk' ? 'dusk' : 'dawn', 0, 0, 0);
+  const pw = W / 3;
+  const panel = new PerspectiveCamera(32, pw / H, 0.05, 400);
+  const look = new Vector3(0, plan.height * 0.55, 0);
+  const ray = aimRay({ x: 0, y: 0, z: 0 }, 0, 0, 1, plan, false);
+  const views: [string, Vector3][] = [
+    ['three-quarter', new Vector3(-Math.sin(0.75) * 4.4, plan.height * 0.75, Math.cos(0.75) * 4.4).multiplyScalar(plan.height / 1.8)],
+    ['front', new Vector3(0, plan.height * 0.7, 4.4 * (plan.height / 1.8))],
+    ['back (player camera)', new Vector3(ray.origin.x, ray.origin.y, ray.origin.z)],
+  ];
+  renderer.setScissorTest(true);
+  views.forEach(([name, at], i) => {
+    renderer.setViewport(i * pw, 0, pw, H);
+    renderer.setScissor(i * pw, 0, pw, H);
+    panel.position.copy(at);
+    panel.lookAt(look);
+    renderer.render(scene, panel);
+    label(name, i * pw + 12, H - 44);
+  });
+  label(`${HEROES[hero].def.name} (${stateName}), neutral light`, 16, 12);
 } else {
   const hero = q.get('hero') ?? 'peacock';
   if (!isHero(hero)) throw new Error(`unknown hero ${hero}`);

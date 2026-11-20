@@ -7,7 +7,7 @@
 import { ExtrudeGeometry, Matrix4, Shape } from 'three';
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
-import { beak, eye, FEATHER, flare, legsOf, norm, ovoid, shingle, SKIN, tailFan, wingsOf } from './anatomy';
+import { beak, eye, FEATHER, flare, headForm, legsOf, norm, ovoid, shingle, SKIN, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
 import { CARD, TILE } from './feathers';
 import { band, bead, block, BRASS, buckle, carve, GEAR, LEATHER, lathe, pouch, ring, sash, scope, stud, WOOD } from './gear';
@@ -70,17 +70,25 @@ export function cassowary(plan: BodyPlan, team: TeamColours, d: Detail): Sculpte
     );
     // The haystack: long hair-like plumes drooping all over, bristling out on the display.
     shingle(k, torso, {
-      t: [0.04, 0.96], a: [0, Math.PI * 2], rows: 7, cols: 14, len: 0.7 * s, wid: 0.26 * s, cell: CARD.hair, toward: [0, -1, -0.3], lift: 0.34, seed: 13,
+      // Rows start clear of the rump pole (seen end-on from the player camera), where they would meet in a starburst.
+      t: [0.16, 0.96], a: [0, Math.PI * 2], rows: 6, cols: 11, len: 0.66 * s, wid: 0.42 * s, cell: CARD.hair, toward: [0, -1, -0.3], lift: 0.16, seed: 13,
       paint: (_t, a) => mix(C.black, C.sheen, 0.5 * jitter(Math.round(a * 20), 7)), finish: { iri: 0.3 },
+      morph: (_t, _a, at, dir, n) => flare(at, dir, n, 0.55),
+    }, d);
+    // A curtain of long plumes hanging over the rump end, so the player camera sees hair, not the body.
+    shingle(k, torso, {
+      t: [0.03, 0.16], a: [Math.PI * 0.05, Math.PI * 0.95], rows: 2, cols: 5, len: 0.72 * s, wid: 0.46 * s, cell: CARD.hair, toward: [0, -1, -0.7], lift: 0.1, seed: 17,
+      paint: (_t, a) => mix(C.black, C.sheen, 0.5 * jitter(Math.round(a * 20), 9)), finish: { iri: 0.3 },
       morph: (_t, _a, at, dir, n) => flare(at, dir, n, 0.55),
     }, d);
     // The bare neck: blue at the front, turquoise at the sides, red on the nape.
     const neck = k.loft(
       [
-        { c: [0, 1.6 * s, 0.16 * s], w: 0.13 * s, up: 0.13 * s },
-        { c: [0, 1.86 * s, 0.13 * s], w: 0.09 * s, up: 0.095 * s },
-        { c: [0, 2.04 * s, 0.05 * s], w: 0.075 * s, up: 0.08 * s },
-        { c: [0, hc - 0.09 * s, 0.01 * s], w: 0.08 * s, up: 0.08 * s },
+        { c: [0, 1.6 * s, 0.16 * s], w: 0.15 * s, up: 0.15 * s },
+        { c: [0, 1.86 * s, 0.13 * s], w: 0.115 * s, up: 0.115 * s },
+        { c: [0, 2.04 * s, 0.05 * s], w: 0.108 * s, up: 0.11 * s },
+        { c: [0, hc - 0.17 * s, 0.03 * s], w: 0.12 * s, up: 0.12 * s },
+        { c: [0, hc - 0.07 * s, 0.01 * s], w: 0.11 * s, up: 0.11 * s },
       ],
       { n: d.n(10, 3), seg: d.n(16, 3), ref: [0, 0, 1], paint: (_t, a) => (Math.sin(a) < -0.45 ? C.nape : mix(C.teal, C.blue, Math.max(0, Math.sin(a)))), finish: SKIN },
     );
@@ -108,8 +116,12 @@ export function cassowary(plan: BodyPlan, team: TeamColours, d: Detail): Sculpte
   };
 
   const head = (k: Sculpt): void => {
-    ovoid(k, [0, 0, 0.01 * s], [hr * 1.04, hr * 1.04, hr * 1.24], { n: d.n(14, 4), seg: d.n(20, 6), egg: 0.08, finish: SKIN, paint: (t, a) => (Math.sin(a) < -0.4 && t < 0.5 ? C.nape : mix(C.blue, C.teal, 0.3 + 0.3 * Math.cos(a) ** 2)) });
-    k.loft([{ c: [0, -hr * 0.3, 0], w: hr * 0.8, up: hr * 0.8 }, { c: [0, -hr * 1.2, 0.01 * s], w: 0.08 * s, up: 0.08 * s }], { seg: d.n(14, 4), ref: [0, 0, 1], paint: C.blue, finish: SKIN });
+    // One form from the neck to the bill: blue face, turquoise cheeks, the red-purple nape.
+    headForm(k, {
+      hr, width: 1.0, crown: 1.02, chin: 1.0, back: 0.95, face: 1.12, neck: { r: 0.082 * s, drop: 0.2 * s, lean: 0.02 * s },
+      beak: { y: -hr * 0.12, w: hr * 0.3, up: hr * 0.34, dn: hr * 0.2 }, finish: { ...SKIN, gloss: 0.35 },
+      paint: (_t, _a, p) => (p.z < -hr * 0.2 && p.y < -hr * 0.45 ? C.nape : mix(C.blue, C.teal, 0.25 + 0.5 * Math.min(1, Math.abs(p.x) / hr))),
+    }, d);
     // The casque: a tall, laterally flattened horn helmet rising from the brow and sweeping back.
     const casque: Ring[] = [
       { c: [0, hr * 0.55, hr * 0.32], w: 0.045 * s, up: 0.1 * s, dn: 0.1 * s },
@@ -269,11 +281,12 @@ export function toucan(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSp
   };
 
   const head = (k: Sculpt): void => {
-    ovoid(k, [0, 0.01 * s, 0], [hr * 1.08, hr * 1.06, hr * 1.12], {
-      n: d.n(14, 4), seg: d.n(22, 6), egg: 0.08, finish: { ...FEATHER, size: 0.07 },
-      paint: (t, a) => (t > 0.45 && Math.sin(a) < 0.05 ? (Math.sin(a) < -0.2 || t > 0.7 ? T.bib : T.bibEdge) : T.black),
-    });
-    k.loft([{ c: [0, -hr * 0.3, 0], w: hr * 0.8, up: hr * 0.8 }, { c: [0, -hr * 1.1, 0.01 * s], w: 0.13 * s, up: 0.13 * s }], { seg: d.n(14, 4), ref: [0, 0, 1], paint: T.black, finish: FEATHER });
+    // One form from the neck to the bill: black crown and nape, a white face and throat edged in yellow.
+    headForm(k, {
+      hr, width: 1.06, crown: 1.05, chin: 1.0, back: 0.95, face: 0.98, neck: { r: 0.13 * s, drop: 0.16 * s },
+      beak: { y: -hr * 0.04, w: hr * 0.4, up: hr * 0.78, dn: hr * 0.42 }, finish: { ...FEATHER, size: 0.07, gloss: 0.3 },
+      paint: (_t, _a, p) => (p.y < hr * 0.1 && p.z > -hr * 0.25 ? (p.y > -hr * 0.05 && p.z < hr * 0.2 ? T.bibEdge : T.bib) : T.black),
+    }, d);
     for (const x of [1, -1]) eye(k, [x * hr * 0.72, hr * 0.22, hr * 0.5], [x * 0.78, 0.08, 0.62], { r: hr * 0.22, iris: T.iris, ring: T.ring, lid: T.ring, ringW: hr * 0.13 }, d);
     // The bill: as long as the body, deep at the base, curving down, serrated, and banded green, yellow, orange, black.
     beak(k, {
@@ -419,18 +432,21 @@ export function woodpecker(plan: BodyPlan, team: TeamColours, d: Detail): Sculpt
 
   const head = (k: Sculpt): void => {
     // Red crown, black mask through the eye, white stripes above and below it, black whisker stripe.
-    const skull = ovoid(k, [0, 0.01 * s, 0], [hr * 1.06, hr * 1.06, hr * 1.14], {
-      n: d.n(14, 4), seg: d.n(22, 6), egg: 0.06, finish: { ...FEATHER, size: 0.07 },
-      paint: (t, a) => {
-        const up = Math.sin(a);
-        if (up > 0.55 && t > 0.2) return P.red;
-        if (up > 0.2) return t > 0.55 ? P.white : P.black;
-        if (up > -0.15) return P.black;
-        if (up > -0.5) return P.white;
-        return t > 0.6 ? P.white : P.black;
+    const skull = headForm(k, {
+      hr, width: 1.06, crown: 1.06, chin: 1.0, back: 0.95, face: 1.02, neck: { r: 0.12 * s, drop: 0.17 * s },
+      beak: { y: -hr * 0.08, w: hr * 0.24, up: hr * 0.26, dn: hr * 0.19 }, finish: { ...FEATHER, size: 0.07 },
+      paint: (_t, _a, p) => {
+        const y = p.y / hr;
+        const z = p.z / hr;
+        if (y > 0.5 && z < 0.7) return P.red;
+        if (z < -0.45) return P.black;
+        if (Math.abs(y - 0.1) < 0.17) return P.black;
+        if (y > 0.27) return P.white;
+        if (y > -0.34) return P.white;
+        if (y > -0.55 && z > 0) return P.black;
+        return P.white;
       },
-    });
-    k.loft([{ c: [0, -hr * 0.3, 0], w: hr * 0.8, up: hr * 0.8 }, { c: [0, -hr * 1.1, 0.01 * s], w: 0.12 * s, up: 0.12 * s }], { seg: d.n(14, 4), ref: [0, 0, 1], paint: P.black, finish: FEATHER });
+    }, d);
     // The nape crest, raised on the display.
     if (d.level < 3) {
       for (let i = 0; i < d.keep(7, 3); i++) {
@@ -567,8 +583,9 @@ export function nightjar(plan: BodyPlan, team: TeamColours, d: Detail): Sculpted
         { c: [0, 0.98 * s, -0.66 * s], w: 0.2 * s, up: 0.09 * s, dn: 0.11 * s },
         { c: [0, 0.95 * s, -0.36 * s], w: 0.33 * s, up: 0.15 * s, dn: 0.24 * s },
         { c: [0, 0.98 * s, -0.06 * s], w: 0.36 * s, up: 0.18 * s, dn: 0.38 * s },
-        { c: [0, 1.06 * s, 0.14 * s], w: 0.29 * s, up: 0.19 * s, dn: 0.32 * s },
-        { c: [0, 1.15 * s, 0.24 * s], w: 0, up: 0 },
+        // The breast rises into the throat, so the head sits down into the body rather than on top of it.
+        { c: [0, 1.1 * s, 0.12 * s], w: 0.3 * s, up: 0.26 * s, dn: 0.32 * s },
+        { c: [0, 1.22 * s, 0.22 * s], w: 0, up: 0 },
       ],
       { n: d.n(14, 4), seg: d.n(22, 5), finish: MOTTLE, paint: (t, a) => (Math.sin(a) < -0.4 ? mix(N.pale, N.bark, 0.4 + 0.3 * t) : mix(N.bark, N.grey, 0.3 + 0.3 * Math.sin(a))) },
     );
@@ -591,15 +608,19 @@ export function nightjar(plan: BodyPlan, team: TeamColours, d: Detail): Sculpted
 
   const head = (k: Sculpt): void => {
     // Wide and flat, the eyes set high on its corners.
-    ovoid(k, [0, 0, 0.0], [hr * 1.38, hr * 1.03, hr * 1.04], { n: d.n(14, 4), seg: d.n(24, 6), egg: 0.05, finish: { ...MOTTLE, size: 0.1 }, paint: (t, a) => (Math.sin(a) < -0.5 && t > 0.55 ? N.pale : mix(N.bark, N.grey, 0.35 + 0.3 * Math.sin(a))) });
-    k.loft([{ c: [0, -hr * 0.3, -hr * 0.1], w: hr * 1.1, up: hr * 0.8 }, { c: [0, -hr * 0.95, -hr * 0.2], w: 0.16 * s, up: 0.12 * s }], { seg: d.n(14, 4), ref: [0, 0, 1], paint: N.bark, finish: MOTTLE });
+    headForm(k, {
+      hr, width: 1.5, crown: 1.03, chin: 1.0, back: 0.9, face: 0.96, cheek: 1.05, neck: { r: 0.22 * s, drop: 0.32 * s, lean: -0.02 * s },
+      beak: { y: -hr * 0.18, w: hr * 0.3, up: hr * 0.14, dn: hr * 0.1 }, finish: { ...MOTTLE, size: 0.1 },
+      paint: (_t, _a, p) => (p.y < -hr * 0.55 && p.z > 0 ? N.pale : mix(N.bark, N.grey, 0.35 + 0.3 * Math.max(0, p.y / hr))),
+    }, d);
     for (const x of [1, -1]) eye(k, [x * hr * 0.92, hr * 0.32, hr * 0.42], [x * 0.72, 0.2, 0.66], { r: hr * 0.36, iris: N.iris, ring: N.dark, lid: N.bark, ringW: hr * 0.06, pupil: 0.55 }, d);
     // The gape: on the display the chin drops away and a wide pink mouth opens under the tiny bill.
     if (d.level < 3) {
       const mouth: V3 = [0, -hr * 0.24, hr * 0.97];
       const open = new Matrix4().makeTranslation(mouth[0], mouth[1] - hr * 0.12, mouth[2]).multiply(new Matrix4().makeScale(1, 7, 1.2)).multiply(new Matrix4().makeTranslation(-mouth[0], -mouth[1], -mouth[2]));
-      ovoid(k, mouth, [hr * 0.72, hr * 0.03, hr * 0.14], { n: d.n(6, 3), seg: d.n(12, 5), paint: N.mouth, finish: SKIN, morph: { display: open } });
-      ovoid(k, [0, -hr * 0.46, hr * 0.62], [hr * 0.75, hr * 0.14, hr * 0.42], { n: d.n(8, 3), seg: d.n(14, 5), paint: N.pale, finish: MOTTLE, morph: { display: hinge([0, -hr * 0.38, hr * 0.15], [1, 0, 0], 0.7) } });
+      // At rest the gape is a thin line and the chin a pale throat patch set into the face, not a lip.
+      ovoid(k, [mouth[0], mouth[1], mouth[2] - hr * 0.04], [hr * 0.7, hr * 0.018, hr * 0.12], { n: d.n(6, 3), seg: d.n(12, 5), paint: N.mouth, finish: SKIN, morph: { display: open } });
+      ovoid(k, [0, -hr * 0.6, hr * 0.42], [hr * 0.5, hr * 0.09, hr * 0.3], { n: d.n(8, 3), seg: d.n(14, 5), paint: N.pale, finish: MOTTLE, morph: { display: hinge([0, -hr * 0.38, hr * 0.15], [1, 0, 0], 0.7) } });
     }
     // A tiny bill, fringed with bristles.
     beak(k, { at: [0, -hr * 0.18, hr * 1.0], len: hr * 0.34, w: hr * 0.3, up: hr * 0.14, dn: hr * 0.1, base: N.bill, tip: N.bill, gape: 3.2, open: 0.35, displayOpen: 0.95 }, d);

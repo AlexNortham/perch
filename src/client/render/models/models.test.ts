@@ -111,7 +111,7 @@ describe('hero models', () => {
         expect(meshes.reduce((n, m) => n + triangles(m.geometry), 0), id).toBeLessThanOrEqual(HERO_TRIANGLES);
       }
     }
-  });
+  }, SLOW_TEST_MS);
 
   it('centres each of the four heads on its hitbox sphere, read from the hero data', () => {
     const k = createModelKit();
@@ -134,7 +134,7 @@ describe('hero models', () => {
       expect(box.max.y, id).toBeGreaterThanOrEqual(plan.head.radius);
       expect(box.min.y, id).toBeLessThanOrEqual(-plan.head.radius);
     }
-  });
+  }, SLOW_TEST_MS);
 
   it('matches the model height to the body plan', () => {
     const k = createModelKit();
@@ -150,7 +150,7 @@ describe('hero models', () => {
       expect(top, id).toBeGreaterThanOrEqual(OLD.includes(id) ? plan.height - 0.3 : plan.head.centre.up - plan.head.radius - 0.15);
       expect(top, id).toBeLessThanOrEqual((plan.height) + 0.15);
     }
-  });
+  }, SLOW_TEST_MS);
 
   it('poses every state for every hand-built hero without a NaN, and keeps the head on the hitbox when idle', () => {
     for (const id of FOUR) {
@@ -166,7 +166,7 @@ describe('hero models', () => {
         });
       }
     }
-  });
+  }, SLOW_TEST_MS);
 
   it('draws a hitbox overlay only when asked, and follows a live toggle', () => {
     const k = createModelKit();

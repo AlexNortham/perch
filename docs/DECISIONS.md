@@ -1734,6 +1734,23 @@ stands on tiny planted feet in every grounded state, with its wings as two shimm
 every state; the legs tuck when it is airborne or using Hover. Its 40 m read (§9.24.1, "hover discs") is kept.
 **Why:** D-EP-035 and the brief require planted feet and nothing floating in every grounded state, which a permanent
 0.3 m hover breaks. The Director may restore a visual hover as an explicit exception to the attachment tests.
+
+### D-ART-007 · 20/11/2026 — Feathers are solid tapered geometry; heads are one loft from neck to bill
+**Decision:** (second pass, after the EP art review.) This replaces the alpha-tested cards of D-ART-004 and D-ART-005.
+- Feathers are cut in the mesh: a tapered blade with a raised rachis, made from the outline of its shape. Each takes an
+  opaque pattern (bars, spots, eyespots, mottle), with no alpha test and no dithered fringe. Edges stay clean at every
+  distance, and the feather layer is still one draw call. There are fewer, larger feathers, each placed deliberately.
+- `anatomy.headForm` lofts each head as one J-shaped form. It runs from inside the body's neck through the nape, crown,
+  brow and cheeks, and tapers into the beak base. Floors keep the hitbox sphere inside it.
+- The wing arms are broad panels with coverts, graduated secondaries, and primaries spread as fingers round the grip.
+- A loft's pattern repeats a whole number of times round its widest ring, and every ring uses that count. On tapering
+  rings the pattern compresses and fades at the closed ends instead of shearing into streaks or rings, and it meets
+  itself at the seam.
+
+**Why:** the EP review (D-EP-047's bar) found dithered card edges, ball heads on tube necks, and wings that read as
+arms. A solid blade costs about the same triangles as a cut-out strip with the same rows, and it needs no cut-out
+depth material for shadows.
+
 ### D-SYS-006 · 19/11/2026 — The Updraft latch, read exactly (GDD §3.7, D-EP-039)
 **Decision:** `updraftInReach` is the nearer of two tests per segment: the column (feet within 2.5 m of the cable's
 ground line, the cable 0.5–14 m above them, at the point straight above the feet's nearest spot) and a 1.5 m sphere
