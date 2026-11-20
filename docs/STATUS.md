@@ -2122,3 +2122,230 @@ The no-Interact suite's last red test waits on bots riding Updrafts (Bot AI).
 ### EP · 20/11/2026 · open items for the Stage 4 gate
 - **Camera pose can go non-finite.** Audio now ignores a NaN/Infinity camera pose (ed8373a), but the source of the bad pose (camera rig before its first target, or a zero-length look vector) is not found. Owner: Rendering/camera. Check it in wave 6 or the integration round after 5b.
 - **`e2e/audio.spec.ts` is flaky under machine load** (22/23, the failing case moves, one 30 s timeout). Rerun serially on a quiet machine at the gate before calling it a real failure.
+### W5b · Technical Artist (A3 and B2 birds) · 20/11/2026
+**Done:** Peacock, Vulture, Swift, Hummingbird, Cassowary, Toucan, Woodpecker and Nightjar are sculpted to the style
+guide (D-ART-004), replacing the generic placeholder for all eight. Branch `worktree-agent-a92af01b0682191d3`, from
+`integrate/w5` 1f6dc2f, with `integrate/w5` merged back in (clean).
+- **Kit** (`models/sculpt.ts`, `anatomy.ts`, `gear.ts`, `feathers.ts`, `bird-material.ts`, `sculpted.ts`): smooth
+  lofts through control rings; alpha-tested feather cards from a 16-shape procedural atlas (contour, primary, tail,
+  down, the Peacock's eye, crest spoon, hair plume, wing blur, barred, mottled, quill, cloth, ragged, ruff, sickle,
+  spotted); a surface-pattern atlas (feather scales, barred, mottled, wood, leather, weave, tarsus scutes) that fades
+  at a loft's closed ends. Eyes have iris, pupil, a glossy cornea, a catchlight and two lids. Beaks are two-part with
+  nostrils, serrations where the species has them, and a working jaw. Legs are scaled, with jointed toes and glossy
+  claws (mirrored per foot; zygodactyl where the species is). Folded wings hold the gun: a covert mass, the flock wing
+  bar, and fanned secondaries and primaries. There are fanned tails, shingled body feathers, and gear (stitched straps
+  and sashes that follow the body, buckles, pouches, cloth tails, studs). No image files: the textures are generated
+  once per session (about 0.2 s).
+- **Signature casts** on a `display` morph: the Peacock's train fans into a 3 m eyed disc; the Vulture's coat and
+  mantle flare open; the Swift's blades flare; the Hummingbird's ruby gorget lifts; the Cassowary's hair bristles; the
+  Toucan cocks its tail and gapes; the Woodpecker raises its red crest; the Nightjar's chin drops into a pink gape. A
+  `jaw` morph opens the lower mandible on each shot, cast and death, and a `blink` morph closes the eyes every 3–6 s.
+  Cast kinds per slot follow each kit. The rig now reads `EntityView.castSlot`, turns a `spin` bone while firing (the
+  Woodpecker's drill cluster), and widens the tail per bird.
+- **Guns**, one per archetype in bird-world materials, each with a lit muzzle element and an ammo read:
+  - Plume Darts: lacquer, brass filigree, a glowing eye chamber, a dart clip.
+  - Bone Shot: a long-bone barrel, barbs, horn and bone plates, a rib stock, bone shells.
+  - Sickle SMG: a crescent horn blade, a curved horn magazine.
+  - Nectar Needler: twin brass needles, a glowing nectar bulb.
+  - Wattle Blaster: a brass bell, a gourd hopper, red tassels.
+  - Bill Rifle: a brass scope, a bill-curved fore-end, a cartridge row.
+  - Drum Drill: six spinning drill barrels, a brass seed drum.
+  - Moth Pistol: moth-wing bone guards, a revolver cylinder, a needle.
+
+  A test holds every gun within G15's cap (0.45 × height).
+- **LOD and budget** (style guide §11.3): four levels on one skeleton under a three.js `LOD` (0 / 15 / 40 / 80 m, 10 %
+  hysteresis), two draw calls per bird (opaque, cut-out cards). Triangles with the gun, per level (limit 9,000 / 3,500
+  / 1,200 / 400):
+
+  | Bird | Level 0 | Level 1 | Level 2 | Level 3 |
+  |---|---|---|---|---|
+  | Peacock | 8,820 | 3,246 | 1,154 | 394 |
+  | Vulture | 8,166 | 3,270 | 1,108 | 392 |
+  | Swift | 7,780 | 2,888 | 1,078 | 350 |
+  | Hummingbird | 7,222 | 2,660 | 944 | 346 |
+  | Cassowary | 8,200 | 3,170 | 1,184 | 398 |
+  | Toucan | 8,134 | 2,956 | 1,042 | 330 |
+  | Woodpecker | 7,666 | 2,988 | 1,010 | 362 |
+  | Nightjar | 6,854 | 2,614 | 958 | 342 |
+
+  After the first, each bird builds in about 20–40 ms per flock.
+- **Material library:** written against my own `bird-material.ts`, to the library's conventions (D-ART-005). The
+  Rendering library (first version, on its branch) had not reached `integrate/w5`. It is also an environment
+  texture-array material, without the bird rim, iridescence or feather cards. D-ART-005 lists the switch-over steps.
+- **Review tools:** `tests/anim/frame.ts`, run with `npx tsx tests/anim/posesheets.ts --frame "…"`, gives:
+  - the bird from the real player camera (the sim's aim ray, 90° FOV, 1920 × 1080), with the measured screen shares
+    of the bird and its gun;
+  - 10, 40 and 80 m line-ups;
+  - close-ups.
+
+  The pose sheet takes `--look golden` (the style guide's light).
+
+**Verified:**
+- `tests/anim/attachment.test.ts` passes for all 20 playable birds and the generic one. Both wings stay on the grips in
+  all 24 states, and the muzzle sits on the sim's muzzle point at every pitch, standing and crouched. Grounded feet stay
+  on the ground, and every vertex follows a bone of the rig.
+- The model tests check: the head on its hitbox, heights, no NaN in any state, every level within budget with at most
+  three draw calls, the display, jaw and blink morphs, the LOD switch by distance, and the gun cap.
+- I looked at:
+  - a golden-light pose sheet per new bird (24 states, two views);
+  - close-ups of each at 2–4 m (front, back, side, cast);
+  - the 10 m line-up of the eight, and the 40 m and 80 m line-ups of all 24;
+  - each bird from the player camera;
+  - the character reference frames `HP8-yBieQK8\t2010.jpg`, `N77LqE8zTfQ\t1140.jpg` and `7zjBAwpUeBU\t1770.jpg`
+    beside the close-ups.
+- Screen share from the player camera (limits 18 % bird, 4 % gun):
+
+  | Bird | Bird | Gun |
+  |---|---|---|
+  | Peacock | 3.3 % | 0.21 % |
+  | Vulture | 4.9 % | 0.23 % |
+  | Swift | 3.7 % | 0.22 % |
+  | Hummingbird | 3.6 % | 0.21 % |
+  | Cassowary | 4.3 % | 0.29 % |
+  | Toucan | 3.7 % | 0.24 % |
+  | Woodpecker | 3.4 % | 0.34 % |
+  | Nightjar | 5.0 % | 0.22 % |
+- `bash scripts/check.sh` before the merge of `integrate/w5` (665e70a): `PASS typecheck · lint 9s · test 31s · perf 18s
+  · sim 4s · e2e 149s · check 229s`.
+- After merging `integrate/w5` at fe16980, typecheck, lint and sim pass, and every render and anim test passes (106).
+  The rest fails on code that is byte-identical to `integrate/w5` (`src/sim` is unchanged by this branch):
+  - Five sim unit tests fail deterministically: `interactables.test.ts` (Bell Feeder swing-back and off-beat break)
+    and `neutrals.test.ts` (the Roc, Thickets, Nests). Objectives/Systems should look at these.
+  - The objectives perf test runs at 0.306–0.354 ms against 0.3 ms with other agents loading the machine.
+  - Three e2e failures under that load (practice hub, smoke, scoreboard Tab) pass when rerun alone (3/3).
+- The eight birds also render in the game's own renderer: `npm run shots -- --scene sandbox --param modelLineup=…`.
+
+**Checklist (style guide §12.1) and my Birds (§8) score:** every bird answers yes to:
+- C2: layered feathers, eyes with catchlights, two-part beaks, planted feet with talons, and the gun held in every
+  state (the attachment suite);
+- C4: under 18 % of the screen, its gun under 4 %;
+- A4: no plain primitive in flat colour;
+- G1: its own design, nothing copied from the reference.
+
+| Bird | C1: 10 / 40 / 80 m, one shape per band | C3: flock trim, front and back | §8 score |
+|---|---|---|---|
+| Peacock | yes: the train, and the 3 m fan on casts | sash, collar and ribbons, wing bar | 3 |
+| Vulture | yes: the hump, bald red head and coat | kerchief and tails, wing bar | 3 |
+| Swift | from the side and back (sickle blades, forked tail); front-on, a small dark bird | scarf and streamers, wing bar | 2 |
+| Hummingbird | yes: green drop, needle bill, blur discs | headband and sash, wing bar | 3 |
+| Cassowary | yes: shaggy haystack, blue neck, casque | broad sash over the hair, wing bar | 3 |
+| Toucan | yes: the banded bill | bandana, wing bar | 3 |
+| Woodpecker | yes: red cap, prop tail, white face | harness straps, wing bar | 3 |
+| Nightjar | from the side (flat wedge, big eyes); front-on, rounder | sash, wing bar | 2 |
+
+What would lift the 2s, and the rest toward 4:
+- The Swift's body is a plain capsule front-on.
+- The Nightjar needs a longer, lower body and a tail that reads from the side.
+- On every bird, the folded wings still read partly as arms where they reach forward to the gun.
+- Heads are 1.04–1.4 × the hitbox radius. On the long-necked birds (Peacock, Vulture, Cassowary) that is under the
+  guide's 28–35 % of height, a rule that conflicts with GDD §9's head plans.
+- The dark species (Cassowary, Swift, Vulture, Nightjar) sit below §10.5's 45 % value floor. I lifted their blacks
+  toward slate; Rendering's rim and lighting pass decides the rest.
+
+**Limits:**
+- The twelve older birds keep D-ART-003's flat models until the wave 6 rework.
+- The Hummingbird perches on its feet with blur-disc wings, not a permanent 0.3 m hover (D-ART-006, for the Director).
+- A blink is a linear morph, so the lids pass close to the eyeball mid-blink.
+- LOD uses three.js `LOD` until Rendering's framework lands.
+
+**Interface requests:**
+- Rendering & VFX: when the library merges, birds should take its tier (Lambert at Low), its sky environment map and
+  its cut-out depth material (D-ART-005). Bloom should pick up the birds' glow (catchlights, chambers, beads).
+- QA: each sculpted bird costs two draw calls (plus two in the shadow pass) toward the frame ceilings. The pose-sheet
+  review now covers 20 birds.
+- None for Sim: the merged sim fills `EntityView.castSlot` (`src/sim/core/view.ts`), and the rig reads it, so each
+  slot's cast pose plays in matches.
+
+**Blocked:** nothing.
+
+### EP · 20/11/2026 · art review of the eight sculpted birds (first pass merged, 8c66eab)
+- EP scores below the bar of D-EP-047: Peacock 2/4, Swift 1/4. Findings:
+  - primitive silhouettes (ball heads on tube necks; Swift a bowling pin from the player camera);
+  - wings read as arms;
+  - feather cards render as dithered noise;
+  - muddy colour and value, with no sheen.
+- The Technical Artist is doing a second pass on the shared pipeline (anatomy, feathers, bird material, sculpt) and then each bird.
+- The wave 6 rework of the 12 older birds waits for that pipeline, so they inherit the fixes rather than the faults.
+
+### W5b · Technical Artist · second pass on the eight birds · 20/11/2026
+**Done:** the shared pipeline was fixed first, then each bird re-tuned. `integrate/w5` was merged in first. Branch
+`worktree-agent-a92af01b0682191d3` (D-ART-007).
+- **Feathers** (`feathers.ts`, `sculpt.card`, `bird-material.ts`): solid tapered blades with a raised rachis replace
+  the cut-out quads, with clean edges and no dithered fringe. Patterns are opaque, with bars, spots, mottle, and the
+  Peacock's crisp eyespots. There are fewer, larger feathers, each placed deliberately.
+- **Heads** (`anatomy.headForm`): one loft from inside the body's neck through the nape, crown, brow and cheek into
+  the beak base, used by all eight birds. Necks and napes are fuller, so no head sits as a ball on a tube.
+- **Wings** (`wingArm`, `wingHand`): broad tapered panels with the flock wing bar, two rows of coverts, graduated
+  secondaries, and primaries spread as fingers round the grip.
+- **Surface** (`sculpt.loft`): the pattern repeats a whole number of times round each loft's widest ring, so it no
+  longer shears into streaks or rings. It fades at closed ends. The scale tile is softened to a hint of feathering
+  under painted gradients.
+- **Colour and value:** every bird has a lighter belly, a darker back and one strong accent, plus the rim and a gloss
+  or iridescent finish. The Peacock's train is iridescent teal, green and bronze.
+- **Per bird:**
+  - Peacock: a train of five tiers with eyespots, and a full nape.
+  - Swift: a leaning teardrop body, crescent sickle wings from the shoulders, a mantle of glossy scapulars, a forked
+    tail, a pale throat and goggles.
+  - Vulture: a bald head lofted as one form, and a ruff of 12 tufts.
+  - Hummingbird: a puffed breast, a ruby throat, broader wings and geometric blur fans.
+  - Cassowary: a wider neck, and hair rows kept clear of the rump pole.
+  - Toucan: a bib.
+  - Woodpecker: painted crown, mask and stripes.
+  - Nightjar: the head sits down into the breast, the gape is a thin line, the chin is a pale throat patch, and the
+    mottle is clean.
+
+**Evidence:** before and after images are in `out/art/before/<bird>.png` and `out/art/after/<bird>.png` (git-ignored).
+Each is a neutral-light triptych: 3/4, front, and the back from the player camera. `out/art/after/<bird>-player.png`
+is the real player camera. I compared them side by side with `HP8-yBieQK8\t2010.jpg` (crisp planes, one saturated
+accent, soft gradients, edge light). Reproduce with
+`npx tsx tests/anim/posesheets.ts --out=out/art/after --frame="name=<bird>&mode=triptych&hero=<bird>"`, or
+`mode=player`.
+
+| Bird | Level 0 / 1 / 2 / 3 triangles | Player camera: bird / gun | Honest score (3 = finished, professional) |
+|---|---|---|---|
+| Peacock | 8,568 / 3,060 / 1,078 / 396 | 3.6 % / 0.20 % | 2 |
+| Vulture | 8,044 / 3,190 / 1,034 / 388 | 5.3 % / 0.22 % | 2 |
+| Swift | 7,298 / 2,786 / 1,046 / 386 | 4.9 % / 0.21 % | 2 |
+| Hummingbird | 6,578 / 2,502 / 864 / 354 | 5.6 % / 0.21 % | 2 |
+| Cassowary | 8,392 / 3,164 / 1,124 / 394 | 4.8 % / 0.28 % | 1 |
+| Toucan | 7,798 / 2,898 / 988 / 330 | 3.9 % / 0.23 % | 2 |
+| Woodpecker | 7,414 / 2,904 / 944 / 366 | 3.3 % / 0.32 % | 2 |
+| Nightjar | 6,738 / 2,582 / 890 / 342 | 5.4 % / 0.21 % | 2 |
+
+All are within budget (9,000 / 3,500 / 1,200 / 400), with at most three draw calls.
+
+**Still short of 3:** these gaps are structural, not tuning.
+- Bodies are single lofts that read as eggs or bottles. They need a sculpted breast, shoulder and back planes, and a
+  coat of large contour feathers over the back, not a tiled surface.
+- The Peacock's secondaries hang as a skirt.
+- The Cassowary's back is still a black egg, and its plumes look grey from behind.
+- The Nightjar is still two stacked rounds from the front.
+- Long necks (Peacock, Cassowary) still read as tubes from the player camera.
+
+**Verified:**
+- The model, render and attachment tests pass (106): budgets, ≤ 3 draw calls, the head on its hitbox, the gun cap,
+  the morphs and the LOD. Wings are on the grips and the muzzle is on the sim's muzzle point. Feet are planted in
+  every grounded state (D-EP-035).
+- `npm run check`, each step run, with `integrate/w5` 061e266 merged (clean):
+  - **typecheck, lint and sim:** pass. The sim is seed 1, 3 minutes, 12 bots, in 3.4 s.
+  - **test:** 1,083 pass and 6 fail. None of the failures is in this branch's files.
+    - Five sim tests fail deterministically on `src/sim`, which is byte-identical to `integrate/w5`:
+      `interactables` (Bell Feeder) and `neutrals` (Nests, Thickets, Roc).
+    - The wiki-coverage test times out under load.
+    - The all-bird model tests now have a 30 s timeout, because one timed out at 5 s under load.
+  - **perf:** the two `world.perf` timing tests run over budget while other agents load the machine.
+  - **e2e:** 60–61 of 62 pass. A different spec fails on each run (match shop, Swap bird). Both pass when rerun
+    alone (7/7).
+### EP · 20/11/2026 · art review of the environment layer (first pass, not merged yet)
+- Branch `worktree-agent-a347043346bfb584a` (2de8b3d) carries Rendering's work-in-progress branch at 1213e1d. It merges after Rendering, never before.
+- EP agrees with the artist's 2.6 against the 3.2 pass mark. Hedgerow's terrace, roofs and lighting are a real step up. Second pass ordered:
+  - bird life at every scale in each street view (D-EP-048);
+  - a real layered jungle instead of a lawn;
+  - the giant blank boundary wall dressed as a skyline;
+  - interior floors (grass shows indoors) and bird-purpose furnishing;
+  - volumetric Nests and objective sites;
+  - vertex memory down from about 95 MB, jointly with Rendering.
+
+### EP · 20/11/2026 · bird models: second pass merged (e28ebaf); sculpt pipeline v2 ordered
+- The second pass gives clean feather blades, crisp eyespots, one-loft heads and broad wings. It is better than the first, but every bird still scores 2 out of 4 (Cassowary 1), and the cause is structural: single-loft bodies.
+- Wave 5c: a fresh Technical Artist builds an implicit (SDF) sculpting pipeline and converts Peacock, Swift and Cassowary as proof (brief `docs/briefs/W5-sculpt.md`). After EP review, the other 21 birds convert in parallel batches. This replaces the wave 6 rework of the 12 older birds on the old pipeline.

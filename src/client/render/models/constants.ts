@@ -331,5 +331,19 @@ export const STRUCTURE = {
   heartSpin: 1.3,
 } as const;
 
+/** Sculpted faces and feeds (style guide §8.3, §8.5): blink timing (s), jaw opening per action, spinner blend (1/s). */
+export const FACE = {
+  blinkMin: 3,
+  blinkMax: 6,
+  blinkTime: 0.12,
+  /** Spreads each bird's blink period by its entity id. */
+  blinkSeed: 0.618,
+  /** A stunned bird's lids droop this far. */
+  stunLid: 0.45,
+  shotJaw: 0.5,
+  castJaw: 0.8,
+  spinBlend: 4,
+} as const;
+
 /** Debug hitbox overlay (QA). */
 export const HITBOX_DEBUG = { head: 0xff3030, body: 0x30ff60, segments: 12, capCaps: 4 } as const;
