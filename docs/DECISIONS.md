@@ -2470,3 +2470,44 @@ distance is the fixed 35 m; its T3 is a second charge, so each link ticks on its
 **Decision:** bots classify each ability from its kit data (`useOf`), and `AP_PRIORITY` and the starter item scores already
 held entries for all four, so no block was added to `src/sim/data/ai.ts`. `herob-bots.test.ts` runs a 6v6 bot match with all
 four and checks each casts. **Why:** a per-hero block would only repeat what `useOf` derives.
+
+### D-QA-014 · 21/11/2026 — A slow tier: `*.slow.test.ts`, run by `npm run slow`
+**Decision:** `tests/rules/bot-shopping` (20 seeded four-minute matches, 696 to 1,090 s) moved to
+`tests/rules/bot-shopping.slow.test.ts` and is on. `npm test` and `npm run check` skip `*.slow.test.ts`;
+`vitest.slow.config.ts` runs them one file at a time. It is seeded and deterministic, so it cannot flake: run it once per
+release candidate and after any change under `src/sim/ai`. **Why:** same power (20 matches decide the Jaccard and
+synergy claims), no cost in the three-run gate. A parallel rewrite would have cut maybe 3x and added worker plumbing.
+
+### D-QA-015 · 21/11/2026 — `npm run check -- --release`: the gate's run
+**Decision:** the same six serial steps as `check`, with fixed workers (4 for unit tests, 2 for browser suites; override
+with `PERCH_TEST_WORKERS` and `PERCH_E2E_WORKERS`) instead of core-count-derived ones. The Stage 4 gate is three of these
+in a row. **Why:** the default adapts to the cores, so a busy machine gave a different run each time.
+
+### D-QA-016 · 21/11/2026 — The audio live-context test was the machine's clock, not the code
+**Decision:** `e2e/audio.spec.ts` "live context" read the analyser once, 400 ms after the sound was scheduled. A live
+`AudioContext` runs on the audio device's clock, which lags the wall clock on a busy machine (probe: 0.08 to 0.24 s of
+audio time per 0.5 s of wall time), and the sound starts a 0.25 s lookahead after scheduling, so the read landed before
+it. The test now watches the analyser for up to 8 s and passes at the first sample over 0.005. The audio code is fine:
+the same page produces a full-scale oscillator through the same device. **Why:** a fixed wait on a device clock is a race.
+
+### D-QA-017 · 21/11/2026 — Flake fixes: wait for the settled state, never a longer timeout
+**Decision:**
+- `draw-budget`: for 1 to 2 s after a scene opens, a frame draws up to 50% more triangles than it settles to (lane/low
+  about 390k falling to 257k, whatever the load). The spec waits for 30 consecutive frames within 3% before it samples.
+  The transient itself goes to Rendering.
+- `preview-regressions` "binds side buttons": five page loads, two of them full lane and blockout scenes. It only needs
+  history entries, so it uses menu scenes (`?scene=menu&h=1`, `h=2`).
+- `scoreboard-bar` dead bird: no longer waits up to two minutes of wall clock for a bot to die. Node steps the same
+  seed-1 match (`matchConfig`, `sim.step()` as the fast-forward does) to the first death, and the browser opens at that
+  second.
+- Nothing else was loosened. **Why:** each was a race on how fast the machine is, not a bound that was too tight.
+
+### D-QA-018 · 21/11/2026 — Release 1 gate coverage, the 20-match run and the soak
+**Decision:**
+- `e2e/all-heroes.spec.ts` starts a Play match from the menu for every hero whose registry `implemented` flag is on, and
+  checks 6 + 6 portraits, the pick on our side and two sim seconds with no page error. Hero B3 birds join automatically.
+- `npm run release-matches` (`scripts/release-matches.sh`): seeds 1 to 20, up to 60 simulated minutes, `--bots 12`, 3
+  processes; passes only with 20 completed, 0 crashed and a winner in every match.
+- `npm run soak -- --minutes 30` (`tools/soak.ts`): one real Play match in Edge, a sample every 10 s of heap (after a
+  forced GC), frame time and tick. Fails on a page error, heap growth over 2 MB/min across the second half, or a
+  last-quarter p95 frame time over 1.5x the first quarter's.

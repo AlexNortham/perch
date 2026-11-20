@@ -90,7 +90,7 @@ test.describe('top scoreboard (D-EP-041)', () => {
   });
 
   test('a dead bird\'s portrait is darkened with a red respawn countdown that runs down', async ({ page }) => {
-    // Deterministic (D-QA-0xx): the fast-forward is the same ticks Node can run, so find in Node the second after the
+    // Deterministic (D-QA-017): the fast-forward is the same ticks Node can run, so find in Node the second after the
     // first bird of the seed-1 match dies, and open the browser match there instead of waiting for a death in real time.
     const sim = await createSim(matchConfig({ seed: 1, hero: 'kingfisher', team: 'dawn', difficulty: 'normal', bots: PER_SIDE * 2 - 1 }));
     while (!sim.ctx.store.list('hero').some((h) => h.health.dead) && sim.view.seconds < 1_200) sim.step();

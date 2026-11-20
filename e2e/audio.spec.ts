@@ -204,7 +204,7 @@ test.describe('live context', () => {
     });
     // A live context runs on the audio device's own clock, which lags real time on a busy machine (0.08 s of audio per
     // 0.5 s of wall clock measured under load), and a sound starts a lookahead after it is scheduled. So watch the
-    // analyser for up to 8 s of wall clock instead of reading it once after a fixed 400 ms (D-QA-0xx).
+    // analyser for up to 8 s of wall clock instead of reading it once after a fixed 400 ms (D-QA-016).
     const peak = await p.evaluate(async () => {
       const an = (window as Loose).__an as AnalyserNode;
       const d = new Float32Array(an.fftSize);

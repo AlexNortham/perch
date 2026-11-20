@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage 4 Release 1 gate (D-EP-050, D-QA-0xx): 20 seeded headless 6v6 bot matches, each of which must end with a winner
+# Stage 4 Release 1 gate (D-EP-050, D-QA-018): 20 seeded headless 6v6 bot matches, each of which must end with a winner
 # and not crash. Seeds 1..20, up to 60 simulated minutes each. Summary: out/telemetry/release-matches.json.
 set -u
 cd "$(dirname "$0")/.."

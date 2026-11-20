@@ -1,5 +1,5 @@
 // Bot shopping (GDD §11.4, D-EP-036, INTERFACES §14.1). Written test-first (D-EP-006, W4.5 QA); on since W6 as the SLOW tier
-// (D-QA-0xx): 20 seeded four-minute matches take about 12 minutes, so `npm test` skips *.slow.test.ts. Run it with
+// (D-QA-014): 20 seeded four-minute matches take about 12 minutes, so `npm test` skips *.slow.test.ts. Run it with
 //   npm run slow
 //
 // How "near-identical" is measured (and why):

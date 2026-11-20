@@ -1,4 +1,4 @@
-// In-browser soak (Stage 4 Release 1 gate, D-QA-0xx).
+// In-browser soak (Stage 4 Release 1 gate, D-QA-018).
 //   npm run soak -- [--minutes 30] [--hero kingfisher] [--seed 1] [--out out/soak/soak.json]
 // Serves the app on a free port, opens a real 1 + 11 Play match in Edge and lets it run in real time, sampling the JS
 // heap, the frame time (rAF deltas) and the sim tick every 10 s. Prints a table and the trend: heap growth per minute
