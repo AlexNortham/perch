@@ -7,7 +7,7 @@
  */
 import { Vector3 } from 'three';
 import type { BlockoutPrim, CylinderPrim, Vec3 } from '../../../../sim/core/contracts';
-import type { PropAnchor } from '../../../../sim/world/map';
+import type { PropAnchor } from '../../../../sim/core/contracts';
 import type { Band } from '../constants';
 import { oriented, placed } from '../mesher';
 import type { Mesher } from '../mesher';
@@ -15,7 +15,7 @@ import { hash2 } from '../world';
 import type { Pass, World } from '../world';
 import { inPrim, inVolume } from './buildings';
 import { nest } from './nest';
-import { BARK, FEATHER, HEDGE, MOSS, TWIG } from './styles';
+import { BARK, FEATHER, HEDGE, IVY_DARK, MOSS, TWIG } from './styles';
 
 const LEAF_TINTS = [0x7a9a62, 0x6a8a5a, 0x86a66a, 0x5f8458] as const;
 const DEEP = 0x56784e;
@@ -37,8 +37,8 @@ export function dressNature(w: World): void {
     } else if (q.material === 'foliage' && q.shape === 'box' && q.solid && !q.blocks) {
       hedge(w, q, i);
       w.covered.add(i);
-    } else if (q.material === 'foliage' && q.blocks === 'sight') {
-      // Ivy curtains are drawn by the facades (buildings.ts).
+    } else if (q.blocks === 'sight') {
+      ivyCurtain(w, q, i);
       w.covered.add(i);
     } else if (q.solid && q.blocks === 'movement') {
       // A shot window's invisible filler: the window reads open (§5.2).
@@ -164,6 +164,36 @@ function barkBox(w: World, q: BlockoutPrim, i: number): void {
       g.poly([new Vector3(-x, -y, -z), new Vector3(x, -y, -z), new Vector3(x, y, z), new Vector3(-x, y, z)], new Vector3(0, z * 2, -y * 2).normalize());
       g.poly([new Vector3(-x, -y, z), new Vector3(x, -y, z), new Vector3(x, y, z), new Vector3(-x, y, z)], new Vector3(0, 0, 1));
       for (const s of [-1, 1]) g.poly([new Vector3(s * x, -y, -z), new Vector3(s * x, -y, z), new Vector3(s * x, y, z)], new Vector3(s, 0, 0));
+    }
+  });
+}
+
+/**
+ * Ivy curtains (gameplay sight blockers, §5.3): dense strands hanging to the floor across the prim's broad face, in
+ * two staggered layers, darker than decorative ivy (§6.2), so a curtain reads at 30 m.
+ */
+function ivyCurtain(w: World, q: BlockoutPrim, i: number): void {
+  if (q.shape !== 'box') return;
+  const seed = 2900 + i * 23;
+  const wide = q.size.x >= q.size.z;
+  const [span, thick] = wide ? [q.size.x, q.size.z] : [q.size.z, q.size.x];
+  const g = m(w, 2, q.centre.x, q.centre.z, 'cutout');
+  const y0 = q.centre.y - q.size.y / 2;
+  const y1 = q.centre.y + q.size.y / 2;
+  g.paint(IVY_DARK, seed).within(placed(q.centre.x, 0, q.centre.z, q.yaw + (wide ? 0 : Math.PI / 2)), () => {
+    const n = Math.max(4, Math.round(span / 0.3));
+    for (const layer of [-1, 1]) {
+      for (let k = 0; k < n; k++) {
+        const x = -span / 2 + ((k + 0.5 + (layer > 0 ? 0.5 : 0)) * span) / n;
+        if (x > span / 2) continue;
+        const z = layer * thick * 0.22;
+        // Strands are a touch shorter at their ends so the hem is ragged.
+        const bottom = y0 + hash2(seed, k * 2 + layer) * 0.35;
+        for (let y = y1; y > bottom + 0.05; y -= 0.5) {
+          const len = Math.min(0.55, y - bottom);
+          g.card2(new Vector3(x + (hash2(seed, k + y) - 0.5) * 0.1, y - len / 2, z), new Vector3(0.24, 0, (hash2(seed, k) - 0.5) * 0.12), new Vector3(0, len / 2 + 0.06, 0));
+        }
+      }
     }
   });
 }

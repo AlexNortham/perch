@@ -2,7 +2,7 @@
  * District style kits (style guide §5, §7.2, §7.6): which library material and tint each part of a facade uses, per
  * FacadeStyle. Authored art data (magic numbers allowed, like the material recipes, D-RENDER-010).
  */
-import type { FacadeStyle } from '../../../../sim/world/map';
+import type { FacadeStyle } from '../../../../sim/core/contracts';
 import type { Paint } from '../mesher';
 
 export interface StyleKit {

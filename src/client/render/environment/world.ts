@@ -3,7 +3,7 @@
  * the map and its dressing descriptor, a seeded hash, and the set of blockout prims the environment re-skins.
  */
 import type { MapData } from '../../../sim/core/contracts';
-import type { MapDressing } from '../../../sim/world/map';
+import type { MapDressing } from '../../../sim/core/contracts';
 import { CELL } from './constants';
 import type { Band } from './constants';
 import { Mesher, groundOcclusion } from './mesher';

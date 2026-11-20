@@ -14,7 +14,6 @@
 import { BatchedMesh, Box3, Group, Vector3 } from 'three';
 import type { BufferGeometry, Camera, Material } from 'three';
 import type { MapData } from '../../../sim/core/contracts';
-import { loadDressing, loadMap } from '../../../sim/world/map';
 import type { Quality } from '../../app/contracts';
 import { getMaterialLibrary } from '../materials';
 import type { MaterialLibrary } from '../materials';
@@ -55,9 +54,8 @@ const EMPTY_DRESSING = { buildings: [], props: [] } as const;
 
 /** Build every generator's geometry for the map (pure: no GL, runs in unit tests). */
 export function generate(map: MapData): World {
-  // The dressing descriptor belongs to the map the sim loads; a renderer test map gets none.
-  const own = map.id === 'main' && loadMap('main') === map;
-  const world = new World(map, own ? loadDressing(map.id) : EMPTY_DRESSING);
+  // The dressing descriptor (MapData.dressing, D-ARCH-028); a map without one gets bare generators.
+  const world = new World(map, map.dressing ?? EMPTY_DRESSING);
   dressBuildings(world);
   dressInteriors(world);
   dressProps(world);

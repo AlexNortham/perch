@@ -11,7 +11,7 @@
  */
 import { Matrix4, Vector3 } from 'three';
 import type { BlockoutPrim, Building, BoxVolume, Opening, Vec3 } from '../../../../sim/core/contracts';
-import type { BuildingDress, FacadeMark } from '../../../../sim/world/map';
+import type { BuildingDress, FacadeMark } from '../../../../sim/core/contracts';
 import { carve, rect } from '../../../../sim/world/map/data/interiors';
 import type { Band } from '../constants';
 import { PROUD } from '../constants';
@@ -21,7 +21,7 @@ import { hash2 } from '../world';
 import type { Pass, World } from '../world';
 import { dressArchetype } from './archetypes';
 import { nest, perchRail, wallBracket } from './nest';
-import { GLASS, IRON, IVY, IVY_DARK, LANDING, LIT, POT, ROPE, SOOT, STYLES, TWIG } from './styles';
+import { GLASS, IRON, IVY, LANDING, LIT, POT, ROPE, SOOT, STYLES, TWIG } from './styles';
 import type { StyleKit } from './styles';
 
 /** 'covered': the stretch of a face a neighbouring building stands against (never dressed). */
@@ -571,7 +571,6 @@ function opening(c: Ctx, f: Face, h: Hole): void {
       } else if (!h.curtain) {
         doorLeaves(c, f, h, seed);
       }
-      if (h.curtain) ivyCurtain(c, f, h, seed);
       if (h.y1 + 0.85 < ceiling - 0.35 && h.w < 3) fanlight(c, f, h.u, h.w, h.y1 + 0.24, seed);
       if (h.storey === 0 && hash2(seed, 11) < 0.5 && h.y1 + 1.0 < ceiling) hood(c, f, h.u, h.w, h.y1 + 0.55, seed);
       if (h.w >= 3.9) hoist(c, f, h, seed);
@@ -579,7 +578,6 @@ function opening(c: Ctx, f: Face, h: Hole): void {
     }
     case 'arch': {
       voussoirs(c, f, h, seed);
-      if (h.curtain) ivyCurtain(c, f, h, seed);
       return;
     }
     case 'window':
@@ -588,7 +586,6 @@ function opening(c: Ctx, f: Face, h: Hole): void {
       if (h.y0 > c.base + 0.3) sillBoard(c, g1, h.u, h.w, h.y0, seed);
       if (h.y1 + 0.4 < ceiling) head(c, g1, h.u, h.w + 0.2, h.y1 + 0.1, seed + 1);
       if (h.kind === 'window' && h.y1 - h.y0 > 0.6 && hash2(seed, 3) < 0.5) shutters(g1, h.u, h.w, h.y0, h.y1, kit.shutter, seed, false);
-      if (h.curtain) ivyCurtain(c, f, h, seed);
       return;
     }
     case 'mark-window': {
@@ -624,21 +621,6 @@ function voussoirs(c: Ctx, f: Face, h: Hole, seed: number): void {
   for (const s of [-1, 1]) {
     g.span(h.u + s * (h.w / 2) - (s > 0 ? 0 : 0.3), h.u + s * (h.w / 2) + (s > 0 ? 0.3 : 0), h.y0, h.y1 - 0.25, -0.03, 0.06, 0.015, '-z');
     g.span(h.u + s * (h.w / 2) - (s > 0 ? 0.02 : 0.4), h.u + s * (h.w / 2) + (s > 0 ? 0.4 : 0.02), h.y1 - 0.25, h.y1, -0.03, 0.12, 0.02, '-z');
-  }
-}
-
-/** Ivy curtains (gameplay): dense strands to the floor, darker than decorative ivy (§5.3). */
-function ivyCurtain(c: Ctx, f: Face, h: Hole, seed: number): void {
-  const g = c.M(2, f.frame, 'cutout');
-  g.paint(IVY_DARK, seed);
-  const n = Math.max(4, Math.round(h.w / 0.32));
-  for (let k = 0; k < n; k++) {
-    const x = h.u - h.w / 2 + ((k + 0.5) * h.w) / n;
-    const z = -0.12 - (k % 2) * 0.16;
-    for (let y = h.y1; y > h.y0 + 0.05; y -= 0.55) {
-      const len = Math.min(0.55, y - h.y0);
-      g.card2(new Vector3(x + (hash2(seed, k + y) - 0.5) * 0.08, y - len / 2, z), new Vector3(0.24, 0, (hash2(seed, k) - 0.5) * 0.1), new Vector3(0, len / 2 + 0.06, 0));
-    }
   }
 }
 

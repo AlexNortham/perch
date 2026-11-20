@@ -5,7 +5,7 @@
  * Nature kinds (trees, reeds, ivy…) are built in nature.ts. Authored art data.
  */
 import { Vector3 } from 'three';
-import type { PropAnchor, PropKind } from '../../../../sim/world/map';
+import type { PropAnchor, PropKind } from '../../../../sim/core/contracts';
 import type { Band } from '../constants';
 import { oriented, placed } from '../mesher';
 import type { Mesher, Paint } from '../mesher';
