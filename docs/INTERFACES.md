@@ -13,7 +13,8 @@ Contents: [1 Contract files](#1-contract-files) · [2 Context services](#2-conte
 [11 Wave 2 requests](#11-wave-2-requests) · [12 Wave 3 requests](#12-wave-3-requests-and-the-m2-contract-freeze-19112026) ·
 [13 Wave 4 requests](#13-wave-4-requests-w45-19112026) · [14 Stage 4 contracts](#14-stage-4-contracts-w45) ·
 [15 Wave 5a requests](#15-wave-5a-requests-w55-20112026) ·
-[16 Wave 6 requests](#16-wave-6-requests-w6-21112026)
+[16 Wave 6 requests](#16-wave-6-requests-w6-21112026) ·
+[17 Lanes and the zipline start](#17-lane-assignment-and-the-zipline-start-w8-21112026)
 
 ---
 
@@ -82,7 +83,7 @@ One writer per component; anyone may read. "core" means createSim or the store.
 | `pos`, `vel`, `yaw` | units, structures, pickups, areas | the spawning owner: world (fledglings, neutrals, structures, runes, Egg, Ember), economy (pods), abilities (summons, areas), combat (projectiles); physics moves a unit while a displace, dash or attach acts on it (D-ARCH-014) | all |
 | `radius` | all | spawner | spatial, combat |
 | `seenBy` | all | world (store sets "all" at spawn) | ai, world, ui, render |
-| `hero` (`HeroInfo`) | heroes | core | all |
+| `hero` (`HeroInfo`, incl. the assigned `lane`, D-ARCH-034) | heroes | core | all |
 | `pitch`, `shoulder`, `command` | heroes | core (latch); bots' `command` is written by ai in the ai phase | physics, combat, abilities, items, camera |
 | `health` (`hp`, shields, `dead`, `respawnAt`, `inCombatUntil`) | heroes, units, structures | combat | all |
 | `stats` (`StatBlock`) | heroes, units, structures | core via `ctx.stats` (sources set by their owners) | all |
@@ -258,6 +259,8 @@ the rule's logic lives there; others only read its outputs.
 | Stat computation (base + Molts + items + statuses, stacking order) | core (stats service) |
 | Effect routing (one owner per kind) | core (router) |
 | Hero spawn at match start, roster validation, roster helpers | core |
+| Lane assignment at match start (`HeroInfo.lane`, D-ARCH-034) | core (`core/lanes.ts`) |
+| The zipline start: every hero riding its lane's Updraft at tick 0 (`SimOptions.laneStart`, D-ARCH-035) | physics |
 | Command latch: look, pitch clamp, shoulder swap state | core |
 | Pings (from commands, rate limit 3 per 4 s) | core |
 | Concession (from 15:00) | core |
@@ -606,3 +609,15 @@ dropped. Owner follow-ups: [briefs/W5-contract-followups.md](briefs/W5-contract-
 | 5 | Hero B3 (D-HEROB-010) | `AbilityUpgrade.channelS` instead of the `channelExtraS` value name | A | `AbilityUpgrade.channelS?: number`, seconds added to `channelS`. After the B3 merge (EP's request): abilities' `fold` adds it, the validator checks it per tier, Sulphur Shriek T2 and Burrow T1 use it, and `CHANNEL_EXTRA_VALUE` is gone (D-ARCH-032) |
 
 Counts: 5 rows; 4 accepted, 1 dropped.
+
+## 17. Lane assignment and the zipline start (W8, 21/11/2026)
+
+From the user's feedback on Release 1 (D-EP-053, `docs/briefs/W8-start.md`); the Architect acted for Systems, Bot AI
+and UI (D-EP-018). All additive.
+
+| Contract | What | Writer / reader |
+|---|---|---|
+| `HeroInfo.lane?: LaneId` | The lane assigned at match start (D-ARCH-034); absent on maps without lanes | core / physics, ai, view |
+| `HeroView.lane?: LaneId` | The same, for the client | core / ui (lane banner, minimap glow) |
+| `SimOptions.laneStart?: boolean` | The zipline start; default as `structures`; off for `?scene=lane`, the replay and test sandboxes (D-ARCH-035) | config / physics |
+| `core/lanes.ts assignLanes(seed, roster, lanes, archetypeOf)` | Pure, seeded, balanced split | core |

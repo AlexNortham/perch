@@ -2652,3 +2652,30 @@ horizontal FOV and eased back over the next frames (1–2 s on a loaded machine)
 next 255k. The staged start-up (D-ARCH-031) happened to absorb that frame before the renderer existed, which hid it on
 `integrate/w5`; it would have returned once `createRenderer` moves back to boot, and the negative `dt` also reached rigs,
 VFX and audio.
+
+### D-ARCH-034 · 21/11/2026 — Core assigns every hero a lane at match start
+**Decision:** `createSim` assigns lanes before it spawns the heroes (`core/lanes.ts`, pure) and stores them as
+`HeroInfo.lane`, shown as `HeroView.lane`; both are absent on maps without lanes. Per flock: an even split over the
+map's lanes (two each for six). The human, if any, takes the first lane of a seeded shuffle. Then every split of the
+bots is tried (at most 3^5) and the cheapest wins, where a pair in one lane costs 10 for two of one archetype and 3 for
+two frontline or two backline birds (`LANE_PAIR_COST`, frontline = tank, skirmisher, assassin). Ties go to a seeded bot
+order. The streams are `createRng(seed, 'lanes/<flock>')`, outside `ctx.rng`, so nothing else's draws move. Bot AI's
+`assignLanes` now reads `HeroInfo.lane` and only works out the near side and the roamer within each lane (the first
+bird, the human first, holds; the second roams). Its old two-by-two order remains the fallback for heroes without a
+lane.
+**Why:** the user asked to be "assigned a lane at the start of the game" (D-EP-053), and the brief asks for it to be
+deterministic, balanced and part of the sim state. Exhaustive search is tiny here and, unlike a greedy pass, never
+leaves an avoidable pair of supports. Lanes are sim state because physics (the start), bots and the HUD all read them.
+
+### D-ARCH-035 · 21/11/2026 — The zipline start: every hero begins riding its lane's Updraft
+**Decision:** `SimOptions.laneStart` (default: as `structures`, so Play, `?scene=match`, the CLI, release matches, the
+Build Lab and the soak all have it). When physics adds a hero at tick 0 with a lane, and its controller isn't
+'dummy', it puts the hero on that lane's cable at the station nearest its own spawn, read from `MapData.updrafts`
+(so the Level Designer's lane rework flows through), heading for the far end, with no mount ticks and the ordinary ride
+rules from the first tick. Respawns (`reseat`) are on foot. Off: `?scene=lane` and the replay (router, the browser
+suites and the siege-proof Owl start from the base), the test sandboxes, the siege-proof test and one on-foot physics
+fixture. The HUD shows "You're on <lane>" for 5 s on entering a match, with how to drop off while riding, and the
+minimap draws the lane opaque over a white glow for the first 30 s (pure helpers `startLane`, `laneBanner`).
+**Why:** the user's words, "put on the zipline". A default that follows `structures` gives every real match the new
+start without touching Build's tools, and the fixtures that place heroes themselves opt out in one line each. Dummies
+are training targets that never act, so they stay put.

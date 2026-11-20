@@ -257,6 +257,7 @@ Traversal reference: [Deadlock Wiki movement guide](https://deadlock.wiki/Moveme
 | Dismount | A fresh Jump press (Jump released since latching, then pressed): jump off with +4 m/s up and 70% of ride velocity. Crouch: drop off with 70% of ride velocity. Holding Jump through the ride does nothing. Reaching the end of the line drops you at the station. |
 | Forced dismount | Stun, knockback, knock-up, pull, root or grounded |
 | Not allowed | Egg carrier |
+| Match start | Every bird (human and bot) starts the match already riding its assigned lane's Updraft (§6.6): on the cable at the station by its own gate, heading for the enemy end, with no latch to wait out and no input needed. Everything above applies from the first tick: Dash boosts, a fresh Jump press or Crouch drops off, and a bird that does nothing rides to the far end. Respawns start on foot at the Home Roost. The Practice Hub has no lanes and starts on foot. |
 
 ### 3.8 Chimneys and Vines
 
@@ -734,6 +735,13 @@ West quarter of the Dawn half (2 m per column, 4 m per row; Dusk mirrors z, the 
   Wardens just outside each gate, the two Shrines, the Patron on its dais and the Home Roost behind it.
 - From the Home Roost, ramps lead to each gate (≤ 45 m to any gate). An Updraft station at each gate starts that
   lane's Updraft.
+- **Lane assignment and the start.** When the match starts, each flock's six birds are assigned two to a lane. The
+  human is placed first on a lane drawn from the match seed, and the bots take the rest so that each lane pairs a
+  frontline bird (tank, skirmisher, assassin) with a backline one where the flock allows, and never two of one
+  archetype (two supports) when that can be avoided. The same seed always gives the same lanes. Every bird then starts
+  on its lane's Updraft at its own gate's station, riding out (§3.7). The player sees "You're on <lane>" as the match
+  opens, and the lane glows on the minimap for the first 30 s. Bots lane where they were assigned and keep their
+  later rotations, grouping and sieges (§11.3).
 - Enemies inside the Home Roost zone take 300 Song damage per second (§5.11); the zone only exists to stop
   spawn camping.
 
@@ -2040,9 +2048,10 @@ The match setting picks one difficulty for all bots, or "Mixed" (allies Hunter, 
 | **Push / siege** | After 20:00, or Rekindle active, or 2+ enemies dead, and an allied wave is near an enemy structure | Groups with 3+ allies and pushes with the wave; doesn't hit Brood-Warded structures unless no enemy heroes are visible |
 | **Defend** | An enemy group of 2+ heroes is attacking an allied structure | The 3 nearest bots rotate to defend |
 
-**Laning assignment:** two heroes per lane (2-2-2). The human picks first (hero select); bots fill lanes by
-pairing archetypes: a frontline (tank, skirmisher, assassin) with a backline (carry, poke, support, burst,
-control) where possible.
+**Laning assignment:** two heroes per lane (2-2-2), assigned at match start (§6.6): the human first on a seeded lane,
+then the bots by pairing archetypes, a frontline (tank, skirmisher, assassin) with a backline (carry, poke, support,
+burst, control) where possible and never two of one archetype when avoidable. In each lane the first bird (the human
+on its lane) holds the near side and the second roams.
 
 **Rotations:** a bot leaves its lane when its lane's enemy Hawk is down and its own Hawk is safe, when the Egg or
 a rune is due, or after 10:00 when its lane partner can hold the wave alone (Hunter+).
