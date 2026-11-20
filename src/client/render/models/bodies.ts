@@ -280,7 +280,9 @@ export function cassowaryBody(plan: BodyPlan): Body {
       ...head(hc, a.hr, CASSOWARY_HEAD),
       // The casque: a tall, flattened horn helmet rising from the brow and sweeping back.
       ell(at(hc, a.hr, [0, 1.05, 0.1]), mulS([0.36, 0.72, 0.5], a.hr), 'head', 'casque', { k: 0.035, rot: [-0.4, 0, 0] }),
-      ell(at(hc, a.hr, [0, 1.8, -0.3]), mulS([0.22, 0.62, 0.34], a.hr), 'head', 'casque', { k: 0.035, rot: [-0.7, 0, 0] }),
+      ell(at(hc, a.hr, [0, 1.8, -0.3]), mulS([0.26, 0.62, 0.36], a.hr), 'head', 'casque', { k: 0.035, rot: [-0.7, 0, 0] }),
+      // Its keel runs on down the back of the skull, so from behind the head is a helmet, not a ball.
+      ell(at(hc, a.hr, [0, 0.62, -0.86]), mulS([0.2, 0.7, 0.3], a.hr), 'head', 'casque', { k: 0.05, rot: [0.75, 0, 0] }),
     ],
   };
 }
