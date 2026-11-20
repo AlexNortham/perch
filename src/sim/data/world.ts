@@ -38,6 +38,8 @@ export const WAVES = {
     { fromS: 0, scrapper: 3, slinger: 1 },
     { fromS: 10 * 60, scrapper: 3, slinger: 2 },
     { fromS: 20 * 60, scrapper: 4, slinger: 2 },
+    // D-AI-010 (for Objectives): the 35:00 lever (GDD §15.2) also grows the waves, so one flock breaks through.
+    { fromS: 35 * 60, scrapper: 5, slinger: 3 },
   ],
   /** A column two wide; files and rows this far apart. */
   files: 2,
