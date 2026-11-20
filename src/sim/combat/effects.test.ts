@@ -51,6 +51,27 @@ describe('heal', () => {
   });
 });
 
+describe('credit by ability and item (D-ARCH-030)', () => {
+  it('heal.applied, shield.applied and status.applied carry the cause\'s ability and item', () => {
+    const k = createKit();
+    const h = k.hero('albatross', 'dawn', { x: 0, y: 0, z: 0 });
+    h.health.hp = 300;
+    const byItem: EffectCause = { ...cause(h), via: 'item', ability: null, item: 'test-item' };
+    apply(k, h, { kind: 'heal', amount: 50 }, cause(h));
+    apply(k, h, { kind: 'heal', amount: 50 }, byItem);
+    apply(k, h, { kind: 'shield', absorbs: 'barrier', amount: 120 }, cause(h));
+    apply(k, h, { kind: 'shield', absorbs: 'song', amount: 40 }, byItem);
+    apply(k, h, { kind: 'applyStatus', status: SLOW, magnitude: 0.2 }, cause(h));
+    const credit = (e: { ability: string | null; item: string | null }): [string | null, string | null] => [e.ability, e.item];
+    expect(k.of('heal.applied').map(credit)).toEqual([['test.ability', null], [null, 'test-item']]);
+    expect(k.of('shield.applied').map((e) => [e.source, e.amount, e.absorbs, ...credit(e)])).toEqual([
+      [h.id, 120, 'barrier', 'test.ability', null],
+      [h.id, 40, 'song', null, 'test-item'],
+    ]);
+    expect(k.of('status.applied').map(credit)).toEqual([['test.ability', null]]);
+  });
+});
+
 describe('shield', () => {
   it('expires after its duration; a recharging shield refills after rechargeS without damage', () => {
     const k = createKit();
