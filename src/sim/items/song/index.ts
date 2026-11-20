@@ -1,14 +1,20 @@
 // Song-only item effects that the effect vocabulary can't carry as data (GDD §10.3): Crescendo, Echo Chamber's repeat
 // and Boundless Song's ultimate cooldown. Called once from createItemSystem; stateless, so nothing to hash.
-import type { EntityId, HeroEntity, ItemId, SimContext } from '../../core/contracts';
+import type { EntityId, HeroEntity, ItemId, SimContext, StatusDef } from '../../core/contracts';
 import { TICK_RATE } from '../../data/core';
 import { vec3 } from '../../core/math';
 import { itemCause } from '../triggers';
 
-/** ponytail: the extra and the echo are separate Song hits, so the target's resists apply to them again. */
+/** The extra and the echo repeat the hit with `triggerPct`, so the target's resists apply once (D-SYS-014). */
 export const CRESCENDO = { minHit: 100, bonus: 0.2 } as const;
 export const ECHO = { delayS: 1, fraction: 0.25 } as const;
 export const BOUNDLESS = { ultimateSlot: 3, cooldownCut: 0.2 } as const;
+
+/** Echo Chamber's pending repeat: a status bound to the hit, which deals its share when it expires (D-SYS-014). */
+const ECHO_STATUS: StatusDef = {
+  id: 'echo-chamber.echo', name: 'Echo', negative: false, stacking: 'independent', maxStacks: 1, durationS: ECHO.delayS,
+  onExpire: [{ kind: 'damage', amount: 0, type: 'song', triggerPct: ECHO.fraction }],
+};
 
 export function createSongItems(ctx: SimContext): void {
   const owns = (id: EntityId | null, item: ItemId): HeroEntity | undefined => {
@@ -22,12 +28,12 @@ export function createSongItems(ctx: SimContext): void {
     if (!target || target.team === e.sourceTeam) return;
     const crescendo = e.amount >= CRESCENDO.minHit ? owns(e.source, 'crescendo') : undefined;
     if (crescendo) {
-      ctx.effects.apply({ kind: 'damage', amount: e.amount * CRESCENDO.bonus, type: 'song' },
+      ctx.effects.apply({ kind: 'damage', amount: 0, type: 'song', triggerPct: CRESCENDO.bonus },
         { entity: e.target, point: { ...e.pos }, dir: vec3() }, { ...itemCause(crescendo, 'crescendo'), proc: true });
     }
     const echo = e.targetKind === 'hero' ? owns(e.source, 'echo-chamber') : undefined;
     if (echo) {
-      ctx.effects.apply({ kind: 'delay', seconds: ECHO.delayS, effects: [{ kind: 'damage', amount: e.amount * ECHO.fraction, type: 'song' }] },
+      ctx.effects.apply({ kind: 'applyStatus', status: ECHO_STATUS },
         { entity: e.target, point: { ...e.pos }, dir: vec3() }, { ...itemCause(echo, 'echo-chamber'), proc: true });
     }
   });
