@@ -31,9 +31,10 @@ import {
 
 export { rayWorldPoint } from './collide';
 
-/** Move `v` toward `goal` by at most `step`. */
+/** Move v toward goal by at most |step|; never away from it (a negative step once widened the FOV, D-RENDER-018). */
 function approach(v: number, goal: number, step: number): number {
-  return v < goal ? Math.min(goal, v + step) : Math.max(goal, v - step);
+  const s = Math.abs(step);
+  return v < goal ? Math.min(goal, v + s) : Math.max(goal, v - s);
 }
 
 /** `mapOf` is injectable so tests can use a fixture map; the app uses the real one. */
@@ -72,7 +73,7 @@ export function createCamera(settings: Settings, mapOf: (id: MapId) => MapData =
   return {
     update(frame, heroId, look, preset): CameraPose {
       const view = frame.curr;
-      const dt = Math.min(frame.dt, MAX_DT);
+      const dt = Math.min(Math.max(0, frame.dt), MAX_DT);
       const heroView = view.heroes.find((h) => h.id === view.localHero);
       const me = view.localHero === null ? undefined : entityById(view, view.localHero);
       const map = mapOf(view.map);
