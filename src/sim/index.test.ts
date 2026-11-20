@@ -3,6 +3,7 @@ import { Button, HERO_IDS, IDLE_COMMAND, Layer, RETIRED_BUTTONS, ViewFlag } from
 import { PHYSICS_LAYERS } from './data/movement';
 import type { HeroCommand, RosterSlot, Sim } from './core/contracts';
 import { allBotRoster, createSim, humanRoster } from './index';
+import { loadMap } from './world/map';
 
 async function run(seed: number, ticks: number, drive?: (sim: Sim) => HeroCommand[]): Promise<Sim> {
   const sim = await createSim({ seed, roster: allBotRoster(seed) });
@@ -179,6 +180,13 @@ describe('createSim', () => {
 describe('contracts', () => {
   it('Layer owns the physics-only bits; data/movement still mirrors them until Physics points at Layer (D-ARCH-027)', () => {
     expect(PHYSICS_LAYERS).toEqual({ sight: Layer.Sight, movement: Layer.Movement, eggCarrier: Layer.EggCarrier });
+  });
+
+  it('MapData carries the dressing, one BuildingDress per Building (D-ARCH-028)', () => {
+    const main = loadMap('main');
+    expect(main.dressing?.buildings.length).toBe(main.buildings?.length);
+    expect(main.dressing?.props.length).toBeGreaterThan(0);
+    expect(loadMap('arena').dressing).toBeUndefined();
   });
 });
 
