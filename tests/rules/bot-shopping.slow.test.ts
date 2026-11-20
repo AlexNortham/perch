@@ -1,6 +1,6 @@
-// Bot shopping (GDD §11.4, D-EP-036, INTERFACES §14.1). Written test-first (D-EP-006, W4.5 QA): gated until sim/ai
-// samples purchases from the learned scores and src/sim/data/builds.ts exists. Run with
-//   PERCH_PENDING=1 npx vitest run tests/rules/bot-shopping.test.ts
+// Bot shopping (GDD §11.4, D-EP-036, INTERFACES §14.1). Written test-first (D-EP-006, W4.5 QA); on since W6 as the SLOW tier
+// (D-QA-014): 20 seeded four-minute matches take about 12 minutes, so `npm test` skips *.slow.test.ts. Run it with
+//   npm run slow
 //
 // How "near-identical" is measured (and why):
 //   similarity(A, B) = |A ∩ B| / |A ∪ B| (Jaccard) over the two bots' FINAL item sets in the same hero, compared
@@ -85,7 +85,7 @@ function synergyScore(scores: ItemScores, items: readonly ItemId[]): number {
 const mean = (xs: readonly number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length;
 const sd = (xs: readonly number[]): number => Math.sqrt(mean(xs.map((x) => (x - mean(xs)) ** 2)));
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 bot shopping (§11.4, D-EP-036)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 bot shopping (§11.4, D-EP-036)', { timeout: TIMEOUT_MS }, () => {
   const scoredBuilds: Build[] = [];
   const randomBuilds: Build[] = [];
 

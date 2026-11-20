@@ -13,8 +13,8 @@ QA's cross-system suites (D-EP-010). Unit tests live next to their code (`src/**
 | `rules/market.test.ts` | Always on (since W4 integration). GDD §8: real bounties, lifetime earnings, levels, AP, inventory, flex slots and shop transactions. |
 | `rules/practice.test.ts` | Always on (since W4 integration). Fresh Practice AP, normal match progression, and the ordinary weapon and support-cast target resets. |
 | `siege-proof.test.ts` | Always on. The real Play match (seed 1, one Owl, no bots), driven only by ordinary commands from a scripted aim-and-fire agent, takes Dusk's Riverbank structures, both Shrines and both Patron phases to a Dawn victory with its wave. Writes seed, hash and timeline to `out/siege-proof/seed-1.json`. About 7 s. The agent lives in `src/sim/ai/siege-proof.testkit.ts`; `e2e/result.spec.ts` replays it in the browser (`?scene=replay`) to the Victory screen. |
-| `rules/golden-egg`, `roc-embers`, `thickets`, `nests`, `runes`, `interactables`, `no-interact`, `items` | Always on (since the W5a integration round). GDD §§7.8–7.15 and 10, D-EP-039. A few single tests stay gated with `it.runIf` and a comment naming why (W5a integration STATUS entry). `items.data.ts` is GDD §10 as data. |
-| `rules/bot-shopping` | **Pending (Bot AI, wave 5b).** GDD §11.4, D-EP-036. Run with `PERCH_PENDING=1`. |
+| `rules/golden-egg`, `roc-embers`, `thickets`, `nests`, `runes`, `interactables`, `no-interact`, `items` | Always on; nothing in them is gated any more (W6 QA reworked the three interactables tests for the real map and switched on the bots-ride test). GDD §§7.8–7.15 and 10, D-EP-039. `items.data.ts` is GDD §10 as data. |
+| `rules/bot-shopping.slow.test.ts` | **Slow tier** (D-QA-014), on. GDD §11.4, D-EP-036. About 12 to 18 minutes; run with `npm run slow`, once per release candidate and after any change under `src/sim/ai`. `npm test` skips `*.slow.test.ts`. |
 | `helpers/world.ts` | The neutrals-on `main` sandbox, `advanceTo`, light and heavy melee, pickups (Stage 4 suites). |
 | `helpers/sandbox.ts` | The ability sandbox (below). |
 | `helpers/lanes.ts` | Lane polyline maths: progress from a gate, distance from the path, points along it. |
@@ -22,8 +22,9 @@ QA's cross-system suites (D-EP-010). Unit tests live next to their code (`src/**
 ## Pending suites
 
 Suites written test-first (D-EP-006) are gated with `describe.runIf(process.env.PERCH_PENDING === '1')`, so they are
-skipped in `npm run check` until their system lands. Since the W5a integration round only `bot-shopping`, single tests marked `it.runIf` (each with its reason) and the dead-bird test in `e2e/scoreboard-bar.spec.ts` (bots that fight, G22) are gated. Run a
-gated one with:
+skipped in `npm run check` until their system lands. As of W6 nothing is gated: every suite that was behind
+`PERCH_PENDING` is on (the slow one in its own tier, D-QA-014). The mechanism stays for the next stage's test-first
+suites. Run a gated one with:
 
 ```bash
 PERCH_PENDING=1 npx vitest run tests/rules/<suite>.test.ts
@@ -79,3 +80,12 @@ it('Briar Patch damages and slows an enemy standing in it', async () => {
   expect(sb.hero(shrike).abilities.slots[1].readyAt).toBeGreaterThan(sb.sim.tick); // on cooldown
 });
 ```
+
+## The release gate (D-QA-015, D-QA-018)
+
+- `npm run check -- --release`: typecheck, lint, unit tests, perf, the 3-minute sim and the e2e suite, serially, with fixed
+  workers. Stage 4 Release 1 needs three in a row.
+- `npm run slow`: the slow tier (bot shopping).
+- `npm run release-matches`: 20 seeded headless matches, each with a winner, none crashing.
+- `npm run soak -- --minutes 30`: the in-browser soak (heap and frame-time trend).
+- `e2e/all-heroes.spec.ts`: every implemented hero (from the registry) starts a 1 + 11 match from the menu.

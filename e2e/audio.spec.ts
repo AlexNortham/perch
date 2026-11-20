@@ -37,12 +37,13 @@ const setup = async (page: Page): Promise<void> => {
       ...over,
     });
     /** Render `secs` of audio. `go(audio, ctx, view)` feeds it; `at` = optional [time, fn] run mid-render. */
-    w.run = async (cfg: { settings?: object; go: (a: Loose, c: OfflineAudioContext, v: Loose) => void; at?: [number, (a: Loose) => void]; prep?: (v: Loose) => void; lookahead?: number }) => {
+    w.run = async (cfg: { settings?: object; go: (a: Loose, c: OfflineAudioContext, v: Loose) => void; at?: [number, (a: Loose) => void]; prep?: (v: Loose) => void; pre?: (a: Loose) => void; lookahead?: number }) => {
       const ctx = new OfflineAudioContext(2, 44100 * secs, 44100);
       const P = (window as Loose).PerchAudio;
       const audio = P.createAudio(cfg.settings ?? settings(), { ctx, lookahead: cfg.lookahead ?? 0.25 });
       const view = viewOf();
       cfg.prep?.(view);
+      cfg.pre?.(audio); // before the first update: music state changes apply on a bar line, and nothing ticks again offline
       const pose = { position: { x: 0, y: 0, z: 0 }, target: { x: 0, y: 0, z: -1 }, fovDeg: 90 };
       audio.update({ curr: view, prev: view, alpha: 1, dt: 0.016 }, pose);
       cfg.go(audio, ctx, view);
@@ -202,12 +203,19 @@ test.describe('live context', () => {
       const v = { heroes: [{ id: 1, heroId: 'owl', team: 'dawn' }], entities: [], localHero: 1, seconds: 1, over: false };
       w.audio.onEvents([{ type: 'objective', action: 'rocSpawned', hero: null, team: 'neutral', pickup: null, pickupType: null, pos: { x: 0, y: 0, z: 0 } }], v);
     });
-    await p.waitForTimeout(400);
-    const peak = await p.evaluate(() => {
+    // A live context runs on the audio device's own clock, which lags real time on a busy machine (0.08 s of audio per
+    // 0.5 s of wall clock measured under load), and a sound starts a lookahead after it is scheduled. So watch the
+    // analyser for up to 8 s of wall clock instead of reading it once after a fixed 400 ms (D-QA-016).
+    const peak = await p.evaluate(async () => {
       const an = (window as Loose).__an as AnalyserNode;
       const d = new Float32Array(an.fftSize);
-      an.getFloatTimeDomainData(d);
-      return Math.max(...d.map(Math.abs));
+      let best = 0;
+      for (const end = performance.now() + 8_000; performance.now() < end && best <= 0.005;) {
+        await new Promise((r) => setTimeout(r, 20));
+        an.getFloatTimeDomainData(d);
+        best = Math.max(best, ...d.map(Math.abs));
+      }
+      return best;
     });
     expect(peak).toBeGreaterThan(0.005);
     await p.evaluate(() => (window as Loose).audio.dispose());
@@ -355,7 +363,7 @@ test.describe('stage 4 cues', () => {
     expect(roc.sig).not.toBe(laning.sig);
     expect(egg.sig).not.toBe(laning.sig);
     expect(egg.rms).toBeGreaterThan(laning.rms); // the objective state adds the lead and percussion stems
-    const select = await run(page, `a.onScreen('heroSelect');`, m());
+    const select = await run(page, '', m(`pre: (a) => a.onScreen('heroSelect')`)); // fails while update() overrides the screen state (QA W6: routed to Audio)
     expect(select.sig).not.toBe(laning.sig);
   });
 });

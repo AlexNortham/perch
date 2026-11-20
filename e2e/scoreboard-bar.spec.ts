@@ -13,9 +13,10 @@
 //     [data-field="respawn"]                  only while dead: the countdown in whole seconds
 //   [data-field="flock-seeds"][data-side]     each flock's total Seeds; [data-field="clock"] the match timer
 import { expect, test, type Page } from '@playwright/test';
+import { matchConfig } from '../src/client/app/router';
 import { ECONOMY } from '../src/sim/data/economy';
+import { createSim } from '../src/sim/index';
 import { open, pickHero, lockPointer, VIEWPORT, READY_TIMEOUT_MS } from './game';
-import { isPending } from './pending';
 
 test.use({ viewport: VIEWPORT, actionTimeout: 8_000 });
 test.setTimeout(READY_TIMEOUT_MS * 3);
@@ -23,13 +24,13 @@ test.setTimeout(READY_TIMEOUT_MS * 3);
 const FAST_FORWARD_S = 600;
 const PER_SIDE = 6;
 const CENTRE_TOLERANCE_PX = 24;
-const DEATH_WAIT_MS = 120_000;
+const DEATH_WAIT_MS = 10_000;
 const board = (page: Page) => page.getByRole('region', { name: 'Scoreboard' });
 const portraits = (page: Page, side?: 'own' | 'enemy') => board(page).locator(side ? `[data-portrait][data-side="${side}"]` : '[data-portrait]');
 const digits = (text: string | null) => Number((text ?? '').replace(/[^\d]/g, ''));
 
-async function match(page: Page): Promise<void> {
-  await open(page, `/?t=${FAST_FORWARD_S}&seed=1`);
+async function match(page: Page, seconds = FAST_FORWARD_S): Promise<void> {
+  await open(page, `/?t=${seconds}&seed=1`);
   await pickHero(page, 'Play', 'Kingfisher');
   await lockPointer(page);
 }
@@ -89,11 +90,16 @@ test.describe('top scoreboard (D-EP-041)', () => {
   });
 
   test('a dead bird\'s portrait is darkened with a red respawn countdown that runs down', async ({ page }) => {
-    test.skip(isPending, 'pending: bots that fight (G22, wave 5) so that a bird dies within two minutes; run with PERCH_PENDING=1');
-    await match(page);
+    // Deterministic (D-QA-017): the fast-forward is the same ticks Node can run, so find in Node the second after the
+    // first bird of the seed-1 match dies, and open the browser match there instead of waiting for a death in real time.
+    const sim = await createSim(matchConfig({ seed: 1, hero: 'kingfisher', team: 'dawn', difficulty: 'normal', bots: PER_SIDE * 2 - 1 }));
+    while (!sim.ctx.store.list('hero').some((h) => h.health.dead) && sim.view.seconds < 1_200) sim.step();
+    const diesAt = Math.ceil(sim.view.seconds) + 1;
+    expect(diesAt, 'a bird dies in the first 20 minutes of the seeded bot match').toBeLessThan(1_200);
+    await match(page, diesAt);
     await expect(portraits(page), 'the bar has its portraits').toHaveCount(PER_SIDE * 2);
     const dead = portraits(page).and(page.locator('[data-dead="true"]'));
-    await expect(dead.first(), 'in a 6v6 bot match someone dies within two minutes').toBeVisible({ timeout: DEATH_WAIT_MS });
+    await expect(dead.first(), 'a bird is down at that moment').toBeVisible({ timeout: DEATH_WAIT_MS });
     const first = dead.first();
     const hero = await first.getAttribute('data-hero');
     const countdown = first.locator('[data-field="respawn"]');
