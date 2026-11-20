@@ -16,7 +16,7 @@
 import { BufferAttribute, Frustum, Group, InstancedMesh, Matrix4, Mesh, Sphere, Vector3 } from 'three';
 import type { BufferGeometry, Camera, Color, Material, Object3D } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { bakeAO } from './materials';
+import { bakeAOAll } from './materials';
 import type { MaterialKind, MaterialLibrary } from './materials';
 import { CELL, LOD } from './constants';
 
@@ -97,14 +97,9 @@ export class CellBatch {
     };
     const merged = [...this.buckets.values()].map((b) => ({ b, baked: merge(b.baked), plain: merge(b.plain) }));
     const occluders = merged.filter(({ b }) => b.kind === 'opaque' && b.band === 'far').flatMap(({ baked, plain }) => [baked, plain]).filter((g): g is BufferGeometry => g !== null);
-    const near = (x: BufferGeometry, y: BufferGeometry): boolean => {
-      const bx = x.boundingBox;
-      const by = y.boundingBox;
-      return !!bx && !!by && bx.clone().expandByScalar(CELL.aoReach).intersectsBox(by);
-    };
-    for (const { baked } of merged) {
-      if (baked) bakeAO(baked, { occluders: occluders.filter((o) => o !== baked && near(baked, o)), reach: CELL.aoReach, voxel: CELL.aoVoxel, underside: false });
-    }
+    // One bake for every cell: a shared voxel grid, each occluder voxelised once.
+    const baked = merged.map((m) => m.baked).filter((g): g is BufferGeometry => g !== null);
+    bakeAOAll(baked, { occluders, reach: CELL.aoReach, voxel: CELL.aoVoxel, underside: false });
     for (const { b, baked, plain } of merged) {
       const g = baked && plain ? mergeGeometries([baked, plain]) : (baked ?? plain);
       if (baked && plain) {

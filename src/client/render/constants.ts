@@ -123,7 +123,7 @@ export const POST = {
 } as const;
 
 /** §11.4: static architecture merges per 64 × 64 m cell; AO bakes across neighbouring cells. */
-export const CELL = { size: 64, aoReach: 1.5, aoVoxel: 0.5 } as const;
+export const CELL = { size: 64, aoReach: 1.5, aoVoxel: 0.6 } as const;
 /** §11.4 distance bands and the 10 % hysteresis on every LOD switch. */
 export const LOD = { near: 40, mid: 90, hysteresis: 0.1 } as const;
 

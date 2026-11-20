@@ -491,24 +491,41 @@ const RAYS: readonly (readonly [number, number, number])[] = Array.from({ length
  * occluders. Vertices need normals; bake after painting (colours are multiplied in place).
  */
 export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
+  bakeAOAll([geometry], opts);
+}
+
+/**
+ * bakeAO for many geometries at once (a whole map layer): one voxel grid over all of them, each occluder triangle
+ * voxelised once, every target traced against it.
+ */
+export function bakeAOAll(targets: readonly BufferGeometry[], opts: AoOptions = {}): void {
+  if (targets.length === 0) return;
   const reach = opts.reach ?? AO.reach;
   const strength = opts.strength ?? 1;
-  const sources = [geometry, ...(opts.occluders ?? [])];
+  const sources = [...new Set([...targets, ...(opts.occluders ?? [])])];
   const min = new Vector3(Infinity, Infinity, Infinity);
   const max = new Vector3(-Infinity, -Infinity, -Infinity);
-  geometry.computeBoundingBox();
-  if (!geometry.boundingBox) return;
+  for (const t of targets) {
+    t.computeBoundingBox();
+    if (!t.boundingBox) return;
+    min.min(t.boundingBox.min);
+    max.max(t.boundingBox.max);
+  }
   const rays = opts.rays ?? true;
-  min.copy(geometry.boundingBox.min).subScalar(reach);
-  max.copy(geometry.boundingBox.max).addScalar(reach);
+  min.subScalar(reach);
+  max.addScalar(reach);
   const size = new Vector3().subVectors(max, min);
   let voxel = opts.voxel ?? AO.voxel;
   if (!rays) voxel = Math.max(voxel, reach);
   while ((size.x / voxel) * (size.y / voxel) * (size.z / voxel) > AO.maxVoxels) voxel *= AO.voxelGrowth;
+  const BITS = 32;
+  const SHIFT = 5;
   const nx = Math.max(1, Math.ceil(size.x / voxel));
   const ny = Math.max(1, Math.ceil(size.y / voxel));
   const nz = Math.max(1, Math.ceil(size.z / voxel));
-  const grid = new Uint8Array(nx * ny * nz);
+  // One bit per voxel: a whole map at 0.6 m fits in a few megabytes.
+  const grid = new Uint32Array(Math.ceil((nx * ny * nz) / BITS));
+  const solid = (at: number): boolean => ((grid[at >>> SHIFT] ?? 0) & (1 << (at & (BITS - 1)))) !== 0;
   const inv = 1 / voxel;
   const [gx, gy, gz] = [min.x, min.y, min.z];
   const cell = (x: number, y: number, z: number): number => {
@@ -535,10 +552,12 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
   if (rays) {
     // Mark the coarse cell of every vertex, then grow the marks by one cell in every direction.
     const seeds = new Uint8Array(need.length);
-    const vp = geometry.getAttribute('position');
-    for (let v = 0; v < vp.count; v++) {
-      const at = cIdx(vp.getX(v), vp.getY(v), vp.getZ(v));
-      if (at >= 0) seeds[at] = 1;
+    for (const t of targets) {
+      const vp = t.getAttribute('position');
+      for (let v = 0; v < vp.count; v++) {
+        const at = cIdx(vp.getX(v), vp.getY(v), vp.getZ(v));
+        if (at >= 0) seeds[at] = 1;
+      }
     }
     for (let at = 0; at < seeds.length; at++) {
       if (!seeds[at]) continue;
@@ -554,7 +573,7 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
   }
   const mark = (x: number, y: number, z: number): void => {
     const at = cell(x, y, z);
-    if (at >= 0) grid[at] = 1;
+    if (at >= 0) grid[at >>> SHIFT] = (grid[at >>> SHIFT] ?? 0) | (1 << (at & (BITS - 1)));
   };
   const voxelise = (ax: number, ay: number, az: number, bx: number, by: number, bz: number, cx: number, cy: number, cz: number): void => {
     if (Math.max(ax, bx, cx) < x0 || Math.min(ax, bx, cx) > x1 || Math.max(ay, by, cy) < y0 || Math.min(ay, by, cy) > y1 || Math.max(az, bz, cz) < z0 || Math.min(az, bz, cz) > z1) return;
@@ -590,20 +609,14 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
       voxelise(pos.getX(i), pos.getY(i), pos.getZ(i), pos.getX(j), pos.getY(j), pos.getZ(j), pos.getX(k), pos.getY(k), pos.getZ(k));
     }
   }
-  const pos = geometry.getAttribute('position');
-  const nor = geometry.getAttribute('normal');
-  let col = geometry.getAttribute('color');
-  if (!col) {
-    col = new BufferAttribute(new Float32Array(pos.count * XYZ).fill(1), XYZ);
-    geometry.setAttribute('color', col);
-  }
   const n = new Vector3();
   const tx = new Vector3();
   const ty = new Vector3();
   const o = new Vector3();
   const steps = Math.max(1, Math.round(reach / voxel));
-  // Non-indexed meshes repeat each corner for every triangle that meets there: trace each position and normal once.
-  const traced = new Map<string, number>();
+  // Non-indexed meshes repeat each corner for every triangle that meets there: trace each lifted sample point once
+  // (the lift along the normal already separates faces meeting at an edge).
+  const traced = new Map<number, number>();
   const trace = (): number => {
     tx.set(Math.abs(n.y) < FLOOR_NORMAL_Y ? 0 : 1, Math.abs(n.y) < FLOOR_NORMAL_Y ? 1 : 0, 0).cross(n).normalize();
     ty.crossVectors(n, tx);
@@ -615,7 +628,7 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
       for (let s = 1; s <= steps; s++) {
         const d = s * voxel;
         const at = cell(o.x + dx * d, o.y + dy * d, o.z + dz * d);
-        if (at >= 0 && grid[at]) {
+        if (at >= 0 && solid(at)) {
           occ += 1 - (s - 1) / steps;
           break;
         }
@@ -623,13 +636,21 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
     }
     return occ;
   };
-  const q = (x: number): number => Math.round(x * AO.keyScale);
+  const q = (x: number): number => Math.round(x * AO.keyScale) + AO.keyOffset;
+  for (const geometry of targets) {
+  const pos = geometry.getAttribute('position');
+  const nor = geometry.getAttribute('normal');
+  let col = geometry.getAttribute('color');
+  if (!col) {
+    col = new BufferAttribute(new Float32Array(pos.count * XYZ).fill(1), XYZ);
+    geometry.setAttribute('color', col);
+  }
   for (let v = 0; v < pos.count; v++) {
     n.fromBufferAttribute(nor, v).normalize();
     o.fromBufferAttribute(pos, v).addScaledVector(n, voxel * AO.lift);
     let occ = 0;
     if (rays) {
-      const key = `${q(o.x)},${q(o.y)},${q(o.z)},${q(n.x)},${q(n.y)},${q(n.z)}`;
+      const key = (q(o.x) * AO.keySpan + q(o.y)) * AO.keySpan + q(o.z);
       const known = traced.get(key);
       occ = known ?? trace();
       if (known === undefined) traced.set(key, occ);
@@ -646,4 +667,5 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
     col.setXYZ(v, col.getX(v) * f, col.getY(v) * f, col.getZ(v) * f);
   }
   col.needsUpdate = true;
+  }
 }
