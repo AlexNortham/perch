@@ -192,6 +192,8 @@ export const TARGET = {
   forgetAfter: 256,
   /** The shared tower list is rebuilt this often (ticks), and at once when one falls. */
   towersEveryTicks: 30,
+  /** Flock-level push lane, siege and home threat are re-judged this often (ticks). */
+  flockEveryTicks: 15,
 } as const;
 
 /** Retreat, healing and the Home Roost (GDD §11.3). */

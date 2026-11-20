@@ -110,7 +110,7 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
   const pushLanes = new Map<PlayerTeam, { at: Tick; lane: LaneId }>();
   function pushLane(team: PlayerTeam): LaneId {
     const cached = pushLanes.get(team);
-    if (cached && cached.at === ctx.clock.tick) return cached.lane;
+    if (cached && ctx.clock.tick - cached.at < TARGET.flockEveryTicks) return cached.lane;
     let best: LaneId = LANE_ORDER[0]!;
     let bestScore = Infinity;
     for (const lane of LANE_ORDER) {
@@ -146,7 +146,7 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
   const sieges = new Map<PlayerTeam, { at: Tick; siege: Siege }>();
   function siege(team: PlayerTeam): Siege {
     const cached = sieges.get(team);
-    if (cached && cached.at === ctx.clock.tick) return cached.siege;
+    if (cached && ctx.clock.tick - cached.at < TARGET.flockEveryTicks) return cached.siege;
     const now = ctx.clock.tick;
     const heroes = ctx.store.list('hero');
     const mine = heroes.filter((h) => h.team === team && !h.health.dead).length;
@@ -195,7 +195,7 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
   const threats = new Map<PlayerTeam, { at: Tick; threat: { structure: StructureEntity; defenders: number } | null }>();
   function homeThreat(team: PlayerTeam): { structure: StructureEntity; defenders: number } | null {
     const cached = threats.get(team);
-    if (cached && cached.at === ctx.clock.tick) return cached.threat;
+    if (cached && ctx.clock.tick - cached.at < TARGET.flockEveryTicks) return cached.threat;
     let worst: { structure: StructureEntity; defenders: number } | null = null;
     let most = 0;
     for (const s of towers) {
