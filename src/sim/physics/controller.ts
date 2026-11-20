@@ -361,10 +361,11 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const s = states.get(e.caster);
     if (!h || !s) return;
     // A Burrow lasts as long as the channel of the ability that dug it (Kiwi): a second press or a stun surfaces it (D-HEROB-002).
-    if (e.stage !== 'start') {
+    if (e.stage === 'end' || e.stage === 'interrupted') {
       if (s.mode?.kind === 'burrow' && s.mode.cause.ability === e.ability) endMode(h);
       return;
     }
+    if (e.stage !== 'start') return;
     if (s.ride) leaveRide(h, s, false);
     s.dashStarted = NEVER;
     h.motor.dashJumpReady = false;
