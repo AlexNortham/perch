@@ -3,7 +3,7 @@
  * Tiers only add (D-ABIL-006): a number a tier raises is a named value, an extra effect is appended by the tier.
  */
 import type { AbilityDef, Effect, HeroDef, Magnitude, StatusDef, TargetFilter } from '../../core/contracts';
-import { STUN, TALON_SHRED } from '../combat';
+import { COMBAT, STUN, TALON_SHRED } from '../combat';
 
 const ENEMY_HEROES: TargetFilter = { teams: 'enemies', heroesOnly: true };
 const apply = (status: StatusDef, durationS: Magnitude, magnitude?: Magnitude): Effect => ({ kind: 'applyStatus', status, durationS, magnitude });
@@ -46,13 +46,14 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'woodpecker.drumroll',
     name: 'Drumroll',
-    description: 'Rev the drill: for 6 s you fire 20% faster.',
+    description: 'Rev the drill to full spin at once: for 6 s you fire 20% faster and the drill never spins down.',
     targeting: 'self',
     range: 0,
     cooldownS: 18,
     charges: 1,
     values: { duration: 6 },
-    effects: [fireRate('woodpecker.drumroll', 'Drumroll', 0.2, 'duration')],
+    // Its id is combat's full-spin status: the gun is at full spin from the cast and stays there (D-SYS-013).
+    effects: [fireRate(COMBAT.fullSpinStatus, 'Drumroll', 0.2, 'duration')],
     upgrades: [
       { description: '+2 s duration (8 s)', values: { duration: 2 } },
       { description: '+10% fire rate (30%)', effects: [fireRate('woodpecker.drumroll.t2', 'Drumroll: tempo', 0.1, 'duration')] },
