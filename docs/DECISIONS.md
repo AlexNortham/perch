@@ -2382,3 +2382,28 @@ regenerable from the records alone.
 3. **Size.** Run as many matches as the convergence tests need. The pilot estimates up to about 8,000 at the old measure, which is within the 10× the user allowed. Run them in overnight batches at most 6 processes wide, on the separate simulation track (D-EP-044), so no stage waits for them.
 
 **Why:** the 108-match pilot settled every hero's core between rounds, but item ranks agreed only at ρ 0.71 between halves, and no pick was settled by its confidence intervals.
+
+### D-EP-050 · 21/11/2026 — Stage 4 ships in two pushes: functionality first, art when done; no Stage 5
+**Decision:** the user said art must not hold up pushes to `main`, and stability matters most. Stage 4 therefore ships
+in two releases.
+
+1. **Functionality.** All 24 heroes playable, matches that end, every Stage 4 system working, and bots that play every
+   bird. Stability gates it:
+   - the full check passes three times in a row, run serially;
+   - every flaky test is explained or fixed;
+   - 20 seeded headless matches end with a winner and no crashes.
+
+   Art already merged and tested ships with it. Unfinished art waits, and a hero without its final model uses the
+   default bird.
+2. **Art.** The bird conversions, structures and creatures, and the environment's third pass, plus the Build Lab's
+   learned builds if they have converged. Pushed when done, against the same stability bar.
+
+After both pushes, work stops. Stage 5 is not started.
+
+**Why:** "the art should not hold up pushes to main im more concerned about stability. dont start stage 5 when you are
+done with stage 4, push to main when all functionality is added and push the art when that is done."
+
+**Consequence:**
+- In-flight art branches merge only after Release 1 is cut.
+- Ability-balance campaigns (D-EP-043) belong to Stage 5 and don't start.
+- The Build Lab's Phase B finishes the Stage 4 recommended builds and may still run.
