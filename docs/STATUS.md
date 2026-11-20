@@ -2340,7 +2340,7 @@ interiors. At the menu's high overview the nearest crowns show some faceting of 
 **Verified:** Git Bash `VITEST_MAX_WORKERS=2 npm run check`: `PASS typecheck · PASS lint · FAIL test` (5 failed, all the
 Objectives tests that fail on `integrate/w5` itself: `interactables.test.ts` ×2, `neutrals.test.ts` ×3). Run
 separately: `npm run perf` 7/8 (the objectives budget, also failing on `integrate/w5`); `npm run sim -- --seed 1
---minutes 3 --bots 12` 10,800 ticks, hash `0e2f8fafa4067d33`; E2E_LINE `e2e/draw-budget.spec.ts` 3/3. Renderer unit
+--minutes 3 --bots 12` 10,800 ticks, hash `0e2f8fafa4067d33`; `npx playwright test` on the final merge, while the machine was saturated (a 12 min run; 3 min is usual): 58 passed, 4 failed: `match.spec.ts` damage number (pre-existing, see the W5a Level entry) and three multi-navigation specs that time out; run serially, 8 of those 9 pass and `preview-regressions.spec.ts` "binds side buttons" (four page loads in 30 s) still times out (request below). The serial project alone: 24 of 25; the miss is `audio.spec.ts` "music reacts to the Roc fight" (the music state signature, not rendering). `e2e/draw-budget.spec.ts` 3/3. Renderer unit
 tests 45 (materials, compaction, map layer, ride, identity).
 
 **Interface requests:**
