@@ -1,6 +1,6 @@
 // Real key routing (INTEG-WEB 3): in a siege match and in the Practice Hub, with real key presses, B opens the
-// Magpie's Hoard, Tab (held) shows the scoreboard, M toggles the big map and a tap of the upgrade key opens
-// Ability Upgrades. After each panel the pointer goes back to the game.
+// Magpie's Hoard, M toggles the big map and holding the upgrade key frees the pointer for the HUD ability bar. The scoreboard
+// is always on (D-EP-041). After each panel the pointer goes back to the game.
 import { expect, test, type Page } from '@playwright/test';
 import { DEFAULT_BINDINGS } from '../src/client/app/bindings';
 import { lockPointer, open, pickHero, shot, VIEWPORT, READY_TIMEOUT_MS } from './game';
@@ -11,7 +11,7 @@ test.setTimeout(READY_TIMEOUT_MS * 2);
 const locked = (page: Page) => page.evaluate(() => document.pointerLockElement !== null);
 
 for (const mode of ['Play', 'Practice Hub'] as const) {
-  test(`${mode}: B, Tab, M and an Alt tap open their panels from real key presses`, async ({ page }) => {
+  test(`${mode}: B, M and an Alt hold open their panels from real key presses`, async ({ page }) => {
     const tag = mode === 'Play' ? 'match' : 'practice';
     await open(page);
     await pickHero(page, mode, 'Lyrebird');
@@ -26,13 +26,12 @@ for (const mode of ['Play', 'Practice Hub'] as const) {
     await expect(shop, 'B again closes it').toBeHidden();
     await lockPointer(page);
 
+    // The scoreboard is always on (D-EP-041): no key shows it, and Tab does nothing.
     const board = page.getByRole('region', { name: 'Scoreboard' });
-    await page.keyboard.down('Tab');
-    await expect(board, 'holding Tab shows the scoreboard').toBeVisible();
+    await expect(board, 'the scoreboard is always visible').toBeVisible();
     await shot(page, `keys-${tag}-scoreboard`);
-    await page.keyboard.up('Tab');
-    await expect(board, 'releasing Tab hides it').toBeHidden();
-    expect(await locked(page), 'the scoreboard keeps the pointer locked').toBe(true);
+    await page.keyboard.press('Tab');
+    expect(await locked(page), 'Tab keeps the pointer locked').toBe(true);
 
     const map = page.locator('.pu-bigmap');
     await expect(map).toBeHidden();
@@ -42,13 +41,11 @@ for (const mode of ['Play', 'Practice Hub'] as const) {
     await page.keyboard.press('KeyM');
     await expect(map, 'M again closes it').toBeHidden();
 
-    const upgrades = page.getByRole('dialog', { name: /Ability Upgrades/i });
-    await page.keyboard.press(DEFAULT_BINDINGS.upgradeModifier);
-    await expect(upgrades, 'tapping Alt opens Ability Upgrades').toBeVisible();
-    expect(await locked(page), 'upgrades free the pointer').toBe(false);
+    // Holding the upgrade key frees the pointer for the ability bar; releasing locks it again with no click (D-EP-038).
+    await page.keyboard.down(DEFAULT_BINDINGS.upgradeModifier);
+    await expect.poll(() => locked(page), { message: 'holding the upgrade key frees the pointer' }).toBe(false);
     await shot(page, `keys-${tag}-upgrades`);
-    await page.keyboard.press('Escape');
-    await expect(upgrades).toBeHidden();
-    await lockPointer(page);
+    await page.keyboard.up(DEFAULT_BINDINGS.upgradeModifier);
+    await expect.poll(() => locked(page), { message: 'releasing it locks the pointer again' }).toBe(true);
   });
 }

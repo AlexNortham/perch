@@ -4,6 +4,7 @@
  */
 import { ViewFlag } from '../../sim/core/contracts';
 import type { MapData, PlayerTeam, SimView } from '../../sim/core/contracts';
+import { TICK_RATE } from '../../sim/data/core';
 import { loadMap } from '../../sim/world/map';
 import type { AppActions } from '../app/contracts';
 import { ALLY_TEAL, ENEMY_RED, LANE_COLOURS, NEUTRAL_COLOUR, TEAM_COLOURS } from '../app/palette';
@@ -11,6 +12,29 @@ import { hex, MAP_ASPECT, MAP_STYLE, PING_CSS, PING_S } from './constants';
 import { el } from './dom';
 import { createGhosts, mapPoint, mapVisible, mapWorld } from './model';
 import type { PingMark } from './world';
+
+/** The zone under the minimap: the lane the local bird is on, else the map's own name. */
+export function zoneName(view: SimView): string {
+  const me = view.entities.find((e) => e.id === view.localHero);
+  const map = mapOf(view.map);
+  if (!me) return map.name;
+  let best: { id: string; d: number } | null = null;
+  for (const lane of map.lanes) {
+    for (let i = 1; i < lane.path.length; i++) {
+      const a = lane.path[i - 1];
+      const b = lane.path[i];
+      if (!a || !b) continue;
+      const abx = b.x - a.x;
+      const abz = b.z - a.z;
+      const t = Math.max(0, Math.min(1, ((me.pos.x - a.x) * abx + (me.pos.z - a.z) * abz) / Math.max(NEAR_ZERO, abx * abx + abz * abz)));
+      const d = Math.hypot(me.pos.x - (a.x + abx * t), me.pos.z - (a.z + abz * t)) - lane.halfWidth;
+      if (!best || d < best.d) best = { id: lane.id, d };
+    }
+  }
+  return best && best.d <= ZONE_LANE_MARGIN_M ? `${best.id.slice(0, 1).toUpperCase()}${best.id.slice(1)}` : map.name;
+}
+const ZONE_LANE_MARGIN_M = 12;
+const NEAR_ZERO = 1e-6;
 
 export interface MapView {
   readonly canvas: HTMLCanvasElement;
@@ -121,6 +145,21 @@ export function createMapView(parent: HTMLElement, cls: string, size: () => { wi
             break;
         }
       }
+      // Rune and Thicket camp timers sit on their spots while the spot waits to respawn.
+      const timer = (pos: { x: number; y: number; z: number }, at: number | null | undefined): void => {
+        if (at === null || at === undefined || at <= view.tick) return;
+        const q = P(pos);
+        ctx.font = `bold ${MAP_STYLE.timerFont * k}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.lineWidth = MAP_STYLE.timerStroke * k;
+        ctx.strokeStyle = '#000';
+        ctx.fillStyle = '#fff';
+        const text = String(Math.ceil((at - view.tick) / TICK_RATE));
+        ctx.strokeText(text, q.x, q.y);
+        ctx.fillText(text, q.x, q.y);
+      };
+      map.runeSpots.forEach((spot, i) => timer(spot.pos, view.objectives.runeAt?.[i]));
+      map.thickets.forEach((camp, i) => timer(camp.pos, view.objectives.campAt?.[i]));
       for (const g of ghosts.update(view, team)) dot(g.pos, MAP_STYLE.ghost, hex(ENEMY_RED), '#000', g.alpha * MAP_STYLE.ghostAlpha);
       // Camera cone: the local hero's facing (yaw 0 faces +z, north).
       const meEnt = view.entities.find((e) => e.id === view.localHero);

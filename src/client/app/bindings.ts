@@ -23,20 +23,12 @@ export const DEFAULT_BINDINGS: Bindings = {
   item2: 'KeyX',
   item3: 'KeyN',
   item4: 'KeyV',
-  interact: 'KeyE',
   ping: 'Mouse1',
   shoulderSwap: 'KeyG',
   shop: 'KeyB',
-  scoreboard: 'Tab',
   bigMap: 'KeyM',
   pause: 'Escape',
 };
-
-/**
- * Actions on their way out (D-EP-039, D-ARCH-022). Input maps no key to them and Options doesn't list them from
- * wave 5; the W5.5 round deletes them from BindAction, after which `sanitizeSettings` drops a saved code on load.
- */
-export const RETIRED_BIND_ACTIONS: readonly BindAction[] = ['interact'];
 
 /**
  * Bind `action` to `code`. If another action already uses `code`, the two swap, so bindings never collide and the

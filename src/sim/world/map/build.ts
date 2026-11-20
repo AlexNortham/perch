@@ -4,15 +4,17 @@
  * nodes. Pure; run once per map.
  */
 import type {
-  Anchor, BlockoutPrim, BotSpot, Climb, Lane, Ledge, MapData, NavGraph, NavLinkKind, ShopAnchor, StructureAnchor,
-  TeamAnchor, Updraft, Vec3,
+  Anchor, BlockoutPrim, BotSpot, Climb, Lane, Ledge, MapData, NavGraph, NavLink, NavLinkKind, Room, ShopAnchor,
+  StructureAnchor, Team, TeamAnchor, Updraft, Vec3,
 } from '../../core/contracts';
-import type { ClimbSpec, MapSpec } from './data/kit';
+import type { MapDressing } from './dressing';
+import type { ClimbSpec, LinkSpec, MapSpec, SpecPart } from './data/kit';
+import { joinParts, mirrorPart } from './data/kit';
 import {
-  CHIMNEY_GAP, CHIMNEY_OVERSHOOT, CHIMNEY_RADIUS, CLIMB_LANDING, MAX_SLOPE_RISE, NAV, REACH, STATION_SETBACK, UPDRAFT_HEIGHT,
-  VINE_OFFSET,
+  CHIMNEY_GAP, CHIMNEY_OVERSHOOT, CHIMNEY_RADIUS, CLIMB_LANDING, MAX_SLOPE_RISE, NAV, REACH, ROOM_FLOOR_EPS,
+  STATION_SETBACK, UPDRAFT_HEIGHT, VINE_OFFSET,
 } from './data/traversal';
-import { corners, indexPrims, primBottom, primTop, standAt, surfacesAt, type PrimIndex } from './geometry';
+import { blocksMovement, corners, indexPrims, primBottom, primTop, standAt, surfacesAt, type PrimIndex } from './geometry';
 import * as dmath from '../../core/dmath';
 
 const TAU = Math.PI * 2;
@@ -52,8 +54,20 @@ export function mirrorPrim(p: BlockoutPrim): BlockoutPrim {
 }
 
 const mirrorAnchor = <T extends Anchor>(a: T): T => ({ ...a, pos: mirrorV(a.pos), yaw: mirrorYaw(a.yaw) });
-const mirrorClimb = (c: ClimbSpec): ClimbSpec => ({ ...c, z: -c.z, inZ: -c.inZ });
-const both = <T>(half: readonly T[], mirror: (t: T) => T): T[] => [...half, ...half.map(mirror)];
+const mirrorClimb = (c: ClimbSpec): ClimbSpec => ({ ...c, z: -c.z || 0, inZ: -c.inZ || 0 });
+const DAWN_SUFFIX = '-dawn';
+/** Dusk's name for a Dawn record: '<name>-dawn' becomes '<name>-dusk'. */
+const duskName = (id: string): string => `${id.endsWith(DAWN_SUFFIX) ? id.slice(0, -DAWN_SUFFIX.length) : id}-dusk`;
+const swapTeam = (t: Team): Team => (t === 'dawn' ? 'dusk' : t === 'dusk' ? 'dawn' : t);
+
+/** The Dusk half: the Dawn half mirrored z → −z, with every record and name. */
+export const mirrorHalf = (p: SpecPart): SpecPart =>
+  mirrorPart(p, {
+    v: mirrorV, yaw: mirrorYaw, boxYaw: (y) => boxYaw(mirrorYaw(y)), prim: mirrorPrim, climb: mirrorClimb, name: duskName, team: swapTeam,
+  });
+
+/** The nav link a climb gives bots: ladders climb like Vines (GDD §6.7). */
+const climbLink = (c: ClimbSpec): NavLinkKind => (c.kind === 'ladder' ? 'vine' : c.kind);
 
 function buildClimb(c: ClimbSpec): Climb {
   const chimney = c.kind === 'chimney';
@@ -160,7 +174,7 @@ function ledgePointOk(index: PrimIndex, q: Vec3, out: Vec3, top: number): boolea
 export function deriveLedges(prims: readonly BlockoutPrim[], index: PrimIndex): Ledge[] {
   const ledges: Ledge[] = [];
   for (const p of prims) {
-    if (!p.solid || p.shape !== 'box') continue;
+    if (!blocksMovement(p) || p.shape !== 'box') continue;
     const top = primTop(p);
     const c = corners(p);
     c.forEach((a, i) => {
@@ -227,7 +241,8 @@ function classifyProfile(profile: Profile, from: number, to: number): NavLinkKin
   let f = from;
   let rank = WALK;
   for (let k = 1; k <= n; k++) {
-    const s = surface(k, f + REACH.jumpMantle);
+    // Stay on the current level when it continues (walking under a low roof is not a climb onto it).
+    const s = samples[k]?.find((y) => Math.abs(y - f) <= tol) ?? surface(k, f + REACH.jumpMantle);
     if (s === null) return null;
     const dh = s - f;
     if (dh > tol) {
@@ -258,14 +273,31 @@ function classifyProfile(profile: Profile, from: number, to: number): NavLinkKin
 
 interface NavInput {
   readonly index: PrimIndex;
+  /** Prims that seed generated nodes (building shells are left out: their nodes are authored). */
   readonly prims: readonly BlockoutPrim[];
   readonly lanes: readonly Lane[];
   /** Ground points that must be in the graph if standable: anchors and authored waypoints (y is a height hint). */
   readonly points: readonly Vec3[];
   readonly climbs: readonly ClimbSpec[];
+  /** Authored links (hatch drops, Bough Springs); both halves present. */
+  readonly links: readonly LinkSpec[];
   readonly updrafts: readonly Updraft[];
+  readonly rooms: readonly Room[];
   /** The graph keeps only what is reachable both ways from here (Dawn's first spawn). */
   readonly root: Vec3;
+}
+
+/** Index of the first room whose volume holds the point (feet within ROOM_FLOOR_EPS of its floor), or −1. */
+export function roomAt(rooms: readonly Room[], p: Vec3): number {
+  return rooms.findIndex((r) => {
+    const { centre: c, size: s } = r.volume;
+    const lx = p.x - c.x;
+    const lz = p.z - c.z;
+    const ca = dmath.cos(r.volume.yaw);
+    const sa = dmath.sin(r.volume.yaw);
+    return Math.abs(lx * ca - lz * sa) <= s.x / 2 && Math.abs(lx * sa + lz * ca) <= s.z / 2 &&
+      p.y >= c.y - s.y / 2 - ROOM_FLOOR_EPS && p.y < c.y + s.y / 2;
+  });
 }
 
 /** Candidate ground points: lane samples, building corners and roofs, ramp ends, wide cylinder tops. */
@@ -278,7 +310,7 @@ function candidates(input: NavInput): Vec3[] {
   }
   for (const u of input.updrafts) for (const s of u.stations) out.push(raise(s, -UPDRAFT_HEIGHT));
   for (const p of input.prims) {
-    if (!p.solid) continue;
+    if (!blocksMovement(p)) continue;
     const top = primTop(p);
     if (p.shape === 'cylinder') {
       if (p.radius >= NAV.cylinderMinRadius) out.push(v(p.centre.x, top, p.centre.z));
@@ -374,9 +406,9 @@ export function buildNav(input: NavInput): NavGraph {
   });
   for (let i = dawn; i < nodes.length; i++) mirrorOf[i] = mirrorOf.indexOf(i);
   const ground = nodes.length;
-  const links: { from: number; to: number; kind: NavLinkKind }[] = [];
-  const link = (from: number, to: number, kind: NavLinkKind) => {
-    if (from >= 0 && to >= 0 && from !== to) links.push({ from, to, kind });
+  const links: NavLink[] = [];
+  const link = (from: number, to: number, kind: NavLinkKind, spring?: number) => {
+    if (from >= 0 && to >= 0 && from !== to) links.push(spring === undefined ? { from, to, kind } : { from, to, kind, spring });
   };
   /** Links among Dawn and centre nodes also give their Dusk images. */
   const linkBoth = (from: number, to: number, kind: NavLinkKind) => {
@@ -411,9 +443,12 @@ export function buildNav(input: NavInput): NavGraph {
       const d = dist(a, b);
       const limit = d * NAV.detour;
       let via = false;
+      const lo = Math.min(a.y, b.y) - REACH.step;
+      const hi = Math.max(a.y, b.y) + REACH.step;
       for (const k of near[i] ?? []) {
         const c = nodes[k];
-        if (k === j || !c) continue;
+        // Only a node at about the same height stands in for a link: one on the storey below doesn't.
+        if (k === j || !c || c.y < lo || c.y > hi) continue;
         const ac = dist(a, c);
         if (ac < d && ac + dist(c, b) <= limit) {
           via = true;
@@ -431,9 +466,11 @@ export function buildNav(input: NavInput): NavGraph {
   for (const c of input.climbs) {
     const bottom = nearest(nodes, buildClimb(c).bottom);
     const top = nearest(nodes, climbLanding(c));
-    link(bottom, top, c.kind);
-    if (c.kind === 'vine') link(top, bottom, 'vine');
+    const kind = climbLink(c);
+    link(bottom, top, kind);
+    if (kind === 'vine') link(top, bottom, 'vine');
   }
+  for (const l of input.links) link(nearest(nodes, l.from), nearest(nodes, l.to), l.kind, l.spring);
   // Updraft stations are nodes on the line: mount from the ground below, ride between stations, drop off.
   for (const u of input.updrafts) {
     let prev = -1;
@@ -451,7 +488,8 @@ export function buildNav(input: NavInput): NavGraph {
   }
   // Keep the part every flock can reach and come back from.
   const root = nearest(nodes, input.root);
-  if (root < 0) return { nodes, links };
+  const rooms = (ns: readonly Vec3[]) => ns.map((n) => roomAt(input.rooms, n));
+  if (root < 0) return { nodes, links, nodeRoom: rooms(nodes) };
   const fwd = reachable(nodes.length, links, root, false);
   const back = reachable(nodes.length, links, root, true);
   const keep = nodes.map((_, i) => fwd[i] === true && back[i] === true);
@@ -464,15 +502,20 @@ export function buildNav(input: NavInput): NavGraph {
     nodes: kept,
     links: links
       .filter((l) => keep[l.from] && keep[l.to])
-      .map((l) => ({ from: remap[l.from] ?? -1, to: remap[l.to] ?? -1, kind: l.kind })),
+      .map((l) => ({ ...l, from: remap[l.from] ?? -1, to: remap[l.to] ?? -1 })),
+    nodeRoom: rooms(kept),
   };
 }
 
 // --- Assembly --------------------------------------------------------------------------------------------------
 
-export function buildMap(spec: MapSpec): MapData {
+export const buildMap = (spec: MapSpec): MapData => buildWorld(spec).map;
+
+/** The map and its dressing descriptor (D-EP-047), both halves resolved. */
+export function buildWorld(spec: MapSpec): { readonly map: MapData; readonly dressing: MapDressing } {
   const { half, centre } = spec;
-  const prims = [...centre.prims, ...both(half.prims, mirrorPrim)];
+  const all = joinParts(centre, half, mirrorHalf(half));
+  const prims = [...all.prims, ...(all.fabric ?? [])];
   const index = indexPrims(prims);
   const lanes: Lane[] = half.lanes.map((l) => ({
     id: l.id,
@@ -488,29 +531,32 @@ export function buildMap(spec: MapSpec): MapData {
   const structures: StructureAnchor[] = team(half.structures);
   const updrafts = lanes.map((l) =>
     buildUpdraft(l, half.lanes.find((h) => h.id === l.id)?.path ?? [], structures.filter((s) => s.team === 'dawn')));
-  const climbSpecs = [...centre.climbs, ...both(half.climbs, mirrorClimb)];
-  const thickets = [...centre.thickets, ...both(half.thickets, mirrorAnchor)];
-  const nests = [...centre.nests, ...both(half.nests, mirrorAnchor)];
+  const { climbs: climbSpecs, thickets, nests } = all;
   const botSpots: BotSpot[] = [...centre.botSpots, ...half.botSpots].flatMap((b) => {
     const dawn: BotSpot = { ...b, team: b.kind === 'safe' ? 'dawn' : 'neutral' };
     return [dawn, { ...dawn, pos: mirrorV(b.pos), team: b.kind === 'safe' ? 'dusk' : 'neutral' }];
   });
+  const interactables = all.interactables ?? [];
+  const springs = all.springs ?? [];
+  const rooms = all.rooms ?? [];
   const anchors: Anchor[] = [
-    ...spawns, ...shops, ...structures, ...thickets, ...nests, ...centre.runeSpots, ...centre.eggPerches,
+    ...spawns, ...shops, ...structures, ...thickets, ...nests, ...centre.runeSpots, ...centre.eggPerches, ...interactables,
   ];
   const root = spawns[0]?.pos ?? v(0, 0, 0);
   const navInput: NavInput = {
-    index, prims, lanes, climbs: climbSpecs, updrafts, root,
+    index, prims: all.prims, lanes, climbs: climbSpecs, updrafts, root, rooms,
+    links: [...(all.links ?? []), ...springs.map((s, i) => ({ from: s.pad, to: s.land, kind: 'walk' as const, spring: i }))],
     points: [
-      ...[...centre.nav, ...both(half.nav, mirrorV)],
+      ...all.nav,
       ...anchors.map((a) => a.pos),
       ...botSpots.map((b) => b.pos),
+      ...springs.flatMap((s) => [s.pad, s.land]),
       ...(centre.hollow ? [centre.hollow.centre] : []),
     ],
   };
   // The nav graph is most of the build cost and only bots read it: build it on first access, once.
   let nav: NavGraph | undefined;
-  return {
+  const map: MapData = {
     get nav() {
       nav ??= buildNav(navInput);
       return nav;
@@ -533,5 +579,13 @@ export function buildMap(spec: MapSpec): MapData {
     eggPerches: centre.eggPerches,
     hollow: centre.hollow,
     botSpots,
+    buildings: all.buildings ?? [],
+    rooms,
+    openings: all.openings ?? [],
+    jungle: all.jungle ?? [],
+    interactables,
+    springs,
+    dressing: { buildings: all.dress ?? [], props: all.props ?? [] },
   };
+  return { map, dressing: map.dressing ?? { buildings: [], props: [] } };
 }

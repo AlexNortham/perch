@@ -56,7 +56,7 @@ export const createCombatSystem: SystemFactory = (ctx: SimContext) => {
       gunCause: cause('weapon'),
       meleeCause: cause('melee'),
       nextFire: 0,
-      spinStart: 0,
+      spin: 0,
       reloadAt: 0,
       mods: [],
       melee: Melee.Idle,
@@ -104,8 +104,11 @@ export const createCombatSystem: SystemFactory = (ctx: SimContext) => {
     const e = damageable(t.entity);
     if (!e) return;
     const dur = fx.durationS === undefined ? fx.status.durationS : ctx.effects.magnitude(fx.durationS, c);
+    // A resolved duration ≤ 0 applies nothing, so a tier can switch a status on by raising a value from 0.
+    if (!(dur > 0)) return;
     const mag = fx.magnitude === undefined ? 1 : ctx.effects.magnitude(fx.magnitude, c);
     statuses.apply(e, fx.status, c, dur, mag, fx.stacks ?? 1);
+    damage.bind(c);
   });
   ctx.effects.handle('statMod', 'combat', (fx, t, c) => {
     const e = damageable(t.entity);
@@ -123,7 +126,8 @@ export const createCombatSystem: SystemFactory = (ctx: SimContext) => {
       };
       statModDefs.set(fx, def);
     }
-    statuses.apply(e, def, c, ctx.effects.magnitude(fx.durationS, c), 1, 1);
+    const dur = ctx.effects.magnitude(fx.durationS, c);
+    if (dur > 0) statuses.apply(e, def, c, dur, 1, 1);
   });
   ctx.effects.handle('cleanse', 'combat', (fx, t) => {
     const e = damageable(t.entity);
@@ -156,7 +160,7 @@ export const createCombatSystem: SystemFactory = (ctx: SimContext) => {
       for (const s of heroes.values()) {
         h.num(s.hero.id);
         h.num(s.nextFire);
-        h.num(s.spinStart);
+        h.num(s.spin);
         for (const m of s.mods) h.num(m.shots);
         h.num(s.reloadAt);
         h.num(s.melee);

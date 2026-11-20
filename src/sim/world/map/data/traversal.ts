@@ -39,6 +39,8 @@ export const CHIMNEY_OVERSHOOT = 1;
 export const VINE_OFFSET = 0.5;
 /** Where a climb drops its rider onto the roof, measured in from the wall line. */
 export const CLIMB_LANDING = 1.5;
+/** A point counts as inside a room when its feet are at most this far below the room's floor. */
+export const ROOM_FLOOR_EPS = 0.1;
 
 export const NAV = {
   /** Candidate nodes closer than this merge. */

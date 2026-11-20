@@ -186,7 +186,7 @@ describe('damage effect fields (Combat 4, 6)', () => {
 });
 
 describe('gun follow-ups (Combat 5, 7, 8)', () => {
-  it('spinUp: fromRate → fireRate over `seconds` of continuous fire, from scratch after a pause (Woodpecker 6 → 14)', () => {
+  it('spinUp: fromRate → fireRate over `seconds` of continuous fire, from scratch after a 0.5 s pause (Woodpecker 6 → 14)', () => {
     const drum = { def: { ...PELICAN.def, weapon: { ...PELICAN.def.weapon, spreadDeg: 0, fireRate: 14, spinUp: { fromRate: 6, seconds: 1.5 } } } };
     const k = createKit({ heroes: { pelican: drum } });
     const me = k.hero('pelican', 'dawn', { x: 0, y: 0, z: 0 });
@@ -205,7 +205,15 @@ describe('gun follow-ups (Combat 5, 7, 8)', () => {
     k.clear();
     k.input(me, Button.Fire);
     k.step(30);
-    // Spun down again: 0.5 s from 6/s climbs to about 8.7/s, so about 3.7 shots, not 7.
+    // A one-tick pause keeps the spin (GDD §9.19: it spins down over 0.5 s): about 7 shots in 0.5 s.
+    expect(Math.abs(shots() - 7)).toBeLessThanOrEqual(1);
+    me.weapon.ammo = 50;
+    k.input(me, 0);
+    k.step(30);
+    k.clear();
+    k.input(me, Button.Fire);
+    k.step(30);
+    // Spun down after 0.5 s: from 6/s it climbs to about 8.7/s, so about 3.7 shots, not 7.
     expect(shots()).toBeLessThanOrEqual(5);
   });
 

@@ -21,8 +21,37 @@ export const COOLDOWN_REDUCTION_CAP = 0.5;
 /** 'unit' targeting: the target must lie within this angle of the crosshair (GDD §9.0.1). */
 export const UNIT_TARGET_CONE_DEG = 6;
 
-/** 'point' targeting probes for the ground from this far above the aim point. */
+/** Ground probes for summons (and sim/items' point targeting) start this far above the point. */
 export const GROUND_PROBE_UP = 2;
+
+/**
+ * 'point' targeting (GDD §6.11): the aim point is pulled back this far toward the camera along the crosshair ray, then
+ * dropped to the floor under it, so placement never goes through a wall or ceiling.
+ */
+export const POINT_PULL_BACK = 0.05;
+
+/**
+ * An AbilityDef.values name the framework reads (D-SYS-012): a 'point' cast whose values hold `surface` ≥ 1 lands on
+ * the surface under the crosshair (wall, tree or floor) within range, not on the floor below it; a 'target' dash from
+ * such a cast flies straight to that point. Beyond range it falls back to the ordinary floor point.
+ */
+export const SURFACE_VALUE = 'surface';
+
+/** GDD §6.11: a cylinder area with no height of its own (≤ 0) is this tall, so a ground area stays on its storey. */
+export const CYLINDER_DEFAULT_HEIGHT = 3;
+
+/**
+ * GDD §6.11: an entity whose feet are more than this far above or below an area's centre is inside it only with a
+ * clear line from the centre (both ends lifted AREA_FLOOR_LIFT), so an area never reaches through a floor.
+ */
+export const AREA_STOREY_DY = 1.5;
+export const AREA_FLOOR_LIFT = 0.5;
+
+/**
+ * GDD §6.8: an ivy curtain (a 'sight' prim) blocks `unit` targeting both ways, except for a caster or target within
+ * this distance of it.
+ */
+export const CURTAIN_SEE_THROUGH_M = 3;
 
 /** Areas with onCross watch this much beyond their edge, so a fast mover (a dash) can't skip the line. */
 export const CROSS_MARGIN = 1;

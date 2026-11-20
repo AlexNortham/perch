@@ -9,30 +9,31 @@ import { BIG_MAP_FALLBACK_PX, BIG_MAP_SCREEN_SHARE, MAP_ASPECT, MINIMAP_SIZE, PI
 import { button, el } from './dom';
 import { createFeed } from './feed';
 import { createHud } from './hud';
-import { createMapView } from './minimap';
+import { createMapView, zoneName } from './minimap';
 import { optionsScreen } from './options';
-import { createScoreboard } from './scoreboard';
 import { endScreen, heroSelectScreen, menuScreen, pauseScreen } from './screens';
 import { createShop } from './shop';
+import { HUD_STYLES } from './data/hud-styles';
 import { MATCH_STYLES } from './match-styles';
 import { OPTIONS_STYLES, STYLES } from './styles';
 import { createTopBar } from './topbar';
-import { createUpgradePanel } from './upgrades';
+import { createStreaks } from './streaks';
 import { createWorldLayer } from './world';
 
 export function createUi(root: HTMLElement, actions: AppActions): Ui {
   const styleEl = document.createElement('style');
-  styleEl.textContent = STYLES + OPTIONS_STYLES + MATCH_STYLES;
+  styleEl.textContent = STYLES + OPTIONS_STYLES + MATCH_STYLES + HUD_STYLES;
   const host = el('pu-root');
   const screens = el('');
-  const hud = createHud();
+  const hud = createHud(actions);
   const world = createWorldLayer(actions);
-  const topbar = createTopBar();
+  const streaks = createStreaks();
+  const topbar = createTopBar(streaks);
   const feed = createFeed();
-  const scoreboard = createScoreboard();
-  const upgrades = createUpgradePanel(actions);
   const shop = createShop(actions);
-  const mini = createMapView(hud.root, 'pu-minimap', () => MINIMAP_SIZE, actions);
+  const miniWrap = el('pu-minimap', 'div', hud.root);
+  const mini = createMapView(miniWrap, 'pu-minimap-canvas', () => MINIMAP_SIZE, actions);
+  const zoneLabel = el('pu-zone', 'div', hud.root);
   const bigSize = (): { width: number; height: number } => {
     const height = Math.round(host.clientHeight * BIG_MAP_SCREEN_SHARE) || BIG_MAP_FALLBACK_PX;
     return { width: Math.round((height * MAP_ASPECT.width) / MAP_ASPECT.height), height };
@@ -61,7 +62,7 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
     wheel.append(b);
   }
 
-  hud.root.append(topbar.root, feed.root, world.root, scoreboard.root, upgrades.root, shop.root);
+  hud.root.append(topbar.root, feed.root, world.root, shop.root);
   host.append(hud.root, screens);
   root.append(styleEl, host);
 
@@ -78,14 +79,12 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
   };
   const applySettings = (s: Settings): void => {
     hud.setBindings(s.bindings);
-    upgrades.setBindings(s.bindings);
     world.setSettings(s);
   };
   const closePanels = (): void => {
-    upgrades.close();
+    hud.setUpgrading(false);
     shop.close();
     closeWheel(false);
-    scoreboard.setVisible(false);
     bigBox.hidden = true;
   };
 
@@ -98,7 +97,7 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
     if (inMatch && !wasInMatch) {
       feed.reset();
       world.reset();
-      scoreboard.reset();
+      streaks.reset();
       topbar.reset();
       mini.reset();
       big.reset();
@@ -107,9 +106,9 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
     applySettings(current);
     hud.setCatalogue(c.catalogue);
     hud.setPractice(c.mode === 'practice');
+    hud.setPaused(screen === 'pause');
     world.setPractice(c.mode === 'practice');
     shop.setCatalogue(c.catalogue);
-    scoreboard.setContext(c.catalogue, c.seed);
     const openOptions = (): void => {
       screens.replaceChildren(optionsScreen(settings ?? c.settings, saving, () => render(screen, c)));
     };
@@ -118,10 +117,10 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
         screens.append(menuScreen(actions, openOptions));
         break;
       case 'heroSelect':
-        screens.append(heroSelectScreen(actions, c.seed, c.mode));
+        screens.append(heroSelectScreen(actions, c.seed, c.mode, c.swap === true));
         break;
       case 'pause':
-        screens.append(pauseScreen(actions, openOptions, c.view.seconds));
+        screens.append(pauseScreen(actions, openOptions, c.view.seconds, c.mode));
         break;
       case 'end':
         screens.append(endScreen(actions, c));
@@ -138,10 +137,11 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
     },
     onEvents: (events, view) => {
       if (!inMatch) return;
-      hud.onEvents(events, view);
-      feed.onEvents(events, view);
+      const callouts = streaks.onEvents(events);
+      hud.onEvents(events, view, callouts);
+      feed.onEvents(events, view, callouts);
       world.onEvents(events, view);
-      scoreboard.onEvents(events, view);
+      topbar.onEvents(events, view);
     },
     update: (frame: Frame) => {
       if (!inMatch) return;
@@ -152,16 +152,14 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
       world.update(frame);
       mini.draw(view, world.pings);
       if (!bigBox.hidden) big.draw(view, world.pings);
-      scoreboard.update(view);
-      upgrades.update(view);
+      zoneLabel.textContent = zoneName(view);
       shop.update(view);
     },
     onUiAction: (action, down) => {
       if (!inMatch) return;
       switch (action) {
         case 'upgrades':
-          if (down) upgrades.open();
-          else upgrades.close();
+          hud.setUpgrading(down);
           break;
         case 'shop':
           if (down) shop.open();
@@ -172,9 +170,6 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
             wheelAt = actions.crosshairPing();
             wheel.hidden = false;
           } else closeWheel(false);
-          break;
-        case 'scoreboard':
-          scoreboard.setVisible(down);
           break;
         case 'bigMap':
           if (down) bigBox.hidden = !bigBox.hidden;

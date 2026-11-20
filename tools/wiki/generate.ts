@@ -157,7 +157,11 @@ export function generate(outDir: string, date = new Date().toISOString().slice(0
     const dst = join(outDir, s.file);
     if (resolve(src) !== resolve(dst) && existsSync(src)) copyFileSync(src, dst);
     if (existsSync(dst)) images.push(s.file);
-    else missingImages.push(s.file);
+    else {
+      missingImages.push(s.file);
+      // A screenshot not captured yet gets a placeholder when generating elsewhere (the test), so no reference dangles.
+      if (resolve(src) !== resolve(dst)) writeFileSync(dst, `<svg xmlns="http://www.w3.org/2000/svg" width="${s.w}" height="${s.h}"><rect width="100%" height="100%" fill="#ccc"/></svg>`);
+    }
   }
   for (const f of extraFiles.keys()) if (f.startsWith('img/')) images.push(f);
   // Stale hash-named JPEGs from older builds are removed so the folder only holds what pages use.

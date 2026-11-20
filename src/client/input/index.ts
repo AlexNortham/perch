@@ -50,7 +50,6 @@ const BUTTONS: readonly (readonly [BindAction, number])[] = [
   ['item4', Button.Item4],
   ['shoulderSwap', Button.ShoulderSwap],
   ['aim', Button.Aim],
-  ['interact', Button.Interact],
 ];
 const BUTTON_OF = new Map(BUTTONS);
 const ABILITY_4_SLOT = 3;
@@ -62,7 +61,6 @@ const UPGRADE_SLOT = new Map<BindAction, number>([
 ]);
 const UI_OF = new Map<BindAction, UiAction>([
   ['shop', 'shop'],
-  ['scoreboard', 'scoreboard'],
   ['bigMap', 'bigMap'],
   ['pause', 'pause'],
 ]);
@@ -98,7 +96,9 @@ export function createInput(
   let crouchPresses = 0;
   let pingDownAt = 0;
   let pingTimer: ReturnType<typeof setTimeout> | undefined;
-  let upgradeChord = false;
+  /** The upgrade key is held (D-EP-038): the pointer is free for the HUD; look and mouse buttons wait. */
+  let upgradeHold = false;
+  let relockOnRelease = false;
   let aimZoom = DEFAULT_AIM_ZOOM;
   const capturedMouse = new Set<number>();
   const capturedAux = new Set<number>();
@@ -127,10 +127,9 @@ export function createInput(
       if (action === 'pause') continue;
       if (down.has(action)) continue;
       down.add(action);
-      if (action === 'upgradeModifier') upgradeChord = false;
+      if (action === 'upgradeModifier') beginUpgrade();
       const slot = UPGRADE_SLOT.get(action);
       if (slot !== undefined && down.has('upgradeModifier')) {
-        upgradeChord = true;
         upgrade = slot;
         spent.add(action);
         continue;
@@ -161,16 +160,34 @@ export function createInput(
         if (at - pingDownAt < PING_TAP_MS) ping = resolvePing?.() ?? null;
         else onUiAction('pingWheel', true);
       }
-      if (action === 'upgradeModifier' && !upgradeChord) onUiAction('upgrades', true);
+      if (action === 'upgradeModifier') endUpgrade();
       const ui = UI_OF.get(action);
       if (ui) onUiAction(ui, false);
     }
   }
 
+  /** D-EP-038: free the real cursor while the key is held. Keys keep working; look and mouse buttons wait. */
+  function beginUpgrade(): void {
+    if (upgradeHold) return;
+    upgradeHold = true;
+    relockOnRelease = locked();
+    if (relockOnRelease) doc.exitPointerLock();
+    onUiAction('upgrades', true);
+  }
+
+  /** Lock again in the key's own event, so no extra click is needed (Edge and Firefox allow it, see D-UI-001). */
+  function endUpgrade(relock = true): void {
+    if (!upgradeHold) return;
+    upgradeHold = false;
+    onUiAction('upgrades', false);
+    if (relock && relockOnRelease && enabled) lock(true);
+    relockOnRelease = false;
+  }
+
   function releaseAll(): void {
     clearTimeout(pingTimer);
     pingTimer = undefined;
-    upgradeChord = false;
+    endUpgrade(false);
     for (const action of down) {
       const ui = UI_OF.get(action);
       if (ui) onUiAction(ui, false);
@@ -193,6 +210,7 @@ export function createInput(
       if (!e.repeat && Math.abs(e.timeStamp - lockLostAt) >= ESC_DEDUPE_MS) onUiAction('pause', true);
       return;
     }
+    if (enabled && e.code === 'Tab') e.preventDefault(); // focus never leaves the game mid-match; Tab is not a binding
     if (!enabled || !bound(e.code)) return;
     e.preventDefault();
     if (!e.repeat) press(e.code, e.timeStamp);
@@ -231,7 +249,7 @@ export function createInput(
   };
   const onLockChange = (ev: Event): void => {
     if (locked()) return;
-    if (!enabled) return;
+    if (!enabled || upgradeHold) return;
     lockLostAt = ev.timeStamp;
     onUiAction('pause', true);
   };
@@ -255,7 +273,10 @@ export function createInput(
     if (b === HISTORY_BACK || b === HISTORY_FORWARD) ev.preventDefault();
   };
 
-  function lock(): void {
+  /** `again`: lock after our own release of the lock, which the browser allows without a fresh gesture. */
+  function lock(again = false): void {
+    // Without a user gesture a request only fails (and can disturb the click's own request that follows): wait for the click.
+    if (!again && doc.defaultView?.navigator.userActivation?.isActive === false) return;
     try {
       // Newer browsers return a promise that rejects without a user gesture; that just leaves the click to do it.
       void Promise.resolve(target.requestPointerLock()).catch(() => undefined);

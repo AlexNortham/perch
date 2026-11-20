@@ -21,6 +21,7 @@ describe('key bindings', () => {
     expect(r?.bindings.jump).toBe('KeyJ');
     expect(r?.swapped).toBeNull();
     expect(capture(DEFAULT_BINDINGS, 'jump', 'Escape')).toBeNull();
+    expect(capture(DEFAULT_BINDINGS, 'jump', 'Tab'), 'Tab is not bindable (D-EP-041)').toBeNull();
   });
 
   it('a key in use swaps the two actions', () => {

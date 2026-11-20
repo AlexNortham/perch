@@ -40,6 +40,15 @@ export const COMBAT = {
   assistWindowS: 12,
   /** GDD §8.9: respawn = min(maxS, baseS + perMinuteS × minutes), rounded to roundS, × emberMult with the Ember. */
   respawn: { baseS: 8, perMinuteS: 1.2, maxS: 55, roundS: 0.1, emberMult: 0.5 },
+  /** GDD §7.12 Rekindle: a hero who dies while its flock holds a charge revives where it fell this long after. */
+  reviveS: 3,
+  /** GDD §9.19: a spun-up gun (WeaponDef.spinUp) loses its spin over this long once it stops firing. */
+  spinDownS: 0.5,
+  /**
+   * Woodpecker's Drumroll (GDD §9.19, D-SYS-013): while a hero holds any status (applyStatus or statMod) with this id,
+   * its spun-up gun is at full spin at once and never spins down. Drumroll's own fire-rate statMod can carry it.
+   */
+  fullSpinStatus: 'fullSpin',
   /** GDD §10 (Skipping Stone): a bounce jumps to the nearest other enemy within radius for `fraction` damage. */
   bounce: { radius: 8, fraction: 0.45 },
   /**

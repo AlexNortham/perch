@@ -94,27 +94,71 @@ export const MANTLE = {
   facing: 0.5,
 } as const;
 
-/** GDD §3.7. */
+/** GDD §3.7 (D-EP-039): no key; a held Jump latches anywhere along the cable. */
 export const UPDRAFT = {
-  /** E mounts within this horizontal distance of a station … */
-  stationRadius: 2,
-  /** … from up to this far below it (stations are 12 m above the lane) or this far above it. */
-  stationBelow: 14,
-  stationAbove: 2,
-  /** Jumping into the line while airborne mounts within this distance of it. */
-  airMountRadius: 1.5,
-  mountS: 0.3,
+  /** Latch reach: feet within this horizontal distance of the cable's line on the ground … */
+  reach: 2.5,
+  /** … with the cable between these heights above the feet. */
+  reachAboveMin: 0.5,
+  reachAboveMax: 14,
+  /** Airborne within this distance of the cable (3D), the hold attaches in attachS instead of pulling up. */
+  airReach: 1.5,
+  /** Jump held this long within reach latches; a tap never does. */
+  latchHoldS: 0.2,
+  /** From the ground (or airborne beyond airReach) the hold pulls the hero up to the cable at this speed. */
+  pullSpeed: 30,
+  attachS: 0.15,
+  /** No latch for this long after taking damage from an enemy hero, or after leaving an Updraft. */
+  damageLockoutS: 3,
+  leaveLockoutS: 1,
   rideSpeed: 11,
   boostSpeed: 18,
   boostS: 3,
   boostCooldownS: 12,
   /** No boost for this long after taking hero damage. */
   boostDamageLockS: 3,
+  /** A fresh Jump press jumps off with +dismountUp m/s and dismountKeep of the ride velocity; Crouch drops off. */
   dismountUp: 4,
   dismountKeep: 0.7,
-  /** No air mount for this long after leaving a line (so a jump-off doesn't remount). */
-  remountDelayS: 0.5,
+  /** @deprecated Stage 3 station mount; tools/wiki still prints it. Stations are only signposts now (§3.7). */
+  stationRadius: 2,
+  /** @deprecated Stage 3 air mount; tools/wiki still prints it. Use airReach. */
+  airMountRadius: 1.5,
 } as const;
+
+/** GDD §7.15 Bough Springs: a pad launches along its authored arc (MapData.springs). */
+export const SPRING = {
+  /** At most one launch per hero per this long. */
+  cooldownS: 1,
+  /** Feet within this height of the pad count as standing on it (its radius is map data). */
+  padHeight: 0.6,
+  /** Air control after the apex, as a fraction of AIR.accel (none before it). */
+  airControl: 0.3,
+  /** Enemy hero damage this soon after the launch clips it: vertical speed 0 and a slow. */
+  clipS: 0.6,
+  clipSlow: 0.3,
+  clipSlowS: 1.5,
+} as const;
+
+/** GDD §7.15 the Cellar Run: run speed inside a 'tunnel' room (the sprint bonus, dashes and slides unchanged). */
+export const TUNNEL = { runSpeedMult: 1.3 } as const;
+
+/**
+ * Collider layers physics adds to the contract's Layer bits (D-SYS-010). A query mask that includes a bit hits those
+ * colliders; LAYERS_SOLID alone (bullets, sight, areas) hits neither the movement nor the sight prims.
+ * - sight: PrimBase.blocks 'sight' (ivy curtains); vision and `unit` targeting add it to their mask.
+ * - movement: PrimBase.blocks 'movement' (shot-window fillers); heroes and units collide with them.
+ * - eggCarrier: Opening.blocksEggCarrier gaps; only an Egg carrier's moves collide with them.
+ */
+export const PHYSICS_LAYERS = { sight: 0x10, movement: 0x20, eggCarrier: 0x40 } as const;
+/** Opening.blocksEggCarrier: the blocker is a slab this thick (m) across the gap. */
+export const EGG_BLOCKER_DEPTH = 0.2;
+
+/**
+ * An AbilityDef.values name the dash effect reads (D-SYS-011): an 'aim' dash whose cause's values hold `steerDeg` > 0
+ * follows the caster's aim while it runs, at most that many degrees either side of where it started (Rampage 30).
+ */
+export const STEER_VALUE = 'steerDeg';
 
 /** GDD §3.8. */
 export const CHIMNEY = {

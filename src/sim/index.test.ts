@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { Button, HERO_IDS, IDLE_COMMAND, ViewFlag } from './core/contracts';
-import type { HeroCommand, Sim } from './core/contracts';
+import { Button, HERO_IDS, IDLE_COMMAND, Layer, RETIRED_BUTTONS, ViewFlag } from './core/contracts';
+import { PHYSICS_LAYERS } from './data/movement';
+import type { HeroCommand, RosterSlot, Sim } from './core/contracts';
 import { allBotRoster, createSim, humanRoster } from './index';
+import { loadMap } from './world/map';
 
 async function run(seed: number, ticks: number, drive?: (sim: Sim) => HeroCommand[]): Promise<Sim> {
   const sim = await createSim({ seed, roster: allBotRoster(seed) });
@@ -49,6 +51,26 @@ describe('createSim', () => {
       }),
     ).rejects.toThrow(/twice/);
     await expect(createSim({ seed: 1.5, roster: [] })).rejects.toThrow(/integer/);
+  });
+
+  it('practiceStart puts the Practice Hub player there, facing its yaw; the training targets stay (D-ARCH-026)', async () => {
+    const roster: RosterSlot[] = [
+      { team: 'dawn', hero: 'swan', controller: 'human' },
+      { team: 'dusk', hero: 'shrike', controller: 'dummy' },
+    ];
+    const options = { practiceHub: true, waves: false, neutrals: false, structures: false };
+    const practiceStart = { pos: { x: 5, y: 0, z: 7 }, yaw: 1 };
+    const plain = await createSim({ seed: 1, map: 'arena', roster, options });
+    const moved = await createSim({ seed: 1, map: 'arena', roster, options: { ...options, practiceStart } });
+    moved.step([]);
+    const [me, dummy] = moved.ctx.store.list('hero');
+    expect([me?.pos.x, me?.pos.z, me?.yaw]).toEqual([5, 7, 1]);
+    expect(dummy?.pos).toEqual(plain.ctx.store.list('hero')[1]?.pos);
+    await expect(createSim({ seed: 1, map: 'arena', roster, options: { practiceStart } })).rejects.toThrow(/practiceHub/);
+    const turned = await createSim({ seed: 1, map: 'arena', roster, options: { ...options, practiceStart: { ...practiceStart, yaw: 1 + 4 * Math.PI } } });
+    expect(turned.ctx.store.list('hero')[0]?.yaw).toBeCloseTo(1);
+    const nan = { ...practiceStart, yaw: Number.NaN };
+    await expect(createSim({ seed: 1, map: 'arena', roster, options: { ...options, practiceStart: nan } })).rejects.toThrow(/finite/);
   });
 
   it('latches commands: look, shoulder swap, one-shot fields cleared when not refreshed', async () => {
@@ -102,6 +124,10 @@ describe('createSim', () => {
     sim.drainEvents();
     sim.step([{ hero: id, command: { ...IDLE_COMMAND, ping } }]);
     expect(sim.drainEvents().filter((e) => e.type === 'ping')).toEqual([]);
+    // D-ARCH-025: retired and unknown bits never reach a system; live ones pass.
+    const junk = RETIRED_BUTTONS.Interact | 0x4000_0000;
+    sim.step([{ hero: id, command: { ...IDLE_COMMAND, held: junk | Button.Jump, pressed: junk | Button.Fire } }]);
+    expect([h.command.held, h.command.pressed]).toEqual([Button.Jump, Button.Fire]);
   });
 
   it('gives the client a snapshot view and the last step\'s events', async () => {
@@ -150,6 +176,19 @@ describe('createSim', () => {
     expect(v.heroes[0]).toMatchObject({ updraftInReach: true, keepsakes: { count: 2, totals: { maxHealth: 30 } } });
     h.keepsakes.totals.maxHealth = 45;
     expect(v.heroes[0]?.keepsakes?.totals.maxHealth).toBe(30);
+  });
+});
+
+describe('contracts', () => {
+  it('Layer owns the physics-only bits; data/movement still mirrors them until Physics points at Layer (D-ARCH-027)', () => {
+    expect(PHYSICS_LAYERS).toEqual({ sight: Layer.Sight, movement: Layer.Movement, eggCarrier: Layer.EggCarrier });
+  });
+
+  it('MapData carries the dressing, one BuildingDress per Building (D-ARCH-028)', () => {
+    const main = loadMap('main');
+    expect(main.dressing?.buildings.length).toBe(main.buildings?.length);
+    expect(main.dressing?.props.length).toBeGreaterThan(0);
+    expect(loadMap('arena').dressing).toBeUndefined();
   });
 });
 

@@ -1697,3 +1697,264 @@ outline red and teal stay off the environment). Checklist item A1 asks the quest
 and a "no" blocks.
 **Why:** the user's instruction via the EP: the map should feel like somewhere birds would be, in every area, while
 staying readable in combat.
+### D-SYS-006 · 19/11/2026 — The Updraft latch, read exactly (GDD §3.7, D-EP-039)
+**Decision:** `updraftInReach` is the nearer of two tests per segment: the column (feet within 2.5 m of the cable's
+ground line, the cable 0.5–14 m above them, at the point straight above the feet's nearest spot) and a 1.5 m sphere
+around the cable. Jump held for 12 consecutive ticks (0.2 s) latches; an airborne hero within 1.5 m attaches in 9 ticks,
+anyone else is pulled straight to that point at 30 m/s. A hold that spans the end of a lockout latches as soon as it
+ends. The press keeps starting a normal jump; mantles come first. Riding tracks whether Jump has been let go since the
+latch; only a press after that jumps off. `Button.Interact` is never read. On a map without Updrafts physics leaves
+`Motor.updraftInReach` alone.
+**Why:** the GDD gives both reach rules; "pulls you straight up" from up to 2.5 m to one side needs a direction, and
+the cable point is the only one that ends on the cable.
+
+### D-SYS-007 · 19/11/2026 — Bough Springs fly a ballistic arc from where the feet are (GDD §7.15)
+**Decision:** a grounded hero whose feet are inside a pad's radius and within 0.6 m of its height launches with the
+vertical speed that peaks at `apexY` under hero gravity and the horizontal speed that lands at `land`. No air control
+before the apex, 30% after. A clip (enemy hero damage in the first 0.6 s) sets vertical speed to min(current, 0), moves
+air control to the after-apex 30%, and applies the shared 30% `slow` for 1.5 s with the damaging hero as its source
+(via 'objective'). The 1.0 s limit counts from the launch.
+**Why:** the arc is data; integrating it with the controller's own gravity keeps walls, landings and air control
+working with no scripted path.
+
+### D-SYS-008 · 19/11/2026 — The Cellar Run and the Egg carrier's stair heads
+**Decision:** inside a `tag: 'tunnel'` room the `moveSpeed` stat is ×1.3 before the sprint bonus is added; dash
+distances and slide speeds don't change (a dash's exit speed follows run speed, as everywhere). An Opening with
+`blocksEggCarrier` becomes a 0.2 m slab across the gap on a layer only an Egg carrier's moves and fit checks collide with.
+**Why:** "+30% run speed (sprint, dashes and slides unchanged)"; a per-carrier collider layer needs no per-tick work.
+
+### D-SYS-009 · 19/11/2026 — A melee swing reports the first pickup in front and carries on
+**Decision:** the swing's cast reports the first pickup before any hitbox as a `melee` event (no damage), then deals
+with the first hero, unit or structure behind it as before (a second `melee` event). Pickups need `melee` set ('heavy'
+only answers a heavy swing), no carrier and a `claimableAt` that has passed; pods and the Stage 3 Ember stay in the
+test. Pods therefore no longer stop a swing either.
+**Why:** INTERFACES §14.4: "doesn't stop the swing at heroes behind it". Skipping carried and unclaimable pickups keeps
+the hit for the carrier itself (the Egg drops on an enemy melee hit, §7.11).
+
+### D-SYS-010 · 19/11/2026 — Physics layers for 'movement' and 'sight' prims and the Egg-carrier blockers
+**Decision:** `PHYSICS_LAYERS` (data/movement.ts): sight 0x10 (ivy), movement 0x20 (shot-window fillers), eggCarrier
+0x40. Movement, mantles, fits and the units' ground cache use `MOVE_MASK` (LAYERS_SOLID | movement); `groundHeight`
+too. A query with LAYERS_SOLID alone (bullets, vision today, areas) hits neither, so sight and shots pass a shot window
+and an ivy curtain. Vision and `unit` targeting add `PHYSICS_LAYERS.sight`. Structures with `solid: false` get no
+collider.
+**Why:** contract `Layer` is frozen this wave; the bits live in physics data until the Architect adds them (W5.5).
+
+### D-SYS-011 · 19/11/2026 — A dash can follow the aim: `values.steerDeg` (Rampage)
+**Decision:** an 'aim' dash whose cause values hold `steerDeg` > 0 re-aims every tick to the caster's yaw, clamped to
+±steerDeg of its starting direction. Rampage's data adds `steerDeg: 30` to its values.
+**Why:** `DashEffect` has no steering field and the contract is frozen; ability values already reach the dash through
+the cause, so no hook is needed.
+
+### D-SYS-012 · 19/11/2026 — The floor under the crosshair, and surface casts: `values.surface`
+**Decision:** a 'point' cast takes the aim point pulled 5 cm back toward the camera or, beyond range, the point on the
+crosshair ray at that horizontal distance, and drops it to the floor below. That point lies in air the caster can see,
+so the drop never passes through a ceiling (the old 2 m probe landed on the slab above). A cast whose values hold
+`surface` ≥ 1 takes the surface hit itself within range (3D, from the feet), and a 'target' dash from such a cast flies
+straight to it, stopping a body radius short (Tree Cling, Branch Swing).
+**Why:** GDD §6.11 and §§9.18–9.19 ("any surface", "wall or tree"); no `AbilityDef` field for it this wave.
+
+### D-SYS-013 · 19/11/2026 — Full spin is a status id; spin runs down over 0.5 s
+**Decision:** spin is a 0–1 level: it rises over `spinUp.seconds` while firing and falls over `COMBAT.spinDownS` (0.5 s)
+once fire stops. While the hero holds any status with id `COMBAT.fullSpinStatus` it is 1 (Drumroll: rename its
+fire-rate statMod's id). Not a StatusDef export, so the wiki's shared-status table is unchanged.
+**Why:** GDD §9.19 "spins down 0.5 s after release"; a status needs no new `WeaponModEffect` field.
+
+### D-SYS-014 · 19/11/2026 — Trigger hits: `triggerPct` refers to the hit being reported
+**Decision:** combat marks the hit whose `damage.applied` is on the bus. A `damage` with `triggerPct` applied meanwhile
+(item and ability triggers run there) uses it: on another entity it adds triggerPct × the hit after step 5 (before the
+target's resists) and goes through the whole pipeline (Bristle, Burr Coat); on the hit's own target it is a repeat,
+triggerPct × the damage dealt, which skips steps 1–7 (Crescendo). A status applied meanwhile binds the hit to its cause,
+so `triggerPct` in its `onExpire` repeats the hit later (Echo Chamber: a 1 s status instead of a `delay`). `%HP` parts
+(`currentHpPct`, `maxHpPct`) are step 1, read when the hit resolves.
+**Why:** a repeat that goes through the pipeline again is resisted twice (the wave 5a finding); a delay can't carry the
+hit, a status's cause can.
+
+### D-SYS-015 · 19/11/2026 — Breakables, damage regions, Rekindle, areas on a storey
+**Decision:** a breakable's `light`/`heavy` amount replaces steps 1–7. `damageFrom` drops a hit only when it has a
+credited hero outside the region. Rekindle: a hero dying while its flock's `rekindle` has a charge and an `until` ahead
+revives where it fell after 3 s at full HP, once per hero per `until`. A resolved duration ≤ 0 applies nothing for
+`statMod` as for `applyStatus`. An area member whose feet are more than 1.5 m above or below the centre needs a clear
+line (both ends lifted 0.5 m); an ivy curtain blocks `unit` targeting unless caster or target is within 3 m of it.
+**Why:** GDD §§6.8, 6.11, 7.9, 7.12, 7.14 and the W5 follow-ups.
+
+### D-SYS-016 · 19/11/2026 — Two gaps the frozen contract can't close
+**Decision:** Tree Cling's stun end stays the hero's (or an `onEnd` cleanse plus its hook): `endOn` has no 'stun', and a
+physics stun rule would bypass the Woodpecker hook that removes the gun bonus. Gape's "heal 30% of the damage dealt" has
+no exact shape: the lifesteal status stays until a `HealEffect.triggerPct` (a share of the hit being reported) lands.
+**Why:** both are one-field contract changes for W5.5; the stand-ins work meanwhile.
+### D-UI-006 · 19/11/2026 — Hold to upgrade uses the real cursor, and keys keep working
+**Decision:** holding the upgrade key calls `exitPointerLock()` and releasing it requests the lock again in the key's own
+event. Input stays enabled: movement and abilities keep working, look and mouse buttons wait because they need the lock.
+Measured with Playwright (300 ms and 7 s holds, script `tools/pointer-lock-probe.mjs`): Edge 156 and Firefox 159 both re-lock
+at once with no click and no gesture limit; Chrome is not installed on this machine and runs the same engine as Edge.
+No game-drawn cursor exists. A lock lost on purpose is not a pause; Esc during the hold pauses as usual.
+**Why:** the real cursor gives native hover, focus and accessibility for free, and the re-lock works in every browser tried.
+`lock()` makes no request when `navigator.userActivation.isActive` is false (it only fails and raced the click's own
+request, which paused the match), except for this re-lock.
+
+### D-UI-007 · 19/11/2026 — Swap bird is a fresh practice session placed on the old spot
+**Decision:** `swapBird` opens the picker with the session paused; picking builds `practiceConfig(seed, hero)` and, before
+the first frame, emits `hero.respawned` with the old position on that session's bus so Physics re-seats the bird there.
+That uses `sim.ctx`, which the contract reserves for tests and tools, so the line carries a `ponytail:` comment and an
+interface request: `SimOptions.practiceStart` for the Architect. The look direction is kept.
+**Why:** it needs no sim change in wave 5a and meets "respawns the player as the new bird at their current spot".
+
+### D-UI-008 · 19/11/2026 — Scoreboard numbers
+**Decision:** a portrait and the team pills show net worth ("Seeds") and the HUD wallet shows spendable Seeds. The window under
+the totals reads `Egg mm:ss-mm:ss` from the soonest scheduled Egg or Roc: the timer's start to 30 s later
+(`OBJECTIVE_WINDOW_S`). The lead is the leader's margin as a percent of the other flock. Play starts with the player and 11
+bots (`FULL_MATCH_BOTS`), because the bar has six birds a side.
+**Why:** net worth is what a flock compares; the 30 s window is the time an Egg or Roc stays up before it matters.
+### D-OBJ-009 · 19/11/2026 — Who sees neutrals, and hidden heroes
+**Decision:** Nests, Feeders, pickups and sleeping creatures are always visible (`SeenBy.all`), like the map. Awake
+creatures and the Roc follow the ordinary sight rule, evaluated every 0.25 s instead of every 0.1 s. A hero hidden in
+a Hide is seen by an enemy flock only while exposed (2 s after dealing damage or applying a status to an enemy), while
+revealed (a reveal beats the Hide), inside a true-sight radius, or with an enemy hero standing in the same Hide.
+Lookouts give 60 m sight within 3 m; ivy curtains are tested analytically against hero sight lines and ignored within
+3 m of the viewer.
+**Why:** static objects carry no secret and cost a raycast per flock per check; camps are known positions. Creature
+sight lines were most of the extra raycasts in the busy benchmark, and 0.25 s is the ARCHITECTURE §11 limit. Reveals
+are the counter-play the GDD gives to hiding everywhere else.
+
+### D-OBJ-010 · 19/11/2026 — The Egg and the Embers wait on their landing spot
+**Decision:** the Egg sits on its perch from its spawn and each Ember on its spot from the Roc's death; `claimableAt`
+marks the landing, and the client animates the descent (EGG.lowerFromM, EMBERS.fallFromM). E uses whole match minutes
+at the landing (1,100 for the 10:10 landing), as in the GDD's "1,100 at 10:00".
+**Why:** the descent can't be interacted with, so moving the pickup buys nothing in the sim; QA's tests and the HUD
+read the landing position from the start. Whole minutes reproduce the GDD's worked values.
+
+### D-OBJ-011 · 19/11/2026 — The Roc's body and attacks
+**Decision:** the Roc stands on the Hollow floor's centre (3 m radius, 9 m tall) and is unstoppable. Rake wind-up is
+0.5 s, its 8 m cone measured from the body's edge; Gale Flap 0.6 s and Sky Shriek 0.4 s wind-ups, both from its centre.
+It grows +300 max HP per whole minute alive, healing the same amount. Its `damageFrom` sphere is the Hollow's radius
+plus 4 m, cut off at y −2. It sleeps (invulnerable) in the Hollow from 0:00 and wakes at 20:00.
+**Why:** the GDD gives no wind-ups or body size. A boss that can be stunned or knocked about breaks the Hollow fight.
+Whole minutes keep the 15 HP/s regeneration measurable between minute marks (QA's regen test).
+
+### D-OBJ-012 · 19/11/2026 — Camp aggro, leash and rooms
+**Decision:** a creature attacks the hero who dealt its camp the most damage in the last 3 s and that it can see (one
+raycast per creature per 0.5 s); with no recent damage it keeps its target. The camp walks home when a creature passes
+the leash plus 3 m, or after 6 s without damage while a creature is past the 18 m leash or none sees a living target.
+Indoor creatures are clamped to their room's volume (or the building footprint). Specials come half an interval after
+aggro; a dash-bite lunges at 24 m/s; toad puddles tick every 0.5 s for 10 Song and a 30% slow.
+**Why:** read literally, "6 s without taking damage" sends a camp home while a hero stands in it tanking, which no
+player expects and QA's attack tests rule out. Units have no walls (D-CTRL-002), so the room clamp is what stops
+indoor camps at their doors.
+
+### D-OBJ-013 · 19/11/2026 — A Bell Feeder's chime is judged when the hit lands
+**Decision:** the full chime checks the lamp when combat reports the breaking `melee` hit. A heavy hit lands 0.6 s after
+its press, longer than either lit window, so a heavy chime means pressing ahead of the beat. A Granary Feeder and its
+Rat camp return together once both are down: the Rats 4:45 and the Feeder 5:00 after the later of the two; before 8:00
+the Feeder still to come counts as standing.
+**Why:** GDD §7.14 says "lands while the lamp is lit". The Granary rule is the GDD's two respawn rows read together.
+
+### D-OBJ-014 · 19/11/2026 — Pickup reach, sphere sizes and the stat mapping
+**Decision:** walk-in pickups (crumbs, keepsakes, Berries) are collected by flat distance (1.5 m, Berries 1.2 m) with
+the pickup between 1 m below and 2 m above the feet. A GDD "1.0 m sphere" (Egg, runes, Embers) is 1.0 m across (0.5 m
+radius). Percentages of a stat with a base (magazine size) are 'pct'; regeneration bonuses divide staminaRecharge
+(seconds per pip) by 1 + bonus; resist and CDR keepsakes and runes stack ('stack'). The Egg carrier's slow immunity
+cleanses any slowing status each tick. Swift's +Updraft speed waits for a physics stat.
+**Why:** flat reach matches how a hero reads "within 1.5 m"; the band stops collecting through a floor. The stat
+service has no immunity op, and cleansing keeps every other negative status (stuns drop the Egg).
+
+### D-LEVEL-005 · 19/11/2026 — One shell builder for every enterable building
+**Decision:** `src/sim/world/map/data/interiors.ts` builds every enterable building from the GDD §6.8 kit:
+- wall columns split at gap edges, and merged where they are equal;
+- slabs carved around stair, ladder and hatch holes (a hole against a wall runs on under it);
+- stairs as ramps, and ladders through 2 × 2 m hatches;
+- balconies and landing boards;
+- flat roofs with parapets, or 30° or 50° gables.
+
+Its prims are `fabric`: they collide but seed no generated nav, and the builder authors the building's waypoints and links instead. Solid fill houses are `Building` records with no rooms.
+**Why:** one kit keeps heroes, the camera and bots on the same sizes. Authored interior nav keeps the graph under 2,000 nodes and its build near 60–75 ms.
+**Consequence:** 2,178 solid prims (of 3,000), at most 584 in a quarter (of 600).
+
+### D-LEVEL-006 · 19/11/2026 — The dressing descriptor lives beside MapData until the contract takes it
+**Decision:** `loadDressing(id)` returns a `MapDressing` (`src/sim/world/map/dressing.ts`) with two parts:
+- per building, in `MapData.buildings` order: facade style; roof style, pitch, ridge, eaves, top and nest crown; facade marks (doors and windows on solid walls); balconies, landing boards and stairs;
+- props, including the bird street life of D-EP-048. Solid props skin a collision box; the rest are dressing only.
+
+No decorative cuboids go into `prims`.
+**Why:** D-EP-047 asks for a descriptor for every building and dressed area, and the contracts are frozen this wave.
+**Consequence:** an interface request to the Architect to fold it into `MapData`.
+
+### D-LEVEL-007 · 19/11/2026 — Where the Stage 4 map departs from GDD §6.8–6.10
+**Decision:**
+- The Tavern's front door faces Lantern Row (south) and its back door north.
+- The Granary's loft hatches are 2.2 m tall at a 0.2 m sill, because the loft is 2.4 m under 30° eaves.
+- The Hollow-tree trunk is an octagon with 2.5 m arches. Its knot-holes sit where the spiral passes them: sills at 6.9 m east and 4.9 m south.
+- The Bell Tower has one shot window per face per floor (prim budget).
+- The Market Hall's jungle doors are 2.0 m and the terrace upper windows 2.4 m wide, matching the opening above or below so no pier is thinner than 0.5 m.
+- The Badger Sett yard is 14 m, because 16 m hits the Egg plaza.
+- Moved by up to 2.5 m to clear stairs and holes: the Tavern taproom, Market Hall counter and alley Twig Nests, the Market Hall gallery Keepsake, and the crown's Keepsake and Lookout.
+- The interior Chimney shafts sit at (−36.4, −84.6) and (−20.9, −27.3), so every tier-2 and tier-3 camp and every Hawk has a Chimney within 25 m.
+- The Hollow's corner fills are 18.2 × 9.12 m slabs, so the undercrofts fit beside them.
+
+**Why:** geometry and budgets; every moved anchor keeps its room and role.
+
+### D-LEVEL-008 · 19/11/2026 — Nav through interiors
+**Decision:**
+- A link's ground profile stays on the current level when it continues, so walking under a low roof is not a climb onto it.
+- The detour rule skips a link only through a node at about the same height.
+- Ladders give vine links, hatches and skylights authored drop links, and Bough Springs one-way walk links that carry `spring`.
+- `nodeRoom` is the first room containing the node, with the Magpie Den listed before the tunnel.
+
+**Why:** GDD §6.7 and INTERFACES §14.3. The old rules would have joined storeys through floors and dropped Hide doorways.
+
+### D-LEVEL-009 · 19/11/2026 — G19 and G20 as measured rules
+**Decision:** `interiors.test.ts` measures every lane for:
+- cover at least every 10 m;
+- a raised route (4–8 m) every 30 m;
+- stairs up every 40 m;
+- at least three walkable roofs 8–12 m up beside the lanes in each quarter.
+
+Riverbank's span over the Hollow is exempt: by GDD §6.4, its long open sightline with the pit below is that stretch's verticality. Stilted roost stands, the first-leg façades and walkway, extra balconies and lane-edge cover deliver the rules. Wires never cross a lane and keep 3 m from Updraft cables (style guide §1.1).
+**Why:** feel gaps G19 and G20 turned into numbers QA can check.
+
+### D-ARCH-025 · 20/11/2026 — Interact deleted; core clears retired and unknown button bits
+**Decision:** `Button.Interact` is deleted (D-EP-039, D-ARCH-022). Its bit lives on only as `RETIRED_BUTTONS.Interact`
+(0x20000), never reused, and core's command latch now keeps `held` and `pressed` bits that are in `Button` and clears
+the rest, so no system can see a retired or made-up bit whatever a client or bot sends. The binding side was already
+done by the UI's W5a work (`'interact'` and `'scoreboard'` out of `BindAction`, `sanitizeSettings` drops saved codes,
+no storage bump). The two tests that held the old bit name it through `RETIRED_BUTTONS`.
+**Why:** the brief asked for proof that nothing reads it. Deleting the member compiles, which proves no code names
+it; clearing unknown bits at the trust boundary proves no code can read it by number either. `| 0` already made the
+bits integral, so the mask costs nothing and moves no hash (no command carried other bits).
+
+### D-ARCH-026 · 20/11/2026 — `SimOptions.practiceStart` places the Practice Hub player
+**Decision:** `SimOptions.practiceStart { pos, yaw }` spawns the human hero there, facing `yaw`, instead of at its
+team spawn. It is Practice Hub only and createSim throws if it is set without `practiceHub` or is not finite. The
+training targets keep their places beside the spawn; later respawns use the team spawn. Swap bird builds
+`practiceConfig(seed, hero, { pos: old.pos, yaw: look.yaw })`, and the app's `sim.ctx` bus emit and extra step
+(D-UI-007's ponytail) are gone.
+**Why:** the client must not reach into `sim.ctx` (ARCHITECTURE §5). A config option is the smallest honest way to
+start a fresh session somewhere else, and core already owns the first placement.
+
+### D-ARCH-027 · 20/11/2026 — Wave 5a contract requests: typed fields over value names, additive where it can be
+**Decision:** INTERFACES §15 decides the 19 requests (12 A, 1 M, 5 S, 1 R). The contract gains `AbilityDef.surface`
+and `EffectTarget.surface` (replacing the `surface` value name), `DashEffect.steerDeg` (replacing `steerDeg`),
+`HealEffect.triggerPct`, `'stun'` in `MovementModeEffect.endOn`, `TriggerDef.beyondM`, `ShieldEffect.id` (with
+`cleanse` by id), `Layer.Sight`/`Movement`/`EggCarrier` (the bits physics already uses), and makes
+`PhysicsService.updraftInReach` and `Motor.updraftInReach` required now that Physics has landed them. Rejected: a
+per-slot cooldown stat for one item (the refund helper is exact). Deferred to W6: `TetherEffect.breakDistance` as a
+Magnitude, because widening a field breaks its readers and they belong to an owner mid-wave.
+**Why:** a value name the framework reads is a contract the compiler can't see; a typed field can't be misspelt and
+shows up in the TSDoc. Everything new is optional, so heroes and items move over in any order. The non-additive
+pieces were kept to one-line type fixes in other owners' files (physics' `endOn` type, the rapier partial service,
+two test fakes): `'stun'` widens a union physics had copied, and `required` was the planned end of D-ARCH-022.
+
+### D-ARCH-028 · 20/11/2026 — The dressing descriptor is part of `MapData`
+**Decision:** `MapData.dressing?: MapDressing` carries the Level Designer's descriptor (facade styles, roofs, marks,
+balconies, landing boards, stairs and props; `buildings` parallel to `MapData.buildings`). Its types move from
+`world/map/dressing.ts` into `contracts/map.ts`, and that file re-exports them so existing imports work.
+`loadDressing(id)` stays, `@deprecated`, as `loadMap(id).dressing` until the Environment Artist has switched, then
+goes in W6. The sim never reads it; it is not hashed.
+**Why:** the renderer already receives `MapData`; one object for the whole map means one memoised build and no second
+loader to keep in step. Optional, so the arena and test maps need nothing.
+### D-AUDIO-003 · 19/11/2026 — Stage 4 sound: state read from the view, interiors from MapData.rooms
+**Decision:** Stage 4 cues live in `data/stage4.ts`. Events drive one-shots (Egg, Roc, Thicket, Nest, Feeder, runes, Keepsakes, Berries, the Updraft latch). Things with no event are edge-triggered in `update` from the local hero's position and the map (`loadMap(view.map)`): Hides, Cellar Run, Magpie Den, Bough Springs (pad), ivy curtains (`Opening.curtain`), Lookouts (2.5 m), Feeder blinks (`ViewFlag.Lit` rising edge). The Egg carrier loop is a 0.9 s pulse (loops stay one-shots, D-AUDIO-002). Bell Feeders carry 70 m and the Bell Tower's 120 m through a per-voice `range`.
+**Why:** keeps the 48-voice cap and priority stealing as the only allocator, and needs no contract change.
+
+### D-AUDIO-004 · 19/11/2026 — Occlusion and room tone
+**Decision:** a positional voice whose room differs from the local hero's, or an enemy hero outside `seenBy`, gets -6 dB and a 2 kHz low-pass. Indoors a 320 Hz low-passed noise bed fades in and the wind bed drops to 30%. `Settings.mute` zeroes master; `onScreen` sets menu and hero-select music (a 100 ms timer ticks it with no match frames); `previewHero` plays the hero call flat. Where Den and Cellar Run overlap, the Den wins (map order), so entering the Den centre plays the Den cue, not the tunnel cue.
+**Why:** INTERFACES §13 row 3 and the W5 audio follow-ups.

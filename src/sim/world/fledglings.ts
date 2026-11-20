@@ -34,7 +34,7 @@ import { canSee } from '../core/vision';
 import { TICK_RATE, TICK_SECONDS } from '../data/core';
 import { AIR, GROUND } from '../data/movement';
 import type { HeroThreat } from './structures';
-import { DEFENCE, FLEDGLING_AI as AI, FLEDGLINGS, STRUCTURE_RADIUS, WAVES } from '../data/world';
+import { DEFENCE, EMBERS, FLEDGLING_AI as AI, FLEDGLINGS, STRUCTURE_RADIUS, WAVES } from '../data/world';
 import type { FledglingDef, FledglingType } from '../data/world';
 import { aimHeight } from './vision';
 import * as dmath from '../core/dmath';
@@ -44,6 +44,8 @@ const EPS = 1e-6;
 const VS_STRUCTURES: readonly DamageBonus[] = [{ mult: WAVES.vsStructures, targetKinds: ['structure'] }];
 /** GDD §15.2 35:00 lever: a second target-kind bonus, so step 4 adds it (×1.75 in all, §5.2). */
 const LATE_VS_STRUCTURES: readonly DamageBonus[] = [...VS_STRUCTURES, { mult: DEFENCE.ward.lateFledglingMult, targetKinds: ['structure'] }];
+/** GDD §7.12 siege flight, one more step-4 bonus. */
+const FLIGHT_VS_STRUCTURES: DamageBonus = { mult: 1 + EMBERS.siegeFlight.vsStructures, targetKinds: ['structure'] };
 const SHOT_AFFECTS = { teams: 'enemies', kinds: ['hero', 'unit', 'structure'] } as const;
 /** Target priorities (GDD §7.1), lower wins; NONE when there is no target. */
 const NONE = 9;
@@ -231,9 +233,9 @@ export function createFledglings(ctx: SimContext): Fledglings {
     if (by?.kind === 'hero' && victim && by.team !== victim.team) hurtAt.set(by.id, { tick: ctx.clock.tick, victimPos: { ...victim.pos } });
   });
 
-  function attackOf(type: FledglingType, scale: number, late: boolean): Effect {
+  function attackOf(type: FledglingType, scale: number, late: boolean, flight: boolean): Effect {
     const def = FLEDGLINGS[type];
-    const bonus = late ? LATE_VS_STRUCTURES : VS_STRUCTURES;
+    const bonus = flight ? [...(late ? LATE_VS_STRUCTURES : VS_STRUCTURES), FLIGHT_VS_STRUCTURES] : late ? LATE_VS_STRUCTURES : VS_STRUCTURES;
     const hit: DamageEffect = { kind: 'damage', amount: def.damage * scale, type: 'talon', bonus };
     return def.projectileSpeed === 0 ? hit : { kind: 'projectile', speed: def.projectileSpeed, radius: AI.shotRadius,
       range: def.range + AI.shotRangePad, gravity: 0, pierce: 'none', affects: SHOT_AFFECTS, onHit: [hit] };
@@ -268,23 +270,33 @@ export function createFledglings(ctx: SimContext): Fledglings {
       ...Array<FledglingType>(band.slinger).fill('slinger'),
     ];
     const rows = Math.ceil(types.length / WAVES.files);
-    const attacks = {
-      scrapper: [attackOf('scrapper', scale, false), attackOf('scrapper', scale, true)],
-      slinger: [attackOf('slinger', scale, false), attackOf('slinger', scale, true)],
-    } as const;
+    const attacksFor = (flight: boolean) => ({
+      scrapper: [attackOf('scrapper', scale, false, flight), attackOf('scrapper', scale, true, flight)],
+      slinger: [attackOf('slinger', scale, false, flight), attackOf('slinger', scale, true, flight)],
+    } as const);
+    const plain = attacksFor(false);
+    // GDD §7.12 siege flight: a flock holding Rekindle spawns tougher fledglings that hit structures harder.
+    const flying = (team: PlayerTeam): boolean => {
+      const rk = ctx.teams[team].rekindle;
+      return rk !== undefined && rk.charges > 0 && now < rk.until;
+    };
+    const flight = { dawn: flying('dawn'), dusk: flying('dusk') };
+    const boosted = flight.dawn || flight.dusk ? attacksFor(true) : plain;
     for (const track of tracks) {
+      const attacks = flight[track.team] ? boosted : plain;
       types.forEach((type, i) => {
         const fileIndex = (i % WAVES.files) as 0 | 1;
         const file = (fileIndex - (WAVES.files - 1) / 2) * WAVES.gap;
         const s = (rows - 1 - Math.floor(i / WAVES.files)) * WAVES.gap;
-        spawn(track, type, s, file, fileIndex, scale, now, attacks[type]);
+        spawn(track, type, s, file, fileIndex, scale, now, attacks[type], flight[track.team]);
       });
     }
   };
 
-  const spawn = (track: Track, type: FledglingType, s: number, file: number, fileIndex: 0 | 1, scale: number, now: Tick, attacks: readonly [Effect, Effect]): void => {
+  const spawn = (track: Track, type: FledglingType, s: number, file: number, fileIndex: 0 | 1, scale: number, now: Tick,
+    attacks: readonly [Effect, Effect], flight: boolean): void => {
     const def = FLEDGLINGS[type];
-    const hp = def.hp * scale;
+    const hp = def.hp * scale * (flight ? 1 + EMBERS.siegeFlight.hp : 1);
     const pos = pointAt(track, s, file, { x: 0, y: 0, z: 0 });
     const d = track.dx[0] as number;
     const e = ctx.store.spawn({
@@ -299,6 +311,7 @@ export function createFledglings(ctx: SimContext): Fledglings {
       stats: (now === preparedFor ? prepared[type].pop() : undefined) ?? statsFor(type, now),
       statuses: [],
     });
+    if (flight) ctx.stats.set(e.id, 'world:siegeFlight', { stats: [{ stat: 'maxHealth', op: 'pct', value: EMBERS.siegeFlight.hp }] });
     live.push({
       e,
       def,

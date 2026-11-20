@@ -14,11 +14,10 @@
 //   [data-field="flock-seeds"][data-side]     each flock's total Seeds; [data-field="clock"] the match timer
 import { expect, test, type Page } from '@playwright/test';
 import { open, pickHero, lockPointer, VIEWPORT, READY_TIMEOUT_MS } from './game';
-import { isPending, PENDING_REASON } from './pending';
+import { isPending } from './pending';
 
 test.use({ viewport: VIEWPORT, actionTimeout: 8_000 });
 test.setTimeout(READY_TIMEOUT_MS * 3);
-test.skip(isPending, PENDING_REASON);
 
 const FAST_FORWARD_S = 600;
 const PER_SIDE = 6;
@@ -88,6 +87,7 @@ test.describe('top scoreboard (D-EP-041)', () => {
   });
 
   test('a dead bird\'s portrait is darkened with a red respawn countdown that runs down', async ({ page }) => {
+    test.skip(isPending, 'pending: bots that fight (G22, wave 5) so that a bird dies within two minutes; run with PERCH_PENDING=1');
     await match(page);
     await expect(portraits(page), 'the bar has its portraits').toHaveCount(PER_SIDE * 2);
     const dead = portraits(page).and(page.locator('[data-dead="true"]'));

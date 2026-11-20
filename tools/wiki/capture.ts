@@ -107,7 +107,6 @@ async function run(page: Page, base: string, s: ImageSpec): Promise<Buffer> {
       if (j.name === 'shop') await page.keyboard.press(DEFAULT_BINDINGS.shop);
       if (j.name === 'bigmap') await page.keyboard.press(DEFAULT_BINDINGS.bigMap);
       if (j.name === 'upgrades') await page.keyboard.press(DEFAULT_BINDINGS.upgradeModifier); // a tap opens the panel; holding is the quick-upgrade chord
-      if (j.name === 'scoreboard') await page.keyboard.down(DEFAULT_BINDINGS.scoreboard);
       await page.waitForTimeout(SETTLE_MS);
       break;
   }

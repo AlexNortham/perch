@@ -78,10 +78,12 @@ test('Riverbank Updraft: mount at the real gate, ride, boost, shoot and jump off
   await moveTo(page, 'KeyW', 'z', gate.z - STATION_APPROACH_M);
   const approached = await hero(page);
   expect(Math.hypot(approached.pos.x - gate.x, approached.pos.z - gate.z), 'walk reaches the gate station').toBeLessThan(2);
-  await page.keyboard.press('KeyE');
+  // D-EP-039: no Interact key. A held Jump (at least 0.2 s, GDD §3.7) latches the Updraft.
+  await page.keyboard.down('Space');
   await expect.poll(async () => (await hero(page)).flags & ViewFlag.OnUpdraft, {
-    message: 'E mounts from the actual Riverbank gate station', timeout: 3_000,
+    message: 'a held Jump latches the actual Riverbank Updraft at the gate', timeout: 3_000,
   }).toBeTruthy();
+  await page.keyboard.up('Space');
 
   const mounted = await hero(page);
   const riding = await afterTicks(page, mounted.tick, 24);

@@ -147,6 +147,14 @@ describe('settings store', () => {
     expect(sanitizeSettings({ mute: 'yes' }).mute).toBe(false);
   });
 
+  it('a Stage 3 profile with Interact and Scoreboard bindings loads with the rest intact (D-EP-039, D-EP-041)', () => {
+    const s = sanitizeSettings({ bindings: { ...DEFAULT_SETTINGS.bindings, interact: 'KeyE', scoreboard: 'Tab', jump: 'KeyJ' } });
+    expect(Object.keys(s.bindings)).not.toContain('interact');
+    expect(Object.keys(s.bindings)).not.toContain('scoreboard');
+    expect(s.bindings.jump).toBe('KeyJ');
+    expect(Object.keys(s.bindings).sort()).toEqual(Object.keys(DEFAULT_SETTINGS.bindings).sort());
+  });
+
   it('drops a saved binding for an action that no longer exists (how the retired Interact key migrates)', () => {
     const s = sanitizeSettings({ bindings: { jump: 'KeyJ', ancientAction: 'KeyE' } });
     expect(s.bindings.jump).toBe('KeyJ');
