@@ -396,6 +396,170 @@ export const KINGFISHER_HEAD: HeadShape = {
   eye: [0.84, 0.16, 0.56], socket: 0.26, bill: [0, -0.06, 1.08], billW: 0.3, billH: 0.26,
 };
 
+// =================================================================================================================
+// Batch C (heroes' builders in birds-c.ts).
+// Owl: an upright barrel with no neck to speak of, a broad flat-topped head carrying a facial disc of two concave
+// dishes ringed by a raised ruff, a stern V brow, ear tufts, and fluffy feathered legs.
+
+export function owlAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.7;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.8, 1.1 * s, 0.02 * s], hip: [R * 0.36, plan.height * 0.12, 0.02 * s], tail: [0, 0.5 * s, -0.3 * s],
+    legLen: plan.height * 0.12, legThick: 0.03 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export const OWL_HEAD: HeadShape = {
+  skull: [1.24, 1.06, 1.06], skullAt: [0, 0.06, -0.1], face: [0.98, 0.9, 0.42], faceAt: [0, -0.06, 0.5],
+  cheek: [0.55, 0.5, 0.45], cheekAt: [0.6, -0.38, 0.28], brow: [0.42, 0.15, 0.34], browAt: [0.36, 0.36, 0.8], browTilt: 0.55,
+  nape: [1.0, 0.75, 0.7], napeAt: [0, -0.45, -0.45], throat: [0.75, 0.45, 0.5], throatAt: [0, -0.78, 0.22],
+  eye: [0.4, 0.06, 0.8], socket: 0.31, bill: [0, -0.26, 0.98], billW: 0.15, billH: 0.15,
+};
+
+export function owlBody(plan: BodyPlan): Body {
+  const a = owlAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  const hr = a.hr;
+  // The ruff: a raised rim round the facial disc, a ring of small masses (shares of hr about the head centre).
+  const ruff: Op[] = [];
+  for (let i = 0; i < 22; i++) {
+    const th = (i / 22) * Math.PI * 2;
+    // Open at the bottom where the disc gives way to the white throat bib.
+    if (Math.abs(th - Math.PI) < 0.5) continue;
+    const c: V3 = [Math.sin(th) * 1.0, -0.06 + Math.cos(th) * 0.86, 0.66 - 0.12 * Math.abs(Math.sin(th))];
+    ruff.push(ell(at(hc, hr, c), mulS([0.16, 0.16, 0.14], hr), 'head', 'ruff', { k: 0.08 * hr, rot: [0, 0, th] }));
+  }
+  return {
+    tris: [2150, 800, 225, 110],
+    ops: [
+      // The barrel: upright and round, broadest at the belly, with no waist.
+      ell([0, 0.8 * s, -0.04 * s], [0.33 * s, 0.44 * s, 0.3 * s], 'body', 'back', { rot: [0.08, 0, 0], k: 0.05 }),
+      ...pair(ell([0.1 * s, 0.88 * s, 0.11 * s], [0.2 * s, 0.3 * s, 0.19 * s], 'body', 'breast', { k: 0.07, rot: [-0.1, 0.25, 0] })),
+      ell([0, 0.82 * s, 0.18 * s], [0.08 * s, 0.3 * s, 0.12 * s], 'body', 'breast', { k: 0.05 }),
+      ell([0, 0.52 * s, 0.02 * s], [0.29 * s, 0.25 * s, 0.27 * s], 'body', 'belly', { k: 0.08 }),
+      ell([0, 1.1 * s, -0.12 * s], [0.26 * s, 0.13 * s, 0.2 * s], 'body', 'mantle', { k: 0.06, rot: [-0.2, 0, 0] }),
+      cone([0, 0.62 * s, -0.25 * s], [0, 0.46 * s, -0.34 * s], 0.12 * s, 0.07 * s, 'tail', 'coverts', { k: 0.06, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.2 * s, 1.08 * s, -0.08 * s], scapularR: [0.11 * s, 0.09 * s, 0.2 * s], root: 0.08 * s }),
+      // Feathered legs: fluffy drumsticks right down to the feet.
+      ...thighs(a, { r: 0.1 * s, rKnee: 0.07 * s, reach: 0.95, root: [0.12 * s, 0.34 * s, 0.02 * s] }),
+      // No visible neck: a thick column the head sits straight onto.
+      ...neck([[0, 1.08 * s, 0], [0, 1.22 * s, 0], [0, hc[1] - 0.12 * s, -0.01 * s]], [0.27 * s, 0.25 * s, 0.22 * s], 'neck', 0.5),
+      ...head(hc, hr, OWL_HEAD),
+      // The facial disc: two shallow dishes round the eyes, the ridge between them running down to the bill.
+      ...pair(ell(at(hc, hr, [0.42, 0.04, 1.26]), mulS([0.5, 0.56, 0.42], hr), 'head', 'disc', { sub: true, k: 0.12 * hr, soft: 0.01 })),
+      ...ruff,
+      // Markings: the disc's paint fills the whole face inside the ruff, and a white bib under the bill.
+      ell(at(hc, hr, [0, -0.08, 0.7]), mulS([0.98, 0.86, 0.6], hr), 'head', 'disc', { mark: true, soft: 0.006 }),
+      ell(at(hc, hr, [0, -0.86, 0.6]), mulS([0.5, 0.26, 0.4], hr), 'head', 'bib', { mark: true, soft: 0.012 }),
+      // Ear tufts: two upright horns of feathers off the top corners of the head.
+      ...pair(cone(at(hc, hr, [0.5, 0.72, 0.0]), at(hc, hr, [0.78, 1.42, -0.18]), 0.22 * hr, 0.05 * hr, 'head', 'tuft', { k: 0.12 * hr, flow: [0.3, 1, -0.2] })),
+    ],
+  };
+}
+
+// =================================================================================================================
+// Pelican: a bottom-heavy pear carried upright, a deep keel under a thick S-neck, a broad silver mantle, a small flat
+// head with a shaggy nape crest and bare skin round the eye, and a wide bill base (the bill and pouch are lofts).
+
+export function pelicanAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 2.1;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.75, 1.2 * s, 0.0], hip: [R * 0.36, plan.height * 0.12, 0.04 * s], tail: [0, 0.72 * s, -0.58 * s],
+    legLen: plan.height * 0.12, legThick: 0.04 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export const PELICAN_HEAD: HeadShape = {
+  skull: [1.06, 1.06, 1.18], skullAt: [0, 0.02, -0.12], face: [0.72, 0.62, 0.7], faceAt: [0, -0.1, 0.45],
+  cheek: [0.5, 0.45, 0.55], cheekAt: [0.5, -0.32, 0.32], brow: [0.42, 0.16, 0.4], browAt: [0.5, 0.4, 0.42], browTilt: 0.3,
+  nape: [0.8, 0.7, 0.66], napeAt: [0, -0.5, -0.45], throat: [0.62, 0.5, 0.6], throatAt: [0, -0.7, 0.3],
+  eye: [0.62, 0.16, 0.5], socket: 0.24, bill: [0, -0.12, 1.0], billW: 0.36, billH: 0.24,
+};
+
+export function pelicanBody(plan: BodyPlan): Body {
+  const a = pelicanAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  const hr = a.hr;
+  return {
+    tris: [2300, 820, 260, 100],
+    ops: [
+      // The pear: broadest low down, a heavy round belly, narrowing up to the shoulders.
+      ell([0, 0.86 * s, -0.08 * s], [0.4 * s, 0.48 * s, 0.46 * s], 'body', 'back', { rot: [0.1, 0, 0], k: 0.06 }),
+      ell([0, 0.62 * s, 0.06 * s], [0.44 * s, 0.34 * s, 0.44 * s], 'body', 'belly', { k: 0.1 }),
+      ...pair(ell([0.12 * s, 1.0 * s, 0.22 * s], [0.24 * s, 0.3 * s, 0.22 * s], 'body', 'breast', { k: 0.08, rot: [-0.15, 0.25, 0] })),
+      ell([0, 0.98 * s, 0.32 * s], [0.1 * s, 0.3 * s, 0.14 * s], 'body', 'breast', { k: 0.06, rot: [-0.2, 0, 0] }),
+      ell([0, 1.2 * s, -0.14 * s], [0.3 * s, 0.14 * s, 0.32 * s], 'body', 'mantle', { k: 0.07, rot: [-0.2, 0, 0] }),
+      cone([0, 0.84 * s, -0.48 * s], [0, 0.7 * s, -0.62 * s], 0.16 * s, 0.08 * s, 'tail', 'coverts', { k: 0.07, boneSoft: 0.06 }),
+      ...shoulders(a, { scapular: [0.24 * s, 1.18 * s, -0.12 * s], scapularR: [0.14 * s, 0.1 * s, 0.28 * s], root: 0.1 * s, inset: 0.1 }),
+      ...thighs(a, { r: 0.12 * s, rKnee: 0.08 * s, reach: 0.6, root: [0.16 * s, 0.46 * s, 0.02 * s] }),
+      // A thick S-neck: forward off the breast, back under the head.
+      ...neck([[0, 1.2 * s, 0.18 * s], [0, 1.42 * s, 0.25 * s], [0, 1.6 * s, 0.16 * s], [0, hc[1] - 0.1 * s, 0.02 * s]], [0.2 * s, 0.13 * s, 0.11 * s, 0.115 * s], 'neck', 0.6),
+      ...head(hc, hr, PELICAN_HEAD),
+      // The shaggy crest's root: a short ridge off the back of the crown (its plumes are blades).
+      cone(at(hc, hr, [0, 0.5, -0.5]), at(hc, hr, [0, 0.1, -1.35]), 0.42 * hr, 0.18 * hr, 'head', 'crest', { k: 0.2 * hr, flow: [0, -0.3, -1] }),
+      // Markings: bare peach skin round each eye to the bill, and the buff-yellow patch at the base of the neck.
+      ...pair(ell(at(hc, hr, [0.62, 0.05, 0.68]), mulS([0.32, 0.36, 0.55], hr), 'head', 'facial', { mark: true, rot: [0, 0.4, 0], soft: 0.006 })),
+      ell([0, 1.22 * s, 0.3 * s], [0.16 * s, 0.12 * s, 0.1 * s], 'body', 'patch', { mark: true, soft: 0.03 }),
+    ],
+  };
+}
+
+// =================================================================================================================
+// Penguin: an upright skittle, broadest low at the belly, a deep keel, a thick neck into a smooth head, a sharp white
+// bib marked on the front, gold ear patches and throat, and stubby legs under the belly.
+
+export function penguinAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.6;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.74, 1.06 * s, 0.0], hip: [R * 0.36, plan.height * 0.08, 0.04 * s], tail: [0, 0.3 * s, -0.3 * s],
+    legLen: plan.height * 0.08, legThick: 0.035 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export const PENGUIN_HEAD: HeadShape = {
+  skull: [1.06, 1.06, 1.16], skullAt: [0, 0.02, -0.08], face: [0.68, 0.6, 0.62], faceAt: [0, -0.1, 0.45],
+  cheek: [0.5, 0.48, 0.55], cheekAt: [0.5, -0.32, 0.3], brow: [0.44, 0.17, 0.4], browAt: [0.5, 0.4, 0.5], browTilt: 0.35,
+  nape: [0.85, 0.72, 0.66], napeAt: [0, -0.5, -0.42], throat: [0.66, 0.5, 0.6], throatAt: [0, -0.72, 0.25],
+  eye: [0.6, 0.18, 0.58], socket: 0.22, bill: [0, -0.1, 1.0], billW: 0.24, billH: 0.2,
+};
+
+export function penguinBody(plan: BodyPlan): Body {
+  const a = penguinAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  const hr = a.hr;
+  return {
+    tris: [2300, 820, 260, 110],
+    ops: [
+      // The skittle: a tall egg, its belly low and full, tapering up through the shoulders into the neck.
+      ell([0, 0.78 * s, -0.04 * s], [0.35 * s, 0.56 * s, 0.31 * s], 'body', 'back', { k: 0.06 }),
+      ell([0, 0.48 * s, 0.04 * s], [0.38 * s, 0.32 * s, 0.36 * s], 'body', 'belly', { k: 0.1 }),
+      ...pair(ell([0.1 * s, 0.9 * s, 0.13 * s], [0.21 * s, 0.32 * s, 0.2 * s], 'body', 'breast', { k: 0.08, rot: [-0.08, 0.25, 0] })),
+      ell([0, 0.86 * s, 0.21 * s], [0.09 * s, 0.32 * s, 0.12 * s], 'body', 'breast', { k: 0.06 }),
+      ell([0, 1.12 * s, -0.1 * s], [0.25 * s, 0.14 * s, 0.2 * s], 'body', 'mantle', { k: 0.07, rot: [-0.15, 0, 0] }),
+      cone([0, 0.42 * s, -0.25 * s], [0, 0.26 * s, -0.33 * s], 0.12 * s, 0.06 * s, 'tail', 'coverts', { k: 0.06, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.18 * s, 1.07 * s, -0.06 * s], scapularR: [0.1 * s, 0.1 * s, 0.18 * s], root: 0.065 * s, inset: 0.08, drop: 0.05 }),
+      ...thighs(a, { r: 0.09 * s, rKnee: 0.06 * s, reach: 0.5, root: [0.14 * s, 0.3 * s, 0.03 * s] }),
+      // The head bone takes the neck from just above the shoulders, so the head owns the skin round its hitbox.
+      ...neck([[0, 1.08 * s, 0.02 * s], [0, 1.18 * s, 0.03 * s], [0, 1.27 * s, 0.03 * s], [0, hc[1] - 0.1 * s, 0.02 * s]], [0.26 * s, 0.22 * s, 0.19 * s, 0.16 * s], 'neck', 0.4),
+      ...head(hc, hr, PENGUIN_HEAD),
+      // Markings: the sharp white bib down the front, the gold throat above it, and a gold ear patch behind each eye
+      // that sweeps down the side of the neck.
+      ell([0, 0.7 * s, 0.22 * s], [0.29 * s, 0.6 * s, 0.3 * s], 'body', 'bib', { mark: true, soft: 0.006 }),
+      ell([0, 1.24 * s, 0.17 * s], [0.17 * s, 0.13 * s, 0.13 * s], 'body', 'gold', { mark: true, soft: 0.025 }),
+      ...pair(ell(at(hc, hr, [0.82, -0.55, -0.25]), mulS([0.36, 0.75, 0.42], hr), 'head', 'ear', { mark: true, rot: [0.5, 0, 0.15], soft: 0.01 })),
+    ],
+  };
+}
+
 /** The birds with implicit bodies, by hero id. */
 export const BODIES = {
   peacock: peacockBody,
@@ -403,6 +567,9 @@ export const BODIES = {
   cassowary: cassowaryBody,
   shrike: shrikeBody,
   kingfisher: kingfisherBody,
+  owl: owlBody,
+  pelican: pelicanBody,
+  penguin: penguinBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */

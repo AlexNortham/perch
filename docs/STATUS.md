@@ -3032,3 +3032,58 @@ changed, so nothing was reverted. Branch `worktree-agent-a65b479d5b1ddffce` = `i
   - Damage and destroyed states (§9.2: cracks at 66 % and 33 %, banner tear, topple into rubble, glow dying over 2 s). These need `rigs/structure-rig.ts`, which today only hides a dead structure. The next brief should add that rig, and a creature rig, to the ART-W paths.
   - Structures need the stone, timber, brass and banner materials, not the shared flat-shaded Lambert.
 - **Checks on this branch:** `npx vitest run src/client/render` 53/53; typecheck and lint pass. `e2e/draw-budget.spec.ts` 3/3 run serially. In parallel under machine load, lane/low triangles came out at 393k against the 330k ceiling, the same load-sensitive miss logged in the W5b Environment second-pass entry. The full `npm run check` was skipped, as the EP asked.
+### W5d · Technical Artist · bird batch C (stopped early on the EP's word) · 21/11/2026
+**Done:** Owl, Pelican and Penguin are on the v2.1 sculpt pipeline (D-ART-010, D-ART-011). Puffin, Secretarybird and
+Starling are untouched, still on their old primitive models; none was started. Branch `worktree-agent-ae09d85e4edc2662b`
+from `integrate/w5` 1c7ad07, one commit per bird.
+- **Files:**
+  - Bodies are in `bodies.ts`, as separate functions with their own `BODIES` lines.
+  - Builders are in a new `birds-c.ts`, not `heroes-b.ts`, so Batch B's Flamingo and Hornbill edits there don't collide. `C_BUILDS` joins `sculpted-birds.ts` on its own line.
+  - The old builders are deleted from `heroes-b.ts`.
+- **Shared changes (small; please route them):**
+  - `sculpted.ts` gains an optional `halo` builder (two lines). The Starling's orbiting flock needs it, and the model test requires halo vertices.
+  - `models.test.ts` dedupes `FOUR`: a converted bird sat in both lists and failed the distinct-silhouette count. Batch B will hit the same failure.
+  - No change to `bird-material`, `anatomy`, `feathers`, `sdf`, `mesher` or `skin`.
+- **Owl:**
+  - An upright barrel with no neck, and a facial disc of two concave dishes inside a raised dark ruff (sculpted, with paint marks).
+  - A V brow, ear tufts (sculpted horns plus feather blades that spread on a cast), a white bib, a streaked breast and feathered legs.
+  - Mottled hackles round the back of the head and the nape.
+  - Gear: a flock cowl with tails, a cartridge bandolier and a satchel.
+  - Gun: the Hush Rifle, with a felt-wrapped can, a moon-glass scope and a six-round box.
+- **Pelican:**
+  - A bottom-heavy pear, a thick S-neck, a silver mantle, a buff nape crest and peach facial skin.
+  - The bill and pouch are custom lofts on the head bone, so they swing with the head: a long flat bill with a red hooked nail, and a veined pouch sagging under thin rami. Both open on each shot and gape wide on a cast (Gulp).
+  - Black primaries fold down the flanks, and the feet are webbed.
+  - Gear: a neckerchief, a seed-shell bandolier and a creel.
+  - Gun: the Gullet Gatling, with five spinning barrels, a woven creel drum and a crank.
+- **Penguin:**
+  - A skittle with a sharp white bib (paint mark), gold throat and ear patches, and a slate back under a black head.
+  - Custom stiff flippers grip the gun, and the feet are webbed.
+  - Gear: snow goggles on a flock strap (the crown shape), a knitted scarf, and a harness with an ice pick.
+  - Gun: the Ice Chipper blunderbuss, with icicle teeth and a glowing ice hopper.
+
+**Evidence** (git-ignored, `out/art/c/`): triptychs `<bird>.png` and player-camera views `<bird>-player.png`; before
+renders in `out/art/before/`. Golden-hour game shots and the 10/40/80 m line-ups were not taken (stopped early).
+
+| Bird | Level 0 / 1 / 2 / 3 triangles | Player camera: bird / gun | Score (front, 3/4) | Score (player camera) |
+|---|---|---|---|---|
+| Owl | 8,916 / 3,398 / 1,192 / 366 | 5.8 % / 0.67 % | 3 | 3 |
+| Pelican | 8,458 / 3,304 / 1,092 / 380 | 4.3 % / 0.34 % | 3 | 3 |
+| Penguin | 7,800 / 2,904 / 1,102 / 364 | 5.7 % / 0.55 % | 3 | 2.5 |
+
+All are within budget, with at most three draw calls. Before, all three were old primitive models (about 1).
+
+**Verified:** `npx vitest run src/client/render/models tests/anim` passes 114 of 114: budgets, heads on hitboxes, the
+muzzle point, grips held in every state (D-EP-035), feet planted, skins byte-identical, morphs. Under load the
+Cassowary skin re-bake timed out once (not touched here); it passes alone (8/8). `tsc -b` and eslint are clean. The
+full `npm run check` was skipped on the EP's word.
+
+**Left for the art round:**
+- Puffin, Secretarybird and Starling, not started. `sculpted.ts` already has the Starling's halo hook.
+- Penguin: the flippers sit behind the body in the aim pose, so the "flippers held out" read is weak. They need an
+  outward splay or a display flare.
+- Owl: the brows show the shared feather-edge speckle (Batch A's shader fix), and the forearm panels are broad and plain.
+- Pelican: the pouch is flat-sided seen from the front.
+- All three: the golden-hour game shots and the 10/40/80 m line-up checks.
+
+**Blocked:** nothing.
