@@ -293,8 +293,8 @@ function peacockGun(s: number, d: Detail): SculptedSpec['gun'] {
 // control: a bone-built rifle with barbs and bone plates.
 
 const VULTURE = {
-  brown: 0x43332a,
-  black: 0x1f1b18,
+  brown: 0x553f31,
+  black: 0x2c2520,
   edge: 0x6b5644,
   ruff: 0xf1ece2,
   ruffShade: 0xc9c1b2,
@@ -501,8 +501,8 @@ function vultureGun(s: number, d: Detail): SculptedSpec['gun'] {
 // crescent-bladed SMG with a curved horn magazine.
 
 const SWIFT = {
-  soot: 0x2c2826,
-  brown: 0x3d3530,
+  soot: 0x3b3532,
+  brown: 0x51463e,
   pale: 0xddd5c8,
   tip: 0x1c1a19,
   bill: 0x1a1816,

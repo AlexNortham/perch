@@ -21,8 +21,8 @@ import type { Ring, Sculpt, V3 } from './sculpt';
 // Tank: a short, wide brass-belled blunderbuss with a gourd seed hopper.
 
 const CASSO = {
-  black: 0x17161a,
-  sheen: 0x2a2a3a,
+  black: 0x25242c,
+  sheen: 0x3c3e56,
   blue: 0x2f6fd8,
   teal: 0x28b0c8,
   nape: 0xb02a4a,
@@ -197,7 +197,7 @@ function cassowaryGun(s: number, d: Detail): SculptedSpec['gun'] {
 // slim scoped rifle with a bill-curved fore-end.
 
 const TOUCAN = {
-  black: 0x18181c,
+  black: 0x232329,
   bib: 0xf3f0e6,
   bibEdge: 0xf2d27a,
   green: 0x56b043,
@@ -399,7 +399,7 @@ export function woodpecker(plan: BodyPlan, team: TeamColours, d: Detail): Sculpt
       { n: d.n(14, 4), seg: d.n(22, 5), ref: [0, 0, 1], finish: { ...FEATHER, size: 0.1 }, paint: (_t, a) => (Math.sin(a) > -0.15 ? P.buff : P.black) },
     );
     // The barred back: ladder-barred cards over the mantle.
-    shingle(k, torso, { t: [0.25, 0.85], a: [-Math.PI * 0.12, -Math.PI * 0.88], rows: 4, cols: 5, len: 0.12 * s, wid: 0.1 * s, cell: CARD.barred, paint: P.white, lift: 0.12, seed: 3 }, d);
+    shingle(k, torso, { t: [0.18, 0.88], a: [-Math.PI * 0.08, -Math.PI * 0.92], rows: 5, cols: 6, len: 0.2 * s, wid: 0.15 * s, cell: CARD.barred, paint: P.white, lift: 0.14, seed: 3 }, d);
     // Gear: a flock-colour climbing harness (two straps crossing the chest) with brass rings, and a tool belt of bits.
     sash(k, torso, 0.68, 0.16, Math.PI * 0.3, { width: 0.05 * s, thick: 0.012 * s, hex: team.primary, stitch: team.light, finish: { tile: TILE.weave, size: 0.04 } }, d);
     sash(k, torso, 0.68, 0.16, Math.PI * 0.7, { width: 0.05 * s, thick: 0.012 * s, hex: team.primary, stitch: team.light, finish: { tile: TILE.weave, size: 0.04 } }, d);
@@ -563,12 +563,12 @@ export function nightjar(plan: BodyPlan, team: TeamColours, d: Detail): Sculpted
     // A long, low wedge, pressed flat as if on a branch.
     const torso = k.loft(
       [
-        { c: [0, 0.98 * s, -0.66 * s], w: 0, up: 0 },
-        { c: [0, 0.96 * s, -0.54 * s], w: 0.18 * s, up: 0.1 * s, dn: 0.12 * s },
-        { c: [0, 0.94 * s, -0.3 * s], w: 0.3 * s, up: 0.17 * s, dn: 0.24 * s },
-        { c: [0, 0.98 * s, -0.04 * s], w: 0.33 * s, up: 0.2 * s, dn: 0.4 * s },
-        { c: [0, 1.08 * s, 0.14 * s], w: 0.27 * s, up: 0.2 * s, dn: 0.34 * s },
-        { c: [0, 1.18 * s, 0.22 * s], w: 0, up: 0 },
+        { c: [0, 1.0 * s, -0.8 * s], w: 0, up: 0 },
+        { c: [0, 0.98 * s, -0.66 * s], w: 0.2 * s, up: 0.09 * s, dn: 0.11 * s },
+        { c: [0, 0.95 * s, -0.36 * s], w: 0.33 * s, up: 0.15 * s, dn: 0.24 * s },
+        { c: [0, 0.98 * s, -0.06 * s], w: 0.36 * s, up: 0.18 * s, dn: 0.38 * s },
+        { c: [0, 1.06 * s, 0.14 * s], w: 0.29 * s, up: 0.19 * s, dn: 0.32 * s },
+        { c: [0, 1.15 * s, 0.24 * s], w: 0, up: 0 },
       ],
       { n: d.n(14, 4), seg: d.n(22, 5), finish: MOTTLE, paint: (t, a) => (Math.sin(a) < -0.4 ? mix(N.pale, N.bark, 0.4 + 0.3 * t) : mix(N.bark, N.grey, 0.3 + 0.3 * Math.sin(a))) },
     );
@@ -624,7 +624,7 @@ export function nightjar(plan: BodyPlan, team: TeamColours, d: Detail): Sculpted
     pivot: {
       wingL: [R * 0.85, 1.1 * s, -0.12 * s], wingR: [-R * 0.85, 1.1 * s, -0.12 * s],
       legL: [R * 0.4, legLen, -0.04 * s], legR: [-R * 0.4, legLen, -0.04 * s],
-      tail: [0, 0.98 * s, -0.6 * s],
+      tail: [0, 1.0 * s, -0.72 * s],
     },
     legLen, legThick: leg.thick, wingLen: H * 0.4,
     // Gape, Nightfall, Churring Call, Night Swallow.
