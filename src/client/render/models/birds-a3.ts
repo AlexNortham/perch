@@ -7,7 +7,7 @@
 import { Matrix4, Vector3 } from 'three';
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
-import { beak, eye, FEATHER, flare, headForm, legsOf, norm, ovoid, shingle, SKIN, tailFan, wingsOf } from './anatomy';
+import { beak, eye, FEATHER, flare, foldedWings, hackles, headForm, inBone, legsOf, norm, ovoid, shingle, SKIN, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
 import { bodyField, flipX, PEACOCK_HEAD, peacockAnchors, skinFor, SWIFT_HEAD, swiftAnchors, TRUNK } from './bodies';
 import { SKIN as SWIFT_SKIN } from './data/skins/swift';
@@ -74,9 +74,11 @@ export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedS
   const BLUE = { tile: 1, size: 0.1, iri: -1, gloss: 0.35 } as const;
   const BRONZE = { tile: 1, size: 0.11, iri: 0.5, gloss: 0.3 } as const;
   const field = bodyField('peacock', plan);
+  // Up the neck, from where it leaves the breast to under the head.
+  const neckAxis: [V3, V3] = [[0, bodyY + 0.02 * s, 0.13 * s], [0, A.head[1] - 0.04 * s, -0.03 * s]];
   const skin = skinFor('peacock', plan, PEACOCK_SKIN, d.level, {
-    back: { paint: (p) => mix(P.bronze, P.green, Math.min(1, Math.max(0, (p.y - bodyY) / (0.2 * s) + 0.4))), finish: BRONZE },
-    mantle: { paint: mix(P.bronze, P.green, 0.6), finish: BRONZE },
+    back: { paint: (p) => shade(mix(P.bronze, P.green, Math.min(1, Math.max(0, (p.y - bodyY) / (0.2 * s) + 0.4))), 0.85), finish: BRONZE },
+    mantle: { paint: shade(mix(P.bronze, P.green, 0.5), 0.78), finish: BRONZE },
     scapular: { paint: (p) => mix(P.buff, P.bar, Math.min(0.6, Math.max(0, (bodyY + 0.16 * s - p.y) / (0.12 * s)))), finish: { tile: 1, size: 0.07, gloss: 0.2 } },
     shoulder: { paint: P.buff, finish: { tile: 1, size: 0.08 } },
     coverts: { paint: mix(P.green, P.teal, 0.3), finish: { ...BRONZE, iri: -0.8 } },
@@ -86,11 +88,13 @@ export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedS
     thigh: { paint: shade(P.belly, 1.15), finish: { tile: 1, size: 0.07 } },
     // The neck brightest at the throat, deeper round the back and toward the base.
     neck: { paint: (p) => mix(P.blue, P.blueDeep, Math.min(0.8, Math.max(0, 0.15 - p.z / (0.25 * s) + (1.2 * s - p.y) / (0.8 * s)))), finish: BLUE },
-    crown: { paint: P.blue, finish: BLUE },
-    face: { paint: P.blue, finish: BLUE },
-    cheek: { paint: P.blue, finish: BLUE },
-    brow: { paint: P.blueDeep, finish: BLUE },
-    nape: { paint: mix(P.blue, P.blueDeep, 0.15), finish: BLUE },
+    // The head a deeper teal than the neck, so it separates from it from behind.
+    crown: { paint: mix(P.blue, P.teal, 0.3), finish: BLUE },
+    // The face smooth (tiny feathers), the crown, nape and neck scaled.
+    face: { paint: P.blue, finish: { ...BLUE, tile: 0 } },
+    cheek: { paint: P.blue, finish: { ...BLUE, tile: 0 } },
+    brow: { paint: P.blueDeep, finish: { ...BLUE, tile: 0 } },
+    nape: { paint: mix(P.blueDeep, P.teal, 0.25), finish: BLUE },
     throat: { paint: P.blueDeep, finish: BLUE },
     bill: { paint: P.bill, finish: { gloss: 0.5 } },
     socket: { paint: P.white, finish: { gloss: 0.2 } },
@@ -104,14 +108,19 @@ export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedS
   };
   const wing: WingStyle = {
     covert: P.buff, secondary: 0x46603a, primary: P.chestnut, primaryTip: shade(P.chestnut, 0.75), trim: team.primary,
-    thick: 0.032 * s, chord: 0.28 * s, primaries: 7, secondaries: 7, primaryLen: 0.62, secondaryLen: 0.55,
+    thick: 0.032 * s, chord: 0.28 * s, primaries: 7, secondaries: 5, primaryLen: 0.62, secondaryLen: 0.4,
   };
 
   const body = (k: Sculpt): void => {
     // The body is the baked implicit skin (bodies.ts); gear and feathers sit on its surface.
     const torso = field.only(...TRUNK).surface([0, bodyY + 0.02 * s, -0.46 * s], [0, bodyY + 0.22 * s, 0.3 * s]);
-    // A cape of broad bronze-green scale feathers over the mantle, lying back toward the train.
-    shingle(k, torso, { t: [0.26, 0.62], a: [Math.PI * 0.25, Math.PI * 0.75], rows: 3, cols: 4, len: 0.12 * s, wid: 0.1 * s, paint: (t) => shade(mix(P.bronze, P.green, 0.45 + 0.2 * t), 0.82), lift: 0.08, finish: BRONZE, seed: 5 }, d);
+    // The player-camera standard (D-ART-011): a bronze-green cape of scalloped feathers where the blue neck meets the
+    // mantle, and the wings folded down the flanks.
+    hackles(k, field.only('neck', 'back', 'mantle').surface(...neckAxis, [0, 0, 1]), {
+      t: [0.04, 0.2], a: [-Math.PI * 0.95, -Math.PI * 0.05], rows: 2, cols: 6, len: 0.13 * s, wid: 0.1 * s, lift: 0.1,
+      paint: (t) => mix(P.bronze, P.green, 0.35 + 0.5 * t), finish: BRONZE,
+    }, d);
+    foldedWings(k, torso, wing, { t: [0.35, 0.72], a: 0.4, len: 0.34 * s, wid: 0.11 * s }, d);
     // Gear: a flock-colour silk sash over the left shoulder and across the back with a brass buckle, a silk collar
     // with ribbon tails down the back, and a dart satchel on the right hip.
     sash(k, torso, 0.56, 0.3, Math.PI * 0.3, { width: 0.1 * s, thick: 0.014 * s, hex: team.primary, stitch: team.light, finish: { gloss: 0.4 } }, d);
@@ -122,6 +131,11 @@ export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedS
 
   const head = (k: Sculpt): void => {
     // The head is part of the skin; the eyes sit in its sockets and the bill grows from its base.
+    // Hackles: iridescent feathers down the back of the upper neck from under the crest, carried by the head.
+    hackles(k, inBone(field.only('neck', 'nape', 'crown').surface(...neckAxis, [0, 0, 1]), A.head), {
+      t: [0.62, 0.94], a: [-Math.PI * 0.8, -Math.PI * 0.2], rows: 3, cols: 4, len: 0.1 * s, wid: 0.075 * s, lift: 0.16,
+      paint: (t) => mix(P.blueDeep, P.teal, 0.2 + 0.5 * t), finish: { ...BLUE, tile: 0 }, seed: 23,
+    }, d);
     const E = PEACOCK_HEAD.eye;
     for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.8, 0.05, 0.6], { r: hr * 0.25, iris: P.iris, ring: P.white, lid: P.blueDeep, ringW: hr * 0.04 }, d);
     const B = PEACOCK_HEAD.bill;
@@ -143,7 +157,7 @@ export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedS
   // brown tail that props the display.
   const tail = (k: Sculpt): void => {
     const drop = tailPivot[1] - 0.025 * s;
-    const tiers: [number, number][] = d.level === 0 ? [[11, 1.5], [10, 1.2], [9, 0.92], [7, 0.66], [5, 0.42]] : d.level === 1 ? [[7, 1.48], [6, 1.1], [5, 0.75]] : d.level === 2 ? [[6, 1.45], [4, 0.95]] : [[4, 1.4]];
+    const tiers: [number, number][] = d.level === 0 ? [[10, 1.5], [9, 1.2], [8, 0.92], [6, 0.66], [4, 0.42]] : d.level === 1 ? [[7, 1.48], [6, 1.1], [5, 0.75]] : d.level === 2 ? [[6, 1.45], [4, 0.95]] : [[4, 1.4]];
     tiers.forEach(([count, length], tier) => {
       const L = length * s;
       for (let i = 0; i < count; i++) {
@@ -491,16 +505,17 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
     belly: { paint: mix(W.soot, W.brown, 0.25), finish: GLOSS },
     thigh: { paint: W.soot, finish: { ...GLOSS, size: 0.06 } },
     neck: { paint: W.soot, finish: GLOSS },
-    crown: { paint: mix(W.soot, W.brown, 0.2), finish: { ...GLOSS, size: 0.07 } },
-    face: { paint: W.soot, finish: { ...GLOSS, size: 0.07 } },
-    cheek: { paint: W.soot, finish: { ...GLOSS, size: 0.07 } },
+    // A warm brown crown and nape over the sooty body: the head separates from the back from behind.
+    crown: { paint: mix(W.brown, W.soot, 0.3), finish: { ...GLOSS, size: 0.06 } },
+    face: { paint: W.soot, finish: { ...GLOSS, tile: 0 } },
+    cheek: { paint: W.soot, finish: { ...GLOSS, tile: 0 } },
     // The pale brow over each eye: the swift's scowl, picked out.
     brow: { paint: mix(W.pale, W.brown, 0.45), finish: { gloss: 0.3 } },
-    nape: { paint: W.soot, finish: GLOSS },
+    nape: { paint: mix(W.brown, W.soot, 0.5), finish: { ...GLOSS, size: 0.06 } },
     throat: { paint: W.soot, finish: GLOSS },
     bill: { paint: W.bill, finish: { gloss: 0.5 } },
     socket: { paint: shade(W.soot, 0.7), finish: { gloss: 0.3 } },
-    pale: { paint: mix(W.pale, W.brown, 0.35), finish: { tile: 1, size: 0.05, gloss: 0.15 } },
+    pale: { paint: mix(W.pale, W.brown, 0.35), finish: { gloss: 0.15 } },
   });
   const leg: LegStyle = {
     skin: W.leg, claw: W.claw, thick: A.legThick, thigh: W.soot, fringe: 0.6, skinned: { r: 0.034 * s, at: 0.2 },
@@ -565,6 +580,18 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
   };
 
   const head = (k: Sculpt): void => {
+    // The player-camera standard (D-ART-011): a ruff of pale-edged feathers round the back of the head under the strap,
+    // and a short swept tuft at the back of the crown.
+    const headAxis: [V3, V3] = [[A.head[0], A.head[1] - hr * 1.5, A.head[2] - hr * 0.1], [A.head[0], A.head[1] + hr * 0.9, A.head[2] - hr * 0.1]];
+    hackles(k, inBone(field.only('crown', 'nape', 'neck', 'cheek').surface(...headAxis, [0, 0, 1]), A.head), {
+      t: [0.22, 0.48], rows: 2, cols: 5, len: 0.075 * s, wid: 0.055 * s, lift: 0.3,
+      paint: (t) => mix(mix(W.brown, W.pale, 0.2), W.brown, t), finish: { gloss: 0.3 }, seed: 29,
+    }, d);
+    if (d.level < 2) {
+      for (const u of [-1, 0, 1]) {
+        k.card({ at: [u * hr * 0.22, hr * 0.92, -hr * 0.42], dir: norm([u * 0.35, 0.45, -1]), face: [0, 1, 0.3], len: 0.08 * s, wid: 0.035 * s, cell: CARD.contour, root: W.brown, tip: W.soot, curl: -0.3, segs: d.rows, finish: { gloss: 0.3 } });
+      }
+    }
     // The head, its scowling brows and pale throat are the skin's; the eyes sit in its sockets.
     const E = SWIFT_HEAD.eye;
     for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.55, 0.02, 0.83], { r: hr * 0.3, iris: W.iris, ring: W.soot, lid: W.brown, ringW: hr * 0.04 }, d);

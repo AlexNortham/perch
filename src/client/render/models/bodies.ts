@@ -90,7 +90,9 @@ export function neck(pts: readonly V3[], r: readonly number[], region = 'neck', 
   const ops: Op[] = [];
   for (let i = 0; i < pts.length - 1; i++) {
     const u = (i + 0.5) / (pts.length - 1);
-    ops.push(cone(pts[i]!, pts[i + 1]!, r[i]!, r[i + 1]!, u < split ? 'body' : 'head', region, { k: 0.04, boneSoft: 0.09 }));
+    // Neck feathers point down the neck, toward the body.
+    const down: V3 = [pts[i]![0] - pts[i + 1]![0], pts[i]![1] - pts[i + 1]![1], pts[i]![2] - pts[i + 1]![2]];
+    ops.push(cone(pts[i]!, pts[i + 1]!, r[i]!, r[i + 1]!, u < split ? 'body' : 'head', region, { k: 0.04, boneSoft: 0.09, flow: down }));
   }
   return ops;
 }
@@ -115,8 +117,8 @@ export function thighs(a: Anchors, o: { r: number; rKnee: number; reach?: number
   const knee = add(hip, [0, -thighLen(a) * (o.reach ?? 0.55), 0]);
   const root = o.root ?? add(hip, [-0.02 * a.s, 0.08 * a.s, 0]);
   return [
-    ...pair(cone(root, hip, o.r * 1.05, o.r, 'body', 'thigh', { k: 0.06 * a.s, boneSoft: 0.05 })),
-    ...pair(cone(hip, knee, o.r, o.rKnee, 'legL1', 'thigh', { k: 0.05 * a.s, boneSoft: 0.04 })),
+    ...pair(cone(root, hip, o.r * 1.05, o.r, 'body', 'thigh', { k: 0.06 * a.s, boneSoft: 0.05, flow: [0, -1, 0.1] })),
+    ...pair(cone(hip, knee, o.r, o.rKnee, 'legL1', 'thigh', { k: 0.05 * a.s, boneSoft: 0.04, flow: [0, -1, 0.1] })),
   ];
 }
 
@@ -141,7 +143,7 @@ export function peacockBody(plan: BodyPlan): Body {
   const y = 0.79 * s;
   const hc = a.head;
   return {
-    tris: [2300, 900, 300, 120],
+    tris: [2000, 800, 280, 120],
     ops: [
       // Trunk: carried level, deepest at the breast, tapering back to the tail coverts.
       ell([0, y, -0.06 * s], [0.24 * s, 0.21 * s, 0.36 * s], 'body', 'back', { rot: [-0.08, 0, 0], k: 0.05 }),
@@ -193,7 +195,7 @@ export function swiftBody(plan: BodyPlan): Body {
   const s = a.s;
   const hc = a.head;
   return {
-    tris: [2900, 950, 300, 110],
+    tris: [2650, 950, 270, 110],
     ops: [
       // A torpedo leaning forward: a broad, full chest high under the head, a narrow waist, tapering to the tail.
       ell([0, 0.74 * s, -0.07 * s], [0.17 * s, 0.37 * s, 0.15 * s], 'body', 'back', { rot: [0.42, 0, 0], k: 0.05 }),
@@ -271,12 +273,16 @@ export function cassowaryBody(plan: BodyPlan): Body {
       // The bare neck, with a thick fold of skin at its base.
       ell([0, 1.66 * s, 0.17 * s], [0.17 * s, 0.1 * s, 0.15 * s], 'body', 'neckFold', { k: 0.06 }),
       ...neck([[0, 1.6 * s, 0.17 * s], [0, 1.86 * s, 0.14 * s], [0, 2.04 * s, 0.06 * s], [0, hc[1] - 0.06 * s, 0.01 * s]], [0.13 * s, 0.1 * s, 0.095 * s, 0.1 * s], 'neck', 0.55),
+      // Folds of bare red skin down the back of the neck: the nape reads from the player camera as skin, not a tube.
+      ...([[1.94, 0.03], [2.03, 0.0], [2.11, -0.045]] as const).map(([y, z], i) => ell([0, y * s, z * s], [0.085 * s, 0.018 * s, 0.05 * s], i === 0 ? 'body' : 'head', 'folds', { k: 0.018, rot: [-0.25, 0, 0], flow: [0, -1, 0] })),
       // Wattles: two lobes hanging from the front of the throat.
       ...pair(ell([0.045 * s, 1.84 * s, 0.24 * s], [0.03 * s, 0.075 * s, 0.035 * s], 'body', 'wattle', { k: 0.025, rot: [0.15, 0, 0.1] })),
       ...head(hc, a.hr, CASSOWARY_HEAD),
       // The casque: a tall, flattened horn helmet rising from the brow and sweeping back.
-      ell(at(hc, a.hr, [0, 1.05, 0.1]), mulS([0.3, 0.72, 0.5], a.hr), 'head', 'casque', { k: 0.035, rot: [-0.4, 0, 0] }),
-      ell(at(hc, a.hr, [0, 1.8, -0.3]), mulS([0.22, 0.62, 0.34], a.hr), 'head', 'casque', { k: 0.035, rot: [-0.7, 0, 0] }),
+      ell(at(hc, a.hr, [0, 1.05, 0.1]), mulS([0.36, 0.72, 0.5], a.hr), 'head', 'casque', { k: 0.035, rot: [-0.4, 0, 0] }),
+      ell(at(hc, a.hr, [0, 1.8, -0.3]), mulS([0.26, 0.62, 0.36], a.hr), 'head', 'casque', { k: 0.035, rot: [-0.7, 0, 0] }),
+      // Its keel runs on down the back of the skull, so from behind the head is a helmet, not a ball.
+      ell(at(hc, a.hr, [0, 0.62, -0.86]), mulS([0.2, 0.7, 0.3], a.hr), 'head', 'casque', { k: 0.05, rot: [0.75, 0, 0] }),
     ],
   };
 }
