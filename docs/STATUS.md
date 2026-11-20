@@ -172,6 +172,24 @@ Gate M2:
   kiwi) · Technical Artist (B3 birds) · Bot AI (build lists and tuning for all 24) · Hero polish (fixes from earlier
   reviews) · QA (20 seeded headless matches, soak)
 
+**Two pushes (D-EP-050, D-EP-051).** Stage 4 reaches `main` in two releases.
+
+**Release 1 · functionality.**
+- Gated on every item below except the art item.
+- Gated on stability:
+  - the full check passes three times in a row, serially, on the release candidate;
+  - no known flaky test is left unexplained;
+  - 20 seeded headless matches end with a winner and no crashes.
+- Includes all art finished so far: the art agents wrapped up on 21/11 and their committed, tested work merges into the
+  candidate.
+- A hero without its final model uses the default bird.
+
+**Release 2 · visual upgrade.** Starts only after Release 1 is pushed. It covers the rest of the bird conversions,
+structures and creatures, the environment's third pass, load-time work, and the Build Lab's learned builds if they have
+converged. It is pushed when done, against the same stability bar.
+
+**Stage 5 does not start after Stage 4 (the user, 21/11/2026).**
+
 Gate M3:
 - [ ] All 24 heroes and 64 items (the 48 GDD items + 16 new; D-EP-034)
 - [ ] Golden Egg, Roc/Ember, Thickets and runes work

@@ -2407,3 +2407,15 @@ done with stage 4, push to main when all functionality is added and push the art
 - In-flight art branches merge only after Release 1 is cut.
 - Ability-balance campaigns (D-EP-043) belong to Stage 5 and don't start.
 - The Build Lab's Phase B finishes the Stage 4 recommended builds and may still run.
+
+### D-EP-051 · 21/11/2026 — Functionality first: art pauses now, and its finished work ships in Release 1
+**Decision:** refines D-EP-050.
+- The six art agents wrapped up on 21/11: three bird batches, the B3 bird models, the structures and creatures, and the
+  environment's third pass. Their committed, tested work merges into the Release 1 candidate.
+- No new art work starts until Release 1 is pushed. The visual upgrade (Release 2) comes after that.
+- Resources go to functionality and stability: matches that end, all 24 heroes, Architect W6, bot navigation and tuning
+  for all 24, and QA's stability round.
+
+**Why:** "get all functionality in before you start dedicating resources to the higher quality models and map
+resources as long as it works and i can test it i want it in main, the visual upgrade comes after, but any work already
+done on that should be included in the next push to main."
