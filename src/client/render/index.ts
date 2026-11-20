@@ -307,6 +307,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   /** The real structure models at the map's anchors, shown until a match spawns structures. */
   const anchors = new Group();
   anchors.name = 'structure-anchors';
+  anchors.userData['budget'] = 'structures';
   scene.add(anchors);
   let anchorModels: { model: Object3D; view: EntityView }[] = [];
 

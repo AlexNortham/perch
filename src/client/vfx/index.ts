@@ -89,6 +89,7 @@ export const createVfx = (renderer: Renderer): Vfx => {
   if (!host) return noop;
   const root = new Group();
   root.name = 'vfx';
+  root.userData['budget'] = 'effects';
   host.scene.add(root);
   const draw = createDraw(root);
   const fx = new Transients();

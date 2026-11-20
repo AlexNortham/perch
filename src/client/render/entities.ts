@@ -80,6 +80,8 @@ export function createEntityLayer(parent: Object3D, kit: ModelKit): EntityLayer 
           const key = `${e.kind}:${e.type}:${e.team}`;
           slot = { model: spare.get(key)?.pop() ?? kit.create(e), key };
           live.set(e.id, slot);
+          // The style guide's §11.3 budget categories, for the dev budget report.
+          slot.model.userData['budget'] = e.kind === 'hero' ? 'birds' : e.kind === 'unit' ? 'units' : e.kind === 'structure' ? 'structures' : 'other';
           parent.add(slot.model);
         }
         const p = interpolate(frame, e);
