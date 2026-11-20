@@ -1,15 +1,12 @@
 /**
  * Woodpecker's hooks: only what data can't say.
- * - Tree Cling: Jump or a stun ends the cling (the mode has no end rule of its own yet, so it is replaced by a
- *   one-tick hover) and takes the gun bonus with it; at T3 the Woodpecker heals 3% of max HP a second while clinging.
- *   TODO(framework): `MovementModeEffect.endOn` (W5 Physics) makes the Jump half data.
+ * - Tree Cling: at T3 the Woodpecker heals 3% of max HP a second while clinging (Jump and stuns end it in data).
  * - Hammerhead: counts the Woodpecker's gun hits on each hero while it lasts; every Nth detonates on that hero
  *   (T3: on every enemy within 4 m of it).
  */
-import { Button } from '../../core/contracts';
 import type { AbilityCast, EffectCause, EffectTarget, EntityId, HeroEntity, HeroModule, Tick } from '../../core/contracts';
 import { TICK_RATE } from '../../data/core';
-import { CLING_ABILITY, CLING_BUFF_ID, CLING_HEAL_PER_S, HAMMER_ABILITY, HAMMER_BLAST, HAMMER_EVERY, woodpeckerDef } from '../../data/heroes/woodpecker';
+import { CLING_ABILITY, CLING_HEAL_PER_S, HAMMER_ABILITY, HAMMER_BLAST, HAMMER_EVERY, woodpeckerDef } from '../../data/heroes/woodpecker';
 
 const CLING_SLOT = 2;
 const HEAL_EVERY_TICKS = TICK_RATE / 2;
@@ -82,14 +79,6 @@ export const woodpecker: HeroModule = {
       },
       onTick(hero) {
         if (hero.motor.mode !== 'cling') return;
-        const cond = hero.stats.conditions;
-        if (cond.has('stunned') || (hero.command.pressed & Button.Jump) !== 0) {
-          const cause = causeOf(hero);
-          // A one-tick hover replaces the cling, so the hero falls from the next tick.
-          ctx.effects.apply({ kind: 'movementMode', mode: 'hover', durationS: 0, speed: 0, verticalSpeed: 0, allowGun: true, allowAbilities: true }, at(hero), cause);
-          ctx.effects.apply({ kind: 'cleanse', remove: [CLING_BUFF_ID] }, at(hero), cause);
-          return;
-        }
         const tier = hero.abilities.slots[CLING_SLOT]?.tier ?? 0;
         if (tier >= TIER_3 && ctx.clock.tick % HEAL_EVERY_TICKS === 0) {
           const amount = hero.stats.final.maxHealth * CLING_HEAL_PER_S * (HEAL_EVERY_TICKS / TICK_RATE);

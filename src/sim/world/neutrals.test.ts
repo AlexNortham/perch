@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { Button } from '../core/contracts';
 import type { EntityId, EventOf, PickupEntity, UnitEntity, Vec3 } from '../core/contracts';
 import { TICK_RATE } from '../data/core';
-import { EGG, EMBERS, KEEPSAKES, ROC, RUNES, THICKET_FAMILIES, THICKETS } from '../data/world';
+import { EGG, EMBERS, KEEPSAKES, NEST_RULES, NESTS, ROC, RUNES, THICKET_FAMILIES, THICKETS } from '../data/world';
 import { createSandbox } from '../../../tests/helpers/sandbox';
 import type { Sandbox } from '../../../tests/helpers/sandbox';
 import { advanceBy, advanceTo, mmss, pickupsOf, seconds, world } from '../../../tests/helpers/world';
@@ -167,7 +167,8 @@ describe('the Golden Egg (GDD §7.11)', () => {
 });
 
 describe('the Roc, Embers and Rekindle (GDD §7.12)', () => {
-  const FLOOR: Vec3 = { x: -14, y: -10, z: 0 };
+  /** Open Hollow floor in Rake reach, clear of the west ramp (x −22…−6, z −2…2); a Gale Flap leaves it inside the Shriek's 20 m. */
+  const FLOOR: Vec3 = { x: -6, y: -10, z: 6 };
   const roc = (sb: Sandbox): UnitEntity | undefined => sb.ctx.store.list('unit').find((u) => u.unit.type === 'roc');
 
   it('sleeps invulnerable until 20:00, fights only heroes in the Hollow, enrages, and drops three Embers that grant Rekindle', async () => {
@@ -308,6 +309,11 @@ describe('Thickets (GDD §7.8)', () => {
 
     for (const u of units()) hit(sb, hero, u.id, 1_000_000);
     sb.step(2);
+    expect(units(), 'a sleeping camp ignores hits from beyond 35 m').toHaveLength(3);
+    sb.place(hero, { x: anchor.pos.x + THICKETS.snipeM - 3, y: anchor.pos.y, z: anchor.pos.z });
+    sb.step();
+    for (const u of units()) hit(sb, hero, u.id, 1_000_000);
+    sb.step(2);
     expect(seen(sb, 'campCleared')).toMatchObject([{ camp: index, hero }]);
     const cleared = seconds(sb);
     advanceTo(sb, cleared + THICKET_FAMILIES.beetles.respawnS - 2);
@@ -328,17 +334,24 @@ describe('Thickets (GDD §7.8)', () => {
 });
 
 describe('Nests (GDD §7.9)', () => {
-  it('spawn at 3:00 without colliders, break on a hit or a fast pass, and return 3:00 after the break or after their drop is collected', async () => {
+  it('surface Nests spawn at 3:00, Twigs without colliders break on a hit or a fast pass, and return 3:00 after the break or after their drop is collected', async () => {
     const sb = await open({ heroes: ['shrike', 'lyrebird'], seed: 3 });
     const hero = sb.heroes[0]!;
     const nests = () => sb.ctx.store.list('structure').filter((s) => s.structure.type === 'nest' && !s.removed);
+    const twigs = () => nests().filter((s) => s.structure.variant === 'twig');
     advanceTo(sb, mmss(2, 59));
     expect(nests()).toHaveLength(0);
     advanceTo(sb, mmss(3, 1));
-    expect(nests()).toHaveLength(sb.ctx.map.nests.length);
-    for (const n of nests()) expect(n.structure).toMatchObject({ variant: 'twig', solid: false, breakable: { by: 'any' } });
+    // Below ground (5:00) and in the Hollow (10:00) all lie under NEST_RULES.belowY.
+    const surface = sb.ctx.map.nests.filter((a) => (a.storey ?? 0) >= 0 && a.pos.y >= NEST_RULES.belowY);
+    expect(surface.length).toBeLessThan(sb.ctx.map.nests.length);
+    expect(nests()).toHaveLength(surface.length);
+    for (const n of nests()) {
+      const variant = sb.ctx.map.nests[n.structure.anchor!]!.variant ?? 'twig';
+      expect(n.structure).toMatchObject({ variant, solid: NESTS[variant].solid, breakable: { by: NESTS[variant].by } });
+    }
 
-    const fast = nests()[0]!;
+    const fast = twigs()[0]!;
     sb.place(hero, { x: fast.pos.x - 3, y: fast.pos.y, z: fast.pos.z }, Math.PI / 2);
     sb.modify(hero, 'test-speed', { stats: [{ stat: 'moveSpeed', op: 'add', value: 6 }] });
     sb.move(hero, 1);
@@ -347,9 +360,9 @@ describe('Nests (GDD §7.9)', () => {
     sb.modify(hero, 'test-speed', null);
     expect(fast.health.dead, 'run through at 13 m/s').toBe(true);
 
-    for (const n of nests()) hit(sb, hero, n.id, 10);
+    for (const n of twigs()) hit(sb, hero, n.id, 10);
     sb.step(2);
-    expect(nests()).toHaveLength(0);
+    expect(twigs()).toHaveLength(0);
     const crumbs = pickupsOf(sb, 'crumb');
     expect(crumbs.length, 'about 15% of the Twig Nests drop a crumb').toBeGreaterThan(0);
     expect(crumbs.length).toBeLessThan(sb.ctx.map.nests.length / 2);

@@ -67,11 +67,16 @@ export const createEconomySystem: SystemFactory = (ctx) => {
   bus.on('entity.spawned', (e) => {
     if (e.kind !== 'hero') return;
     const h = store.getKind(e.id, 'hero');
-    const start = ctx.config.options.startSeeds ?? ECONOMY.startSeeds;
+    // The purse is spendable but not earned, so it adds no net worth and no level (GDD §8.1). An explicit
+    // `startSeeds` (tests, tools) starts the hero as if it had earned them (D-ECON-005).
+    const given = ctx.config.options.startSeeds;
+    const start = Math.floor(given ?? ECONOMY.startSeeds);
     if (h && start > 0) {
-      h.progress.seeds = Math.floor(start);
-      h.progress.netWorth = h.progress.seeds;
-      levelUp(h);
+      h.progress.seeds = start;
+      if (given != null) {
+        h.progress.netWorth = start;
+        levelUp(h);
+      }
     }
   });
 

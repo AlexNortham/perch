@@ -81,6 +81,28 @@ const STEER_MS = 250;
 const WAYPOINT_RADIUS_M = 6;
 const MIN_STEP_M = 0.3;
 const DEGREES_PER_COUNT = 0.06;
+const PITCH_LIMIT_DEG = 80;
+
+/**
+ * Level the view whatever earlier mouse movement did to the pitch (a click while the pointer is locked turns the
+ * camera too): look up past the +80° clamp, then down exactly 80°. walkTo and later steering keep that mouse height.
+ */
+export async function levelView(page: Page): Promise<void> {
+  const at = mousePos.get(page) ?? { x: VIEWPORT.width / 2, y: VIEWPORT.height / 2 };
+  at.y -= (2 * PITCH_LIMIT_DEG) / DEGREES_PER_COUNT;
+  await page.mouse.move(at.x, at.y);
+  at.y += PITCH_LIMIT_DEG / DEGREES_PER_COUNT;
+  await page.mouse.move(at.x, at.y);
+  mousePos.set(page, at);
+}
+
+/** Turn the view right by `degrees` (left when negative) with real mouse movement, keeping the pitch. */
+export async function turn(page: Page, degrees: number): Promise<void> {
+  const at = mousePos.get(page) ?? { x: VIEWPORT.width / 2, y: VIEWPORT.height / 2 };
+  at.x += degrees / DEGREES_PER_COUNT;
+  await page.mouse.move(at.x, at.y);
+  mousePos.set(page, at);
+}
 
 /**
  * Hold W and steer with real mouse movement through (x, z) waypoints. The heading is read from the hero's motion

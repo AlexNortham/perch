@@ -165,7 +165,8 @@ export async function createSandbox(config: SandboxConfig): Promise<Sandbox> {
   const sim = await createSim({
     seed,
     map: config.map ?? 'arena',
-    roster: specs.map((s, i) => ({ team: s.team ?? 'dawn', hero: s.hero, controller: s.controller ?? (i === 0 ? 'human' : 'normal') })),
+    // The rest are 'dummy' targets: no bot AI drives them on any map (D-AI-007's interface request).
+    roster: specs.map((s, i) => ({ team: s.team ?? 'dawn', hero: s.hero, controller: s.controller ?? (i === 0 ? 'human' : 'dummy') })),
     options: { ...DEFAULT_OPTIONS, ...config.options },
   });
   const ctx = sim.ctx;

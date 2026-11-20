@@ -9,6 +9,8 @@ import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
 import { beak, eye, FEATHER, flare, headForm, legsOf, norm, ovoid, shingle, SKIN, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
+import { bodyField, CASSOWARY_HEAD, cassowaryAnchors, flipX, skinFor, TRUNK } from './bodies';
+import { SKIN as CASSOWARY_SKIN } from './data/skins/cassowary';
 import { CARD, TILE } from './feathers';
 import { band, bead, block, BRASS, buckle, carve, GEAR, LEATHER, lathe, pouch, ring, sash, scope, stud, WOOD } from './gear';
 import type { Detail, SculptedSpec } from './sculpted';
@@ -39,40 +41,60 @@ const CASSO = {
 
 export function cassowary(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
   const H = plan.height;
-  const R = plan.radius;
   const hr = plan.head.radius;
-  const hc = plan.head.centre.up;
-  const s = H / 2.4;
+  const A = cassowaryAnchors(plan);
+  const s = A.s;
   const C = CASSO;
-  const legLen = H * 0.37;
+  const legLen = A.legLen;
+  const HAIR = { tile: TILE.wood, size: 0.22, iri: 0.3, gloss: 0.12 } as const;
+  // Bare skin: pebbled (the leather tile, world-aligned), so the neck and head read as skin up close.
+  const BARE = { gloss: 0.35, tile: TILE.leather, size: 0.05 } as const;
+  const field = bodyField('cassowary', plan);
+  const skin = skinFor('cassowary', plan, CASSOWARY_SKIN, d.level, {
+    back: { paint: C.black, finish: HAIR },
+    shag: { paint: (p) => mix(C.black, C.sheen, Math.min(0.5, Math.max(0, (1.1 * s - p.y) / (0.5 * s)))), finish: HAIR },
+    mantle: { paint: mix(C.black, C.sheen, 0.3), finish: HAIR },
+    scapular: { paint: mix(C.black, C.sheen, 0.2), finish: HAIR },
+    shoulder: { paint: C.black, finish: HAIR },
+    coverts: { paint: C.black, finish: HAIR },
+    breast: { paint: mix(C.black, C.sheen, 0.15), finish: HAIR },
+    belly: { paint: C.black, finish: HAIR },
+    thigh: { paint: mix(C.black, C.sheen, 0.1), finish: HAIR },
+    // The bare neck: blue at the front, turquoise at the sides, red-purple down the back.
+    neck: { paint: (p) => (p.z < -0.02 * s ? mix(C.nape, C.blue, Math.min(1, Math.max(0, (p.z + 0.1 * s) / (0.08 * s)))) : mix(C.blue, C.teal, Math.min(1, Math.abs(p.x) / (0.11 * s)))), finish: BARE },
+    neckFold: { paint: (p) => mix(C.nape, C.teal, Math.min(1, Math.max(0, p.z / (0.2 * s)))), finish: BARE },
+    wattle: { paint: C.wattle, finish: { gloss: 0.45 } },
+    crown: { paint: C.blue, finish: BARE },
+    face: { paint: (p) => mix(C.blue, C.teal, Math.min(1, Math.abs(p.x) / (0.12 * s))), finish: BARE },
+    cheek: { paint: C.teal, finish: BARE },
+    brow: { paint: shade(C.blue, 0.85), finish: BARE },
+    // The red-purple nape climbs the back of the skull: from behind the head is blue over red, not a blue ball.
+    nape: { paint: (p) => mix(C.blue, C.nape, Math.min(0.9, Math.max(0, (A.head[1] + 0.06 * s - p.y) / (0.16 * s) - p.z / (0.3 * s)))), finish: BARE },
+    folds: { paint: shade(C.nape, 0.9), finish: { gloss: 0.4 } },
+    throat: { paint: C.blue, finish: BARE },
+    bill: { paint: C.bill, finish: { gloss: 0.5 } },
+    socket: { paint: shade(C.blue, 0.7), finish: BARE },
+    casque: { paint: (p) => mix(C.casque, C.casqueDark, Math.min(1, Math.max(0, (A.head[1] + 0.25 * s - p.y) / (0.2 * s)))), finish: { gloss: 0.45 } },
+  });
   const leg: LegStyle = {
-    skin: C.leg, claw: C.claw, thick: 0.05 * s, thigh: C.black, fringe: 0.75, fringeCell: CARD.hair,
+    skin: C.leg, claw: C.claw, thick: A.legThick, thigh: C.black, fringe: 0.75, fringeCell: CARD.hair, skinned: { r: 0.13 * s, at: 0.2 },
     // Three toes; the inner one (authored for the left foot, toward -x) carries the dagger claw.
     toes: [{ yaw: -0.42, len: 0.15 * s, claw: 0.13 * s, r: 0.03 * s }, { yaw: 0.02, len: 0.19 * s }, { yaw: 0.45, len: 0.15 * s }],
     clawLen: 0.045 * s,
   };
   const wing: WingStyle = {
-    covert: C.black, secondary: C.black, primary: C.black, primaryTip: shade(C.black, 1.6), trim: team.primary,
+    covert: C.black, secondary: C.black, primary: C.black, primaryTip: C.sheen, trim: team.primary,
     thick: 0.045 * s, chord: 0.2 * s, primaries: 5, secondaries: 4, primaryLen: 0.6, cell: CARD.quill, secondaryCell: CARD.hair, secondaryLen: 1.6,
   };
 
   const body = (k: Sculpt): void => {
-    const torso = k.loft(
-      [
-        { c: [0, 1.28 * s, -0.64 * s], w: 0, up: 0 },
-        { c: [0, 1.26 * s, -0.52 * s], w: 0.32 * s, up: 0.32 * s, dn: 0.32 * s },
-        { c: [0, 1.3 * s, -0.27 * s], w: 0.46 * s, up: 0.48 * s, dn: 0.5 * s },
-        { c: [0, 1.34 * s, 0], w: 0.46 * s, up: 0.46 * s, dn: 0.5 * s },
-        { c: [0, 1.44 * s, 0.2 * s], w: 0.36 * s, up: 0.34 * s, dn: 0.42 * s },
-        { c: [0, 1.56 * s, 0.31 * s], w: 0, up: 0 },
-      ],
-      { n: d.n(14, 5), seg: d.n(22, 5), paint: C.black, finish: { tile: TILE.wood, size: 0.3, iri: 0.25 }, uvSwap: true },
-    );
+    // The body is the baked implicit skin (bodies.ts); hair, gear and feathers sit on its surface.
+    const torso = field.only(...TRUNK).surface([0, 1.24 * s, -0.7 * s], [0, 1.56 * s, 0.36 * s]);
     // The haystack: long hair-like plumes drooping all over, bristling out on the display.
     shingle(k, torso, {
       // Rows start clear of the rump pole (seen end-on from the player camera), where they would meet in a starburst.
-      t: [0.16, 0.96], a: [0, Math.PI * 2], rows: 6, cols: 11, len: 0.66 * s, wid: 0.42 * s, cell: CARD.hair, toward: [0, -1, -0.3], lift: 0.16, seed: 13,
-      paint: (_t, a) => mix(C.black, C.sheen, 0.5 * jitter(Math.round(a * 20), 7)), finish: { iri: 0.3 },
+      t: [0.16, 0.96], a: [0, Math.PI * 2], rows: 5, cols: 11, len: 0.72 * s, wid: 0.28 * s, cell: CARD.hair, toward: [0, -1, -0.3], lift: 0.2, seed: 13,
+      paint: (_t, a) => mix(C.black, C.sheen, 0.35 * jitter(Math.round(a * 20), 7)), finish: { iri: 0.3, gloss: 0.2 },
       morph: (_t, _a, at, dir, n) => flare(at, dir, n, 0.55),
     }, d);
     // A curtain of long plumes hanging over the rump end, so the player camera sees hair, not the body.
@@ -81,24 +103,6 @@ export function cassowary(plan: BodyPlan, team: TeamColours, d: Detail): Sculpte
       paint: (_t, a) => mix(C.black, C.sheen, 0.5 * jitter(Math.round(a * 20), 9)), finish: { iri: 0.3 },
       morph: (_t, _a, at, dir, n) => flare(at, dir, n, 0.55),
     }, d);
-    // The bare neck: blue at the front, turquoise at the sides, red on the nape.
-    const neck = k.loft(
-      [
-        { c: [0, 1.6 * s, 0.16 * s], w: 0.15 * s, up: 0.15 * s },
-        { c: [0, 1.86 * s, 0.13 * s], w: 0.115 * s, up: 0.115 * s },
-        { c: [0, 2.04 * s, 0.05 * s], w: 0.108 * s, up: 0.11 * s },
-        { c: [0, hc - 0.17 * s, 0.03 * s], w: 0.12 * s, up: 0.12 * s },
-        { c: [0, hc - 0.07 * s, 0.01 * s], w: 0.11 * s, up: 0.11 * s },
-      ],
-      { n: d.n(10, 3), seg: d.n(16, 3), ref: [0, 0, 1], paint: (_t, a) => (Math.sin(a) < -0.45 ? C.nape : mix(C.teal, C.blue, Math.max(0, Math.sin(a)))), finish: SKIN },
-    );
-    // Two red wattles hanging at the throat.
-    if (d.level < 3) {
-      for (const x of [1, -1]) {
-        const w = neck.at(0.5, Math.PI / 2 + x * 0.35, 0.01 * s);
-        ovoid(k, [w.p.x, w.p.y - 0.05 * s, w.p.z + 0.02 * s], [0.028 * s, 0.07 * s, 0.03 * s], { n: d.n(7, 3), seg: d.n(10, 4), paint: (t) => mix(C.wattle, shade(C.wattle, 0.75), t), finish: SKIN, rot: [Math.PI / 2 - 0.2, 0, x * 0.15] });
-      }
-    }
     // Gear (worn over the plumage): a heavy cross harness with brass buckles and seed shells, and a broad flock sash.
     const over = 0.07 * s;
     sash(k, torso, 0.55, 0.28, Math.PI * 0.28, { width: 0.07 * s, thick: 0.016 * s, hex: GEAR.leatherDark, off: over, finish: LEATHER }, d);
@@ -116,22 +120,11 @@ export function cassowary(plan: BodyPlan, team: TeamColours, d: Detail): Sculpte
   };
 
   const head = (k: Sculpt): void => {
-    // One form from the neck to the bill: blue face, turquoise cheeks, the red-purple nape.
-    headForm(k, {
-      hr, width: 1.0, crown: 1.02, chin: 1.0, back: 0.95, face: 1.12, neck: { r: 0.082 * s, drop: 0.2 * s, lean: 0.02 * s },
-      beak: { y: -hr * 0.12, w: hr * 0.3, up: hr * 0.34, dn: hr * 0.2 }, finish: { ...SKIN, gloss: 0.35 },
-      paint: (_t, _a, p) => (p.z < -hr * 0.2 && p.y < -hr * 0.45 ? C.nape : mix(C.blue, C.teal, 0.25 + 0.5 * Math.min(1, Math.abs(p.x) / hr))),
-    }, d);
-    // The casque: a tall, laterally flattened horn helmet rising from the brow and sweeping back.
-    const casque: Ring[] = [
-      { c: [0, hr * 0.55, hr * 0.32], w: 0.045 * s, up: 0.1 * s, dn: 0.1 * s },
-      { c: [0, hr * 1.15, hr * 0.08], w: 0.042 * s, up: 0.1 * s, dn: 0.1 * s },
-      { c: [0, hr * 1.65, -hr * 0.22], w: 0.03 * s, up: 0.07 * s, dn: 0.08 * s },
-      { c: [0, hr * 1.9, -hr * 0.48], w: 0, up: 0, dn: 0 },
-    ];
-    k.loft(casque, { n: d.n(9, 3), seg: d.n(12, 4), ref: [0, 0, 1], paint: (t, a) => mix(C.casque, C.casqueDark, 0.35 + 0.35 * Math.sin(t * 14) * (d.level < 2 ? 1 : 0) + 0.2 * Math.abs(Math.cos(a))), finish: { gloss: 0.45 } });
-    for (const x of [1, -1]) eye(k, [x * hr * 0.72, hr * 0.12, hr * 0.56], [x * 0.75, 0.05, 0.66], { r: hr * 0.24, iris: C.iris, ring: shade(C.blue, 0.7), lid: C.blue, ringW: hr * 0.05 }, d);
-    beak(k, { at: [0, -hr * 0.12, hr * 1.12], len: hr * 1.2, w: hr * 0.3, up: hr * 0.34, dn: hr * 0.2, curve: hr * 0.14, hook: hr * 0.05, base: C.bill, tip: shade(C.bill, 1.6), open: 0.36 }, d);
+    // The head, casque, bare neck and wattles are the skin's; the eyes sit in its sockets.
+    const E = CASSOWARY_HEAD.eye;
+    for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.75, 0.05, 0.66], { r: hr * 0.24, iris: C.iris, ring: shade(C.blue, 0.7), lid: C.blue, ringW: hr * 0.04 }, d);
+    const B = CASSOWARY_HEAD.bill;
+    beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.04)], len: hr * 1.2, w: hr * 0.3, up: hr * 0.34, dn: hr * 0.2, curve: hr * 0.14, hook: hr * 0.05, base: C.bill, tip: shade(C.bill, 1.6), open: 0.36 }, d);
   };
 
   const tail = (k: Sculpt): void => {
@@ -141,15 +134,11 @@ export function cassowary(plan: BodyPlan, team: TeamColours, d: Detail): Sculpte
   };
 
   return {
-    body, head, tail,
+    body, head, tail, skin,
     wing: wingsOf(wing, d),
     leg: legsOf(leg, d),
     gun: cassowaryGun(s, d),
-    pivot: {
-      wingL: [R * 0.8, 1.66 * s, 0.05 * s], wingR: [-R * 0.8, 1.66 * s, 0.05 * s],
-      legL: [R * 0.36, legLen, -0.02 * s], legR: [-R * 0.36, legLen, -0.02 * s],
-      tail: [0, 1.26 * s, -0.56 * s],
-    },
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
     legLen, legThick: leg.thick, wingLen: H * 0.3,
     // Rampage, Dagger Kick, Bristle, Boom Call.
     casts: ['leap', 'stomp', 'raise', 'sweep'],

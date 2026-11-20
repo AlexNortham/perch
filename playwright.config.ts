@@ -15,8 +15,12 @@ process.env.PERCH_E2E_PORT ??= String(
 );
 const port = process.env.PERCH_E2E_PORT;
 const baseURL = `http://127.0.0.1:${port}`;
-/** Suites that must not share the machine with the parallel ones: offline audio renders, and the replay's fast-forward. */
-const SERIAL = /(audio|result)\.spec\.ts$/;
+/**
+ * Suites that must not share the machine with the parallel ones: offline audio renders, the replay's fast-forward, and
+ * preview-regressions, whose side-button test chains four page loads (about 4 s each since the Rendering merge) inside
+ * 30 s. Its place here is temporary: the renderer-ready hook round fixes the load time and moves it back (D-BUILD-011).
+ */
+const SERIAL = /(audio|result|preview-regressions)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: 'e2e',

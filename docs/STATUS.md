@@ -2584,3 +2584,298 @@ Feeders, Berries, Springs and climbs; tuning for all 24 heroes with the Build La
 - **Scores (0–4, my read):** Hedgerow 3, Riverbank 2.5, Pinewood 2.5, Lantern Row jungle 3, rooftop route 3, interiors 2.5, Roc's Hollow 3, Thicket camp 2.5, Nest cluster 3, map edge 3, overview 3. That is about 2.85 overall: still under the 3.2 pass, with Riverbank, Pinewood, interiors and the camp below 3.
 **Blocked:** nothing.
 **Next:** a generation worker (load time); Riverbank and Pinewood street life; richer interiors and camps; vertex memory toward 50 MB (instancing repeated props).
+
+### EP · 20/11/2026 · Bot AI and the environment second pass merged (985998c); Build Lab started
+- **Bot AI:** bots fight in all three lanes by 0:50 (G22 closed), shop from item scores and take Hawks, runes, the Egg and the Roc. 20 headless matches ran with zero crashes, but **every match was undecided at 60:00**: no Shrine falls through the Brood Ward. Bot AI is resumed to make matches end, with a median of about 30–40 min and none over 55. That is a Stage 4 gate item.
+- **Environment, second pass:** bird life on facades and streets, about 260 perched birds, a canopy over the jungle, a forest wall at the map edge, interior floors and woven Nests.
+  - The artist scores it 2.85 against the 3.2 gate. Riverbank, Pinewood, interiors and the camp are at 2.5.
+  - It adds 1.2–1.5 s of load and 75.5 MB of vertex memory.
+  - The third pass and worker-based generation go to wave 6.
+- **Build Lab** (simulation track, D-EP-044): Phase A, the lab and a pilot, starts now (brief `docs/briefs/W5-buildlab.md`). Phase B, the 1,000+ match run, starts once the match-ending fix and the integration round are merged.
+
+### W5c · Technical Artist · sculpt pipeline v2 (implicit bodies) · 20/11/2026
+**Done:** an implicit (SDF) body pipeline, and Peacock, Swift and Cassowary converted to it. Branch
+`worktree-agent-ab2171eba079ed25b`, with `integrate/w5` merged at 373506f (Rendering's materials and lighting, Bot AI,
+the environment second pass). D-ART-008 (pipeline), D-ART-009 (meshoptimizer, bake only), D-ART-010 (how to convert a
+bird).
+- **Pipeline:**
+  - `models/bodies.ts` describes each bird as signed-distance masses: back, breast pectorals and keel, belly, mantle,
+    tail coverts, scapulars, wing roots, thighs, a neck chain, and a head with brow, cheeks, nape, throat, bill base and
+    eye sockets. It also gives the anchors the rig hangs from.
+  - `models/sdf.ts` is the field: smooth union and subtraction with a blend radius per mass, bone and paint ownership,
+    and surface probes for gear and feathers.
+  - `models/mesher.ts` bakes it: surface nets, then meshoptimizer's attribute-aware levels of detail.
+    `models/skin.ts` decodes and paints the result.
+  - Bake with `npx tsx tests/anim/bake-skins.ts` (1–4 s a bird). `skins.test.ts` re-bakes and requires the committed
+    skins to be byte-identical.
+- **Skinning:** sculpted builds are now in the model frame with real bind matrices, so a skin vertex blends up to four
+  bones. Necks hand from the body to the head, wing roots to the wings, and thighs to the legs. Rigid parts, sockets,
+  IK, morphs, levels of detail and Rendering's identity overlays are unchanged.
+- **Texturing:** skin vertices take the bird atlas tiles world-aligned (triplanar on the bind pose) and blend region
+  colours softly. Paint-only "mark" volumes draw sharp markings.
+- **Per bird:**
+  - Peacock: a level pear body with a pectoral breast and keel, buff scapulars, raised tail coverts, and an S-neck that
+    flows into a hooded nape. It has a stern brow, white face stripes and dark feathered thighs.
+  - Swift: a forward-leaning torpedo with a broad chest and a waist, and short feathered thighs with a fringe. Its flat,
+    scowling head has pale brows, a pale throat, and a goggle strap round the back.
+  - Cassowary: a domed haystack over a sculpted shag (two tiers of hanging locks) under the hair blades, and heavy
+    thighs with hair fringes. A bare blue neck carries a skin fold, wattles and a red nape that grades into the head,
+    under a tall horn casque.
+- `tests/anim/frame.ts` takes `fov=`, to inspect far line-ups at the level of detail their distance picks.
+
+**Evidence** (git-ignored; reproduce with `npx tsx tests/anim/posesheets.ts --out=out/art/after --frame="name=<bird>&mode=triptych&hero=<bird>"`):
+- Before and after triptychs (three-quarter, front, back from the player camera, neutral light):
+  `out/art/before/<bird>.png` and `out/art/after/<bird>.png`. Player camera: `out/art/after/<bird>-player.png`.
+- Line-ups with Vulture and Toucan at 10, 40 and 80 m: `out/art/after/lineup-{10,40,80}.png`. The 40 and 80 m levels of
+  detail, zoomed: `lineup-{40,80}-zoom.png`.
+- In the real game renderer (sandbox, front and back): `out/art/after/game-lineup.png` and `game-lineup-back.png`.
+- I judged them beside `HP8-yBieQK8\t2010.jpg`.
+
+| Bird | Level 0 / 1 / 2 / 3 triangles (of which skin) | Player camera: bird / gun | Honest score |
+|---|---|---|---|
+| Peacock | 8,890 / 3,374 / 1,134 / 376 (2,300 / 900 / 300 / 120) | 3.6 % / 0.24 % | 3 |
+| Swift | 8,962 / 3,232 / 1,196 / 394 (2,900 / 950 / 300 / 110) | 4.9 % / 0.39 % | 3 |
+| Cassowary | 8,872 / 3,410 / 1,144 / 374 (2,500 / 850 / 280 / 120) | 5.3 % / 0.38 % | 2.5 (3 from the front and three-quarter) |
+
+All are within 9,000 / 3,500 / 1,200 / 400, with at most three draw calls. Before, the scores were 2, 2 and 1.
+
+**Load and memory:**
+- Nothing is generated at load. A skin decodes once in about 2 ms, then paints per team. A bird still builds in about
+  20–30 ms (Node, median of 7, the same as before within 4 ms). A 12-bird match adds well under 0.1 s, against the
+  ≤ 1 s allowance and today's 2.5 s page load.
+- Geometry per bird and team, all four levels: Peacock 2,103 → 2,105 KB, Swift 1,926 → 2,109 KB, Cassowary 2,026 →
+  2,038 KB. Most of this is the three morph targets' position and normal deltas, which are zero on the skin. A
+  per-layer morph range would save about a third (wave 6).
+- Bundle: +229 KB of base64 source for three birds, about 75 KB a bird (about 1.8 MB for all 24 before gzip).
+
+**Verified:** the model, render, skin and attachment tests pass (111): budgets, the head on its hitbox, the body
+meeting the head, grips held in every state, the muzzle on the sim's muzzle point, feet planted, and every vertex's
+weights summing to 1. `npm run check`, each step run, with 373506f merged (this branch changes nothing in `src/sim`):
+- **typecheck, lint and sim:** pass. The sim is seed 1, 3 minutes, 12 bots, hash 41b6ba755b99c3c1.
+- **test:** 1,117 pass and 6 fail. Five are the known Objectives sim tests. Wiki coverage timed out under load and
+  passes alone (10/10).
+- **perf:** the objectives budget fails (known). The fledgling world budget failed under load and passes alone.
+- **e2e:** 55 pass and 7 fail in parallel under load. Run serially, draw-budget (3/3), hero-select and options pass. Two
+  still fail, neither from this branch:
+  - `preview-regressions` "binds side buttons" (the EP's open item from the page-load regression);
+  - `match.spec` "Seeds levelled the hero up" (Bot AI's interface request: bots now take the structure payouts).
+
+**Still short:**
+- Peacock: from the player camera, the neck is still a long smooth column, and a soft crease marks the hood at the nape.
+- Swift: the sickle wings are thin dark blades that read weakly from behind.
+- Cassowary: from the player camera, the back of the head is a plain blue ball (the hitbox floors its size), and the
+  coat is still mostly hair blades; the sculpted shag shows at the hem.
+- Fine markings follow mesh vertices, so they soften from level 1 up. At level 2 (40 m) the Cassowary keeps few hair
+  blades, so its shag and casque carry the haystack read.
+
+**Time to convert one more bird:** about 1.5–2 hours with renders, following D-ART-010. The pipeline and helpers are
+shared, and a bake takes seconds.
+**Blocked:** nothing.
+**Next:** the EP's review, then the other 21 birds in parallel batches.
+
+### EP · 21/11/2026 · sculpt pipeline v2 merged (63b6776)
+- Implicit (SDF) bodies baked offline and cut into LODs with meshoptimizer (an exact dev dependency, D-ART-009). A byte-identical re-bake test guards the committed skins. Nothing is generated at load.
+- EP scores: Peacock 2.5, Swift 2.5, Cassowary 2.5–3 (from 2, 2 and 1).
+- Pipeline v2.1 is ordered before the batches:
+  - feather surface detail along a flow field;
+  - a standard for the player-camera view (nape, hackles, crown, value breaks);
+  - wings that wrap the grip instead of reading as arms;
+  - a check under golden-hour lighting.
+- Then the other 21 birds convert in parallel batches, with a per-bird checklist.
+### W5 · Balance & Data · Build Lab Phase A · 20/11/2026
+**Branch:** `worktree-agent-a2b0b29f72af4887f` from `integrate/w5` 373506f. Edits only `tools/buildlab/**`,
+`src/sim/data/learned/**`, `docs/balance/**`, this entry and D-BAL-001..004. `src/sim/data/builds.ts` untouched (Bot AI's).
+**Done (Phase A: the lab and a pilot):**
+1. **Runner** (`npx tsx tools/buildlab/run.ts --round R --matches N [--parallel P] [--minutes 60] [--difficulty hard]`):
+   one worker process per seeded 12-bot match, `--parallel` default half the logical cores; per flock `random` buying
+   or a round's scores at a temperature (`SimOptions.botShopping`). Records per match: picks, every buy and sale with its
+   second, unlocks and upgrades, winner, length, hash, per-hero telemetry, damage to heroes by gun / abilities / melee /
+   items, and per ability casts, damage, killing blows and kill participation (bus listeners on `sim.ctx`, read-only).
+   Compact (~10 KB) atomic files under `out/buildlab/round-R/matches/`; reruns skip finished seeds (resume proven: a
+   rerun of round 2 played 0 and relearned identical outputs). `--duel prev|random` plays held-out matches.
+2. **Learning** (`learn.ts`, D-BAL-001): per hero a Gaussian-prior logistic model of the flock's result on held-item
+   shares by phase bought, pairwise co-holding and Seeds spent, centred on the round-0 designer prior (no data gives it
+   back exactly); Laplace CIs; greedy early/mid/late cores. Rounds with falling exploration (D-BAL-002).
+3. **Convergence tests** in the report: split-half ρ, core changes between rounds, settled picks (CI), both duels.
+4. **Output:** `src/sim/data/learned/builds.ts` (`LEARNED_BUILDS: BuildData`, generated, deterministic, header with
+   round, matches and seeds) and `docs/balance/report.md` (per-hero and per-ability tables, builds, flags, limits).
+**Verified:**
+- **Pilot:** round 1 (seeds 1000001–050, prior scores, T 1.0, 30% random flocks) 50 matches in 37.9 min; round 2
+  (2000001–050, round-1 scores, T 0.8, 21%) 50 in 21.5 min; duels 4 vs round 1 and 4 vs random in 3.1 min. **108
+  matches, 0 crashes**, 4 wide, 20:00 cap, hard bots: 133 s a match, 177–963 ticks/s per process with the machine
+  shared (543 mean). Learning 100 matches (24 heroes, plus both halves): 1.4–4 s.
+- **Pilot numbers** (report): 0 of 108 decided by 20:00 (net-worth proxy). Split-half ρ median 0.71 (min 0.47, 19 of
+  20 heroes); cores vs round 1: 20/20 within one change; settled picks 0%; scored vs random flocks 0.575 ± 0.089 (31
+  matches), duels n = 4 each: none significant. Heroes average 4.7 buys by 20:00; 44–47% of scored-flock buys are
+  on the hero's §11.5 list (random 28%).
+- **Phase B sizing:** pick SEs are 1.3–1.8 score units, still the prior; the data-only SE of each hero's most-held item
+  is 1.2–2.7 after 30–100 games. With 20:00 proxy results, separating items 0.5 apart needs about 4,700 games per hero
+  (~8,000 matches) and 0.25 apart about 19,000. ρ is high partly because unmoved scores equal the prior in both halves;
+  the settled-pick test is the binding one.
+- Tests: `npx vitest run --root tools/buildlab` 11/11 (synthetic data: known best and worst items and a known synergy
+  pair recovered, prior returned with no data, clear pick settled, Cholesky, holds, outcome, Spearman; a match recorded
+  twice equals itself and the bare sim's hash).
+- `bash scripts/check.sh`: typecheck PASS, lint PASS, test 1,113 passed, 5 failed (the five known Objectives cases).
+  By hand: perf 13/14 (the known objectives budget); sim PASS (hash `41b6ba755b99c3c1`, unchanged); e2e 60 passed, 1
+  skipped, 2 failed: `match.spec` "Lv 2" (known, Bot AI's QA request) and `preview-regressions` "binds side buttons"
+  (load timeout; passes alone, 18.8 s).
+**Flagged (report only, proxy results):** Albatross, Vulture and Woodpecker below 0.5; Hornbill and Puffin above.
+Bots never cast Lyrebird's Mended Song or Flamingo's Poise and Tide Turn (0 in 108 matches); Owl's Silent Wing and
+Pelican's Gulp about 0.28 a minute. Tiny effect: Spear Bill, Emperor's March, Dart, Moonlit Mark, Black Sun, Rampage,
+Bristle, Fruit Barrage, Gape.
+**Interface requests:**
+- Build & Tooling: add `tools/**/*.test.ts` to the Vitest include and an npm script `"buildlab": "tsx tools/buildlab/run.ts"`.
+- Architect / Combat: `heal.applied` with `ability` and `item` (as `damage.applied` has), and an ability id on shields
+  and `status.applied`, so per-ability healing, shields and crowd control can be measured (D-EP-043).
+- Bot AI: Mended Song, Poise and Tide Turn are never cast by hard bots; check their use rules.
+- EP: ownership-map rows for `tools/buildlab/**`, `src/sim/data/learned/**`, `docs/balance/**`. For Phase B, decide
+  whether to (a) add a per-hero outcome (Seed and damage share, D-EP-036's "damage, kills, Seed efficiency") to cut the
+  variance, (b) judge settledness per core with a practical margin, or (c) budget about 8,000+ full-length matches.
+**Next (Phase B, on the EP's word):** full-length matches once they end; 1,000+ training matches in rounds of ~200 to
+convergence; duels; then the one-line switch of `src/sim/data/builds.ts` to `LEARNED_BUILDS`.
+**Blocked:** nothing.
+
+### EP · 21/11/2026 · Build Lab Phase A merged (5bef3c1)
+- The lab runs seeded parallel matches, learns item scores in rounds and writes `src/sim/data/learned/builds.ts` and `docs/balance/report.md`.
+- Pilot of 108 matches with no crashes:
+  - every hero's core was stable between rounds;
+  - item ranks were not yet stable (half-to-half ρ 0.71), and no pick was settled by its confidence intervals.
+- Phase B plan: D-EP-049.
+- EP added `tools/**/*.test.ts` to the unit run, as the lab asked.
+- Routed: hard bots never cast Mended Song, Poise or Tide Turn (Bot AI); an ability id on heals, shields and statuses (Architect, wave 6).
+
+### W5c · Technical Artist · sculpt pipeline v2.1 · 20/11/2026
+**Done:** the EP's v2.1 round on the pipeline, so every batch inherits it, and the three birds re-dressed. Branch
+`worktree-agent-ab2171eba079ed25b`, with `integrate/w5` b09218c merged. D-ART-011 records the round and the batch checklist.
+- **Feather surface (1):**
+  - Skins bake a feather flow per vertex (skin format v2). By default it runs down and back; neck capsules point it
+    down the neck and thighs point it down.
+  - The bird material lays overlapping feathers (scales tile) or hair strands (wood tile) along it. Each edge
+    steps down to the feather beneath, with a value break and shading, in both albedo and normal.
+  - Detail is strongest close to the camera and fades out before it can alias. Faces and bare skin stay smooth (the
+    Cassowary's bare skin is pebbled).
+  - Patterns now fade across region borders instead of switching tiles inside a triangle, which removed the speckle at
+    face and throat borders.
+- **Player-camera standard (2):**
+  - Shared `hackles` and `inBone` helpers, and a checklist row that is a hard requirement.
+  - Peacock: hackles down the back of the upper neck, a bronze cape where the neck meets the mantle, and a teal head
+    over the blue neck.
+  - Swift: a pale-edged ruff and a crown tuft under the goggle strap, and a warm brown crown and nape over the sooty
+    body.
+  - Cassowary: the casque's keel runs down the back of the skull, red skin folds run down the nape, and the red climbs
+    the back of the head.
+- **Wings (3):** the shared builder now gives a broad forearm panel and primaries that wrap the grip. `foldedWings` folds
+  secondaries down the flank (Peacock), and the arm's hanging secondaries are shorter. The five other sculpted birds
+  inherit the new forearm and grip.
+- **Rim and sheen (4):** checked in the real renderer (golden hour, grade, rim) from the front and behind
+  (`out/art/after21/game-front.png`, `game-back.png`). Rendering's identity layer keeps the birds' own rim material.
+
+**Evidence** (git-ignored, in `out/art/after21/`; v2 is in `out/art/after/`, before v2 in `out/art/before/`):
+- triptychs `<bird>.png` and player-camera views `<bird>-player.png`;
+- line-ups `lineup-10.png`, `lineup-40-zoom.png` and `lineup-80-zoom.png`;
+- the game renderer, front and back.
+
+| Bird | Level 0 / 1 / 2 / 3 triangles | Player camera: bird / gun | Score, front and three-quarter | Score, player camera |
+|---|---|---|---|---|
+| Peacock | 8,842 / 3,334 / 1,162 / 376 | 3.8 % / 0.24 % | 3 | 3 |
+| Swift | 8,952 / 3,304 / 1,182 / 394 | 4.9 % / 0.39 % | 3 | 3 |
+| Cassowary | 8,904 / 3,410 / 1,142 / 374 | 5.3 % / 0.39 % | 3 | 3 |
+
+**Load and memory:**
+- A bird builds in 24–26 ms (Node, median of 7) and a skin decodes in 2–3 ms; nothing is generated at load.
+- Geometry per bird and team is 2.07–2.17 MB, about +1 % for the flow attribute (3 bytes a vertex).
+- Skins are 48–62 KB of binary each.
+- The feather surface costs one 27-cell search per feathered skin fragment, at any distance (only its strength fades
+  with distance). It has not yet been measured on the reference iGPU; skipping the search once fully faded is the
+  first saving if it shows.
+
+**Verified:** the model, skin and attachment tests pass (111), with budgets, hitbox, grips, muzzle, feet and weights.
+`npm run check`, each step run on b09218c plus this branch:
+- **typecheck, lint, perf (14/14) and sim:** pass. The sim hash is 41b6ba755b99c3c1, unchanged.
+- **test:** 1,117 pass and 6 fail. Five are the known Objectives sim tests. Wiki coverage timed out under load and passes alone (10/10).
+- **e2e:** 57 pass and 5 fail in parallel under load. Run serially, all pass except `match.spec` "Seeds levelled the hero up", Bot AI's open interface request.
+
+**Still short:**
+- Feather edges can show a little stair-stepping at 1–3 m without MSAA.
+- The Cassowary's coat is still mostly hair blades over the sculpted shag.
+- The Peacock's folded wing blades are pale under neutral light.
+
+**Next:** the EP's review, then the 21 batch conversions with D-ART-010 and D-ART-011.
+**Blocked:** nothing.
+
+### EP · 21/11/2026 · sculpt v2.1 merged (5351ce1); bird batches launched
+- v2.1 adds a feather surface along a baked flow field, a standard for the player-camera view and wings that wrap the grip.
+- EP sees Peacock, Swift and Cassowary at about 3 from the player camera. One defect remains: aliased edge speckle on the feathers at distance (Batch A fixes it first).
+- 17 birds convert in three parallel batches (`docs/briefs/W5-birds-batch.md`).
+- The four B3 birds (Frigatebird, Cockatoo, Swan, Kiwi) are built straight on v2.1 in wave 6, with their kits.
+
+### W5 · Integration · 20/11/2026
+**Branch:** `worktree-agent-af2a17c35c0541194` from `integrate/w5` 93de0c5, with `integrate/w5` merged seven times (last
+at 1c7ad07: W5.5 contracts, Audio, Art, Rendering, Bot AI, Environment, sculpt v2.1, Build Lab A). Acting for the owners
+(D-EP-018); nothing changed in `src/sim/ai`, `src/client/render`, `src/client/audio`, `src/sim/core`, `src/client/app`.
+1. **Five Objectives tests.** Systems' combat now honours `breakable.by` (only melee hurts a Feeder, GDD §7.14) and
+   `damageFrom` (a sleeping camp ignores hits from beyond 35 m, §7.8), both right, so the tests hit by melee and from
+   inside 35 m. The map: the Roc test's hero stood inside the west ramp and fell through the floor; the Nests test
+   assumed 100 surface Twigs (the map has 84 surface, 12 cellar and 4 Hollow Nests, 16 of them Woven).
+2. **`match.spec` damage number.** Clicks after the shop land with the pointer locked and tilt the view about 10° down,
+   so the crosshair met the road; level shots pass over fledglings; the clash kills an idle Kingfisher in about 12 s.
+   `levelView()`, a firing leg up the lane at the Dusk Hawk, `turn()` for the sweep: 6 of 6 in parallel.
+3. **QA helper and test errors** (Objectives' and Items' lists): `heavyMelee` presses before holding; allies on Dawn;
+   the heavy full chime pressed a beat early; deltas from the hero's own stats (magazine as a share, D-OBJ-014); spoil
+   timed from `coolsAt`; `tough()` fills HP; `world({ regen })`; Blight read against current HP; Dirge as resist less
+   shred; Nestmother keeps regeneration; Nest walk at 3 m/s; cellars out of the Hollow count; toads in their room.
+4. **Suites on:** items, no-Interact, golden-egg, roc-embers, thickets, nests, runes, interactables (rune strength now
+   one match; the Roc woken at 0:30 through `rocAt`; both suites went from 385 s and 422 s to 60 s). **Still gated:**
+   `bot-shopping` (Bot AI's `BUILDS` round); the no-Interact bots-ride test and the scoreboard dead-bird spec (bots
+   that ride and fight; Bot AI has just landed, so QA can try them at the gate); three interactables tests on the real
+   map, each with its reason in a comment (Hide exposure from the map origin, the Lookout's 50 m line, the tunnel test's
+   start over the Hollow).
+5. **Gameplay gaps.** A heavy lunge stops short of what it would strike (it carried heroes past runes and Embers,
+   D-COMBAT-010); Embers land on the surface at their spot (§7.12's (10, −10, 0) is under the east ramp); Kestrel's
+   Eye is a `beyondM` trigger with a `triggerPct` repeat (rider gone); Rookery Dirge's shred renews instead of
+   doubling. Nest solidity, ivy, Springs, the Cellar Run, the Magpie Den, Burr Coat and Heartwood Bark pass the suites.
+6. **Framework adoption:** Drumroll's statMod is `COMBAT.fullSpinStatus`; Branch Swing and Tree Cling `surface: true`
+   and Rampage `steerDeg: 30`, read by abilities and physics (the value names are deleted); a steering dash turns with
+   the aim, not to it (D-SYS-017); `endOn: 'stun'` lands and Tree Cling ends on Jump and stun in data; Bristle is a
+   'damaged' trigger; Crescendo and Echo Chamber repeat the hit with `triggerPct`.
+7. **G23:** a 600-Seed purse, spendable and not earned: no net worth, no level (D-ECON-005).
+8. **Build:** `check.sh` runs unit tests on half the cores (at most 8) and e2e on a quarter (at most 4), overridable
+   (D-BUILD-010). The concession test built a view after each of 54,000 steps; it reads `sim.tick` (0.5 s). The
+   stale-wiki check reads every page and gets the generation timeout (9 s under load against the 5 s default).
+9. **Objectives budget:** rat bites renew one status instead of an 'independent' one per bite; a biting creature needs
+   no sight ray; Nests go through combat's broad phase (D-OBJ-015). Per-phase timers put each in the objectives' own
+   cost. Check runs read +0.251 to +0.289 ms against 0.3 with the "without" match at 0.32–0.40 ms/tick (0.31 quiet);
+   the bound is absolute, so it failed at +0.343 (without 0.43) and +0.7 to +0.9 (without 1.5–2.5, heavy load).
+10. `match.spec` asks for Lv 2 or higher. 11. Test targets use the contract's `'dummy'` controller (physics bench, arena
+   gun tests, the testkits, the sandbox's other heroes); no contract change, and D-AI-007's no-lanes rule can go.
+**Verified:** not three green runs in a row. On a moderately loaded machine (19–24 node processes) three runs passed
+every step but e2e (for example `PASS typecheck 13s · lint 7s · test 119s · perf 17s · sim 8s`), each e2e failing one
+load-sensitive test (practice-swap, `preview-regressions` before D-BUILD-011, the audio hero call). Typecheck, lint, the
+1,376 unit tests and the sim step passed in every run after the last fix; the objectives perf passed at +0.25 to +0.29 ms
+and failed whenever
+the "without" match ran above about 0.43 ms/tick (another agent's 8-parallel sim jobs and the Build Lab); e2e has
+failed every run since about 10:00 on the audio live-context test (below). The last runs, on 8ad5011: `PASS
+typecheck 24s · lint 13s · test 105s · FAIL perf 70s` (+0.318, without 0.564) and `PASS typecheck 35s · lint 20s ·
+test 135s · FAIL perf 82s` (+0.412, without 0.549).
+**Load-sensitive, not hidden:** `preview-regressions` "binds side buttons" chains four page loads (about 4 s each since
+Rendering) in 30 s: it passes alone (5 of 5) and timed out in two of three full runs, so it runs in the serial project
+with its timeouts unchanged until the renderer-ready hook round (D-BUILD-011). `practice-swap`'s click met a pause
+screen once under load, and the audio spec's hero-call test (1.4 s alone) timed out once at 30 s. Bot AI's new
+`ai.perf` test read 0.256 against 0.25 once under load. The objectives perf bound is absolute, so it follows machine
+load (item 9). **Not load:** since about 10:00 the audio spec's live-context test fails every time (peak 0.00018 against
+0.005, the same value each run), alone too, on `integrate/w5`'s own sources and on 3d8c8dc, where it passed this
+morning: the machine's real-time audio output, not code (Audio and QA to confirm).
+**Interface requests:** Architect: the per-tick `spatial.rebuild` is now the largest objectives cost (108 static Nests
+and Feeders, float Map keys); a static layer or integer keys would take most of it. Combat: `HealEffect.triggerPct`
+and `ShieldEffect.id` are not implemented yet (Gape and item shields keep their stand-ins). QA: the three gated
+interactables tests; the audio live-context test on this machine. Bot AI: drop D-AI-007's rule; switch on the
+bots-ride and dead-bird tests; `ai.perf` margin under load.
+
+### EP · 21/11/2026 · W5a integration round merged (95a54f2)
+- Items 1–11 are in. On integrate/w5 the unit run is 1,366 passed and 10 skipped (EP, 4 workers), so the five Objectives failures are gone. The objectives perf cost is +0.25–0.29 ms on a quieter machine, against 0.3.
+- The integration agent's three full check runs never all passed. Every failure was perf or e2e timing under load (other agents running 8 sims), or one of the two items below. The full check is rerun on a quiet machine at the gate.
+- **Open, for wave 6 or the gate:**
+  - **Perf margin is thin.** The largest remaining objectives cost is the per-tick spatial-hash rebuild of 108 static Nests and Feeders (Architect: insert static entries once).
+  - **The audio live-context e2e** has failed every time since about 10:00 on 21/11, even run alone and on code where it passed before. That points to the machine's audio device or browser state rather than the code; check it on a quiet machine before the gate.
+  - **Combat** adopts `HealEffect.triggerPct` and `ShieldEffect.id`.
+  - **Still gated, each with its reason in a comment:** `bot-shopping`, the bots-ride and dead-bird tests, and three interactables tests that are wrong for the real map. QA rewrites them in wave 6.

@@ -3,7 +3,8 @@
  * neutral objectives (GDD §§7.8–7.15). Owner: Objectives (Balance & Data from W7). Units: metres, seconds; fractions
  * where 0.015 means 1.5%.
  */
-import type { StatId, StatOp, StructureType, ThicketFamily } from '../core/contracts';
+import type { StatId, StatOp, StatusDef, StructureType, ThicketFamily } from '../core/contracts';
+import { HEAL_REDUCTION } from './combat';
 
 const DEG = Math.PI / 180;
 
@@ -182,6 +183,12 @@ export const CREATURES: Readonly<Record<CreatureType, CreatureDef>> = {
   badger: { hp: 2000, damage: 50, damageType: 'talon', attack: 'bite', intervalS: 1.0, reach: 2.5, seeds: 560, speed: 5, radius: 0.9, height: 1.1, special: 'slam' },
   cub: { hp: 420, damage: 20, damageType: 'talon', attack: 'bite', intervalS: 1.0, reach: 2.0, seeds: 120, speed: 5.5, radius: 0.5, height: 0.6 },
 };
+
+/**
+ * A rat bite's heal reduction: one status per hero that each bite renews to 2 s ahead. The shared HEAL_REDUCTION is
+ * 'independent', so five rats biting every 0.7 s piled up a dozen instances, each a stat recompute on and off.
+ */
+export const RAT_BITE: StatusDef = { ...HEAL_REDUCTION, id: 'ratBite', stacking: 'max' };
 
 /** GDD §7.8 special attacks. The first comes half an interval after the camp aggroes (assumed). */
 export const CREATURE_SPECIALS = {
@@ -366,6 +373,8 @@ export const EMBERS = {
   fallS: 6,
   /** Presentation: the client drops each from this high until claimableAt (the sim keeps it on its spot). */
   fallFromM: 9,
+  /** It lands on the highest surface up to this far above the floor at its spot (the east ramp covers (10, −10, 0)). */
+  landAboveM: 3,
   burnS: 60,
   radius: 0.5,
   /** Economy: the claimer's Seeds. */

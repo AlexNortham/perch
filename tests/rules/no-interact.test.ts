@@ -1,5 +1,5 @@
-// No Interact key (D-EP-039, GDD §3.7, INTERFACES §14.4). Written test-first (D-EP-006, W4.5 QA): gated until Physics,
-// Input and sim/ai land held-Jump latching in wave 5. Run with PERCH_PENDING=1 npx vitest run tests/rules/no-interact.test.ts
+// No Interact key (D-EP-039, GDD §3.7, INTERFACES §14.4). Written test-first (D-EP-006, W4.5 QA); on since the W5a
+// integration round. The bots' held-Jump mounts wait for Bot AI (wave 5b): PERCH_PENDING=1 runs that test too.
 import { describe, expect, it } from 'vitest';
 import { Button, RETIRED_BUTTONS, type EntityId, type HeroEntity, type Vec3 } from '../../src/sim/core/contracts';
 import { allBotRoster, createSim } from '../../src/sim/index';
@@ -45,7 +45,7 @@ function expectLatchHere(sb: Sandbox, hero: EntityId, at: Vec3): void {
   expect(riding(sb, hero), 'control: held Jump latches at this spot').toBe(true);
 }
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 no Interact: Updraft latch and dismount (§3.7, D-EP-039)', () => {
+describe('W5 no Interact: Updraft latch and dismount (§3.7, D-EP-039)', () => {
   it.each([0.1, 0.3, 0.5, 0.7, 0.9])('§3.7 holding Jump 0.2 s within reach latches anywhere along the cable (%s of the first segment), not only at a station', async (f) => {
     const { sb, hero, under } = await line();
     sb.place(hero, under(f));
@@ -184,8 +184,8 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 no Interact: Updraft latch
   });
 });
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 no Interact: nothing in the sim asks for it (D-EP-039, INTERFACES §14.4)', () => {
-  it('no command a hero runs on, human script or bot, ever carries the Interact bit; bots mount Updrafts by holding Jump', async () => {
+describe('W5 no Interact: nothing in the sim asks for it (D-EP-039, INTERFACES §14.4)', () => {
+  it.runIf(process.env.PERCH_PENDING === '1')('no command a hero runs on, human script or bot, ever carries the Interact bit; bots mount Updrafts by holding Jump', async () => {
     const sim = await createSim({ seed: 1, roster: allBotRoster(1) });
     let interactTicks = 0;
     let mounted = 0;

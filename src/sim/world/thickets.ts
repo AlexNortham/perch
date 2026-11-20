@@ -18,10 +18,10 @@ import type {
 } from '../core/contracts';
 import { LAYERS_SOLID } from '../core/contracts';
 import { ticks } from '../core/math';
-import { HEAL_REDUCTION, SLOW } from '../data/combat';
+import { SLOW } from '../data/combat';
 import { TICK_SECONDS } from '../data/core';
 import { AIR } from '../data/movement';
-import { CREATURE_SPECIALS as SPECIAL, CREATURES, THICKET_FAMILIES, THICKETS as T } from '../data/world';
+import { CREATURE_SPECIALS as SPECIAL, CREATURES, RAT_BITE, THICKET_FAMILIES, THICKETS as T } from '../data/world';
 import type { CreatureDef, CreatureType } from '../data/world';
 import type { Granary } from './nests';
 import { clampToBox, flatDistSq, frameOf, minutes, targetOf, worldCause } from './neutral';
@@ -282,7 +282,7 @@ export function createThickets(ctx: SimContext, granary: Granary): Thickets {
     cue(k, k.def.attack, h.pos, now);
     hurt(k, h, k.def.damage * c.dmgScale, k.def.damageType);
     const hr = k.def.healReduction;
-    if (hr) ctx.effects.apply({ kind: 'applyStatus', status: HEAL_REDUCTION, durationS: hr.durationS, magnitude: hr.value }, targetOf(h), k.cause);
+    if (hr) ctx.effects.apply({ kind: 'applyStatus', status: RAT_BITE, durationS: hr.durationS, magnitude: hr.value }, targetOf(h), k.cause);
   };
 
   const puddleTick = (now: Tick): void => {

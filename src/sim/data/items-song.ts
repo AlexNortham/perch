@@ -86,5 +86,6 @@ export const SONG_ITEMS: readonly ItemDef[] = [
     [stat('songPower', 20), stat('maxHealth', 300), stat('songResist', 0.1, 'stack')], { aura: {
       kind: 'area', shape: { kind: 'sphere', radius: 12 }, durationS: AURA_S, intervalS: 1, attach: 'source', affects: { teams: 'enemies', heroesOnly: true },
       effects: [{ kind: 'damage', amount: { of: 0, song: 0.05 }, maxHpPct: 0.015, type: 'song' },
-        { kind: 'applyStatus', status: SONG_SHRED, magnitude: 0.08, durationS: 1.5 }] } }),
+        // A statMod, renewed each second: an applied SONG_SHRED is 'independent', and the overlap doubled it.
+        { kind: 'statMod', id: 'rookery-dirge', name: 'Rookery Dirge', durationS: 1.5, stats: [stat('songShred', 0.08)] }] } }),
 ];

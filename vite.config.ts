@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => ({
   // Windows) when several agents start Vite at once.
   optimizeDeps: { noDiscovery: true, include: [] },
   test: {
-    include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'tools/**/*.test.ts'],
     // Timing tests run serially in `npm run perf` (D-EP-022), never in the parallel unit run.
     exclude: [...configDefaults.exclude, '**/*.perf.test.ts'],
     environment: 'node',

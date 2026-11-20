@@ -8,6 +8,7 @@ import { Button } from '../core/contracts';
 import type { DamageEffect, EffectCause, Entity, EntityId, PickupEntity, StatusDef, Vec3 } from '../core/contracts';
 import { COMBAT, STUN } from '../data/combat';
 import { TICK_RATE } from '../data/core';
+import { createSandbox } from '../../../tests/helpers/sandbox';
 import { KINGFISHER, PELICAN, createKit } from './testkit';
 import type { Kit } from './testkit';
 
@@ -71,6 +72,23 @@ describe('melee on pickups (D-EP-039, PickupInfo.melee)', () => {
     swing(k, me, false);
     expect(k.of('melee').map((e) => e.target)).toEqual([null]);
     expect([later.id, carried.id]).toHaveLength(2);
+  });
+
+  it('a heavy lunge stops short of a rune 1 m ahead, so the hit lands on it (GDD §5.7 "up to 3.5 m")', async () => {
+    const sb = await createSandbox({ heroes: [{ hero: 'shrike', at: { x: 0, y: 0, z: 0 }, yaw: 0 }] });
+    const me = sb.heroes[0]!;
+    const rune = sb.ctx.store.spawn({
+      kind: 'pickup', team: 'neutral', pos: { x: 0, y: 0.5, z: 1 }, vel: { x: 0, y: 0, z: 0 }, yaw: 0, radius: 0.5,
+      pickup: { type: 'rune', variant: '', value: 0, expiresAt: null, carrier: null, melee: 'heavy' },
+    });
+    sb.aimAt(me, { x: 0, y: 1.5, z: 10 });
+    sb.press(me, Button.Melee);
+    sb.hold(me, Button.Melee);
+    sb.step(Math.ceil(0.4 * TICK_RATE));
+    sb.release(me, Button.Melee);
+    sb.step(TICK_RATE);
+    expect(sb.eventsOf('melee').map((e) => e.target)).toEqual([rune.id]);
+    expect(sb.hero(me).pos.z, 'still short of the rune').toBeLessThan(1);
   });
 });
 

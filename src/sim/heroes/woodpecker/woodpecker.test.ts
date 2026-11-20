@@ -5,7 +5,7 @@ import type { EntityId, HeroId, Vec3 } from '../../core/contracts';
 import { createSandbox } from '../../../../tests/helpers/sandbox';
 import type { Sandbox } from '../../../../tests/helpers/sandbox';
 import { TICK_RATE } from '../../data/core';
-import { STUN } from '../../data/combat';
+import { COMBAT, STUN } from '../../data/combat';
 import { resolveAbility, validateKit } from '../../abilities/kit';
 import { woodpeckerDef } from '../../data/heroes/woodpecker';
 import { woodpecker } from './index';
@@ -114,7 +114,7 @@ describe('Woodpecker', () => {
   describe('Drumroll', () => {
     it('gives +20% fire rate for 6 s', async () => {
       const { sb, me } = await setup();
-      const buff = durations(sb, me, 'woodpecker.drumroll');
+      const buff = durations(sb, me, COMBAT.fullSpinStatus);
       sb.cast(me, 0);
       sb.step(2);
       expect(buff[0]).toBeCloseTo(6, 1);
@@ -124,9 +124,19 @@ describe('Woodpecker', () => {
       expect(slot(sb, me, 0)?.cooldownTicks).toBe(18 * TICK_RATE);
     });
 
+    it('reaches full spin at once: the first half second fires at 14/s × 1.2, not up from 6/s (GDD §9.19)', async () => {
+      const { sb, me } = await setup();
+      sb.cast(me, 0);
+      sb.step(2);
+      sb.fire(me);
+      sb.step(TICK_RATE / 2);
+      const shots = sb.eventsOf('weapon.fired').filter((e) => e.shooter === me).length;
+      expect(Math.abs(shots - 14 * 1.2 * 0.5)).toBeLessThanOrEqual(1);
+    });
+
     it('T2 (with T1): 8 s and +30% fire rate', async () => {
       const { sb, me } = await setup([], [2, 0, 0, 0]);
-      const buff = durations(sb, me, 'woodpecker.drumroll');
+      const buff = durations(sb, me, COMBAT.fullSpinStatus);
       sb.cast(me, 0);
       sb.step(2);
       expect(buff[0]).toBeCloseTo(8, 1);

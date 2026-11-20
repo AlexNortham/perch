@@ -447,7 +447,7 @@ describe('wired into createSim', () => {
       map: 'arena',
       roster: [
         { team: 'dawn', hero: 'kingfisher', controller: 'human' },
-        { team: 'dusk', hero: 'owl', controller: 'easy' },
+        { team: 'dusk', hero: 'owl', controller: 'dummy' },
       ],
     });
     const [me, foe] = sim.ctx.store.list('hero') as HeroEntity[];
@@ -479,8 +479,8 @@ describe('wired into createSim', () => {
         seed,
         map: 'arena',
         roster: [
-          { team: 'dawn', hero: 'albatross', controller: 'easy' },
-          { team: 'dusk', hero: 'owl', controller: 'easy' },
+          { team: 'dawn', hero: 'albatross', controller: 'dummy' },
+          { team: 'dusk', hero: 'owl', controller: 'dummy' },
         ],
       });
       const [me, foe] = sim.ctx.store.list('hero') as HeroEntity[];

@@ -1751,6 +1751,88 @@ every state; the legs tuck when it is airborne or using Hover. Its 40 m read (§
 arms. A solid blade costs about the same triangles as a cut-out strip with the same rows, and it needs no cut-out
 depth material for shadows.
 
+### D-ART-008 · 20/11/2026 — Bird bodies are implicit (SDF) skins, baked offline and blended across bones
+**Decision:** (wave 5c, after D-EP-047's review of the single-loft bodies.) A converted bird's body, neck and head are
+one continuous surface, described as signed-distance masses and baked, replacing the torso, neck and head lofts.
+- **Description** (`models/bodies.ts`): ellipsoids and round cones (capsules) in the model frame at the bind pose, each
+  with a smooth-union or smooth-subtraction blend radius, a rig bone and a paint region. Paint-only "mark" volumes
+  draw sharp markings (face stripes, throat patches) without changing the form.
+- **Bake** (`models/mesher.ts`, `npx tsx tests/anim/bake-skins.ts`): surface nets on a 7–9 mm grid, sampled only in
+  blocks near the surface; vertices pulled onto the surface along the gradient; meshoptimizer's attribute-aware
+  simplifier cuts LOD0 to LOD3 to each body's triangle targets, never moving a vertex and keeping normals, regions and
+  bones from smearing. Normals come from the field gradient. The four levels share one vertex list, coarsest first.
+  Output: `models/data/skins/<hero>.ts`, base64, about 50–60 KB of binary per bird. `skins.test.ts` re-bakes every bird
+  and requires the committed file to be byte-identical.
+- **Runtime** (`models/skin.ts`): decode (about 2 ms a bird, once) and paint per team: each vertex blends up to four
+  regions' colours (each a colour or a painter by position), iridescence, gloss and glow; the strongest region's
+  pattern tile is drawn world-aligned (triplanar from the bind-pose position) and fades across region borders.
+- **Skinning:** every vertex takes up to four bone weights from the field (a soft-max of its distance to each mass,
+  blend width per mass), so necks hand smoothly from the body to the head, wing roots to the wing bones and thighs to
+  the legs. To allow this, sculpted builds now bake every part in the model frame and the rig's bind matrices undo
+  each bone's rest position (`BirdBuild.modelSpace`); rigid parts are unchanged in effect. Sockets, grips, IK, morphs,
+  LODs and Rendering's identity overlays (which share the skeleton) are unchanged.
+- **Gear and feathers** sit on the field: `Field.surface` gives the old loft `Surface` interface (rays from an axis), and
+  `Field.only(...regions)` restricts it to the trunk so a sash does not climb the neck. D-ART-007 blades stay for wings,
+  tails, crests, trains and hair.
+
+**Why:** single lofts cannot carry a breast keel, a mantle plane, scapulars, wing roots that grow from the body, thighs
+or a brow (EP, D-EP-047). Implicit masses blend into one surface with real joins. Baking keeps generation off the load
+path: a match builds each bird in the same ~20 ms as before, against the ≤ 1 s allowance and today's 2.5 s page load.
+
+### D-ART-009 · 20/11/2026 — meshoptimizer as an exact devDependency, for the bake only
+**Decision:** `meshoptimizer@1.1.1` is declared in `devDependencies` (it was already installed through `@types/three`).
+Only `models/mesher.ts` uses it, at bake time and in `skins.test.ts`; nothing in the game imports it, so the bundle
+does not grow.
+**Why:** the bake needs an attribute-aware quadric simplifier with a heap; three.js's `SimplifyModifier` is quadratic
+(minutes on a 300k-triangle surface) and keeps no custom attributes. meshoptimizer is deterministic, so the committed
+skins stay byte-identical to the generator.
+
+### D-ART-010 · 20/11/2026 — Converting a bird: anchors, masses, a palette, a bake
+**Decision:** a bird converts in four steps, about 1–2 hours each with renders:
+1. In `bodies.ts`, `<bird>Anchors(plan)` (wing, hip and tail pivots, leg length and thickness, head) and
+   `<bird>Body(plan)`: start from the closest converted bird and move its masses. Shared helpers give the anatomy:
+   `head(c, hr, HeadShape)` (cranium floored to hold the hitbox, face, cheeks, brows, nape, throat, bill base, eye
+   sockets), `neck(points, radii)`, `shoulders(...)`, `thighs(...)`; the trunk is four to six `ell` calls (back, breast
+   pair and keel, belly, mantle, tail coverts). Extras are plain `ell`/`cone`; markings are `mark: true`. Add the bird
+   to `BODIES`.
+2. Bake: `npx tsx tests/anim/bake-skins.ts <bird>` (one to four seconds).
+3. In the bird's builder: take the pivots from the anchors, paint each region with `skinFor(...)`, return `skin`, seat
+   the eyes and bill at the `HeadShape` positions, give the leg style `skinned` (the thigh is the skin's), drop the old
+   torso, neck and head lofts, and lay gear and feathers on `field.only(...TRUNK).surface(axis)`.
+4. Check: the model and attachment tests (budgets, hitbox, grips, feet), and a triptych with
+   `npx tsx tests/anim/posesheets.ts --frame="name=<bird>&mode=triptych&hero=<bird>"`; re-bake after any change to the
+   body or the hero's BodyPlan.
+Triangle targets per level go in the body (`tris`); the rest of the bird must fit the §11.3 budget around them.
+**Why:** the other 21 birds convert in parallel batches; one recipe keeps them consistent and reviewable.
+
+### D-ART-011 · 20/11/2026 — Pipeline v2.1: a feather surface along a baked flow, the player-camera standard, and the batch checklist
+**Decision:** (after the EP's v2 review: large forms read as smooth plastic; the player camera sees bare eggs.)
+- **Feather surface:** each skin vertex bakes a feather flow (skin format v2). By default the flow runs down and back;
+  a mass can override it (`Op.flow`), as neck capsules point down the neck and thighs point down. The bird material
+  lays overlapping feathers along it wherever a region uses the scales tile, or hair strands where it uses the wood
+  tile. These are in the albedo and in the normal (a bump from the height, with no tangents needed).
+  - Each feather is rooted in a cell of a jittered 3D grid at the region's tile size and runs downstream as an oval.
+    The most upstream feather lies on top. Its edge steps down to the one beneath over about two pixels, with a value
+    break and shading.
+  - Feathers stay within 1.15 spacings of their root, so the 3 × 3 × 3 search finds every feather that covers a point.
+  - Detail is strongest within 2.5 m, settles to 65 % by 10 m, and fades out as a feather shrinks below about 3 px.
+  - Flat regions (faces, bare skin without a tile) stay smooth. A plain region next to a patterned one carries that
+    pattern at low strength, so a pattern never switches tiles inside a triangle.
+- **Shared builders:** `hackles` (rows of feathers down the back of the neck and nape), `foldedWings` (secondaries and
+  tertials folded down the flank on the body bone) and `inBone` (a skin surface seen from a bone). The shared wing
+  builder broadens the forearm into a panel and wraps the primaries round the grip.
+- **Checklist for every converted bird** (the review fails a bird that misses a hard item):
+
+| View | Must have |
+|---|---|
+| Front | Brow ridges over the eyes and cheeks under them; eyes set in sockets; the bill growing from a bill base; a breast with a keel, not a ball; feathered thighs; a smooth face against a scaled crown; two gear pieces with flock trim (§8.4). |
+| Three-quarter | The neck flowing into the head (no step at the nape), the wing panel and the folded wing on the flank, the tail coverts lifting into the tail; at least three colour regions blending softly (§8.1 blocking). |
+| Player camera (hard) | **Nape and hackle feathers** (`hackles`) or, for bare-necked birds, sculpted skin folds; **a crest or crown shape** that breaks the round of the skull (crest blades, a tuft, a casque keel, a strap); **a value change** between head, neck and mantle (at least 15 %); **gear that reads from behind** (sash, strap, harness or scarf in the flock colour); a feathered surface on the head, neck and back (scales or hair tile, never flat). |
+| All | In-game check under the golden-hour renderer (`npm run shots -- --scene sandbox --param modelLineup=<bird> --param modelYaw=0` and `=180`); budgets 9,000 / 3,500 / 1,200 / 400; tests green. |
+
+**Why:** the EP scored v2 at 2.5 for its plastic surfaces and bare backs of heads. What the player sees most is the
+back of the head, the nape and the shoulders, so the standard is written down for the 21 birds that follow.
+
 ### D-SYS-006 · 19/11/2026 — The Updraft latch, read exactly (GDD §3.7, D-EP-039)
 **Decision:** `updraftInReach` is the nearer of two tests per segment: the column (feet within 2.5 m of the cable's
 ground line, the cable 0.5–14 m above them, at the point straight above the feet's nearest spot) and a 1.5 m sphere
@@ -2013,6 +2095,41 @@ loader to keep in step. Optional, so the arena and test maps need nothing.
 **Decision:** a positional voice whose room differs from the local hero's, or an enemy hero outside `seenBy`, gets -6 dB and a 2 kHz low-pass. Indoors a 320 Hz low-passed noise bed fades in and the wind bed drops to 30%. `Settings.mute` zeroes master; `onScreen` sets menu and hero-select music (a 100 ms timer ticks it with no match frames); `previewHero` plays the hero call flat. Where Den and Cellar Run overlap, the Den wins (map order), so entering the Den centre plays the Den cue, not the tunnel cue.
 **Why:** INTERFACES §13 row 3 and the W5 audio follow-ups.
 
+### D-BUILD-010 · 20/11/2026 — The check caps its parallel workers (integration, for Build & Tooling)
+**Decision:** `scripts/check.sh` runs the unit tests with half the logical cores (at most 8) and the browser suites
+with a quarter (at most 4); `PERCH_TEST_WORKERS` and `PERCH_E2E_WORKERS` override them. On this 16-core machine that is
+8 and 4, against Vitest's 15 and Playwright's 8 by default.
+**Why:** with several agents on the machine, a full-width run pushed world tests past their timeouts and e2e specs
+past theirs. Half the cores keeps a quiet run close to its old time; one worker (the old workaround) quadrupled it.
+
+### D-ECON-005 · 20/11/2026 — The 600-Seed purse is spent, not earned (integration, for Economy & Items, G23)
+**Decision:** every hero spawns with `ECONOMY.startSeeds` (600) in the wallet. The purse adds no net worth and no level:
+GDD §8.1 counts Seeds earned, and a purse that levelled every hero to 2 with an AP at 0:00 would move the whole level
+curve and the "zero AP at the start" rule. An explicit `SimOptions.startSeeds` (tests and tools) still starts the hero
+as if it had earned them (wallet, net worth and levels), as before.
+**Why:** the feel reference's G23: the first item lands by about 1:00 instead of several minutes in.
+
+### D-OBJ-015 · 20/11/2026 — The objectives budget: renewing statuses, no ray for a biting creature (integration)
+**Decision:** a rat bite renews one `RAT_BITE` status per hero (the 20% heal reduction, 'max' stacking) instead of
+adding an 'independent' HEAL_REDUCTION per bite. Vision counts a creature that is attacking a hero (`unit.attacking`,
+which thickets set only within reach of a target it sees; the Roc only on a hero in its open Hollow) as seen by that
+hero's flock without a sight ray. Combat tests the 108 Nests and Feeders through the broad phase like units, and only
+the tall structures on every cast.
+**Why:** measured per phase on the worst-case benchmark, these were the objectives' own costs: a dozen heal-reduction
+instances per bitten hero, each a stat recompute; 5.8 creature sight rays a tick; and 108 cylinder tests per bullet.
+What is left is the core spatial rebuild of the extra ~210 entities (an interface request to the Architect).
+
+### D-SYS-017 · 20/11/2026 — A steering dash turns with the aim, not to it (integration, for Physics)
+**Decision:** an 'aim' dash with `steerDeg` turns by as much as the look yaw has moved since the dash started, at most
+`steerDeg` either side of its start direction. It no longer snaps to the look yaw itself.
+**Why:** the start direction is the muzzle-to-crosshair line, which the shoulder camera's parallax sets about 4° off the
+look yaw; snapping to the yaw bent every Rampage off the crosshair point and made the T3 charge miss the second hero.
+
+### D-COMBAT-010 · 20/11/2026 — A heavy lunge stops short of what it would strike (integration, for Combat)
+**Decision:** at the heavy commit, combat casts the sweep forward over lunge plus reach; the lunge ends with the first
+hitbox (a pickup included) a sweep radius ahead, and stays 3.5 m when nothing is there (GDD §5.7 "up to 3.5 m").
+**Why:** pickups have no collider, so a hero 1 m from a rune, an Ember or the Egg lunged 3.5 m past it before the hit
+landed 0.6 s after the press, and every heavy claim whiffed.
 ### D-ENV-001 · 20/11/2026 — The environment layer is three batched meshes with per-cell detail bands
 **Decision:** `src/client/render/environment/` writes every model straight into the material library's geometry
 contract (world-space position, normal, uv in tiles, colour, `matLayer`), merged per 32 m cell and detail band, and
@@ -2199,3 +2316,69 @@ closed in to their gun's range. Hunter and Raptor parry a seen heavy wind-up wit
 60% of swings, decided once per swing (GDD §11.2).
 **Why:** pairs pushing their own lanes broke every Hawk (115 of 120 over 20 matches) but rarely a Heron (21), and no
 match ended by 60:00. Grouping is GDD §11.3's sieging rule and the cheapest lever on that stall.
+
+### D-BUILD-011 · 20/11/2026 — preview-regressions runs in the serial e2e project for now (integration)
+**Decision:** `e2e/preview-regressions.spec.ts` joins audio and result in the `serial` Playwright project: one worker,
+after the parallel suites. Its timeouts are unchanged.
+**Why:** since the Rendering merge a page load takes about 4 s, and its side-button test chains four loads inside 30 s;
+it passes alone (5 of 5) and timed out in two of three full runs beside three other browsers. The fix is the
+renderer-ready hook (Architect, then Rendering); that round moves the spec back to the parallel project.
+### D-BAL-001 · 20/11/2026 — Build Lab model: a Bayesian logistic model of the result, centred on the designer prior
+**Decision:** per hero, an L2-regularised (Gaussian-prior, MAP) logistic regression of its flock's result on what the
+hero held: `logit P(win) = a + b·spend + Σ β_i·x_i + Σ δ_{i,phase bought}·x_i + Σ γ_ij·x_ij`. `x_i` is the share of
+the match item i was held (purchase to sale, to the upgrade that consumed it, or to the end), so early buys weigh more
+(D-EP-036's purchase-time weighting); `x_ij` is the share two items were held together; `spend` is Seeds held in items
+(so β is value beyond price, not "rich heroes win"). Priors: `β_i ~ N(c·(base_i − mean), 0.5²)`, `δ ~ N(c·phase, 0.25²)`,
+`γ ~ N(0, 0.25²)` for the 150 most co-held pairs held together in 8+ games; `c = 0.5` log-odds per score unit. Scores
+out: `base = mean + β/c`, `phase = δ/c`, `synergy = prior synergy (component chains) + γ/c` in both directions; with
+no data the output is the round-0 prior exactly. Every round refits all training matches so far against the same
+round-0 prior (no double counting). The inverse Hessian at the optimum (Laplace) gives each score's CI. An undecided
+match scores `σ(10·ln(own net worth / enemy net worth))` (a 10% lead is 0.72). Recommended cores are greedy on the
+learned scores: four T1 early, four T2–3 mid, three T4 late, synergy and chains counted, at most four actives.
+Situational picks stay the designer's until the model has enemy-flock terms.
+**Why:** the user asked for item value per hero conditioned on items owned, and bots that sample varied but
+synergistic builds; a prior-centred model gives sensible scores at any sample size, moves only where the data is
+strong, and its posterior covariance is the confidence test D-EP-037 asks for. Controlling for spend stops the
+"winners buy more" confound from ranking expensive items first.
+
+### D-BAL-002 · 20/11/2026 — Build Lab rounds, exploration and the convergence tests
+**Decision:** round R plays seeds `R·1,000,000 + 1…N` with round R−1's scores (round 0 = `src/sim/data/builds.ts`).
+Each flock independently buys at random with probability `max(0.1, 0.3·0.7^(R−1))`, else from the scores at temperature
+`max(0.5, 0.8^(R−1))`, drawn from the stream `createRng(seed, 'buildlab')`; the random flocks are both exploration and
+the random baseline. Hard (Raptor) bots by default (D-EP-043). Held-out duels (`--duel prev|random`, seeds +500,000)
+play round R at temperature 0.5 against round R−1 or random buying, sides alternating by seed. The lab stops only when
+all hold, and never under 1,000 training matches: (1) split-half: every hero's base-score Spearman ρ between odd and
+even seeds ≥ 0.8, over items it bought 5+ times in each half; (2) no core changes by more than one item from the
+previous round; (3) ≥ 90% of every hero's greedy picks are settled (lead over the runner-up > 1.96·SE, or 1.96·SE
+under 0.05, a known tie); (4) both duels show the newest scores better at p < 0.05.
+**Why:** D-EP-036/037's rounds with decreasing exploration and its three tests, made into numbers a script checks.
+
+### D-BAL-003 · 20/11/2026 — Balance evidence: what is measured and what gets flagged
+**Decision:** per match the lab records picks, every purchase and sale with its second, unlocks and upgrades, the winner
+and length, per-hero telemetry, damage to heroes by source (gun, abilities, melee, items) and per ability: casts, damage
+to heroes and to others, killing blows and kill participation (the ability hit a hero its flock killed within the 12 s
+assist window), from bus listeners on `sim.ctx` (read-only; the hash is unchanged, `match.test.ts`). The report flags,
+for review only: heroes whose result CI excludes 0.5 (20+ games); abilities with ≥ 50% of their hero's damage to heroes
+(dominant), under 0.3 casts a minute after unlock (0.05 for ultimates), or a damaging ability under 3% of the damage and
+under 10% kill participation (tiny effect). Abilities that deal no damage are "utility: value not measured" until
+healing, shields and crowd control carry an ability id.
+**Why:** D-EP-043/045 ask for per-ability value and outliers in both directions; Stage 4 only reports them, and Stage 5
+checks each against bot competence and ablation before changing anything.
+
+### D-BAL-004 · 20/11/2026 — Build Lab mechanics: one process per match, resumable files, tests outside the unit run
+**Decision:** `tools/buildlab/run.ts` forks one worker per match (`--parallel`, default half the logical cores), and the
+parent writes each compact record to `out/buildlab/round-R/matches/<seed>.json` atomically; a rerun skips seeds already
+written, so a stopped run resumes. Wall-clock times go to `timings.jsonl` and `runs.jsonl`, never into records, so
+reruns diff clean. Learning rewrites `round-R/learned.json`, the generated `src/sim/data/learned/builds.ts` (typed
+`BuildData`, no dates, header with round, matches and seed ranges) and `docs/balance/report.md`. The lab's tests run with
+`npx vitest run --root tools/buildlab` until Build & Tooling adds `tools/**/*.test.ts` to the unit run.
+**Why:** a crash or a leak stays in one process, a usage stop loses at most the matches in flight, and the outputs are
+regenerable from the records alone.
+
+### D-EP-049 · 21/11/2026 — Build Lab Phase B: faster matches and a lower-variance measure before the long run
+**Decision:** Phase B (the long run of D-EP-036/037) starts once the match-ending fix and the W5a integration round are merged. Before it runs:
+1. **Speed.** Profile the headless 12-bot match and speed it up. The pilot took about 100 s of wall clock per 20-minute match per process, so aim for 5× or better, with no change to rules or determinism.
+2. **Measure.** Use decided matches, plus a lower-variance per-hero contribution measure. Judge whole archetype cores and builds against a practical margin (about 2 percentage points of win rate), rather than separating single items 0.5 score units apart.
+3. **Size.** Run as many matches as the convergence tests need. The pilot estimates up to about 8,000 at the old measure, which is within the 10× the user allowed. Run them in overnight batches at most 6 processes wide, on the separate simulation track (D-EP-044), so no stage waits for them.
+
+**Why:** the 108-match pilot settled every hero's core between rounds, but item ranks agreed only at ρ 0.71 between halves, and no pick was settled by its confidence intervals.

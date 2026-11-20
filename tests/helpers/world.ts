@@ -19,6 +19,8 @@ export interface WorldSpec {
   readonly heroes: readonly (HeroId | { readonly hero: HeroId; readonly team?: PlayerTeam })[];
   readonly seed?: number;
   readonly startSeeds?: number;
+  /** Keep base health regeneration (the sandbox's default zeroes it, and with it any +HP/s buff). */
+  readonly regen?: boolean;
 }
 
 /** The detailed main map with Thickets, Nests, runes, the Egg and the Roc on; no waves, no structures. */
@@ -27,6 +29,7 @@ export function world(spec: WorldSpec): Promise<Sandbox> {
     map: 'main',
     seed: spec.seed ?? 1,
     heroes: spec.heroes,
+    regen: spec.regen ?? false,
     options: { neutrals: true, waves: false, structures: false, unlockAbilities: false, startSeeds: spec.startSeeds ?? 0 },
   });
 }
@@ -63,8 +66,10 @@ export function lightMelee(sb: Sandbox, hero: EntityId): void {
   sb.step(Math.ceil(0.6 * TICK_RATE));
 }
 
-/** A heavy melee hit: hold past the 0.35 s commitment, release, let the swing finish. */
+/** A heavy melee hit: press, hold past the 0.35 s commitment, release, let the swing finish. */
 export function heavyMelee(sb: Sandbox, hero: EntityId): void {
+  // A swing starts on the press edge; a hold alone never swings.
+  sb.press(hero, Button.Melee);
   sb.hold(hero, Button.Melee);
   sb.step(HEAVY_HOLD_TICKS);
   sb.release(hero, Button.Melee);

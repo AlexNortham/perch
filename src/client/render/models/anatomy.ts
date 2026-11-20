@@ -90,7 +90,7 @@ export function eye(k: Sculpt, at: V3, look: V3, s: EyeStyle, d: Detail): void {
   const pupil = s.pupil ?? 0.48;
   const irisAngle = 0.86;
   const sclera = s.sclera ?? 0x2a1d14;
-  const ball = new SphereGeometry(r, d.n(12, 5), d.n(8, 3));
+  const ball = new SphereGeometry(r, d.n(10, 5), d.n(7, 3));
   ball.rotateX(Math.PI / 2);
   k.mesh(ball, {
     frame: F,
@@ -108,10 +108,10 @@ export function eye(k: Sculpt, at: V3, look: V3, s: EyeStyle, d: Detail): void {
   }
   if (d.level < 2) {
     const ringW = s.ringW ?? r * 0.2;
-    k.mesh(new TorusGeometry(r * 0.94, ringW, 4, d.n(14, 8)), { frame: F, at: [0, 0, r * 0.4], paint: s.ring, finish: SKIN });
+    k.mesh(new TorusGeometry(r * 0.94, ringW, 3, d.n(12, 8)), { frame: F, at: [0, 0, r * 0.4], paint: s.ring, finish: SKIN });
     // Lids: caps about +y and -y just outside the eye; they rotate to meet across the front on the blink.
     const lid = (upper: boolean): void => {
-      const cap = new SphereGeometry(r * 1.16, d.n(10, 6), 3, 0, Math.PI * 2, 0, upper ? 0.62 : 0.78);
+      const cap = new SphereGeometry(r * 1.16, d.n(8, 6), 3, 0, Math.PI * 2, 0, upper ? 0.62 : 0.78);
       if (!upper) cap.rotateX(Math.PI);
       const close = hinge([0, 0, 0], [1, 0, 0], upper ? 0.98 : -0.86);
       k.mesh(cap, { frame: F, paint: s.lid, finish: SKIN, morph: { blink: inFrame(F, close) } });
@@ -236,13 +236,18 @@ export interface LegStyle {
   /** Thigh feather card cell and how far the fringe hangs (share of the thigh). */
   readonly fringe?: number;
   readonly fringeCell?: Feather;
+  /**
+   * The thigh is the implicit body's (D-ART-008): no loft, only the fringe, hung this far from the bone (m) at this
+   * share of the thigh's length.
+   */
+  readonly skinned?: { readonly r: number; readonly at: number };
 }
 
 /** The feathered thigh along -y, hip (inside the body) to knee, with a fringe of feathers hanging over the knee. */
 export function thigh(k: Sculpt, len: number, s: LegStyle, d: Detail, side: 1 | -1): void {
   const t = s.thick;
   const col = s.thigh ?? s.skin;
-  k.loft(
+  if (!s.skinned) k.loft(
     [
       { c: [0, len * 0.2, 0], w: 0, up: 0 },
       { c: [0, len * 0.1, 0], w: t * 1.7, up: t * 1.8 },
@@ -254,16 +259,17 @@ export function thigh(k: Sculpt, len: number, s: LegStyle, d: Detail, side: 1 | 
   );
   if (s.thigh !== undefined && d.level < 3) {
     const count = d.keep(6, 3);
+    const ring = s.skinned?.r ?? t * 1.65;
     for (let i = 0; i < count; i++) {
       const a = (i / count) * Math.PI * 2 + jitter(i, side + 3) * 0.3;
       const out: V3 = [Math.cos(a), 0, Math.sin(a)];
       const len2 = len * (s.fringe ?? 0.5) * (0.85 + 0.3 * jitter(i, 7));
       k.card({
-        at: [out[0] * t * 1.6, -len * 0.45, out[2] * t * 1.7],
+        at: [out[0] * ring * 0.97, -len * (s.skinned?.at ?? 0.45), out[2] * ring * 1.03],
         dir: norm([out[0] * 0.35, -1, out[2] * 0.35]),
         face: out,
         len: len2,
-        wid: t * 3.2 * (6 / count) ** 0.5,
+        wid: Math.max(t * 3.2, ring * 1.9) * (6 / count) ** 0.5,
         cell: s.fringeCell ?? CARD.contour,
         root: shade(col, 0.9),
         tip: shade(col, 1.08),
@@ -508,8 +514,9 @@ export function wingHand(k: Sculpt, upper: number, lower: number, s: WingStyle, 
   k.loft(
     [
       { c: [0, t * 0.8, -c * 0.1], w: 0, up: 0 },
-      { c: [0, 0, -c * 0.1], w: t * 0.85, up: c * 0.14, dn: c * 0.5 },
-      { c: [0, -lower * 0.6, -c * 0.06], w: t * 0.75, up: c * 0.11, dn: c * 0.32 },
+      // A broad forearm: a wing panel, not a limb (v2.1).
+      { c: [0, 0, -c * 0.1], w: t * 0.85, up: c * 0.17, dn: c * 0.72 },
+      { c: [0, -lower * 0.6, -c * 0.06], w: t * 0.75, up: c * 0.13, dn: c * 0.55 },
       { c: [0, -lower, 0], w: t * 1.15, up: t * 1.45, dn: t * 1.35 },
       { c: [0, -lower - t * 1.5, 0], w: 0, up: 0, dn: 0 },
     ],
@@ -548,22 +555,23 @@ export function wingHand(k: Sculpt, upper: number, lower: number, s: WingStyle, 
       ...(morph && { morph }),
     });
   }
-  // Fingers: short feathers from the hand curling round the grip, a feathered fist on the gun.
+  // The wingtip wraps the grip (v2.1): outer primaries leave the hand all round it and curl back over the gun, a
+  // feathered fist of flight feathers rather than fingers.
   if (d.level < 2) {
-    const nf = d.level === 0 ? 4 : 3;
+    const nf = d.level === 0 ? 5 : 3;
     for (let i = 0; i < nf; i++) {
-      const ang = -1.1 + (2.2 * i) / (nf - 1);
-      const dir = norm([Math.sin(ang) * 0.9, -0.55, Math.cos(ang) * 0.9]);
+      const ang = -1.35 + (2.7 * i) / (nf - 1);
+      const dir = norm([Math.sin(ang) * 0.85, -0.4, Math.cos(ang) * 0.85]);
       k.card({
-        at: [0, -lower * 0.94, 0],
+        at: [0, -lower * 0.95, 0],
         dir,
-        face: norm([Math.sin(ang), 0.2, Math.cos(ang)]),
-        len: c * 0.42,
-        wid: c * 0.24,
-        cell: CARD.contour,
-        root: shade(s.covert, 0.9),
-        tip: shade(s.primaryTip ?? s.primary, 1.0),
-        curl: 1.3,
+        face: norm([Math.sin(ang), 0.25, Math.cos(ang)]),
+        len: c * 0.68,
+        wid: c * 0.28,
+        cell: s.cell ?? CARD.primary,
+        root: shade(s.primary, 0.85),
+        tip: s.primaryTip ?? shade(s.primary, 1.05),
+        curl: 1.75,
         segs: d.rows,
         cup: 0.06,
         finish: s.finish ?? {},
@@ -669,6 +677,65 @@ export function shingle(k: Sculpt, surf: Surface, s: ShingleStyle, d: Detail): v
         ...(morph && { morph }),
       });
     }
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The player-camera standard for implicit bodies (v2.1, D-ART-011): what the camera behind the bird sees is the back
+// of the head, the nape and the shoulders, so every bird dresses them.
+
+/** A model-frame surface (an implicit body's) seen from a bone: its points less the bone's rest position. */
+export function inBone(surf: Surface, rest: V3): Surface {
+  return {
+    at: (t, a, off) => {
+      const p = surf.at(t, a, off);
+      return { ...p, p: p.p.clone().set(p.p.x - rest[0], p.p.y - rest[1], p.p.z - rest[2]) };
+    },
+  };
+}
+
+export interface HackleStyle {
+  /** Along the neck surface (0 its base, 1 the head) and round its back (radians; −π/2 is straight behind). */
+  readonly t: readonly [number, number];
+  readonly a?: readonly [number, number];
+  readonly rows: number;
+  readonly cols: number;
+  readonly len: number;
+  readonly wid: number;
+  readonly paint: number | ((t: number, a: number) => number);
+  readonly cell?: Feather;
+  readonly lift?: number;
+  readonly finish?: Finish;
+  readonly seed?: number;
+}
+
+/**
+ * Hackles: rows of feathers down the back of the neck and nape, pointing toward the body, so the player camera sees a
+ * feathered nape and a broken neck outline instead of a smooth column. `neck` runs up the neck (base → head) with its
+ * reference toward the front (+z), in the frame of the bone that carries the feathers.
+ */
+export function hackles(k: Sculpt, neck: Surface, s: HackleStyle, d: Detail): void {
+  shingle(k, neck, {
+    t: s.t, a: s.a ?? [-Math.PI * 0.85, -Math.PI * 0.15], rows: s.rows, cols: s.cols, len: s.len, wid: s.wid, paint: s.paint,
+    cell: s.cell ?? CARD.contour, lift: s.lift ?? 0.22, flow: -1, seed: s.seed ?? 21, ...(s.finish && { finish: s.finish }),
+  }, d);
+}
+
+/**
+ * The folded wing on the flank (body bone): tertials and secondaries rooted along the shoulder line under the wing
+ * root, hanging back and down the side of the body, as a bird's wing folds while its wrist holds the gun. `trunk` is
+ * the body's surface along its length (rump → chest, reference up), so a = 0 is the left flank and a = π the right.
+ */
+export function foldedWings(k: Sculpt, trunk: Surface, w: WingStyle, o: { t: readonly [number, number]; a?: number; len: number; wid: number; rows?: number; cols?: number }, d: Detail): void {
+  if (d.level >= 3) return;
+  const a = o.a ?? 0.3;
+  for (const side of [1, -1]) {
+    const range: [number, number] = side > 0 ? [a - 0.18, a + 0.18] : [Math.PI - a - 0.18, Math.PI - a + 0.18];
+    shingle(k, trunk, {
+      t: o.t, a: range, rows: o.rows ?? 2, cols: o.cols ?? 3, len: o.len, wid: o.wid, cell: w.secondaryCell ?? CARD.tail,
+      paint: (t) => (t > (o.t[0] + o.t[1]) / 2 ? shade(w.covert, 0.95) : shade(w.secondary, 0.9 + 0.1 * t)),
+      toward: [0, -0.55, -1], lift: 0.12, seed: side > 0 ? 31 : 37, ...(w.finish && { finish: w.finish }),
+    }, d);
   }
 }
 

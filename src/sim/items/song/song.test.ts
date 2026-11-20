@@ -54,9 +54,7 @@ it('Echo Chamber: ability damage to a hero repeats 1 s later at 25%, and shreds 
   s.sb.step(ticks(1.1));
   const [first, echo] = s.songHits();
   expect(echo, 'the repeat').toBeDefined();
-  expect(echo!.amount / first!.amount).toBeGreaterThan(0.25); // the 14% shred lifts it a little
-  expect(echo!.amount / first!.amount).toBeLessThan(0.35);
-  expect(echo!.amount).toBeGreaterThan(0);
+  expect(echo!.amount / first!.amount, 'a repeat of the hit, resisted once (D-SYS-014)').toBeCloseTo(0.25, 6);
 });
 
 it('Boundless Song: the ultimate comes off cooldown 20% sooner', async () => {

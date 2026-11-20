@@ -147,11 +147,16 @@ describe('held guns (D-EP-035)', () => {
       for (const m of meshes) expect(inRig(m), `${id} ${m.name}`).toBe(true);
       const bones = rig.mesh.skeleton.bones;
       for (const b of bones) expect(inRig(b), `${id} bone ${b.name}`).toBe(true);
+      // Rigid parts follow one bone; an implicit body's skin (D-ART-008) blends up to four, with weights summing to 1.
       const index = rig.mesh.geometry.getAttribute('skinIndex');
       const weight = rig.mesh.geometry.getAttribute('skinWeight');
       for (let v = 0; v < index.count; v++) {
-        expect(index.getX(v)).toBeLessThan(bones.length);
-        expect(weight.getX(v)).toBe(1);
+        let sum = 0;
+        for (let c = 0; c < 4; c++) {
+          if (weight.getComponent(v, c) > 0) expect(index.getComponent(v, c)).toBeLessThan(bones.length);
+          sum += weight.getComponent(v, c);
+        }
+        expect(sum).toBeCloseTo(1, 3);
       }
     });
   }

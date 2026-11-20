@@ -13,6 +13,7 @@
 //     [data-field="respawn"]                  only while dead: the countdown in whole seconds
 //   [data-field="flock-seeds"][data-side]     each flock's total Seeds; [data-field="clock"] the match timer
 import { expect, test, type Page } from '@playwright/test';
+import { ECONOMY } from '../src/sim/data/economy';
 import { open, pickHero, lockPointer, VIEWPORT, READY_TIMEOUT_MS } from './game';
 import { isPending } from './pending';
 
@@ -83,7 +84,8 @@ test.describe('top scoreboard (D-EP-041)', () => {
     const mine = board(page).locator('[data-portrait][data-side="own"][data-hero="kingfisher"]');
     await expect(mine).toHaveCount(1);
     const hud = digits(await page.locator('.pu-seeds').innerText());
-    expect(digits(await mine.locator('[data-field="seeds"]').innerText()), 'the portrait shows what the HUD shows').toBe(hud);
+    // Nothing bought yet: the HUD wallet is net worth (the portrait, D-UI-008) plus the unspent purse (D-ECON-005).
+    expect(digits(await mine.locator('[data-field="seeds"]').innerText()), 'the portrait shows the HUD less the purse').toBe(hud - ECONOMY.startSeeds);
   });
 
   test('a dead bird\'s portrait is darkened with a red respawn countdown that runs down', async ({ page }) => {

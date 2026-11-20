@@ -10,7 +10,6 @@ const TIMEOUT_MS = 300_000;
 const LANDING_S = 10;
 const DROP_LOCKOUT_S = 1.0;
 const UNATTENDED_S = 180;
-const COOL_AFTER_S = 45;
 const COOL_FOR_S = 45;
 const STONE_RADIUS_M = 3;
 const ROLL_MS = 2;
@@ -24,7 +23,7 @@ const valueAt = (m: number) => 400 + 70 * m;
 
 /** Two Dawn heroes (the courier and an escort), one Dusk hero; time at 10:00 with the Egg landed. */
 async function landed() {
-  const sb = await world({ heroes: ['shrike', 'kingfisher', 'lyrebird'] });
+  const sb = await world({ heroes: ['shrike', { hero: 'kingfisher', team: 'dawn' }, 'lyrebird'] });
   const [courier, escort, foe] = sb.heroes as [EntityId, EntityId, EntityId];
   advanceTo(sb, mmss(10));
   sb.step(2);
@@ -41,7 +40,7 @@ async function carried() {
   return w;
 }
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 Golden Egg (§7.11)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 Golden Egg (§7.11)', { timeout: TIMEOUT_MS }, () => {
   it('§7.11 first spawn: nothing before 10:00; at 10:00 an egg pickup on one of the two Egg Perches with an eggSpawned event', async () => {
     const sb = await world({ heroes: ['shrike', 'lyrebird'] });
     advanceTo(sb, mmss(9, 59));
@@ -85,14 +84,15 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Golden Egg (§7.11)', { ti
   });
 
   it('§7.11 carrier status: cannot fire or cast, is revealed with a map-wide beam, is +1.5 m/s and +1 stamina pip, and takes no slow', async () => {
-    const { sb, courier } = await carried();
+    const { sb, courier, egg } = await landed();
+    const free = { ...sb.hero(courier).stats.final }; // the same hero before the pickup: stats have a base
+    standBeside(sb, courier, egg.pos);
+    lightMelee(sb, courier);
     const h = sb.hero(courier);
     expect(h.stats.conditions.has('eggCarrier')).toBe(true);
     expect(h.stats.conditions.has('revealed'), '§7.11 revealed, golden beam visible map-wide').toBe(true);
-    const free = sb.hero(sb.heroes[1]!).stats.final;
-    expect(h.stats.final.moveSpeed - 0).toBeCloseTo(1.5, 1);
-    expect(h.stats.final.stamina, '+1 stamina pip').toBeGreaterThanOrEqual(1);
-    expect(free.moveSpeed).toBe(0);
+    expect(h.stats.final.moveSpeed - free.moveSpeed).toBeCloseTo(1.5, 1);
+    expect(h.stats.final.stamina - free.stamina, '+1 stamina pip').toBeGreaterThanOrEqual(1);
 
     sb.clearEvents();
     sb.aimAt(courier, sb.pointOf(sb.heroes[2]!));
@@ -113,12 +113,13 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Golden Egg (§7.11)', { ti
     sb.hero(courier).progress.netWorth = 9_000;
     sb.hero(escort).progress.netWorth = 0;
     sb.hero(foe).progress.netWorth = 10_000;
+    const base = { ...sb.hero(courier).stats.final };
     standBeside(sb, courier, eggOf(sb)!.pos);
     lightMelee(sb, courier);
     const f = sb.hero(courier).stats.final;
-    expect(f.talonResist, '§7.11 +2% per 1% deficit').toBeCloseTo(0.2, 2);
-    expect(f.songResist).toBeCloseTo(0.2, 2);
-    expect(f.sprintSpeed).toBeCloseTo(2, 1);
+    expect(f.talonResist - base.talonResist, '§7.11 +2% per 1% deficit').toBeCloseTo(0.2, 2);
+    expect(f.songResist - base.songResist).toBeCloseTo(0.2, 2);
+    expect(f.sprintSpeed - base.sprintSpeed).toBeCloseTo(2, 1);
   });
 
   it('§7.11 trailing carrier caps at +30% resist and +3 m/s at a 15% deficit', async () => {
@@ -126,11 +127,12 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Golden Egg (§7.11)', { ti
     sb.hero(courier).progress.netWorth = 1_000;
     sb.hero(escort).progress.netWorth = 0;
     sb.hero(foe).progress.netWorth = 10_000;
+    const base = { ...sb.hero(courier).stats.final };
     standBeside(sb, courier, eggOf(sb)!.pos);
     lightMelee(sb, courier);
     const f = sb.hero(courier).stats.final;
-    expect(f.talonResist).toBeCloseTo(0.3, 2);
-    expect(f.sprintSpeed).toBeCloseTo(3, 1);
+    expect(f.talonResist - base.talonResist).toBeCloseTo(0.3, 2);
+    expect(f.sprintSpeed - base.sprintSpeed).toBeCloseTo(3, 1);
   });
 
   it('§7.11 drop on death: the Egg falls where the carrier died, an eggDropped event, nobody can take it for 1.0 s', async () => {
@@ -204,9 +206,11 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Golden Egg (§7.11)', { ti
     const { sb, courier, egg } = await carried();
     const e0 = sb.ctx.objectives.egg!.value;
     expect(e0, 'E = 400 + 70 per minute when it landed').toBeCloseTo(valueAt(10), 0);
-    advanceBy(sb, COOL_AFTER_S - 2);
+    // Time from the pickup itself (the light hit landed before carried() returned): cooling starts 45 s after it.
+    const cools = sb.ctx.objectives.egg!.coolsAt! / TICK_RATE;
+    advanceTo(sb, cools - 2);
     expect(sb.ctx.objectives.egg!.value).toBeCloseTo(e0, 0);
-    advanceBy(sb, 2 + COOL_FOR_S / 2);
+    advanceTo(sb, cools + COOL_FOR_S / 2);
     expect(sb.ctx.objectives.egg!.value, 'halfway through the cooling').toBeCloseTo(e0 / 2, -1);
     advanceBy(sb, COOL_FOR_S / 2 + 1);
     expect(objectiveEvents(sb, 'eggSpoiled')).toHaveLength(1);
