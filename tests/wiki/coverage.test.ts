@@ -114,5 +114,5 @@ describe('wiki coverage', () => {
     const stale = result.pages.filter((p) => !existsSync(join(committed, p)) || strip(readFileSync(join(committed, p), 'utf8')) !== strip(read(p)));
     if (stale.length > 0) console.warn(`wiki: committed wiki/ is stale (${stale.length} page(s), e.g. ${stale[0]}); run npm run wiki`);
     expect(Array.isArray(stale)).toBe(true);
-  });
+  }, GENERATION_TIMEOUT_MS); // it reads every committed and generated page: 9 s measured under load
 });
