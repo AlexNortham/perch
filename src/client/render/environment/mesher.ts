@@ -459,7 +459,8 @@ export class Mesher {
 const BYTE = 255;
 const BEAD = 0.6;
 const BEAD_LOW = 0.5;
-const BEAD_FACES = [[0, 1, 2], [0, 2, 3], [0, 3, 1], [1, 3, 2]] as const;
+// Tetrahedron faces by corner index: apex 0, base 1, 2, 3.
+const BEAD_FACES: readonly (readonly [number, number, number])[] = [[0, 1, 2], [0, 2, XYZ], [0, XYZ, 1], [1, XYZ, 2]];
 const BYTE_SIGNED = 127;
 
 /** Floats scaled to a normalised integer array, rounded and clamped. */
