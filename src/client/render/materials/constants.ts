@@ -44,7 +44,7 @@ export const PIECE_VARIATION = { value: 0.05, hueDeg: 3, fullTurnDeg: 360, hueTi
 export const AO = {
   voxel: 0.25,
   reach: 1.5,
-  rays: 6,
+  rays: 5,
   /** π(3 − √5): spreads the ray directions evenly. */
   goldenAngle: 2.399963229728653,
   /** Start rays this many voxels off the surface so a face doesn't occlude itself. */
