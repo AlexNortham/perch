@@ -3218,3 +3218,14 @@ the 20 matches before D-AI-009 dropped its gate; bots rarely start it (W6).
 `structures.ts` late growth, `data/world.ts` WARD and `recoverFromY`) and review the numbers. Game Director: §15.2's
 lever now reads 25:00 with Ward lifted and +12%/min. Physics: displaced units can end up under a floor
 (`moveCharacter` cheap path); fledglings now recover, but the cause is in physics.
+
+### EP · 21/11/2026 · Bot AI match-ending merged (d4eab84)
+- **Root causes:** queued fledglings never assaulted and some fell through floors, so waves never reached the Shrines and the Brood Ward never dropped. Bots never committed to a siege, and the 35:00 lever didn't break even games.
+- **Fixes:**
+  - both world bugs;
+  - bots commit as a flock, defend at home and enter a broken base (D-AI-009);
+  - from 25:00 the Ward lifts and structures take +12% damage per minute (D-AI-010; owner: Objectives).
+- **20 seeded matches with all 24 birds:** 0 crashes, 20 of 20 decided, 34.5–53.5 min (median 46), none over 55. The flock behind at 20:00 won 8 of 20.
+- Hard bots now cast Mended Song, Poise and Tide Turn (D-AI-011). D-AI-007 is removed. The full check passes on the agent's branch; AI uses 19% of the tick.
+- **Gate:** "matches end" is met. Bringing the median length to 30–40 min is balance (Gate M4, Stage 5), which isn't started (D-EP-050); PLAYABLE.md will give the real range.
+- **Release 1 blockers left:** `__perch.hero` null and the objectives perf margin (Architect). After those come release matches, the soak, `all-heroes` on 24, three `--release` runs, the wiki and PLAYABLE.md. The machine is kept quiet meanwhile, so the Architect's perf measurements are clean.
