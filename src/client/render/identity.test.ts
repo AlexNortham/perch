@@ -25,22 +25,22 @@ describe('team identification (G18)', () => {
     expect(id).not.toBeNull();
     if (!id) return;
     updateIdentity(id, 'enemy', false, true);
-    expect([id.outline.visible, id.xray.visible]).toEqual([true, false]);
+    expect([id.outlines[0]?.visible, id.xrays[0]?.visible]).toEqual([true, false]);
     updateIdentity(id, 'enemy', true, true);
-    expect([id.outline.visible, id.xray.visible]).toEqual([true, true]);
+    expect([id.outlines[0]?.visible, id.xrays[0]?.visible]).toEqual([true, true]);
     updateIdentity(id, 'ally', false, true);
-    expect([id.outline.visible, id.xray.visible]).toEqual([false, true]);
+    expect([id.outlines[0]?.visible, id.xrays[0]?.visible]).toEqual([false, true]);
     updateIdentity(id, 'self', false, true);
-    expect([id.outline.visible, id.xray.visible]).toEqual([false, false]);
+    expect([id.outlines[0]?.visible, id.xrays[0]?.visible]).toEqual([false, false]);
     updateIdentity(id, 'enemy', true, false);
-    expect([id.outline.visible, id.xray.visible]).toEqual([false, false]);
+    expect([id.outlines[0]?.visible, id.xrays[0]?.visible]).toEqual([false, false]);
   });
 
   it('shares the body geometry and skeleton, casts no shadows, and gives the body a rim-lit copy of its material', () => {
     const { root, body, material } = model();
     const id = attachIdentity(root);
     if (!id) throw new Error('no identity');
-    for (const o of [id.outline, id.xray]) {
+    for (const o of [...id.outlines, ...id.xrays]) {
       expect(o.geometry).toBe(body.geometry);
       expect(o.skeleton).toBe(body.skeleton);
       expect(o.castShadow).toBe(false);
@@ -52,6 +52,11 @@ describe('team identification (G18)', () => {
     attachIdentity(other.root);
     expect(other.body.material).toBe(body.material);
     // X-rays draw after the world and before bodies.
-    expect(id.xray.renderOrder).toBeLessThan(body.renderOrder);
+    expect(id.xrays[0]?.renderOrder).toBeLessThan(body.renderOrder);
+    // A material that already has the rim (the sculpted birds') is left alone.
+    const own = model();
+    own.material.name = 'bird-solid';
+    attachIdentity(own.root);
+    expect(own.body.material).toBe(own.material);
   });
 });

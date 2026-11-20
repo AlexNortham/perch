@@ -395,6 +395,8 @@ export const IDENTITY = {
   rim: 0.25,
   rimLow: 0.15,
   rimColour: 0xffe6c0,
+  /** Bird materials named with this prefix carry their own rim (models/bird-material.ts). */
+  rimmedPrefix: 'bird-',
   /** Draw order: x-rays after the world and before bodies, so only pixels walls hide pass the greater test. */
   xrayOrder: 1,
   bodyOrder: 2,
