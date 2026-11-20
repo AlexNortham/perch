@@ -232,13 +232,33 @@ export function cassowaryAnchors(plan: BodyPlan): Anchors {
   };
 }
 
+/**
+ * The haystack's shag, sculpted: two tiers of hanging locks round the lower body, each tilted out from the body and
+ * varied a little in size, so the silhouette is ragged hair, not an egg, before any hair blade is added.
+ */
+function shag(s: number): Op[] {
+  const ops: Op[] = [];
+  const tiers = [{ n: 18, y: 1.02, rx: 0.4, rz: 0.48, len: 0.22, w: 0.058, tilt: 0.3 }, { n: 14, y: 1.26, rx: 0.42, rz: 0.5, len: 0.16, w: 0.055, tilt: 0.45 }];
+  tiers.forEach((t, tier) => {
+    for (let i = 0; i < t.n; i++) {
+      // Round the body from the front (φ = 0, +z), offset half a step per tier so the locks interleave.
+      const phi = ((i + 0.5 * tier) / t.n) * Math.PI * 2;
+      const j = 0.85 + 0.3 * (((i * 7 + tier * 3) % 5) / 4);
+      const c: V3 = [Math.sin(phi) * t.rx * s, (t.y - t.len * 0.5) * s, (-0.1 + Math.cos(phi) * t.rz) * s];
+      ops.push(ell(c, [t.w * s, t.len * j * s, t.w * 0.7 * s], 'body', 'shag', { k: 0.035, rot: [0, phi + Math.PI / 2, -t.tilt] }));
+    }
+  });
+  return ops;
+}
+
 export function cassowaryBody(plan: BodyPlan): Body {
   const a = cassowaryAnchors(plan);
   const s = a.s;
   const hc = a.head;
   return {
-    tris: [2400, 850, 280, 120], cell: 0.009,
+    tris: [2500, 850, 280, 120], cell: 0.009,
     ops: [
+      ...shag(s),
       // The dome: high over the shoulders, sloping back and down to the rump.
       ell([0, 1.34 * s, -0.1 * s], [0.42 * s, 0.4 * s, 0.5 * s], 'body', 'back', { rot: [0.12, 0, 0], k: 0.08 }),
       ell([0, 1.42 * s, 0.14 * s], [0.36 * s, 0.36 * s, 0.26 * s], 'body', 'breast', { k: 0.12 }),

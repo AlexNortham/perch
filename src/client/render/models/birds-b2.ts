@@ -46,11 +46,12 @@ export function cassowary(plan: BodyPlan, team: TeamColours, d: Detail): Sculpte
   const s = A.s;
   const C = CASSO;
   const legLen = A.legLen;
-  const HAIR = { tile: TILE.wood, size: 0.22, iri: 0.3, gloss: 0.3 } as const;
+  const HAIR = { tile: TILE.wood, size: 0.22, iri: 0.3, gloss: 0.12 } as const;
   const BARE = { gloss: 0.35 } as const;
   const field = bodyField('cassowary', plan);
   const skin = skinFor('cassowary', plan, CASSOWARY_SKIN, d.level, {
     back: { paint: C.black, finish: HAIR },
+    shag: { paint: (p) => mix(C.black, C.sheen, Math.min(0.5, Math.max(0, (1.1 * s - p.y) / (0.5 * s)))), finish: HAIR },
     mantle: { paint: mix(C.black, C.sheen, 0.3), finish: HAIR },
     scapular: { paint: mix(C.black, C.sheen, 0.2), finish: HAIR },
     shoulder: { paint: C.black, finish: HAIR },
@@ -89,7 +90,7 @@ export function cassowary(plan: BodyPlan, team: TeamColours, d: Detail): Sculpte
     // The haystack: long hair-like plumes drooping all over, bristling out on the display.
     shingle(k, torso, {
       // Rows start clear of the rump pole (seen end-on from the player camera), where they would meet in a starburst.
-      t: [0.16, 0.96], a: [0, Math.PI * 2], rows: 5, cols: 12, len: 0.74 * s, wid: 0.27 * s, cell: CARD.hair, toward: [0, -1, -0.3], lift: 0.2, seed: 13,
+      t: [0.16, 0.96], a: [0, Math.PI * 2], rows: 5, cols: 11, len: 0.72 * s, wid: 0.28 * s, cell: CARD.hair, toward: [0, -1, -0.3], lift: 0.2, seed: 13,
       paint: (_t, a) => mix(C.black, C.sheen, 0.35 * jitter(Math.round(a * 20), 7)), finish: { iri: 0.3, gloss: 0.2 },
       morph: (_t, _a, at, dir, n) => flare(at, dir, n, 0.55),
     }, d);
