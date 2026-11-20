@@ -23,6 +23,20 @@ test.setTimeout(READY_TIMEOUT_MS * 2);
 for (const { scene, quality, ceiling, triangles, textureMB } of scenarios) {
   test(`draw budget: 100-second ${scene}, ${quality} quality`, async ({ page }, info) => {
     await open(page, `/?scene=${scene}&quality=${quality}&seed=1&t=100&renderCam=${CAMERA}`);
+    // For 1 to 2 s after a scene opens the frame draws up to 50% more triangles than it settles to (lane/low: ~390k
+    // falling to ~257k, whatever the load; QA hunt, routed to Rendering). The budget is the settled frame, so wait
+    // until 30 frames in a row agree to within 3%.
+    await page.evaluate(async () => {
+      const t0 = performance.now();
+      const recent: number[] = [];
+      while (performance.now() - t0 < 20_000) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        recent.push(window.__perchRender!.info().triangles);
+        if (recent.length > 30) recent.shift();
+        if (recent.length === 30 && Math.max(...recent) <= Math.min(...recent) * 1.03) return;
+      }
+      throw new Error('triangle count never settled');
+    });
     const { counts, budget } = await page.evaluate(async (frames) => {
       const counts: { calls: number; triangles: number }[] = [];
       for (let i = 0; i < frames; i++) {
