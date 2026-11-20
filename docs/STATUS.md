@@ -3291,3 +3291,5 @@ settle issue QA's spec now waits out.
   - Results: 20 completed, 0 crashed, 0 without a winner (dusk 11, dawn 9).
   - Length 34.5–53.5 min; about 2,200–2,900 ticks/s per match, 3 wide.
 - **Soak:** the first attempt died at once (`__name is not defined`: tsx compiles the evaluate callbacks with esbuild's keepNames). Fixed in 0fb0977; the 30-minute soak is rerunning.
+- **Soak (30 min, Play, 0fb0977):** heap steady at about 185 MB (+0.09 MB/min over the second half), frame p95 steady at about 8.4 ms (×0.98 from the first quarter to the last), 0 page errors. PASS.
+- Next: Docs & Wiki writes PLAYABLE.md "Stage 4 (M3)" and regenerates the wiki (`docs/briefs/W6-docs.md`). Then EP review, fast-forward `main` and push (Release 1).
