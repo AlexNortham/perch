@@ -584,7 +584,7 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
         [c[0] - tilt[0] * hr, c[1] - tilt[1] * hr, c[2] - tilt[2] * hr], [c[0] + tilt[0] * hr, c[1] + tilt[1] * hr, c[2] + tilt[2] * hr],
       );
       const inHead = (p: Vector3): Vector3 => p.sub(new Vector3(...A.head));
-      band(k, { at: (t, a, off) => { const p = skull.at(t, a, off); return { ...p, p: inHead(p.p) }; } }, 0.5, { width: 0.035 * s, thick: 0.01 * s, hex: GEAR.leatherDark, finish: LEATHER }, d);
+      if (d.level < 2) band(k, { at: (t, a, off) => { const p = skull.at(t, a, off); return { ...p, p: inHead(p.p) }; } }, 0.5, { width: 0.035 * s, thick: 0.01 * s, hex: GEAR.leatherDark, finish: LEATHER }, d);
     }
   };
 
