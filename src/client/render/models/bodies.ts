@@ -518,7 +518,8 @@ export function penguinAnchors(plan: BodyPlan): Anchors {
   const s = plan.height / 1.6;
   const R = plan.radius;
   return {
-    s, wing: [R * 0.74, 1.06 * s, 0.0], hip: [R * 0.36, plan.height * 0.08, 0.04 * s], tail: [0, 0.3 * s, -0.3 * s],
+    // The shoulders sit at the body's edge, so the flippers stand out past its outline.
+    s, wing: [R * 0.84, 1.04 * s, -0.02 * s], hip: [R * 0.36, plan.height * 0.08, 0.04 * s], tail: [0, 0.3 * s, -0.3 * s],
     legLen: plan.height * 0.08, legThick: 0.035 * s,
     head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
   };

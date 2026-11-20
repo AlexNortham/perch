@@ -504,29 +504,37 @@ const PENGUIN = {
 } as const;
 
 /**
- * A penguin's flipper segment along -y (the IK still bends it at the elbow to hold the gun): a stiff, flat paddle,
- * black on the outer face (+x) and white beneath with a white trailing edge, tapering to a rounded tip at the grip.
+ * A penguin's flipper segment along -y (the IK still bends it at the elbow to hold the gun): a stiff, flat paddle whose
+ * broad blade stands out from the side of the body along the wing's outer axis (+x), so it reads held out from the
+ * front and from the player camera behind. Black on the back face (-z) and the outer edge, white on the front face,
+ * narrowing at the hand to a rounded tip that closes on the grip.
  */
 function flipper(k: Sculpt, seg: 'arm' | 'hand', upper: number, lower: number, chord: number, thick: number, d: Detail): void {
   const P = PENGUIN;
   const len = seg === 'arm' ? upper : lower;
+  const blade = (y: number, out: number, half: number, t: number): { c: V3; w: number; up: number; dn: number } => ({ c: [chord * out, y, 0], w: chord * half, up: thick * t, dn: thick * t });
   const rings = seg === 'arm'
     ? [
-      { c: [0, thick * 1.5, -chord * 0.1] as V3, w: 0, up: 0, dn: 0 },
-      { c: [0, thick * 0.3, -chord * 0.12] as V3, w: thick, up: chord * 0.22, dn: chord * 0.62 },
-      { c: [0, -len * 0.55, -chord * 0.1] as V3, w: thick * 0.9, up: chord * 0.24, dn: chord * 0.62 },
-      { c: [0, -len * 1.02, -chord * 0.06] as V3, w: thick * 0.85, up: chord * 0.22, dn: chord * 0.56 },
+      { c: [chord * 0.1, thick * 1.5, 0] as V3, w: 0, up: 0, dn: 0 },
+      blade(thick * 0.2, 0.24, 0.3, 1.1),
+      blade(-len * 0.35, 0.44, 0.52, 1),
+      blade(-len * 0.75, 0.4, 0.46, 0.95),
+      blade(-len * 1.0, 0.32, 0.38, 0.9),
+      // A rounded end at the elbow, under the hand's root.
+      blade(-len - chord * 0.22, 0.26, 0.26, 0.75),
+      { c: [chord * 0.22, -len - chord * 0.34, 0] as V3, w: 0, up: 0, dn: 0 },
     ]
     : [
-      { c: [0, thick * 0.6, -chord * 0.06] as V3, w: thick * 0.85, up: chord * 0.22, dn: chord * 0.56 },
-      { c: [0, -len * 0.5, -chord * 0.04] as V3, w: thick * 0.75, up: chord * 0.18, dn: chord * 0.45 },
-      { c: [0, -len * 0.92, 0] as V3, w: thick * 0.7, up: chord * 0.14, dn: chord * 0.3 },
-      { c: [0, -len - chord * 0.2, -chord * 0.02] as V3, w: thick * 0.4, up: chord * 0.06, dn: chord * 0.12 },
-      { c: [0, -len - chord * 0.3, -chord * 0.04] as V3, w: 0, up: 0, dn: 0 },
+      blade(thick * 0.5, 0.32, 0.38, 0.9),
+      blade(-len * 0.4, 0.24, 0.3, 0.8),
+      blade(-len * 0.8, 0.12, 0.2, 0.75),
+      blade(-len - chord * 0.08, 0.04, 0.12, 0.6),
+      { c: [0, -len - chord * 0.2, 0] as V3, w: 0, up: 0, dn: 0 },
     ];
   k.loft(rings, {
-    n: d.n(seg === 'arm' ? 7 : 8, 3), seg: d.n(14, 4), ref: [0, 0, 1],
-    paint: (_t, a) => (Math.cos(a) < -0.35 || Math.sin(a) < -0.9 ? P.white : Math.cos(a) < 0 ? P.slate : P.black),
+    n: d.n(seg === 'arm' ? 8 : 8, 3), seg: d.n(14, 4), ref: [0, 0, 1],
+    // White front face and a white outer edge (it outlines the flipper against the black body from behind).
+    paint: (_t, a) => (Math.cos(a) > 0.86 || (Math.sin(a) > 0.2 && Math.cos(a) < 0.75) ? P.white : Math.sin(a) > -0.2 && Math.cos(a) < -0.6 ? P.slate : P.black),
     finish: { tile: TILE.scales, size: 0.035, gloss: 0.3 },
   });
 }
@@ -567,7 +575,7 @@ function penguin(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
     toes: [{ yaw: -0.55, len: 0.12 * s, r: 0.022 * s }, { yaw: -0.05, len: 0.14 * s, r: 0.024 * s }, { yaw: 0.5, len: 0.12 * s, r: 0.022 * s }],
     clawLen: 0.035 * s,
   };
-  const chord = 0.17 * s;
+  const chord = 0.22 * s;
   const fthick = 0.022 * s;
 
   const body = (k: Sculpt): void => {
