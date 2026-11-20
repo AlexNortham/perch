@@ -2345,3 +2345,7 @@ All are within budget (9,000 / 3,500 / 1,200 / 400), with at most three draw cal
   - interior floors (grass shows indoors) and bird-purpose furnishing;
   - volumetric Nests and objective sites;
   - vertex memory down from about 95 MB, jointly with Rendering.
+
+### EP · 20/11/2026 · bird models: second pass merged (e28ebaf); sculpt pipeline v2 ordered
+- The second pass gives clean feather blades, crisp eyespots, one-loft heads and broad wings. It is better than the first, but every bird still scores 2 out of 4 (Cassowary 1), and the cause is structural: single-loft bodies.
+- Wave 5c: a fresh Technical Artist builds an implicit (SDF) sculpting pipeline and converts Peacock, Swift and Cassowary as proof (brief `docs/briefs/W5-sculpt.md`). After EP review, the other 21 birds convert in parallel batches. This replaces the wave 6 rework of the 12 older birds on the old pipeline.
