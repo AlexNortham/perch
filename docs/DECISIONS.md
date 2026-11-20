@@ -1697,6 +1697,43 @@ outline red and teal stay off the environment). Checklist item A1 asks the quest
 and a "no" blocks.
 **Why:** the user's instruction via the EP: the map should feel like somewhere birds would be, in every area, while
 staying readable in combat.
+
+### D-ART-004 · 20/11/2026 — Sculpted birds: lofted forms, feather cards, two draw calls, four levels on one skeleton
+**Decision:** birds built to the style guide (from wave 5b: Peacock, Vulture, Swift, Hummingbird, Cassowary, Toucan,
+Woodpecker, Nightjar) are sculpted, not stacked from primitives. `models/sculpt.ts` lofts smooth forms through control
+rings (bodies, necks, heads, bills, legs, toes, claws, straps, barrels), adds three.js solids and bevelled extrusions,
+and lays alpha-tested feather cards. Every vertex carries a painted colour and a finish (iridescence, glow, gloss and a
+pattern tile from a procedural atlas: feather scales, barred, mottled, wood, leather, weave, tarsus scutes). A bird is
+two skinned meshes on the D-ART-003 skeleton, plus a `spin` bone for a gun's feed: the opaque body, gear and gun, and
+the cut-out feather cards. Three morph targets ride on it: `display` (each bird's signature cast pose: the Peacock's
+fan, the Vulture's coat, the Cassowary's bristling hair, the Toucan's cocked tail and gaping bill, the Woodpecker's
+crest, the Nightjar's gape, the Swift's flaring blades, the Hummingbird's gorget), `jaw` (the lower mandible opens on
+each shot, a cast and death) and `blink` (the lids meet every 3–6 s). Each bird is built at four levels of detail
+(9,000 / 3,500 / 1,200 / 400 triangles with the gun, from 0 / 15 / 40 / 80 m, 10 % hysteresis) under a three.js
+`LOD`, all on the one skeleton. Sizes are read from the BodyPlan at runtime, so the head stays on its hitbox and the
+muzzle on the sim's muzzle point.
+**Why:** D-EP-047 retires placeholder shapes; the style guide (§8, §11.3) asks for smooth sculpted forms, layered
+feathers with readable edges, real eyes, beaks, feet and talons, at most three draw calls per bird and these budgets.
+Morph targets give signature cast poses without extra bones or draw calls.
+
+### D-ART-005 · 20/11/2026 — Birds keep their own materials, written to the shared library's conventions
+**Decision:** sculpted birds use `models/bird-material.ts`: two shared MeshStandardMaterials with a fresnel rim
+(#FFE6C0 at 0.25), up to 40° of view-angle iridescence, per-vertex glow and gloss, and the bird pattern and feather
+atlases, generated once per session. The Rendering engineer's shared material library (first version on its branch,
+not yet on `integrate/w5`) is a texture-array material for static environment geometry, with no rim, iridescence or
+feather cards, and the style guide (§11.5) budgets hero-bird textures apart from the environment atlases. The bird
+materials follow the library's conventions (sRGB albedo times vertex colour, cut out at 0.5, no blending), so the
+switch-over once it merges is small: take its quality tier (Lambert at Low), its sky environment map for brass and
+glass, and its cut-out depth material for card shadows.
+**Why:** the brief asks to write against the library and switch when it lands; it had not reached the integration
+branch, and birds need shading the environment library does not offer.
+
+### D-ART-006 · 20/11/2026 — The Hummingbird perches on its feet; its wings beat as discs
+**Decision:** GDD §9.16 says the Hummingbird always hovers 0.3 m off the ground with its legs tucked. The model
+stands on tiny planted feet in every grounded state, with its wings as two shimmering blur discs at each shoulder in
+every state; the legs tuck when it is airborne or using Hover. Its 40 m read (§9.24.1, "hover discs") is kept.
+**Why:** D-EP-035 and the brief require planted feet and nothing floating in every grounded state, which a permanent
+0.3 m hover breaks. The Director may restore a visual hover as an explicit exception to the attachment tests.
 ### D-SYS-006 · 19/11/2026 — The Updraft latch, read exactly (GDD §3.7, D-EP-039)
 **Decision:** `updraftInReach` is the nearer of two tests per segment: the column (feet within 2.5 m of the cable's
 ground line, the cable 0.5–14 m above them, at the point straight above the feet's nearest spot) and a 1.5 m sphere
