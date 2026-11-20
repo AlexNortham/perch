@@ -354,7 +354,7 @@ export const OBJECTIVE = {
   wipeAlive: 2,
   rocPushS: 90,
   commitEdge: 2,
-  allInFromS: 1800,
+  allInFromS: 1500,
   fallBackAlive: 2,
   /** Defend at home: a seen enemy hero within homeM of an open Shrine or Patron, or homeFledglings enemy fledglings in its 30 m Ward radius; defenders stand homeStandM out from it. */
   homeM: 40,
