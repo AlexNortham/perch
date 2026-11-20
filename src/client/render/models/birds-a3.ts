@@ -9,11 +9,15 @@ import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
 import { beak, eye, FEATHER, flare, headForm, legsOf, norm, ovoid, shingle, SKIN, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
+import { bodyField, flipX, PEACOCK_HEAD, peacockAnchors, skinFor, SWIFT_HEAD, swiftAnchors, TRUNK } from './bodies';
+import { SKIN as SWIFT_SKIN } from './data/skins/swift';
+import { SKIN as PEACOCK_SKIN } from './data/skins/peacock';
 import { CARD } from './feathers';
 import { band, bead, block, BRASS, buckle, carve, GEAR, LEATHER, lathe, plume, pouch, ring, sash, stud, WOOD } from './gear';
 import type { Detail, SculptedSpec } from './sculpted';
 import { hinge, jitter, mix, shade } from './sculpt';
 import type { Sculpt, V3 } from './sculpt';
+
 
 
 /** A card's display pose: root, direction and face at rest mapped to the same in the display. */
@@ -60,15 +64,38 @@ const PEACOCK = {
 
 export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
   const H = plan.height;
-  const R = plan.radius;
   const hr = plan.head.radius;
-  const hc = plan.head.centre.up;
-  const s = H / 1.9;
-  const legLen = H * 0.27;
+  const A = peacockAnchors(plan);
+  const s = A.s;
+  const legLen = A.legLen;
   const bodyY = 0.79 * s;
-  const tailPivot: V3 = [0, bodyY + 0.03 * s, -0.4 * s];
+  const tailPivot = A.tail;
   const P = PEACOCK;
   const BLUE = { tile: 1, size: 0.1, iri: -1, gloss: 0.35 } as const;
+  const BRONZE = { tile: 1, size: 0.11, iri: 0.5, gloss: 0.3 } as const;
+  const field = bodyField('peacock', plan);
+  const skin = skinFor('peacock', plan, PEACOCK_SKIN, d.level, {
+    back: { paint: (p) => mix(P.bronze, P.green, Math.min(1, Math.max(0, (p.y - bodyY) / (0.2 * s) + 0.4))), finish: BRONZE },
+    mantle: { paint: mix(P.bronze, P.green, 0.6), finish: BRONZE },
+    scapular: { paint: P.buff, finish: { tile: 2, size: 0.09, gloss: 0.2 } },
+    shoulder: { paint: P.buff, finish: { tile: 1, size: 0.08 } },
+    coverts: { paint: mix(P.green, P.teal, 0.3), finish: { ...BRONZE, iri: -0.8 } },
+    // The breast lightest down the keel, deepening to the sides and under toward the belly.
+    breast: { paint: (p) => mix(P.blue, P.blueDeep, Math.min(1, Math.max(0, (bodyY - p.y) / (0.25 * s) + Math.abs(p.x) / (0.3 * s)))), finish: BLUE },
+    belly: { paint: P.belly, finish: { tile: 1, size: 0.09, gloss: 0.2 } },
+    thigh: { paint: shade(P.belly, 1.15), finish: { tile: 1, size: 0.07 } },
+    // The neck brightest at the throat, deeper round the back and toward the base.
+    neck: { paint: (p) => mix(P.blue, P.blueDeep, Math.min(0.8, Math.max(0, 0.15 - p.z / (0.25 * s) + (1.2 * s - p.y) / (0.8 * s)))), finish: BLUE },
+    crown: { paint: P.blue, finish: BLUE },
+    face: { paint: P.blue, finish: BLUE },
+    cheek: { paint: P.blue, finish: BLUE },
+    brow: { paint: P.blueDeep, finish: BLUE },
+    nape: { paint: mix(P.blue, P.blueDeep, 0.15), finish: BLUE },
+    throat: { paint: P.blueDeep, finish: BLUE },
+    bill: { paint: P.bill, finish: { gloss: 0.5 } },
+    socket: { paint: P.white, finish: { gloss: 0.2 } },
+    stripe: { paint: P.white, finish: { gloss: 0.15 } },
+  });
 
   const leg: LegStyle = {
     skin: P.leg, claw: P.claw, thick: 0.027 * s, thigh: 0x3a4030, fringe: 0.5,
@@ -77,44 +104,14 @@ export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedS
   };
   const wing: WingStyle = {
     covert: P.buff, secondary: 0x46603a, primary: P.chestnut, primaryTip: shade(P.chestnut, 0.75), trim: team.primary,
-    thick: 0.032 * s, chord: 0.28 * s, primaries: 7, secondaries: 7, primaryLen: 0.62,
+    thick: 0.032 * s, chord: 0.28 * s, primaries: 7, secondaries: 7, primaryLen: 0.62, secondaryLen: 0.7,
   };
 
   const body = (k: Sculpt): void => {
-    const torso = k.loft(
-      [
-        { c: [0, bodyY + 0.02 * s, -0.46 * s], w: 0, up: 0 },
-        { c: [0, bodyY + 0.03 * s, -0.4 * s], w: 0.15 * s, up: 0.13 * s },
-        { c: [0, bodyY, -0.24 * s], w: 0.25 * s, up: 0.22 * s, dn: 0.23 * s },
-        { c: [0, bodyY, -0.03 * s], w: 0.3 * s, up: 0.25 * s, dn: 0.28 * s },
-        { c: [0, bodyY + 0.05 * s, 0.13 * s], w: 0.28 * s, up: 0.23 * s, dn: 0.27 * s },
-        { c: [0, bodyY + 0.14 * s, 0.25 * s], w: 0.19 * s, up: 0.17 * s, dn: 0.18 * s },
-        { c: [0, bodyY + 0.22 * s, 0.3 * s], w: 0, up: 0 },
-      ],
-      {
-        n: d.n(15, 5), seg: d.n(22, 6), finish: BLUE,
-        paint: (t, a) => {
-          const top = Math.sin(a);
-          if (t > 0.6 && top > -0.55) return mix(P.blue, P.blueDeep, 0.2 - 0.25 * top);
-          if (top < -0.3) return mix(P.belly, P.blueDeep, Math.max(0, t - 0.5));
-          return mix(P.bronze, P.green, 0.45 + 0.5 * top);
-        },
-      },
-    );
-    // The neck: rises from the chest in a gentle S into the head's own neck.
-    k.loft(
-      [
-        { c: [0, bodyY + 0.06 * s, 0.1 * s], w: 0.15 * s, up: 0.14 * s },
-        { c: [0, bodyY + 0.3 * s, 0.16 * s], w: 0.115 * s, up: 0.115 * s },
-        { c: [0, bodyY + 0.55 * s, 0.11 * s], w: 0.1 * s, up: 0.1 * s },
-        { c: [0, hc - 0.2 * s, 0.03 * s], w: 0.1 * s, up: 0.1 * s },
-        { c: [0, hc - 0.1 * s, 0.01 * s], w: 0.095 * s, up: 0.095 * s },
-      ],
-      { n: d.n(12, 3), seg: d.n(16, 5), ref: [0, 0, 1], paint: (t, a) => mix(P.blue, P.blueDeep, 0.15 + 0.3 * Math.cos(a) ** 2 * (1 - t)), finish: BLUE },
-    );
-    // A few broad scale-feathers break the breast and mantle outline.
-    shingle(k, torso, { t: [0.66, 0.86], a: [-Math.PI * 0.85, -Math.PI * 0.15], rows: 2, cols: 4, len: 0.12 * s, wid: 0.11 * s, paint: (t) => mix(P.blueDeep, P.blue, t), lift: 0.22, finish: BLUE, seed: 3 }, d);
-    shingle(k, torso, { t: [0.32, 0.62], a: [Math.PI * 0.2, Math.PI * 0.8], rows: 2, cols: 4, len: 0.14 * s, wid: 0.12 * s, paint: (_t, a) => mix(P.bronze, P.green, Math.sin(a)), lift: 0.15, finish: BLUE, seed: 5 }, d);
+    // The body is the baked implicit skin (bodies.ts); gear and feathers sit on its surface.
+    const torso = field.only(...TRUNK).surface([0, bodyY + 0.02 * s, -0.46 * s], [0, bodyY + 0.22 * s, 0.3 * s]);
+    // A cape of broad bronze-green scale feathers over the mantle, lying back toward the train.
+    shingle(k, torso, { t: [0.26, 0.62], a: [Math.PI * 0.25, Math.PI * 0.75], rows: 3, cols: 4, len: 0.12 * s, wid: 0.1 * s, paint: (t) => mix(shade(P.bronze, 0.85), P.green, 0.25 + 0.5 * t), lift: 0.08, finish: BRONZE, seed: 5 }, d);
     // Gear: a flock-colour silk sash over the left shoulder and across the back with a brass buckle, a silk collar
     // with ribbon tails down the back, and a dart satchel on the right hip.
     sash(k, torso, 0.56, 0.3, Math.PI * 0.3, { width: 0.1 * s, thick: 0.014 * s, hex: team.primary, stitch: team.light, finish: { gloss: 0.4 } }, d);
@@ -124,22 +121,11 @@ export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedS
   };
 
   const head = (k: Sculpt): void => {
-    // White stripes above and below each eye, painted where they sit on the face.
-    const stripe = (p: { x: number; y: number; z: number }): boolean => {
-      const ax = Math.abs(p.x) / hr;
-      const y = p.y / hr;
-      const z = p.z / hr;
-      return ax > 0.45 && z > 0.05 && z < 0.85 && ((y > 0.3 && y < 0.5) || (y > -0.32 && y < -0.12 && z > 0.2));
-    };
-    // A full nape: the neck meets the back of the head at most of its width, so it reads as one form from behind.
-    const neckR = 0.118 * s;
-    headForm(k, {
-      hr, width: 1.0, crown: 1.05, chin: 1.0, back: 0.95, face: 1.02, neck: { r: neckR, drop: 0.24 * s, lean: 0.03 * s },
-      beak: { y: -hr * 0.12, w: hr * 0.26, up: hr * 0.25, dn: hr * 0.17 }, finish: BLUE,
-      paint: (_t, _a, p) => (d.level < 2 && stripe(p) ? P.white : p.y < -hr * 0.55 ? P.blueDeep : P.blue),
-    }, d);
-    for (const x of [1, -1]) eye(k, [x * hr * 0.76, hr * 0.12, hr * 0.5], [x * 0.8, 0.05, 0.6], { r: hr * 0.25, iris: P.iris, ring: P.white, lid: P.blueDeep, ringW: hr * 0.05 }, d);
-    beak(k, { at: [0, -hr * 0.12, hr * 1.0], len: hr * 1.0, w: hr * 0.26, up: hr * 0.25, dn: hr * 0.17, curve: hr * 0.1, hook: hr * 0.06, base: P.bill, tip: P.billTip, open: 0.32 }, d);
+    // The head is part of the skin; the eyes sit in its sockets and the bill grows from its base.
+    const E = PEACOCK_HEAD.eye;
+    for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.8, 0.05, 0.6], { r: hr * 0.25, iris: P.iris, ring: P.white, lid: P.blueDeep, ringW: hr * 0.04 }, d);
+    const B = PEACOCK_HEAD.bill;
+    beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.04)], len: hr * 1.0, w: hr * 0.26, up: hr * 0.25, dn: hr * 0.17, curve: hr * 0.1, hook: hr * 0.06, base: P.bill, tip: P.billTip, open: 0.32 }, d);
     // The crown: five spoon-tipped crest feathers on bare shafts, spreading on the display.
     const n = d.level >= 3 ? 0 : 5;
     const crestLen = 0.2 * s;
@@ -173,7 +159,7 @@ export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedS
         const at2: V3 = [Math.sin(phi) * 0.03 * s, 0.05 * s + tier * 0.012 * s, -0.05 * s + tier * 0.03 * s];
         k.card({
           at, dir, face, len: L * (0.95 + 0.1 * jitter(j, 6)), wid: 0.2 * s * (d.level === 0 ? 1 : 1.2), cell: CARD.eye,
-          root: P.trainRoot, tip: 0xffffff, curl: 0.5, segs: d.level === 0 ? 6 : d.rows, finish: { iri: -0.8, gloss: 0.35 },
+          root: P.trainRoot, tip: 0xffffff, curl: 0.5, segs: d.level === 0 ? 5 : d.rows, finish: { iri: -0.8, gloss: 0.35 },
           morph: { display: repose(at, dir, face, at2, dir2, [0, 0.15, 1]) },
         });
       }
@@ -186,19 +172,17 @@ export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedS
   };
 
   return {
-    body, head, tail,
+    body, head, tail, skin,
     wing: wingsOf(wing, d),
     leg: (k, seg, side, upper, lower, ankle) => {
+      // The feathered thigh is the skin's; the leg starts at the bare shin.
+      if (seg === 'thigh') return;
       legsOf(leg, d)(k, seg, side, upper, lower, ankle);
       // The spur on the back of the tarsus.
       if (seg === 'shin' && d.level < 2) k.loft([{ c: [0, -upper * 0.62, -leg.thick * 0.7], w: leg.thick * 0.35, up: leg.thick * 0.35 }, { c: [0, -upper * 0.66, -leg.thick * 2.4], w: 0, up: 0 }], { seg: 6, ref: [0, 1, 0], paint: P.claw, finish: { gloss: 0.8 } });
     },
     gun: peacockGun(s, d),
-    pivot: {
-      wingL: [R * 0.75, bodyY + 0.13 * s, 0.05 * s], wingR: [-R * 0.75, bodyY + 0.13 * s, 0.05 * s],
-      legL: [R * 0.4, legLen, 0], legR: [-R * 0.4, legLen, 0],
-      tail: tailPivot,
-    },
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: tailPivot },
     legLen, legThick: leg.thick, wingLen: H * 0.36,
     // Hundred Eyes, Dazzle, Strut, Full Display.
     casts: ['throw', 'sweep', 'stomp', 'raise'],
@@ -489,15 +473,37 @@ const SWIFT = {
 
 export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
   const H = plan.height;
-  const R = plan.radius;
   const hr = plan.head.radius;
   const hc = plan.head.centre.up;
-  const s = H / 1.5;
+  const A = swiftAnchors(plan);
+  const s = A.s;
   const W = SWIFT;
   const GLOSS = { tile: 1, size: 0.1, gloss: 0.35, iri: 0.2 } as const;
-  const legLen = H * 0.19;
+  const legLen = A.legLen;
+  const field = bodyField('swift', plan);
+  const skin = skinFor('swift', plan, SWIFT_SKIN, d.level, {
+    back: { paint: mix(W.soot, W.brown, 0.15), finish: GLOSS },
+    mantle: { paint: mix(W.soot, W.brown, 0.35), finish: GLOSS },
+    scapular: { paint: mix(W.brown, W.soot, 0.2), finish: GLOSS },
+    shoulder: { paint: W.brown, finish: GLOSS },
+    coverts: { paint: W.soot, finish: GLOSS },
+    breast: { paint: (p) => mix(W.brown, W.soot, Math.min(1, Math.abs(p.x) / (0.2 * s) + 0.25)), finish: GLOSS },
+    belly: { paint: mix(W.soot, W.brown, 0.25), finish: GLOSS },
+    thigh: { paint: W.soot, finish: { ...GLOSS, size: 0.06 } },
+    neck: { paint: W.soot, finish: GLOSS },
+    crown: { paint: mix(W.soot, W.brown, 0.2), finish: { ...GLOSS, size: 0.07 } },
+    face: { paint: W.soot, finish: { ...GLOSS, size: 0.07 } },
+    cheek: { paint: W.soot, finish: { ...GLOSS, size: 0.07 } },
+    // The pale brow over each eye: the swift's scowl, picked out.
+    brow: { paint: mix(W.pale, W.brown, 0.45), finish: { gloss: 0.3 } },
+    nape: { paint: W.soot, finish: GLOSS },
+    throat: { paint: W.soot, finish: GLOSS },
+    bill: { paint: W.bill, finish: { gloss: 0.5 } },
+    socket: { paint: shade(W.soot, 0.7), finish: { gloss: 0.3 } },
+    pale: { paint: mix(W.pale, W.brown, 0.35), finish: { tile: 1, size: 0.05, gloss: 0.15 } },
+  });
   const leg: LegStyle = {
-    skin: W.leg, claw: W.claw, thick: 0.02 * s, thigh: W.soot, fringe: 0.45,
+    skin: W.leg, claw: W.claw, thick: A.legThick, thigh: W.soot, fringe: 0.45,
     toes: [{ yaw: -0.55, len: 0.07 * s }, { yaw: -0.18, len: 0.08 * s }, { yaw: 0.18, len: 0.08 * s }, { yaw: 0.55, len: 0.07 * s }],
     clawLen: 0.03 * s,
   };
@@ -508,18 +514,10 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
   };
 
   const body = (k: Sculpt): void => {
-    // Streamlined and leaning forward: a teardrop from the tail base up to the chest.
-    const torso = k.loft(
-      [
-        { c: [0, 0.3 * s, -0.27 * s], w: 0, up: 0 },
-        { c: [0, 0.42 * s, -0.21 * s], w: 0.12 * s, up: 0.12 * s, dn: 0.11 * s },
-        { c: [0, 0.66 * s, -0.11 * s], w: 0.19 * s, up: 0.2 * s, dn: 0.16 * s },
-        { c: [0, 0.9 * s, -0.02 * s], w: 0.215 * s, up: 0.21 * s, dn: 0.17 * s },
-        { c: [0, 1.08 * s, 0.03 * s], w: 0.185 * s, up: 0.17 * s, dn: 0.15 * s },
-        { c: [0, hc - 0.14 * s, 0.03 * s], w: 0.14 * s, up: 0.14 * s, dn: 0.13 * s },
-      ],
-      { n: d.n(14, 4), seg: d.n(20, 5), ref: [0, 0, 1], finish: GLOSS, paint: (t, a) => (t > 0.9 && Math.sin(a) > 0.45 ? W.pale : Math.sin(a) > 0.2 ? mix(W.brown, W.soot, 0.3) : W.soot) },
-    );
+    // The body is the baked implicit skin (bodies.ts); gear and feathers sit on its surface.
+    const axis: [V3, V3] = [[0, 0.3 * s, -0.27 * s], [0, hc - 0.14 * s, 0.03 * s]];
+    const torso = field.only(...TRUNK).surface(...axis, [0, 0, 1]);
+    const collar = field.only(...TRUNK, 'neck').surface(...axis, [0, 0, 1]);
     // The crescent: on each shoulder a long sickle wing held half-open, swept back and tilted up so it reads from
     // the front and from the player's camera; it flares wider on the display.
     for (const side of [1, -1] as const) {
@@ -557,28 +555,21 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
     // Gear: a slim harness with a magazine pouch, and the flock-colour scarf with two long streamers behind.
     sash(k, torso, 0.62, 0.16, Math.PI * 0.65, { width: 0.04 * s, thick: 0.01 * s, hex: GEAR.leather, finish: LEATHER }, d);
     pouch(k, torso.at(0.58, Math.PI * 0.6, 0), [0.07 * s, 0.09 * s, 0.045 * s], GEAR.leatherDark, d);
-    band(k, torso, 0.92, { width: 0.07 * s, thick: 0.018 * s, hex: team.primary, stitch: team.light, finish: { gloss: 0.35 } }, d);
+    band(k, collar, 0.92, { width: 0.07 * s, thick: 0.018 * s, hex: team.primary, stitch: team.light, finish: { gloss: 0.35 } }, d);
     if (d.level < 3) {
       for (const x of [1, -1]) {
-        const knot = torso.at(0.92, -Math.PI / 2 + x * 0.3, 0.02 * s);
+        const knot = collar.at(0.92, -Math.PI / 2 + x * 0.3, 0.02 * s);
         k.card({ at: [knot.p.x, knot.p.y, knot.p.z], dir: norm([x * 0.3, -0.3, -1]), face: [0, 1, 0], len: (x > 0 ? 0.66 : 0.54) * s, wid: 0.075 * s, cell: CARD.cloth, root: team.primary, tip: team.dark, curl: -0.35, sweep: x * 0.3, segs: d.level === 0 ? 5 : 2 });
       }
     }
   };
 
   const head = (k: Sculpt): void => {
-    const pale = (p: { x: number; y: number; z: number }): boolean => p.y < -hr * 0.45 && p.z > hr * 0.05 && Math.abs(p.x) < hr * 0.75;
-    headForm(k, {
-      hr, width: 1.12, crown: 1.05, chin: 1.0, back: 0.9, face: 1.02, cheek: 1.05, neck: { r: 0.13 * s, drop: 0.2 * s, lean: 0.01 * s },
-      beak: { y: -hr * 0.12, w: hr * 0.3, up: hr * 0.13, dn: hr * 0.09 }, finish: { ...GLOSS, size: 0.07 },
-      paint: (_t, _a, p) => (pale(p) ? W.pale : W.soot),
-    }, d);
-    for (const x of [1, -1]) {
-      eye(k, [x * hr * 0.66, hr * 0.06, hr * 0.68], [x * 0.55, 0.02, 0.83], { r: hr * 0.3, iris: W.iris, ring: W.soot, lid: W.brown, ringW: hr * 0.05 }, d);
-      // The scowling brow over each eye.
-      if (d.level < 2) ovoid(k, [x * hr * 0.6, hr * 0.38, hr * 0.68], [hr * 0.32, hr * 0.08, hr * 0.24], { n: 5, seg: 8, rot: [0.2, x * 0.55, x * -0.35], paint: W.brown, finish: GLOSS });
-    }
-    beak(k, { at: [0, -hr * 0.12, hr * 1.02], len: hr * 0.36, w: hr * 0.3, up: hr * 0.13, dn: hr * 0.09, curve: hr * 0.04, hook: hr * 0.02, base: W.bill, tip: W.bill, gape: 1.5, open: 0.4 }, d);
+    // The head, its scowling brows and pale throat are the skin's; the eyes sit in its sockets.
+    const E = SWIFT_HEAD.eye;
+    for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.55, 0.02, 0.83], { r: hr * 0.3, iris: W.iris, ring: W.soot, lid: W.brown, ringW: hr * 0.04 }, d);
+    const B = SWIFT_HEAD.bill;
+    beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.02)], len: hr * 0.36, w: hr * 0.3, up: hr * 0.13, dn: hr * 0.09, curve: hr * 0.04, hook: hr * 0.02, base: W.bill, tip: W.bill, gape: 1.5, open: 0.4 }, d);
     // Flight goggles pushed up on the brow, on a leather strap over the crown.
     if (d.level < 3) {
       for (const x of [1, -1]) {
@@ -595,15 +586,11 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
   };
 
   return {
-    body, head, tail,
+    body, head, tail, skin,
     wing: wingsOf(arm, d),
-    leg: legsOf(leg, d),
+    leg: (k, seg, side, upper, lower, ankle) => seg !== 'thigh' && legsOf(leg, d)(k, seg, side, upper, lower, ankle),
     gun: swiftGun(s, d),
-    pivot: {
-      wingL: [R * 0.7, 1.0 * s, 0.0], wingR: [-R * 0.7, 1.0 * s, 0.0],
-      legL: [R * 0.38, legLen, -0.05 * s], legR: [-R * 0.38, legLen, -0.05 * s],
-      tail: [0, 0.4 * s, -0.22 * s],
-    },
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
     legLen, legThick: leg.thick, wingLen: H * 0.36,
     // Slipstream, Screaming Party, Wing Scythe, Sky Stitch.
     casts: ['leap', 'raise', 'throw', 'leap'],

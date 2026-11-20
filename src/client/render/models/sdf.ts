@@ -49,6 +49,8 @@ export interface Body {
   readonly ops: readonly Op[];
   /** Triangle targets for the four levels of detail. */
   readonly tris: readonly [number, number, number, number];
+  /** Grid cell for meshing (m); bigger birds can take a coarser grid. */
+  readonly cell?: number;
 }
 
 export const SDF = {
@@ -153,6 +155,11 @@ export class Field {
     this.max = hi as unknown as V3;
   }
 
+  /** The field of only the named regions' masses (a trunk to lay a sash round, without the neck in the way). */
+  only(...regions: readonly string[]): Field {
+    return new Field({ ...this.body, ops: this.body.ops.filter((o) => regions.includes(o.region)) });
+  }
+
   /** Signed distance (negative inside). */
   d(px: number, py: number, pz: number): number {
     let d = 1e9;
@@ -231,7 +238,9 @@ export class Field {
     const T = new Vector3(...to).sub(A);
     const len = T.length();
     T.normalize();
-    const S = new Vector3(...ref).cross(T).normalize();
+    let S = new Vector3(...ref).cross(T);
+    if (S.lengthSq() < 1e-8) S = new Vector3(1, 0, 0).cross(T);
+    S.normalize();
     const U = new Vector3().crossVectors(T, S).normalize();
     const reach = Math.hypot(this.max[0] - this.min[0], this.max[1] - this.min[1], this.max[2] - this.min[2]);
     return {
@@ -245,15 +254,28 @@ export class Field {
     };
   }
 
-  /** Where a ray from `o` along unit `dir` last leaves the solid (marching in from `reach` metres out). */
+  /**
+   * Where a ray from `o` (inside the solid) along unit `dir` first leaves it: inside, |d| never overshoots the exit,
+   * so march by it, then bisect the crossing. From outside, the nearest surface point.
+   */
   leave(o: Vector3, dir: Vector3, reach: number): Vector3 {
-    let s = reach;
-    for (let i = 0; i < 96 && s > 0; i++) {
-      const d = this.d(o.x + dir.x * s, o.y + dir.y * s, o.z + dir.z * s);
-      if (d < 1e-4) break;
-      s -= Math.max(d * 0.8, 1e-4);
+    const at = (s: number): number => this.d(o.x + dir.x * s, o.y + dir.y * s, o.z + dir.z * s);
+    if (at(0) >= 0) return new Vector3(...this.project([o.x, o.y, o.z]));
+    let lo = 0;
+    let s = 0;
+    for (let i = 0; i < 128 && s < reach; i++) {
+      const d = at(s);
+      if (d >= 0) break;
+      lo = s;
+      s += Math.max(-d, 1e-3);
     }
-    return o.clone().addScaledVector(dir, Math.max(0, s));
+    let hi = s;
+    for (let i = 0; i < 20; i++) {
+      const m = (lo + hi) / 2;
+      if (at(m) < 0) lo = m;
+      else hi = m;
+    }
+    return o.clone().addScaledVector(dir, hi);
   }
 }
 

@@ -597,7 +597,10 @@ export function bake(parts: readonly (Sculpt | undefined)[], layer: 'solid' | 'c
         append(m[i] as number[], L.m[i] as number[]);
         append(mn[i] as number[], L.mn[i] as number[]);
       });
-      for (let k = 0; k < count; k++) si.push(bone, 0, 0, 0), sw.push(1, 0, 0, 0);
+      for (let k = 0; k < count; k++) {
+        si.push(bone, 0, 0, 0);
+        sw.push(1, 0, 0, 0);
+      }
     }
     // The skin rides in the body's range: its vertices follow the bones its field gave them.
     const sk = bone === 0 && layer === 'solid' ? o.skin : undefined;
@@ -611,7 +614,10 @@ export function bake(parts: readonly (Sculpt | undefined)[], layer: 'solid' | 'c
       append(c, sk.c);
       append(fx, sk.fx);
       MORPHS.forEach((_, i) => {
-        for (let k = 0; k < V * 3; k++) (m[i] as number[]).push(0), (mn[i] as number[]).push(0);
+        for (let k = 0; k < V * 3; k++) {
+          (m[i] as number[]).push(0);
+          (mn[i] as number[]).push(0);
+        }
       });
       append(si, sk.level.bones);
       append(sw, sk.level.boneW);

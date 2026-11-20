@@ -15,6 +15,9 @@ import { Field } from './sdf';
 import type { Body } from './sdf';
 import { SKIN_FORMAT } from './skin';
 
+/** Default grid cell (m): about twenty times finer than the full-detail mesh needs. */
+export const MESH_CELL = 0.007;
+
 export interface MeshOptions {
   /** Grid cell (m). */
   readonly cell?: number;
@@ -35,27 +38,40 @@ export function surfaceNets(field: Field, cell: number): Raw {
   const nz = Math.ceil((hi[2]! - lo[2]!) / h) + 1;
   const at = (i: number, j: number, k: number): number => i + nx * (j + ny * k);
   const val = new Float32Array(nx * ny * nz);
-  // Narrow band: a block whose centre is further from the surface than its half-diagonal (with margin) is all one side.
+  // Narrow band: a block of B³ cells whose centre is further from the surface than its half-diagonal (with margin)
+  // holds no surface. Only blocks near the surface (and their neighbours) are sampled and meshed.
   const B = 4;
-  const bx = Math.ceil(nx / B), by = Math.ceil(ny / B), bz = Math.ceil(nz / B);
+  const bx = Math.ceil((nx - 1) / B), by = Math.ceil((ny - 1) / B), bz = Math.ceil((nz - 1) / B);
   const reach = 1.6 * Math.sqrt(3) * (B / 2) * h + 2 * h;
-  const centre = new Float32Array(bx * by * bz);
-  const active = new Uint8Array(bx * by * bz);
+  const near = new Uint8Array(bx * by * bz);
   for (let K = 0; K < bz; K++) for (let J = 0; J < by; J++) for (let I = 0; I < bx; I++) {
     const d = field.d(lo[0]! + (I * B + B / 2) * h, lo[1]! + (J * B + B / 2) * h, lo[2]! + (K * B + B / 2) * h);
-    centre[I + bx * (J + by * K)] = d;
-    if (Math.abs(d) < reach) active[I + bx * (J + by * K)] = 1;
+    if (Math.abs(d) < reach) near[I + bx * (J + by * K)] = 1;
   }
-  for (let k = 0; k < nz; k++) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
-    // A point is exact if any block touching it is active.
-    let near = false;
-    const I0 = Math.floor(i / B), J0 = Math.floor(j / B), K0 = Math.floor(k / B);
-    for (let dk = (k % B === 0 ? -1 : 0); dk <= 0 && !near; dk++) for (let dj = (j % B === 0 ? -1 : 0); dj <= 0 && !near; dj++) for (let di = (i % B === 0 ? -1 : 0); di <= 0 && !near; di++) {
-      const I = I0 + di, J = J0 + dj, K = K0 + dk;
-      if (I >= 0 && J >= 0 && K >= 0 && I < bx && J < by && K < bz && active[I + bx * (J + by * K)]) near = true;
+  const blocks: [number, number, number][] = [];
+  for (let K = 0; K < bz; K++) for (let J = 0; J < by; J++) for (let I = 0; I < bx; I++) {
+    let hit = false;
+    for (let c = -1; c <= 1 && !hit; c++) for (let b = -1; b <= 1 && !hit; b++) for (let a = -1; a <= 1 && !hit; a++) {
+      const X = I + a, Y = J + b, Z = K + c;
+      if (X >= 0 && Y >= 0 && Z >= 0 && X < bx && Y < by && Z < bz && near[X + bx * (Y + by * Z)]) hit = true;
     }
-    val[at(i, j, k)] = near ? field.d(lo[0]! + i * h, lo[1]! + j * h, lo[2]! + k * h) : Math.sign(centre[Math.min(bx - 1, I0) + bx * (Math.min(by - 1, J0) + by * Math.min(bz - 1, K0))]!) * reach;
+    if (hit) blocks.push([I, J, K]);
   }
+  const done = new Uint8Array(nx * ny * nz);
+  for (const [I, J, K] of blocks) {
+    for (let k = K * B; k <= Math.min(nz - 1, K * B + B); k++) for (let j = J * B; j <= Math.min(ny - 1, J * B + B); j++) for (let i = I * B; i <= Math.min(nx - 1, I * B + B); i++) {
+      const q = at(i, j, k);
+      if (done[q]) continue;
+      done[q] = 1;
+      val[q] = field.d(lo[0]! + i * h, lo[1]! + j * h, lo[2]! + k * h);
+    }
+  }
+  // Cells of the sampled blocks, in a fixed order.
+  const cells = function* (): Generator<[number, number, number]> {
+    for (const [I, J, K] of blocks) {
+      for (let k = K * B; k < Math.min(nz - 1, K * B + B); k++) for (let j = J * B; j < Math.min(ny - 1, J * B + B); j++) for (let i = I * B; i < Math.min(nx - 1, I * B + B); i++) yield [i, j, k];
+    }
+  };
   // One vertex per cell that the surface crosses: the mean of its edge crossings.
   const cellId = new Int32Array((nx - 1) * (ny - 1) * (nz - 1)).fill(-1);
   const cid = (i: number, j: number, k: number): number => i + (nx - 1) * (j + (ny - 1) * k);
@@ -63,7 +79,7 @@ export function surfaceNets(field: Field, cell: number): Raw {
   const corner = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]] as const;
   const edges = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]] as const;
   const v = new Float64Array(8);
-  for (let k = 0; k < nz - 1; k++) for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+  for (const [i, j, k] of cells()) {
     let inside = 0;
     for (let c = 0; c < 8; c++) {
       const [ci, cj, ck] = corner[c]!;
@@ -89,30 +105,31 @@ export function surfaceNets(field: Field, cell: number): Raw {
   // A quad round every grid edge the surface crosses, wound so it faces out.
   const index: number[] = [];
   const quad = (a: number, b: number, c: number, d: number, flip: boolean): void => {
+    if (a < 0 || b < 0 || c < 0 || d < 0) return;
     if (flip) [b, d] = [d, b];
     const P = (q: number, o: number): number => pos[q * 3 + o]!;
     const dist = (p: number, q: number): number => (P(p, 0) - P(q, 0)) ** 2 + (P(p, 1) - P(q, 1)) ** 2 + (P(p, 2) - P(q, 2)) ** 2;
     if (dist(a, c) <= dist(b, d)) index.push(a, b, c, a, c, d);
     else index.push(a, b, d, b, c, d);
   };
-  for (let k = 1; k < nz - 1; k++) for (let j = 1; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
-    const a = val[at(i, j, k)]!, b = val[at(i + 1, j, k)]!;
-    if (a < 0 === b < 0) continue;
-    quad(cellId[cid(i, j - 1, k - 1)]!, cellId[cid(i, j, k - 1)]!, cellId[cid(i, j, k)]!, cellId[cid(i, j - 1, k)]!, a >= 0);
-  }
-  for (let k = 1; k < nz - 1; k++) for (let j = 0; j < ny - 1; j++) for (let i = 1; i < nx - 1; i++) {
-    const a = val[at(i, j, k)]!, b = val[at(i, j + 1, k)]!;
-    if (a < 0 === b < 0) continue;
-    quad(cellId[cid(i - 1, j, k - 1)]!, cellId[cid(i - 1, j, k)]!, cellId[cid(i, j, k)]!, cellId[cid(i, j, k - 1)]!, a >= 0);
-  }
-  for (let k = 0; k < nz - 1; k++) for (let j = 1; j < ny - 1; j++) for (let i = 1; i < nx - 1; i++) {
-    const a = val[at(i, j, k)]!, b = val[at(i, j, k + 1)]!;
-    if (a < 0 === b < 0) continue;
-    quad(cellId[cid(i - 1, j - 1, k)]!, cellId[cid(i, j - 1, k)]!, cellId[cid(i, j, k)]!, cellId[cid(i - 1, j, k)]!, a >= 0);
+  for (const [i, j, k] of cells()) {
+    const a = val[at(i, j, k)]!;
+    if (j >= 1 && k >= 1) {
+      const b = val[at(i + 1, j, k)]!;
+      if (a < 0 !== b < 0) quad(cellId[cid(i, j - 1, k - 1)]!, cellId[cid(i, j, k - 1)]!, cellId[cid(i, j, k)]!, cellId[cid(i, j - 1, k)]!, a >= 0);
+    }
+    if (i >= 1 && k >= 1) {
+      const b = val[at(i, j + 1, k)]!;
+      if (a < 0 !== b < 0) quad(cellId[cid(i - 1, j, k - 1)]!, cellId[cid(i - 1, j, k)]!, cellId[cid(i, j, k)]!, cellId[cid(i, j, k - 1)]!, a >= 0);
+    }
+    if (i >= 1 && j >= 1) {
+      const b = val[at(i, j, k + 1)]!;
+      if (a < 0 !== b < 0) quad(cellId[cid(i - 1, j - 1, k)]!, cellId[cid(i, j - 1, k)]!, cellId[cid(i, j, k)]!, cellId[cid(i - 1, j, k)]!, a >= 0);
+    }
   }
   const out = new Float32Array(pos.length);
   for (let q = 0; q < pos.length; q += 3) {
-    const p = field.project([pos[q]!, pos[q + 1]!, pos[q + 2]!], 3);
+    const p = field.project([pos[q]!, pos[q + 1]!, pos[q + 2]!], 2);
     out[q] = p[0];
     out[q + 1] = p[1];
     out[q + 2] = p[2];
@@ -132,7 +149,7 @@ function spread(i: number): [number, number, number] {
 export async function bakeBody(body: Body, o: MeshOptions = {}): Promise<Uint8Array> {
   await MeshoptSimplifier.ready;
   const field = new Field(body);
-  const raw = surfaceNets(field, o.cell ?? 0.006);
+  const raw = surfaceNets(field, o.cell ?? body.cell ?? MESH_CELL);
   const nv = raw.pos.length / 3;
   // Attributes the simplifier keeps from smearing: the normal, and embeddings of the paint regions and the bones.
   const ATTR = 9;
@@ -216,15 +233,15 @@ function pack(field: Field, pos: Float32Array, owners: ReturnType<Field['owners'
   return out;
 }
 
-/** Up to four [id, weight] pairs as bytes: ids, then weights summing to 255. */
+/** Up to four [id, weight] pairs (largest first) as bytes: ids, then weights summing to 255 (the largest takes the rest). */
 function quantise(w: readonly (readonly [number, number])[], dst: Uint8Array, at: number): void {
   const n = Math.min(4, w.length);
-  let sum = 0;
-  for (let i = 0; i < n; i++) {
+  let rest = 255;
+  for (let i = n - 1; i >= 0; i--) {
     dst[at + i] = w[i]![0];
-    const q = i === n - 1 ? 255 - sum : Math.round(w[i]![1] * 255);
+    const q = i === 0 ? rest : Math.floor(w[i]![1] * 255);
     dst[at + 4 + i] = q;
-    sum += q;
+    rest -= q;
   }
 }
 

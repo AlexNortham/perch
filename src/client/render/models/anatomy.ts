@@ -90,7 +90,7 @@ export function eye(k: Sculpt, at: V3, look: V3, s: EyeStyle, d: Detail): void {
   const pupil = s.pupil ?? 0.48;
   const irisAngle = 0.86;
   const sclera = s.sclera ?? 0x2a1d14;
-  const ball = new SphereGeometry(r, d.n(12, 5), d.n(8, 3));
+  const ball = new SphereGeometry(r, d.n(10, 5), d.n(7, 3));
   ball.rotateX(Math.PI / 2);
   k.mesh(ball, {
     frame: F,
@@ -108,10 +108,10 @@ export function eye(k: Sculpt, at: V3, look: V3, s: EyeStyle, d: Detail): void {
   }
   if (d.level < 2) {
     const ringW = s.ringW ?? r * 0.2;
-    k.mesh(new TorusGeometry(r * 0.94, ringW, 4, d.n(14, 8)), { frame: F, at: [0, 0, r * 0.4], paint: s.ring, finish: SKIN });
+    k.mesh(new TorusGeometry(r * 0.94, ringW, 3, d.n(12, 8)), { frame: F, at: [0, 0, r * 0.4], paint: s.ring, finish: SKIN });
     // Lids: caps about +y and -y just outside the eye; they rotate to meet across the front on the blink.
     const lid = (upper: boolean): void => {
-      const cap = new SphereGeometry(r * 1.16, d.n(10, 6), 3, 0, Math.PI * 2, 0, upper ? 0.62 : 0.78);
+      const cap = new SphereGeometry(r * 1.16, d.n(8, 6), 3, 0, Math.PI * 2, 0, upper ? 0.62 : 0.78);
       if (!upper) cap.rotateX(Math.PI);
       const close = hinge([0, 0, 0], [1, 0, 0], upper ? 0.98 : -0.86);
       k.mesh(cap, { frame: F, paint: s.lid, finish: SKIN, morph: { blink: inFrame(F, close) } });
@@ -236,13 +236,18 @@ export interface LegStyle {
   /** Thigh feather card cell and how far the fringe hangs (share of the thigh). */
   readonly fringe?: number;
   readonly fringeCell?: Feather;
+  /**
+   * The thigh is the implicit body's (D-ART-008): no loft, only the fringe, hung this far from the bone (m) at this
+   * share of the thigh's length.
+   */
+  readonly skinned?: { readonly r: number; readonly at: number };
 }
 
 /** The feathered thigh along -y, hip (inside the body) to knee, with a fringe of feathers hanging over the knee. */
 export function thigh(k: Sculpt, len: number, s: LegStyle, d: Detail, side: 1 | -1): void {
   const t = s.thick;
   const col = s.thigh ?? s.skin;
-  k.loft(
+  if (!s.skinned) k.loft(
     [
       { c: [0, len * 0.2, 0], w: 0, up: 0 },
       { c: [0, len * 0.1, 0], w: t * 1.7, up: t * 1.8 },
@@ -254,16 +259,17 @@ export function thigh(k: Sculpt, len: number, s: LegStyle, d: Detail, side: 1 | 
   );
   if (s.thigh !== undefined && d.level < 3) {
     const count = d.keep(6, 3);
+    const ring = s.skinned?.r ?? t * 1.65;
     for (let i = 0; i < count; i++) {
       const a = (i / count) * Math.PI * 2 + jitter(i, side + 3) * 0.3;
       const out: V3 = [Math.cos(a), 0, Math.sin(a)];
       const len2 = len * (s.fringe ?? 0.5) * (0.85 + 0.3 * jitter(i, 7));
       k.card({
-        at: [out[0] * t * 1.6, -len * 0.45, out[2] * t * 1.7],
+        at: [out[0] * ring * 0.97, -len * (s.skinned?.at ?? 0.45), out[2] * ring * 1.03],
         dir: norm([out[0] * 0.35, -1, out[2] * 0.35]),
         face: out,
         len: len2,
-        wid: t * 3.2 * (6 / count) ** 0.5,
+        wid: Math.max(t * 3.2, ring * 1.9) * (6 / count) ** 0.5,
         cell: s.fringeCell ?? CARD.contour,
         root: shade(col, 0.9),
         tip: shade(col, 1.08),

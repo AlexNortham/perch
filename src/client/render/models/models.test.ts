@@ -148,6 +148,13 @@ describe('hero models', () => {
     for (const id of FOUR) {
       const plan = HEROES[id].def.body;
       const model = k.create(heroEntity(id));
+      const skin = rigOf(model).build.geo.getAttribute('skinWeight');
+      if (Array.from({ length: skin.count }, (_, v) => skin.getX(v)).some((w) => w < 1)) {
+        // An implicit body (D-ART-008) is one surface from the body into the head: the body's part meets the head's.
+        const head = find(model, 'head').position.y + partBox(rigOf(model), 'head').min.y;
+        expect(head, id).toBeLessThanOrEqual(partBox(rigOf(model), 'body').max.y + 0.02);
+        continue;
+      }
       let top = 0;
       // Casques, crests and ear tufts rise above the hitbox on the eight new birds, so only their bodies are held to it.
       for (const n of (OLD.includes(id) ? ['body', 'head'] : ['body']) as ('body' | 'head')[]) {
