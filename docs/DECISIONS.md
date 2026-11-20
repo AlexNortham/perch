@@ -2012,3 +2012,76 @@ loader to keep in step. Optional, so the arena and test maps need nothing.
 ### D-AUDIO-004 · 19/11/2026 — Occlusion and room tone
 **Decision:** a positional voice whose room differs from the local hero's, or an enemy hero outside `seenBy`, gets -6 dB and a 2 kHz low-pass. Indoors a 320 Hz low-passed noise bed fades in and the wind bed drops to 30%. `Settings.mute` zeroes master; `onScreen` sets menu and hero-select music (a 100 ms timer ticks it with no match frames); `previewHero` plays the hero call flat. Where Den and Cellar Run overlap, the Den wins (map order), so entering the Den centre plays the Den cue, not the tunnel cue.
 **Why:** INTERFACES §13 row 3 and the W5 audio follow-ups.
+
+### D-RENDER-010 · 20/11/2026 — Materials are seeded texture arrays drawn by two shared materials
+**Decision:** the style guide's §7 materials are 37 layers of three `DataArrayTexture`s (sRGB albedo with card alpha,
+packed AO/roughness/metalness, normals on High), generated at load by pure typed-array code with integer hashing
+(`src/client/render/materials`). Geometry carries `uv` in tiles, a `matLayer` attribute and vertex colours (baked AO,
+tints, per-piece variation); one opaque and one alpha-tested material, patched with `onBeforeCompile`, draw every
+layer, with world-space macro variation in the shader. The recipes in `materials/data/` are authored art data and,
+like map data, exempt from the magic-number rule.
+**Why:** texture arrays wrap per layer with proper mipmaps (no atlas bleeding or fract seams), so a 64 m cell of mixed
+brick, timber, roof and stone is one draw call, inside §11.3's 70 map calls. Pure code is byte-identical in every
+browser and runs in Node tests, so screenshots compare and recipes are unit-tested.
+
+### D-RENDER-011 · 20/11/2026 — Texture tiers: 128², 256² and 512²
+**Decision:** Low generates 128² albedo (Lambert); Medium 256² albedo with 128² ORM (128 px/m on a 2 m tile); High
+512² with 256² ORM and normal maps. GPU texture memory: 3.1, 15.4 and 111 MB against §11.5's 32, 80 and 160 MB.
+**Why:** generation runs synchronously before the first frame (screenshots must be deterministic at
+`__perch.ready`), so its time is load time. 256² at Medium generates in about 0.55 s; 512² for all 37 layers would
+take four times as long. Detail is in the painted shapes, which read at play distances; High keeps the guide's 256 px/m.
+
+### D-RENDER-012 · 20/11/2026 — The map layer: prims to architecture, per 64 m cell, AO on one shared grid
+**Decision:** every MapData prim becomes bevelled (§4.3), painted architecture chosen by district (nearest lane, or
+a Home Roost): plinths, string courses and cornices on stone and brick masses, mossy wall tops, stairs on stair-pitch
+ramps (each step one tread deep, risers cut through the middle by the collision slope), hedges with leaf fringes,
+bark trunks with flared roots and leaf-card crowns, canopy clumps from foliage cylinders. Lanes are paved with sett
+kerbs between the Roosts. Features follow §1.4 (Updraft masts with pulley and pennant, framed flowering Vines, chimney
+shimmer, seed stalls). Kit structure models stand at the map's anchors before a match spawns structures (no
+placeholder markers). Pieces merge per 64 m cell, material kind and distance band (`CellBatch`); ray AO is baked
+once on a shared bit-packed voxel grid (`bakeAOAll`). Low builds without geometric bevels, trims or fringes and with
+sparser cards; a quality change rebuilds the layer. Nothing here collides.
+**Why:** D-EP-047's bar before the Environment Artist dresses the map, inside §11.3's budgets; per-cell AO with each
+cell re-voxelising its neighbours cost 0.8 s of load, the shared grid 0.4 s.
+
+### D-RENDER-013 · 20/11/2026 — Draw-budget ceilings from the style guide (acting for QA)
+**Decision:** `e2e/draw-budget.spec.ts` ceilings: lane 100 calls at Low and 120 at Medium, the full match 240 (the
+guide's whole frame, under D-QA-BROWSER-002's 248); triangles, all passes, ≤ 330k at Low and ≤ 1.02M at Medium (§11.3
+map + birds + fledglings + structures, plus a shadow pass of at most half); material texture memory ≤ 32 and 80 MB.
+Measured at QA's camera after this wave: 46 / 84 / 105 calls.
+**Why:** the brief's item 3; the art lands against the guide's numbers, not the blockout's 32 and 48.
+
+### D-RENDER-014 · 20/11/2026 — Lighting and post: the guide's values, bloom on lights only, one grade pass
+**Decision:** the renderer keeps the §10 light and sky values (`render/constants.ts` LIGHT, SKY), superseding the GDD
+§14.5 values still in `app/palette.ts`. Sun #FFD9A0 at 24° from the south-west, hemisphere #8FA6C9/#4A4A3A, lavender
+fog #A99BB0 at 0.0060, a sky with sun glow and cloud bands, a PMREM environment from it at 0.4 on metal and glass.
+Medium and High render to a HalfFloat target (2× MSAA at Medium, 4× at High), bloom with a scene-linear threshold of
+2.8 (above a sunlit white bird) while emissive layers are scaled ×8, and fold the split tone and vignette into the
+OutputPass. Low renders straight to the canvas.
+**Why:** on an Intel Arc 140T at 1080p the first version ran 80 fps at Medium; the extra grade pass and 4× MSAA on
+the HDR target were the cost. Now Low and Medium hold the 120 fps cap headless and High runs 65–95. The guide's 0.9
+threshold is display-referred; in scene-linear light sunlit birds would bloom.
+
+### D-RENDER-015 · 20/11/2026 — The local Updraft ride is drawn in screen space (G16)
+**Decision:** the local rider gets screen-space speed lines (`render/ride.ts`): outside the central 50 % of the screen,
+at most 3 px wide, 25 % strong and 15 % of the height long; boosting adds lines, speed and warmth. World-space wind
+and boost streaks are skipped for the local hero and thinned for other riders. The camera keeps its FOV kick.
+**Why:** world-space streaks around a bird the camera follows at 3 m become screen-filling slabs; screen space holds
+the feel gap's pixel limits exactly, and unit tests check them.
+
+### D-RENDER-016 · 20/11/2026 — Friend-or-foe overlays and the rim live in the entity layer (G18)
+**Decision:** the entity layer adds two skinned overlays to each hero model, sharing its geometry and skeleton: a red
+2 px clip-space inverted hull for enemies in sight, and an x-ray silhouette (fresnel, additive, `GreaterDepth`,
+drawn after the world and before bodies by `renderOrder`) for allies behind walls and revealed enemies. Each hero's
+body material is swapped for a rim-lit copy (§8.7, #FFE6C0, 0.25; 0.15 at Low). Dev `?renderTeams` places three a side
+for captures.
+**Why:** GDD §14.4 and the feel gap, without touching the Technical Artists' models; one extra draw call per bird, no
+shadow casting; structures and the environment get no rim (§10.5).
+
+### D-RENDER-017 · 20/11/2026 — Portraits are rendered from the kit models into data URLs
+**Decision:** `render/portraits.ts` renders a bird's kit model (idle, head and shoulders, three-quarter view, key and
+rim light, transparent background) into a 128 px target with the live context on first request, caches a PNG data
+URL, and registers with the UI's `setPortraitProvider` (`face()` returns an image; the UI placeholder remains when no
+renderer runs). About 20 ms a portrait.
+**Why:** D-EP-041: portraits from the in-game models at match start, with no image files, so the single-file build
+works offline.
