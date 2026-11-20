@@ -11,8 +11,8 @@
  *   scene.add(env.root);
  *   const blockout = buildBlockout(env.blockoutMap);   // the map without the prims the environment re-skins
  */
-import { BatchedMesh, Box3, Group, Vector3 } from 'three';
-import type { BufferGeometry, Camera, Material } from 'three';
+import { BatchedMesh, Box3, BufferAttribute, BufferGeometry, DataUtils, Group, Matrix4, Quaternion, Vector3 } from 'three';
+import type { Camera, Material } from 'three';
 import type { MapData } from '../../../sim/core/contracts';
 import type { Quality } from '../../app/contracts';
 import { getMaterialLibrary } from '../materials';
@@ -147,13 +147,67 @@ function batch(pass: Pass,geos: readonly { g: BufferGeometry; band: Band }[], li
   // The batch spans the map; cells are culled one by one.
   mesh.frustumCulled = false;
   const entries = geos.map(({ g, band }) => {
-    const id = mesh.addInstance(mesh.addGeometry(g));
     g.computeBoundingBox();
     const box = g.boundingBox?.clone() ?? new Box3();
+    const { geometry, matrix } = pack(g, box);
+    const id = mesh.addInstance(mesh.addGeometry(geometry));
+    mesh.setMatrixAt(id, matrix);
+    geometry.dispose();
     g.dispose();
     return { id, band, box, shown: true };
   });
+  // The batch copies the half-float uv bits as they are; tell WebGL what they are.
+  const uv = mesh.geometry.getAttribute('uv') as unknown as { isFloat16BufferAttribute?: boolean } | undefined;
+  if (uv) uv.isFloat16BufferAttribute = true;
   return { mesh, entries };
+}
+
+const INT16 = 32767;
+const XYZ = 3;
+/** An entry never packs to a smaller half-extent than this (m). */
+const MIN_EXTENT = 0.01;
+const _c = new Vector3();
+const _s = new Vector3();
+
+/**
+ * Geometry memory (W7): each cell entry stores positions as Int16 normalised to its own bounds (the entry's batch
+ * matrix scales them back; ≤ 6 mm steps on the longest entry) and uv as half floats, rebased by whole tiles per entry
+ * so they stay small and exact (textures repeat by the tile). With Int8 normals and byte colour and layer: 17 bytes a
+ * vertex, from 27.
+ */
+function pack(g: BufferGeometry, box: Box3): { geometry: BufferGeometry; matrix: Matrix4 } {
+  box.getCenter(_c);
+  box.getSize(_s);
+  const e = Math.max(_s.x, _s.y, _s.z, MIN_EXTENT) / 2;
+  const src = g.getAttribute('position');
+  const pos = new Int16Array(src.count * XYZ);
+  for (let i = 0; i < src.count; i++) {
+    pos[i * XYZ] = Math.round(((src.getX(i) - _c.x) / e) * INT16);
+    pos[i * XYZ + 1] = Math.round(((src.getY(i) - _c.y) / e) * INT16);
+    pos[i * XYZ + 2] = Math.round(((src.getZ(i) - _c.z) / e) * INT16);
+  }
+  const uvSrc = g.getAttribute('uv');
+  let du = 0;
+  let dv = 0;
+  for (let i = 0; i < uvSrc.count; i++) {
+    du += uvSrc.getX(i);
+    dv += uvSrc.getY(i);
+  }
+  du = Math.round(du / Math.max(1, uvSrc.count));
+  dv = Math.round(dv / Math.max(1, uvSrc.count));
+  const uv = new Uint16Array(uvSrc.count * 2);
+  for (let i = 0; i < uvSrc.count; i++) {
+    uv[i * 2] = DataUtils.toHalfFloat(uvSrc.getX(i) - du);
+    uv[i * 2 + 1] = DataUtils.toHalfFloat(uvSrc.getY(i) - dv);
+  }
+  const out = new BufferGeometry();
+  out.setAttribute('position', new BufferAttribute(pos, XYZ, true));
+  out.setAttribute('normal', g.getAttribute('normal'));
+  out.setAttribute('uv', new BufferAttribute(uv, 2));
+  out.setAttribute('color', g.getAttribute('color'));
+  out.setAttribute('matLayer', g.getAttribute('matLayer'));
+  if (g.index) out.setIndex(g.index);
+  return { geometry: out, matrix: new Matrix4().compose(_c, new Quaternion(), new Vector3(e, e, e)) };
 }
 
 export function buildEnvironment(map: MapData, quality: Quality): Environment {
