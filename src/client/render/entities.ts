@@ -75,9 +75,16 @@ export function createEntityLayer(parent: Object3D, kit: ModelKit): EntityLayer 
         if (drawnByVfx(e) || !visible(e, local)) continue;
         seen.add(e.id);
         if (e.kind === 'structure') structures = true;
+        const key = `${e.kind}:${e.type}:${e.team}`;
         let slot = live.get(e.id);
+        // A new session (Practice's Swap bird, menu to match) reuses entity ids, so an id can now name a different
+        // bird or thing: give its old model back to the pool instead of drawing the wrong one.
+        if (slot && slot.key !== key) {
+          release(slot);
+          live.delete(e.id);
+          slot = undefined;
+        }
         if (!slot) {
-          const key = `${e.kind}:${e.type}:${e.team}`;
           slot = { model: spare.get(key)?.pop() ?? kit.create(e), key };
           live.set(e.id, slot);
           // The style guide's §11.3 budget categories, for the dev budget report.
@@ -105,13 +112,17 @@ export function createEntityLayer(parent: Object3D, kit: ModelKit): EntityLayer 
       }
       for (const [id, slot] of live) {
         if (seen.has(id)) continue;
-        parent.remove(slot.model);
+        release(slot);
         live.delete(id);
-        const list = spare.get(slot.key);
-        if (list) list.push(slot.model);
-        else spare.set(slot.key, [slot.model]);
       }
       return structures;
     },
   };
+
+  function release(slot: { model: Object3D; key: string }): void {
+    parent.remove(slot.model);
+    const list = spare.get(slot.key);
+    if (list) list.push(slot.model);
+    else spare.set(slot.key, [slot.model]);
+  }
 }

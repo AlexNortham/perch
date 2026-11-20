@@ -51,6 +51,27 @@ describe('entity layer', () => {
     expect(kit.posed).toBe(2);
   });
 
+  it('gives an entity id a new model when it now names a different bird (Practice Swap bird reuses ids)', () => {
+    const scene = new Group();
+    const kit = fakeKit();
+    const layer = createEntityLayer(scene, kit);
+    const owl: EntityView = { ...entity(1, 0, 'hero'), type: 'owl' };
+    layer.sync(frame([owl], [owl]));
+    const owlModel = scene.children[0]!;
+
+    // The new session's local hero has the same id but is a different bird.
+    const kiwi: EntityView = { ...entity(1, 0, 'hero'), type: 'kiwi' };
+    layer.sync(frame([kiwi], [kiwi]));
+    expect(scene.children).toHaveLength(1);
+    expect(scene.children[0]).not.toBe(owlModel);
+    expect(kit.created).toBe(2);
+
+    // Swapping back reuses the pooled owl rather than building another.
+    layer.sync(frame([owl], [owl]));
+    expect(scene.children[0]).toBe(owlModel);
+    expect(kit.created).toBe(2);
+  });
+
   it('draws only world-visible enemies, ghosts allied invisible heroes and fades the local hero at the camera', () => {
     const scene = new Group();
     const layer = createEntityLayer(scene, fakeKit());
