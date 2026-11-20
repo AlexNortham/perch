@@ -2682,3 +2682,55 @@ shared, and a bake takes seconds.
   - wings that wrap the grip instead of reading as arms;
   - a check under golden-hour lighting.
 - Then the other 21 birds convert in parallel batches, with a per-bird checklist.
+### W5 · Balance & Data · Build Lab Phase A · 20/11/2026
+**Branch:** `worktree-agent-a2b0b29f72af4887f` from `integrate/w5` 373506f. Edits only `tools/buildlab/**`,
+`src/sim/data/learned/**`, `docs/balance/**`, this entry and D-BAL-001..004. `src/sim/data/builds.ts` untouched (Bot AI's).
+**Done (Phase A: the lab and a pilot):**
+1. **Runner** (`npx tsx tools/buildlab/run.ts --round R --matches N [--parallel P] [--minutes 60] [--difficulty hard]`):
+   one worker process per seeded 12-bot match, `--parallel` default half the logical cores; per flock `random` buying
+   or a round's scores at a temperature (`SimOptions.botShopping`). Records per match: picks, every buy and sale with its
+   second, unlocks and upgrades, winner, length, hash, per-hero telemetry, damage to heroes by gun / abilities / melee /
+   items, and per ability casts, damage, killing blows and kill participation (bus listeners on `sim.ctx`, read-only).
+   Compact (~10 KB) atomic files under `out/buildlab/round-R/matches/`; reruns skip finished seeds (resume proven: a
+   rerun of round 2 played 0 and relearned identical outputs). `--duel prev|random` plays held-out matches.
+2. **Learning** (`learn.ts`, D-BAL-001): per hero a Gaussian-prior logistic model of the flock's result on held-item
+   shares by phase bought, pairwise co-holding and Seeds spent, centred on the round-0 designer prior (no data gives it
+   back exactly); Laplace CIs; greedy early/mid/late cores. Rounds with falling exploration (D-BAL-002).
+3. **Convergence tests** in the report: split-half ρ, core changes between rounds, settled picks (CI), both duels.
+4. **Output:** `src/sim/data/learned/builds.ts` (`LEARNED_BUILDS: BuildData`, generated, deterministic, header with
+   round, matches and seeds) and `docs/balance/report.md` (per-hero and per-ability tables, builds, flags, limits).
+**Verified:**
+- **Pilot:** round 1 (seeds 1000001–050, prior scores, T 1.0, 30% random flocks) 50 matches in 37.9 min; round 2
+  (2000001–050, round-1 scores, T 0.8, 21%) 50 in 21.5 min; duels 4 vs round 1 and 4 vs random in 3.1 min. **108
+  matches, 0 crashes**, 4 wide, 20:00 cap, hard bots: 133 s a match, 177–963 ticks/s per process with the machine
+  shared (543 mean). Learning 100 matches (24 heroes, plus both halves): 1.4–4 s.
+- **Pilot numbers** (report): 0 of 108 decided by 20:00 (net-worth proxy). Split-half ρ median 0.71 (min 0.47, 19 of
+  20 heroes); cores vs round 1: 20/20 within one change; settled picks 0%; scored vs random flocks 0.575 ± 0.089 (31
+  matches), duels n = 4 each: none significant. Heroes average 4.7 buys by 20:00; 44–47% of scored-flock buys are
+  on the hero's §11.5 list (random 28%).
+- **Phase B sizing:** pick SEs are 1.3–1.8 score units, still the prior; the data-only SE of each hero's most-held item
+  is 1.2–2.7 after 30–100 games. With 20:00 proxy results, separating items 0.5 apart needs about 4,700 games per hero
+  (~8,000 matches) and 0.25 apart about 19,000. ρ is high partly because unmoved scores equal the prior in both halves;
+  the settled-pick test is the binding one.
+- Tests: `npx vitest run --root tools/buildlab` 11/11 (synthetic data: known best and worst items and a known synergy
+  pair recovered, prior returned with no data, clear pick settled, Cholesky, holds, outcome, Spearman; a match recorded
+  twice equals itself and the bare sim's hash).
+- `bash scripts/check.sh`: typecheck PASS, lint PASS, test 1,113 passed, 5 failed (the five known Objectives cases).
+  By hand: perf 13/14 (the known objectives budget); sim PASS (hash `41b6ba755b99c3c1`, unchanged); e2e 60 passed, 1
+  skipped, 2 failed: `match.spec` "Lv 2" (known, Bot AI's QA request) and `preview-regressions` "binds side buttons"
+  (load timeout; passes alone, 18.8 s).
+**Flagged (report only, proxy results):** Albatross, Vulture and Woodpecker below 0.5; Hornbill and Puffin above.
+Bots never cast Lyrebird's Mended Song or Flamingo's Poise and Tide Turn (0 in 108 matches); Owl's Silent Wing and
+Pelican's Gulp about 0.28 a minute. Tiny effect: Spear Bill, Emperor's March, Dart, Moonlit Mark, Black Sun, Rampage,
+Bristle, Fruit Barrage, Gape.
+**Interface requests:**
+- Build & Tooling: add `tools/**/*.test.ts` to the Vitest include and an npm script `"buildlab": "tsx tools/buildlab/run.ts"`.
+- Architect / Combat: `heal.applied` with `ability` and `item` (as `damage.applied` has), and an ability id on shields
+  and `status.applied`, so per-ability healing, shields and crowd control can be measured (D-EP-043).
+- Bot AI: Mended Song, Poise and Tide Turn are never cast by hard bots; check their use rules.
+- EP: ownership-map rows for `tools/buildlab/**`, `src/sim/data/learned/**`, `docs/balance/**`. For Phase B, decide
+  whether to (a) add a per-hero outcome (Seed and damage share, D-EP-036's "damage, kills, Seed efficiency") to cut the
+  variance, (b) judge settledness per core with a practical margin, or (c) budget about 8,000+ full-length matches.
+**Next (Phase B, on the EP's word):** full-length matches once they end; 1,000+ training matches in rounds of ~200 to
+convergence; duels; then the one-line switch of `src/sim/data/builds.ts` to `LEARNED_BUILDS`.
+**Blocked:** nothing.

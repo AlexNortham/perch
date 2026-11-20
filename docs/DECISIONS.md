@@ -2253,3 +2253,55 @@ closed in to their gun's range. Hunter and Raptor parry a seen heavy wind-up wit
 60% of swings, decided once per swing (GDD §11.2).
 **Why:** pairs pushing their own lanes broke every Hawk (115 of 120 over 20 matches) but rarely a Heron (21), and no
 match ended by 60:00. Grouping is GDD §11.3's sieging rule and the cheapest lever on that stall.
+
+### D-BAL-001 · 20/11/2026 — Build Lab model: a Bayesian logistic model of the result, centred on the designer prior
+**Decision:** per hero, an L2-regularised (Gaussian-prior, MAP) logistic regression of its flock's result on what the
+hero held: `logit P(win) = a + b·spend + Σ β_i·x_i + Σ δ_{i,phase bought}·x_i + Σ γ_ij·x_ij`. `x_i` is the share of
+the match item i was held (purchase to sale, to the upgrade that consumed it, or to the end), so early buys weigh more
+(D-EP-036's purchase-time weighting); `x_ij` is the share two items were held together; `spend` is Seeds held in items
+(so β is value beyond price, not "rich heroes win"). Priors: `β_i ~ N(c·(base_i − mean), 0.5²)`, `δ ~ N(c·phase, 0.25²)`,
+`γ ~ N(0, 0.25²)` for the 150 most co-held pairs held together in 8+ games; `c = 0.5` log-odds per score unit. Scores
+out: `base = mean + β/c`, `phase = δ/c`, `synergy = prior synergy (component chains) + γ/c` in both directions; with
+no data the output is the round-0 prior exactly. Every round refits all training matches so far against the same
+round-0 prior (no double counting). The inverse Hessian at the optimum (Laplace) gives each score's CI. An undecided
+match scores `σ(10·ln(own net worth / enemy net worth))` (a 10% lead is 0.72). Recommended cores are greedy on the
+learned scores: four T1 early, four T2–3 mid, three T4 late, synergy and chains counted, at most four actives.
+Situational picks stay the designer's until the model has enemy-flock terms.
+**Why:** the user asked for item value per hero conditioned on items owned, and bots that sample varied but
+synergistic builds; a prior-centred model gives sensible scores at any sample size, moves only where the data is
+strong, and its posterior covariance is the confidence test D-EP-037 asks for. Controlling for spend stops the
+"winners buy more" confound from ranking expensive items first.
+
+### D-BAL-002 · 20/11/2026 — Build Lab rounds, exploration and the convergence tests
+**Decision:** round R plays seeds `R·1,000,000 + 1…N` with round R−1's scores (round 0 = `src/sim/data/builds.ts`).
+Each flock independently buys at random with probability `max(0.1, 0.3·0.7^(R−1))`, else from the scores at temperature
+`max(0.5, 0.8^(R−1))`, drawn from the stream `createRng(seed, 'buildlab')`; the random flocks are both exploration and
+the random baseline. Hard (Raptor) bots by default (D-EP-043). Held-out duels (`--duel prev|random`, seeds +500,000)
+play round R at temperature 0.5 against round R−1 or random buying, sides alternating by seed. The lab stops only when
+all hold, and never under 1,000 training matches: (1) split-half: every hero's base-score Spearman ρ between odd and
+even seeds ≥ 0.8, over items it bought 5+ times in each half; (2) no core changes by more than one item from the
+previous round; (3) ≥ 90% of every hero's greedy picks are settled (lead over the runner-up > 1.96·SE, or 1.96·SE
+under 0.05, a known tie); (4) both duels show the newest scores better at p < 0.05.
+**Why:** D-EP-036/037's rounds with decreasing exploration and its three tests, made into numbers a script checks.
+
+### D-BAL-003 · 20/11/2026 — Balance evidence: what is measured and what gets flagged
+**Decision:** per match the lab records picks, every purchase and sale with its second, unlocks and upgrades, the winner
+and length, per-hero telemetry, damage to heroes by source (gun, abilities, melee, items) and per ability: casts, damage
+to heroes and to others, killing blows and kill participation (the ability hit a hero its flock killed within the 12 s
+assist window), from bus listeners on `sim.ctx` (read-only; the hash is unchanged, `match.test.ts`). The report flags,
+for review only: heroes whose result CI excludes 0.5 (20+ games); abilities with ≥ 50% of their hero's damage to heroes
+(dominant), under 0.3 casts a minute after unlock (0.05 for ultimates), or a damaging ability under 3% of the damage and
+under 10% kill participation (tiny effect). Abilities that deal no damage are "utility: value not measured" until
+healing, shields and crowd control carry an ability id.
+**Why:** D-EP-043/045 ask for per-ability value and outliers in both directions; Stage 4 only reports them, and Stage 5
+checks each against bot competence and ablation before changing anything.
+
+### D-BAL-004 · 20/11/2026 — Build Lab mechanics: one process per match, resumable files, tests outside the unit run
+**Decision:** `tools/buildlab/run.ts` forks one worker per match (`--parallel`, default half the logical cores), and the
+parent writes each compact record to `out/buildlab/round-R/matches/<seed>.json` atomically; a rerun skips seeds already
+written, so a stopped run resumes. Wall-clock times go to `timings.jsonl` and `runs.jsonl`, never into records, so
+reruns diff clean. Learning rewrites `round-R/learned.json`, the generated `src/sim/data/learned/builds.ts` (typed
+`BuildData`, no dates, header with round, matches and seed ranges) and `docs/balance/report.md`. The lab's tests run with
+`npx vitest run --root tools/buildlab` until Build & Tooling adds `tools/**/*.test.ts` to the unit run.
+**Why:** a crash or a leak stays in one process, a usage stop loses at most the matches in flight, and the outputs are
+regenerable from the records alone.
