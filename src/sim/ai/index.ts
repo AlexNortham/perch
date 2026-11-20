@@ -11,7 +11,7 @@ import type {
 import * as dmath from '../core/dmath';
 import { ticks } from '../core/math';
 import { canSee } from '../core/vision';
-import { CONDITIONS, DIFFICULTIES, FRONTLINE, LANE_ORDER, OBJECTIVE, PER_LANE, PICK_ORDER } from '../data/ai';
+import { CONDITIONS, DIFFICULTIES, FRONTLINE, LANE_ORDER, OBJECTIVE, PER_LANE, PICK_ORDER, TARGET } from '../data/ai';
 import { BUILDS } from '../data/builds';
 import { ITEMS } from '../data/items';
 import { HEROES } from '../heroes/registry';
@@ -196,7 +196,10 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
    * homeFledglings enemy fledglings within the Brood Ward's 30 m. Returns the structure under the most pressure and
    * how many bots answer: the 3 nearest (§11.3), or one more than the heroes inside.
    */
+  const threats = new Map<PlayerTeam, { at: Tick; threat: { structure: StructureEntity; defenders: number } | null }>();
   function homeThreat(team: PlayerTeam): { structure: StructureEntity; defenders: number } | null {
+    const cached = threats.get(team);
+    if (cached && cached.at === ctx.clock.tick) return cached.threat;
     let worst: { structure: StructureEntity; defenders: number } | null = null;
     let most = 0;
     for (const s of towers) {
@@ -215,6 +218,7 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
         worst = { structure: s, defenders: Math.max(OBJECTIVE.defendBots, heroes + 1) };
       }
     }
+    threats.set(team, { at: ctx.clock.tick, threat: worst });
     return worst;
   }
 
@@ -237,9 +241,6 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
       siege,
       homeThreat,
     };
-    // Bots play maps with lanes. On a lane-less test map (the arena) they stand still as the W1 stub did, so benches
-    // that place a bot as a target keep working (D-AI-007).
-    if (ctx.map.lanes.length === 0) return;
     for (const h of heroes) {
       if (!isBot(h)) continue;
       const a = lanes.get(h.id) ?? { lane: LANE_ORDER[0]!, side: 1 as const, roamer: false };
@@ -303,8 +304,11 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
     phases: {
       ai: () => {
         if (!shared) start();
-        towers.length = 0;
-        for (const s of ctx.store.list('structure')) if (s.structure.type !== 'nest' && !s.health.dead) towers.push(s);
+        // The tower list changes only when one falls: refresh it a few times a second.
+        if (ctx.clock.tick % TARGET.towersEveryTicks === 1 || towers.some((s) => s.removed || s.health.dead)) {
+          towers.length = 0;
+          for (const s of ctx.store.list('structure')) if (s.structure.type !== 'nest' && !s.health.dead) towers.push(s);
+        }
         if (ctx.clock.tick % defendEvery === 0) defend();
         for (const b of bots) b.tick();
       },

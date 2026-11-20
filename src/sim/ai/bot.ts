@@ -135,6 +135,9 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
   /** Tower anchors on the nav graph: a waypoint there counts as reached at the tower's edge. */
   const anchors = ctx.map.structures.map((s) => ({ pos: s.pos, r: STRUCTURE_RADIUS[s.type] + NAV.structureClearM }));
   const ripeTicks = ticks(ECONOMY.pod.ripeS);
+  /** Memos: how each item active is used, and each waypoint's arrival radius. */
+  const itemUses = new Map<ItemId, Use>();
+  const arrive = new WeakMap<Vec3, number>();
   /**
    * Known to the flock: what it sees (GDD §11.1), and every structure, whose place is on the map and minimap for
    * everyone. A shot still needs a clear line (lineOfSight).
@@ -762,8 +765,10 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       const r = s.structure.body.radius + NAV.structureClearM;
       const cx = s.pos.x - h.pos.x;
       const cz = s.pos.z - h.pos.z;
+      const far = r + NAV.avoidAheadM;
+      if (cx * cx + cz * cz > far * far) continue;
       const c = dmath.hypot(cx, cz);
-      if (c > r + NAV.avoidAheadM || c === 0 || s.pos.y > h.pos.y + body.height || s.pos.y + s.structure.body.height < h.pos.y) continue;
+      if (c === 0 || s.pos.y > h.pos.y + body.height || s.pos.y + s.structure.body.height < h.pos.y) continue;
       if (c < r) {
         x -= (cx / c) * NAV.avoidPush;
         z -= (cz / c) * NAV.avoidPush;
@@ -787,8 +792,13 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
 
   /** A waypoint at a tower's anchor counts as reached at the tower's edge. */
   function arriveRadius(p: Vec3): number {
-    for (const a of anchors) if (flat(a.pos, p) < NAV.arriveM) return NAV.arriveM + a.r;
-    return NAV.arriveM;
+    let r = arrive.get(p);
+    if (r === undefined) {
+      r = NAV.arriveM;
+      for (const a of anchors) if (flat(a.pos, p) < NAV.arriveM) r = NAV.arriveM + a.r;
+      arrive.set(p, r);
+    }
+    return r;
   }
 
   /** The nearest node to p that can be seen from p at chest height (walls between are what strand bots). */
@@ -809,15 +819,17 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
     return cands.find((id) => !skip?.has(id)) ?? cands[0] ?? -1;
   }
 
+  /** Straight at p on foot, or null when there. */
+  function straight(p: Vec3): Step | null {
+    const dx = p.x - h.pos.x;
+    const dz = p.z - h.pos.z;
+    const len = dmath.hypot(dx, dz);
+    return len < NAV.arriveM ? null : { x: dx / len, z: dz / len, kind: 'walk' };
+  }
+
   /** World direction toward `to` along the nav graph, and the link being crossed. */
   function steer(to: Vec3): Step | null {
     const now = clock.tick;
-    const straight = (p: Vec3): Step | null => {
-      const dx = p.x - h.pos.x;
-      const dz = p.z - h.pos.z;
-      const len = dmath.hypot(dx, dz);
-      return len < NAV.arriveM ? null : { x: dx / len, z: dz / len, kind: 'walk' };
-    };
     if (w.nav.size === 0 || (flat(to, h.pos) <= NAV.directM && Math.abs(to.y - h.pos.y) < NAV.arriveDy)) return straight(to);
     if (!route || !routeGoal || flat(routeGoal, to) > NAV.goalMovedM || now - routeAt > ticks(NAV.replanS)) {
       route = w.nav.route(nodeNear(h.pos, badStart), nodeNear(to), costs, blocked);
@@ -865,6 +877,8 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
   function ride(now: Tick, danger: boolean): boolean {
     const updraft = w.updraftOf.get(lane);
     if (!geom || updraft === undefined || !goal) return false;
+    // Nothing to do unless riding, latching, or under this lane's cable (the common case, so check it first).
+    if (h.motor.updraft === null && latchFrom === null && h.motor.updraftInReach !== updraft) return false;
     const me = geom.project(h.pos);
     const left = geom.project(goal).s - me.s;
     const sign = Math.sign(left) || 1;
@@ -937,11 +951,11 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
    */
   function beneficiary(range: number, canSelf: boolean, heals: boolean): HeroEntity | null {
     const now = clock.tick;
-    let best: HeroEntity | null = null;
-    let bestV = Infinity;
+    // Who needs it, cheapest checks first; the line-of-sight ray only for them, best first.
+    const needy: { a: HeroEntity; v: number }[] = [];
     for (const a of ctx.store.list('hero')) {
       if (a.team !== team || !alive(a) || a.health.inCombatUntil <= now) continue;
-      if (a.id === h.id ? !canSelf : flat(a.pos, h.pos) > range || !clear(a, aimPoint(a, false))) continue;
+      if (a.id === h.id ? !canSelf : flat(a.pos, h.pos) > range) continue;
       let v: number;
       if (heals) {
         v = fraction(a);
@@ -951,12 +965,10 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
         for (const e of seen) if (alive(e)) v = Math.min(v, flat(e.pos, a.pos));
         if (v > FIGHT.engageM) continue;
       }
-      if (v < bestV || (v === bestV && best !== null && a.id < best.id)) {
-        bestV = v;
-        best = a;
-      }
+      needy.push({ a, v });
     }
-    return best;
+    needy.sort((x, y) => x.v - y.v || x.a.id - y.a.id);
+    return needy.find(({ a }) => a.id === h.id || clear(a, aimPoint(a, false)))?.a ?? null;
   }
 
   /** Press an ability or item key now, or turn onto the ally it is for and press it once the crosshair is there. */
@@ -981,6 +993,7 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       const use = uses[i]!;
       const range = a.range > 0 ? a.range : CAST.defaultRangeM;
       if (use === 'ally') {
+        if ((now + h.id) % TARGET.losEveryTicks !== 0) continue;
         // "An ally in your sights, you if none": `selfFallback` or `affects.self` (the framework honours either).
         const ally = beneficiary(range, a.selfFallback === true || a.affects?.self === true, healing[i]!);
         if (!ally) continue;
@@ -1005,9 +1018,14 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       const owned = id ? h.inventory.items.find((o) => o.item === id) : undefined;
       const active = id ? w.catalogue.get(id)?.active : null;
       if (!active || !owned || owned.readyAt > now) continue;
-      const use = useOf(active.targeting, active.effects, active.affects?.teams === 'allies');
+      let use = itemUses.get(id!);
+      if (use === undefined) {
+        use = useOf(active.targeting, active.effects, active.affects?.teams === 'allies');
+        itemUses.set(id!, use);
+      }
       const range = active.range || CAST.defaultRangeM;
       if (use === 'ally') {
+        if ((now + h.id) % TARGET.losEveryTicks !== 0) continue;
         const k = kindsIn(active.effects, new Set());
         const ally = beneficiary(range, active.selfFallback === true || active.affects?.self === true, k.has('heal') || k.has('shield'));
         if (!ally) continue;

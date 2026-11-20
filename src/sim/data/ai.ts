@@ -79,7 +79,7 @@ export const AIM = {
   /** Fires only while the crosshair is within this many degrees of the target point, plus its angular size. */
   fireConeDeg: 3,
   /** Solves the camera offset (the crosshair isn't the pivot) with this many refinement passes. */
-  solvePasses: 3,
+  solvePasses: 2,
   /** A target not seen for this long is dropped. */
   forgetS: 2.5,
   /** Body aim point as a fraction of the target's height. */
@@ -190,6 +190,8 @@ export const TARGET = {
   losEveryTicks: 6,
   /** Once-per-entity draws are pruned of despawned entities past this many. */
   forgetAfter: 256,
+  /** The shared tower list is rebuilt this often (ticks), and at once when one falls. */
+  towersEveryTicks: 30,
 } as const;
 
 /** Retreat, healing and the Home Roost (GDD §11.3). */
