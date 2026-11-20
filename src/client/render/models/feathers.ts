@@ -181,7 +181,8 @@ function solidTile(tile: number, x: number, y: number): number {
       const n = fbm(x / 16, y / 16, 8, 3);
       const worm = Math.abs(Math.sin((x + 9 * fbm(x / 22, y / 22, 6, 5)) * 0.22 + y * 0.09));
       const speck = hash(x >> 2, y >> 2, 11) > 0.93 ? 1.18 : 1;
-      return Math.min(1, scale(x, y, 32, 32) * (0.55 + 0.45 * smooth(0.25, 0.75, n)) * (0.92 + 0.08 * smooth(0.1, 0.5, worm)) * speck);
+      // Blotches only: no feather rows, which would circle a loft end as concentric rings.
+      return Math.min(1, (0.58 + 0.42 * smooth(0.25, 0.75, n)) * (0.92 + 0.08 * smooth(0.1, 0.5, worm)) * speck);
     }
     case TILE.wood: {
       // Grain along the length (y), soft growth lines, a darker knot now and then.
