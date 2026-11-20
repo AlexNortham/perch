@@ -2382,3 +2382,53 @@ regenerable from the records alone.
 3. **Size.** Run as many matches as the convergence tests need. The pilot estimates up to about 8,000 at the old measure, which is within the 10× the user allowed. Run them in overnight batches at most 6 processes wide, on the separate simulation track (D-EP-044), so no stage waits for them.
 
 **Why:** the 108-match pilot settled every hero's core between rounds, but item ranks agreed only at ρ 0.71 between halves, and no pick was settled by its confidence intervals.
+
+### D-ARCH-029 · 21/11/2026 — Structures are still entries in the spatial hash
+**Decision:** the spatial hash keeps two sets of entries per cell. Moving entries (heroes, units, projectiles, pickups,
+areas) are re-indexed every tick as before. Structures (towers, Nests, Feeders, Shrines, the Patron) are still entries:
+the rebuild collects them in store order and re-indexes them only when that list, or any one's position or radius,
+differs from what the cells hold. The check compares values, so nothing has to announce a change and a structure that
+did move is still found. Cell coordinates are clamped to ±16,383 so a packed key stays a small integer (V8 hashes it
+without boxing a double; an entity past the clamp lands in the edge cell and the exact sphere test still filters), and
+queries dedup by a per-entry stamp instead of a `Set`. No contract change. Query results are identical, so hashes are
+unchanged (seed 1 objectives match: `142c8c2013a0b34e` before and after).
+**Why:** the integration round measured the per-tick rebuild of 108 static Nests and Feeders as the largest objectives
+cost. A/B on a recorded objectives workload, one process, interleaved (loaded machine): rebuild plus queries 197 → 91
+µs a tick with every objective live, 84 → 43 µs without; the rebuild alone 138 → 67 µs. The objectives budget test
+read +0.73 and +0.56 ms before and +0.31 and +0.30 ms after, under heavy load ("without" 0.92–0.99 ms before, 0.59–0.60
+after); its bound is absolute, so a quiet run is the real reading. Kind-based, not a per-entity flag: every structure
+stands still, and a flag would be a contract field for one consumer. The largest remaining objectives cost is
+world's vision pass (follow-up).
+
+### D-ARCH-030 · 21/11/2026 — Heals, shields and statuses carry the ability and item that caused them
+**Decision:** `heal.applied` and `status.applied` gain required `ability` and `item` (as `damage.applied` has), and a new
+`shield.applied` event reports each shield granted (source, target, full amount, absorbs, ability, item). Combat fills
+them from the effect's cause; level-up heals carry nulls. The three emit sites and the one new emit are in combat's
+files (mechanical, forced by the required fields), with a combat test that checks all three events.
+**Why:** the Build Lab (D-BAL-003, D-EP-043) credits each ability's value; healing, shielding and crowd control could
+only be credited to the source hero. The shield's value is reported as granted, not as absorbed: absorption by source
+would need the damage pipeline to split `absorbed` per shield, which no one has asked for yet.
+
+### D-ARCH-031 · 21/11/2026 — Staged start-up: the first screen before the world
+**Decision:** `window.__perch.stage` goes `'boot'` → `'menu'` → `'world'`. `'menu'`: the sim, UI, input and audio are up
+and the first screen (the menu, or a `?scene=` match's HUD) has drawn 3 frames over a sky-coloured page. Then the
+deferred work queue (`app/stages.ts`, `deferWork(label, job)`) runs: jobs in order, one per browser task, each awaited
+so a job can hand its work to a Web Worker (inlined with Vite's `?worker&inline` for `build:single`); each job's time is
+a `perch:job:<label>` performance measure beside the `perch:boot`, `perch:sim`, `perch:menu` and `perch:world` marks.
+`'world'`: the queue is empty and the full scene has drawn 3 frames. `__perch.ready` is true from `'world'`, so every
+spec and the shots harness wait for what they waited for before. `startApp` resolves at `'world'` and rejects if a job
+fails, so main.ts reports a renderer failure as before. Until Rendering and the Environment Artist queue their own
+generation, the app makes the whole renderer (and VFX) the first job; once `createRenderer` is cheap, it moves back to
+boot so the menu has its 3D backdrop at once.
+**Why:** page load had grown to 11.7 s on this machine (production build, headless Edge, median of 5, loaded machine),
+all of it before the first paint. Measured the same way after: first contentful paint 1.5 s, `'menu'` 1.8 s, `'world'`
+8.9 s. The renderer job takes about 4.9 s (dev-server profile: environment layer 2.2 s, material generation 1.8 s,
+blockout batching 1.4 s); it still holds the main thread, so a click on the menu waits for it until that work is
+chunked or moved to a worker (follow-ups).
+
+### D-ARCH-032 · 21/11/2026 — Wave 6 contract requests
+**Decision:** INTERFACES §16. Accepted `AbilityUpgrade.channelS` (seconds added to the channel, replacing Hero B3's
+`channelExtraS` value name); abilities folds it in on the B3 merge, since B3's branch edits the same lines. Dropped
+`TetherEffect.breakDistance` as a Magnitude: Swan's Grace Link doesn't need it (Hero B3) and Hummingbird's hook covers
+Nectar Sip.
+**Why:** a typed field over a value name the framework reads (D-ARCH-027); a contract widening with no user is churn.

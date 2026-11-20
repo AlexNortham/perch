@@ -89,7 +89,7 @@ only for the phases it uses (`System.phases`).
 | 1 | `ai` | sim/ai | Bots write `HeroEntity.command` from what their flock saw last tick |
 | – | core: latch | core | `step()` commands override bots; the command is copied into the hero's latch and sanitised, or the last one repeats without its one-shot fields (D-ARCH-011); look yaw/pitch and shoulder swap applied; pings (rate-limited) and concession handled |
 | 2 | `movement` | physics, world | Hero controllers from commands (walk, sprint, jump, dash, slide, mantle, Updrafts, Chimneys, Vines), displacements of heroes and units; world steers fledglings and neutrals that aren't rooted or stunned |
-| – | core: spatial | core | Spatial hash rebuilt from every live entity |
+| – | core: spatial | core | Spatial hash rebuilt from every live entity; structures (towers, Nests, Feeders, the Patron) are re-indexed only on a tick when their list, a position or a radius changed (D-ARCH-029) |
 | 3 | `abilities` | abilities, items | AP upgrades, casts, channels, areas, summons, tethers, delays, hero hooks; item actives |
 | 4 | `combat` | combat | Guns (aim model, fire, reload), melee, parry, projectiles; hits become damage requests |
 | 5 | `world` | world | Vision (`seenBy`); fledglings, structures and neutrals pick targets and attack; waves, Brood Ward, gates, Patron phases, Egg, runes, Nests, Roc and Ember |
@@ -162,8 +162,14 @@ every tick's hash must match (D-ARCH-021). The rules:
   never 60 Hz-quantised.
 - The app loop runs at most `MAX_STEPS_PER_FRAME` (5) sim steps per frame and drops a longer backlog rather than
   spiralling. Pausing stops stepping (single-player, GDD §12.10).
-- `window.__perch = { ready: true, scene }` is set once the requested scene has rendered 3 frames; the screenshot
-  harness and e2e wait on it. `?scene=menu|blockout|sandbox|lane|match` (`lane` is the practice match that Play
+- Start-up is staged (D-ARCH-031, `app/stages.ts`). `window.__perch.stage` goes `'boot'` → `'menu'` (the sim, UI,
+  input and audio are up and the first screen has drawn 3 frames over the page background) → `'world'` (the deferred
+  work queue is empty and the full scene has drawn 3 more). `__perch.ready` is true from `'world'`; the screenshot
+  harness and e2e wait on it, and a spec that needs only the menu can wait on `stage`. Generation that can wait goes
+  through `deferWork(label, job)`: jobs run after `'menu'`, in order, one per browser task, each awaited (so a job
+  may hand work to a Web Worker), each recorded as a `perch:job:<label>` performance measure next to the
+  `perch:boot`, `perch:sim`, `perch:menu` and `perch:world` marks. Until Rendering queues its own generation the
+  whole renderer is the first job. `?scene=menu|blockout|sandbox|lane|match` (`lane` is the practice match that Play
   starts, D-ARCH-013) plus `seed`, `hero`, `cam` (player, overview,
   top), `quality` and `t` (seconds fast-forwarded before the first frame): see `src/client/app/router.ts`.
 
@@ -215,6 +221,7 @@ components for other systems' entities in your `entity.spawned` handler.
 | View snapshot (client only) | ≤ 0.1 ms | 0.04 ms per tick for step + view with 12 heroes |
 | `hash()` | tests and CLI only | 4 ms for 162 entities |
 | Browser frame, 1080p, mid-range iGPU | ≤ 16.6 ms (60 FPS) | stub renderer; Rendering owns the budget from W2 |
+| Page load to the first screen (`perch:menu`), production build | as low as it goes; the world follows | W6: 1.8 s (was 10.7 s to first paint, 11.7 s to ready); the world at 8.9 s (D-ARCH-031) |
 
 Guidance: query `ctx.spatial` instead of scanning `store.all()` for proximity; reuse output arrays (`query(…, out)`);
 keep per-tick allocation low in hot loops (fledglings, projectiles); fledglings need not have Rapier controllers.
