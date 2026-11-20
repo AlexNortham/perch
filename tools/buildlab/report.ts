@@ -228,6 +228,7 @@ export function reportMarkdown(r: ReportInput): string {
   const vsRandom = duel('random');
   const vsPrev = duel('prev');
   const w = r.contribution.w;
+  const noise = median(heroes.map(([, l]) => l.model!.noise));
 
   push(
     '# Build Lab balance report',
@@ -262,6 +263,10 @@ export function reportMarkdown(r: ReportInput): string {
     `| ${STATS.join(' | ')} | Dawn side |`,
     `|${STATS.map(() => '---|').join('')}---|`,
     `| ${STATS.map((_, k) => fmt(w[k + 1]!, 2)).join(' | ')} | ${fmt(w[0]!, 2)} |`,
+    '',
+    `Why it is the lower-variance measure: per hero, the contribution left unexplained by the items has a median standard ` +
+      `deviation of ${fmt(noise, 3)} log-odds, so one game tells the item model about 4/σ² ≈ ${fmt(4 / noise ** 2, 0)}× what a ` +
+      'win or loss alone does (a logistic win model gets p(1 − p) ≤ 0.25 per game).',
     '',
   );
 
