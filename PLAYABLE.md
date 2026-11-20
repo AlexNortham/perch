@@ -17,6 +17,9 @@ this stage and lists every bird, item, objective and building.
 **This is the first of two Stage 4 releases.** It is the whole game working; the visual upgrade comes in the second.
 See "Known limits" below before you judge how it looks.
 
+**Update 1.1 (21/11/2026):** Swap bird in the Practice Hub now shows the new bird's model; before, you kept the old
+bird's look.
+
 **Play: a 6v6 match.**
 - Pick any of the **24 birds**. You start in the Dawn base with a **600-Seed** purse, enough to shop straight away at
   the Home Roost.

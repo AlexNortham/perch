@@ -3335,3 +3335,8 @@ settle issue QA's spec now waits out.
   - [x] launchable with any of the 24, and PLAYABLE.md "Stage 4 (M3)" written.
   - The "no placeholder shapes" item moves to Release 2 (the visual upgrade).
 - `main` is fast-forwarded to this commit and pushed to GitHub.
+
+### EP · 21/11/2026 · Release 1.1 (hotfix): Practice Swap bird model
+- **Bug (user report):** after Swap bird, every bird used the same model. A new session reuses entity ids, and the entity layer kept whatever model was attached to the id.
+- **Fix (5f39c63):** a slot whose kind, type or team changed goes back to the pool. Unit test fails without the fix.
+- `npm run check -- --release` passed on 6038d86 under load (859 s). Pushed to `main` as Release 1.1.
