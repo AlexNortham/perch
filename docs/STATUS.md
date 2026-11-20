@@ -3335,3 +3335,13 @@ settle issue QA's spec now waits out.
   - [x] launchable with any of the 24, and PLAYABLE.md "Stage 4 (M3)" written.
   - The "no placeholder shapes" item moves to Release 2 (the visual upgrade).
 - `main` is fast-forwarded to this commit and pushed to GitHub.
+
+### W6 · Balance & Data · Build Lab Phase B, paused · 21/11/2026
+**Done:** Phase B measure (D-BAL-005): only decided matches count, plus a per-hero contribution calibrated on wins. Item
+model on that contribution; cores judged at a 2-point margin. Speed (D-BAL-006): the profile is flat, and no
+hash-identical 5× exists. The lab changes no sim code. Heals, shields and statuses are now credited to each ability.
+`builds.ts` is still on the starter scores.
+**Paused at the EP's word:** round 1 has 36 of 200 matches saved (seeds 1000001–1000036, all decided, 40–58 min, about
+55 matches an hour 4 wide). Resume: `npx tsx tools/buildlab/run.ts --round 1 --matches 200 --parallel 4` (it skips the
+saved seeds).
+**Verified:** `npx vitest run tools/buildlab` 12/12; typecheck and lint clean; no sim file changed (hash unchanged).
