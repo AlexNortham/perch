@@ -356,6 +356,8 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   setMap(map);
 
   const host: RenderHost = { scene, beforeRender: null };
+  /** Draw calls and triangles of the last completed frame, all passes (the dev counters read this). */
+  const lastFrame = { calls: 0, triangles: 0 };
   const ride = new RideOverlay();
 
   let shadowHalf = 0;
@@ -421,6 +423,9 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       if (composer) composer.render();
       else gl.render(scene, camera);
       ride.render(gl, frame, size.width, size.height);
+      // The frame's own counts: one-off bakes between frames (portraits, the environment map) never count against it.
+      lastFrame.calls = gl.info.render.calls;
+      lastFrame.triangles = gl.info.render.triangles;
     },
     setMap,
     setQuality(q) {
@@ -466,10 +471,10 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   registerHost(renderer, host);
   if (import.meta.env.DEV) {
     window.__perchRender = {
-      info: () => ({ calls: gl.info.render.calls, triangles: gl.info.render.triangles }),
+      info: () => ({ ...lastFrame }),
       setQuality: renderer.setQuality,
       portrait: (hero, team) => portraits.get(hero, team),
-      budget: () => budgetOf(scene, camera, gl.info.render.calls, gl.info.render.triangles, Math.round((lib.textureBytes / MB) * MB_STEPS) / MB_STEPS),
+      budget: () => budgetOf(scene, camera, lastFrame.calls, lastFrame.triangles, Math.round((lib.textureBytes / MB) * MB_STEPS) / MB_STEPS),
     };
   }
   return renderer;

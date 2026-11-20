@@ -2637,3 +2637,18 @@ These changes, the Practice Swap bird fix and finished art ship together in the 
 **Why:** "the lanes are too flat look back at the video references each lane should have a bridge on it, and its too
 open the lanes should be more isolated, and you should be assigned a lane at the start of the game and put on the
 zipline".
+### D-RENDER-018 · 21/11/2026 — The scene-start triangle transient was a negative first frame dt
+**Decision:** the app clamps each frame's `dt` at zero (`app.ts`), and the camera's `approach()` moves toward its goal by
+at most |step| and clamps its `dt` at zero (`camera/index.ts`); both are one-line changes made for the Architect and
+Camera & Input on the EP's routing. The renderer's dev counters (`__perchRender.info()`, `budget()`) report the last
+completed frame, so one-off bakes between frames (portraits, the environment map) never count against a frame.
+`e2e/draw-budget.spec.ts` records every rendered frame from the first again (an init script) and applies its ceilings
+to that peak; the settling wait of D-QA-017 is gone.
+**Why:** the first rendered frame's requestAnimationFrame timestamp marks the start of its frame, which came before
+`last = performance.now()` was taken after start-up, so `dt` was −0.247 s. `approach()` with a negative step moved away
+from its goal: aim zoom went to 1.41 and the dash kick to 6°, so the scene opened at a (90 + 6) × 1.41 = 135.4°
+horizontal FOV and eased back over the next frames (1–2 s on a loaded machine). Every layer drew about 40 % more
+(lane/Low 358k falling to 255k on b4eeabf). With the two lines applied to b4eeabf the first world frame is 263k and the
+next 255k. The staged start-up (D-ARCH-031) happened to absorb that frame before the renderer existed, which hid it on
+`integrate/w5`; it would have returned once `createRenderer` moves back to boot, and the negative `dt` also reached rigs,
+VFX and audio.
