@@ -22,6 +22,8 @@ import {
 import type { MapData } from '../../sim/core/contracts';
 import type { CameraPose, Quality, Renderer } from '../app/contracts';
 import { buildBlockout } from './blockout';
+import { buildEnvironment } from './environment';
+import type { Environment } from './environment';
 import type { Blockout } from './blockout';
 import { createEntityLayer } from './entities';
 import { registerHost } from '../app/render-host';
@@ -151,6 +153,9 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     : null;
 
   let blockout: Blockout | null = null;
+  // The environment layer (Environment Artist, environment/): the blockout draws the map without what it re-skins.
+  let env: Environment | null = null;
+  let envQuality = quality;
   let current: MapData | null = null;
   const setMap = (m: MapData): void => {
     const next = m.id === 'main' && dev?.has('renderFixture') ? FIXTURE_MAP : m;
@@ -160,7 +165,11 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       scene.remove(blockout.root);
       blockout.dispose();
     }
-    blockout = buildBlockout(next);
+    if (env) scene.remove(env.root);
+    env?.dispose();
+    env = buildEnvironment(next, envQuality);
+    scene.add(env.root);
+    blockout = buildBlockout(env.blockoutMap);
     scene.add(blockout.root);
   };
   setMap(map);
@@ -223,6 +232,8 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       if (next === preset) return;
       // Antialiasing is fixed when a WebGL context is created, so a new preset gets a new context.
       preset = next;
+      envQuality = q;
+      env?.setQuality(q);
       shadowHalf = 0;
       sun.shadow.map?.dispose();
       sun.shadow.map = null;
@@ -240,6 +251,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     },
     dispose() {
       blockout?.dispose();
+      env?.dispose();
       gl.dispose();
     },
   };
