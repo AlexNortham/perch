@@ -1,4 +1,4 @@
-// The Build Lab (D-EP-036/037, D-BAL-001..003): seeded headless 12-bot matches in rounds, learning item scores and
+// The Build Lab (D-EP-036/037/049, D-BAL-001..005): seeded headless 12-bot matches in rounds, learning item scores and
 // recommended builds per hero.
 //   npx tsx tools/buildlab/run.ts --round R --matches N [--parallel P] [--minutes 60] [--difficulty hard]
 //     Plays round R's training matches (seeds R·1,000,000 + 1 … + N) with round R−1's scores and exploration, one
@@ -21,12 +21,15 @@ import { TICK_RATE } from '../../src/sim/data/core';
 import { ITEMS } from '../../src/sim/data/items';
 import { recommend } from './learn';
 import type { FlockPolicy, MatchJob, MatchRecord } from './match';
-import { learnedSource, learnRound, reportMarkdown, type LearnedRound, type RunLine, type Timing } from './report';
+import { PRIOR_SCORES, learnedSource, learnRound, reportMarkdown, type LearnedRound, type RunLine, type Timing } from './report';
 
-/** D-BAL-002: exploration falls each round to a floor; a random flock doubles as the held-out baseline. */
+/**
+ * D-BAL-002/005: the temperature falls each round to Hunter's; a quarter of flocks buy at random, which keeps rarely
+ * bought items explored and doubles as the random baseline.
+ */
 export const EXPLORE = {
   temperature: (round: number): number => Math.max(0.5, 0.8 ** (round - 1)),
-  randomShare: (round: number): number => Math.max(0.1, 0.3 * 0.7 ** (round - 1)),
+  randomShare: (): number => 0.25,
   /** Duels play at Hunter's temperature, as most bots will. */
   duelTemperature: 0.5,
   seedsPerRound: 1_000_000,
@@ -77,9 +80,9 @@ const readLines = <T>(file: string): T[] =>
 const records = (dir: string): MatchRecord[] =>
   existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.json')).sort().map((f) => readJson<MatchRecord>(join(dir, f))) : [];
 
-/** Round r's learned scores; round 0 is the sim's own data (no override). */
-function scoresOf(r: number): Partial<Record<HeroId, ItemScores>> | undefined {
-  if (r === 0) return undefined;
+/** Round r's learned scores; round 0 is the designer prior, passed explicitly so records don't depend on builds.ts. */
+function scoresOf(r: number): Partial<Record<HeroId, ItemScores>> {
+  if (r === 0) return PRIOR_SCORES;
   const file = join(roundDir(r), 'learned.json');
   if (!existsSync(file)) throw new Error(`buildlab: ${file} is missing; learn round ${r} first`);
   return readJson<LearnedRound>(file).scores;
@@ -90,7 +93,7 @@ function jobOf(seed: number, kind: string): MatchJob {
   let policy: Record<PlayerTeam, FlockPolicy>;
   if (kind === 'train') {
     const rng = createRng(seed, 'buildlab');
-    const pick = (): FlockPolicy => (rng.next() < EXPLORE.randomShare(round) ? { kind: 'random' } : scores(round - 1));
+    const pick = (): FlockPolicy => (rng.next() < EXPLORE.randomShare() ? { kind: 'random' } : scores(round - 1));
     policy = { dawn: pick(), dusk: pick() };
   } else {
     // The newest scores alternate sides by seed.
@@ -158,11 +161,11 @@ function learn(): void {
   const prevBuilds: Partial<Record<HeroId, RecommendedBuild>> = existsSync(prevFile)
     ? readJson<LearnedRound>(prevFile).builds
     : Object.fromEntries(HERO_IDS.flatMap((h) => {
-      const s = BUILDS.scores[h];
-      return s ? [[h, recommend(s, catalogue, BUILDS.builds[h]?.situational ?? []).build]] : [];
+      const s = PRIOR_SCORES[h];
+      return s ? [[h, recommend(s, catalogue, BUILDS.builds[h]?.situational ?? [])]] : [];
     }));
   const started = performance.now();
-  const learned = learnRound(train, catalogue, prevBuilds);
+  const { heroes: learned, contribution } = learnRound(train, catalogue, prevBuilds);
   const seeds = train.map((m) => m.seed);
   const byRound = [...new Set(seeds.map((s) => Math.floor(s / EXPLORE.seedsPerRound)))].sort((a, b) => a - b);
   const out: LearnedRound = {
@@ -172,7 +175,7 @@ function learn(): void {
       const xs = seeds.filter((s) => Math.floor(s / EXPLORE.seedsPerRound) === r);
       return [Math.min(...xs), Math.max(...xs)] as const;
     }),
-    scores: Object.fromEntries([...learned].map(([h, l]) => [h, l.model?.scores ?? BUILDS.scores[h]])),
+    scores: Object.fromEntries([...learned].map(([h, l]) => [h, l.model?.scores ?? PRIOR_SCORES[h]])),
     builds: Object.fromEntries([...learned].map(([h, l]) => [h, l.build])),
   };
   mkdirSync(roundDir(round), { recursive: true });
@@ -187,7 +190,8 @@ function learn(): void {
   writeFileSync(dataFile, learnedSource(out, caps, diffs));
   const duels = ['prev', 'random'].map((kind) => ({ kind, matches: records(matchDir(round, kind)) })).filter((d) => d.matches.length);
   const timings = Array.from({ length: round }, (_, i) => readLines<Timing>(join(roundDir(i + 1), 'timings.jsonl'))).flat();
-  writeFileSync(reportFile, reportMarkdown({ round, matches: train, duels, learned, timings, runs: readLines<RunLine>(join(root, 'runs.jsonl')), catalogue }));
+  const runs = readLines<RunLine>(join(root, 'runs.jsonl'));
+  writeFileSync(reportFile, reportMarkdown({ round, matches: train, duels, learned, contribution, timings, runs, catalogue }));
   console.log(`buildlab: learned round ${round} from ${train.length} matches in ${((performance.now() - started) / 1000).toFixed(1)} s → ` +
     `${join(roundDir(round), 'learned.json')}, ${dataFile}, ${reportFile}`);
 }

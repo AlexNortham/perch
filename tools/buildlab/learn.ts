@@ -1,13 +1,19 @@
 /**
- * Build Lab learning (D-BAL-001): per hero, an L2-regularised (Gaussian-prior, MAP) logistic model of the flock's
- * result on what the hero held and when,
- *   logit P(win) = a + b·spend + Σ_i β_i·x_i + Σ_i δ_{i,p(i)}·x_i + Σ_{i<j} γ_ij·x_ij
- * x_i: share of the match item i was held; p(i): the phase it was bought in; x_ij: share of the match i and j were held
- * together; spend: Seeds held in items over the match (so β is value beyond its price, not "rich heroes win").
- * Priors are centred on the designer prior (round 0), so no data gives back the prior exactly:
- *   β_i ~ N(c·(base_i − mean base), σβ²), δ_ip ~ N(c·phase_ip, σδ²), γ_ij ~ N(0, σγ²), c = MODEL.logOddsPerScore.
- * Scores out: base_i = mean base + β_i/c, phase_ip = δ_ip/c, synergy = prior synergy + γ/c (both directions).
- * Newton's method; the inverse Hessian at the optimum is the posterior covariance (Laplace), used for the CIs.
+ * Build Lab learning (D-BAL-001, Phase B: D-BAL-005).
+ *
+ * 1. Contribution (the lower-variance measure). On decided matches, a logistic model of the winner on the flocks'
+ *    differences in stat shares: logit P(dawn wins) = a + Σ_k w_k·(Σ_dawn s_hk − Σ_dusk s_hk), where s_hk is hero h's
+ *    share of the match total of stat k (Seeds, damage to heroes, damage to structures, kills, deaths, assists, healing
+ *    and shields given). A hero's contribution is c_h = Σ_k w_k·(s_hk − 1/12), in win log-odds: the flock's
+ *    contributions minus the enemy's are the model's log-odds, so c is calibrated on real wins.
+ * 2. Item value. Per hero, a Gaussian-prior (MAP) linear model of c on what the hero held and when,
+ *      c = a + b·spend + Σ_i β_i·x_i + Σ_i δ_{i,p(i)}·x_i + Σ_{i<j} γ_ij·x_ij + noise
+ *    x_i: share of the match item i was held; p(i): the phase it was bought in; x_ij: share held together; spend: Seeds
+ *    held in items (so β is value beyond price). Priors centre on the designer prior (round 0):
+ *      β_i ~ N(c·(base_i − mean base), σβ²), δ_ip ~ N(c·phase_ip, σδ²), γ_ij ~ N(0, σγ²), c = MODEL.logOddsPerScore,
+ *    so no data gives back the prior exactly. The posterior covariance gives every CI.
+ * 3. Scores out: base = mean base + β/c, phase = δ/c, synergy = prior synergy (component chains) + γ/c both ways.
+ * 4. Builds: greedy cores on the scores; judged as whole cores and builds in win-rate points (D-BAL-005).
  */
 import type { GamePhase, HeroId, ItemDef, ItemId, ItemScores, PlayerTeam, RecommendedBuild } from '../../src/sim/core/contracts';
 import { GAME_PHASES } from '../../src/sim/core/contracts';
@@ -16,21 +22,33 @@ import { SHOP } from '../../src/sim/data/ai';
 import type { HeroRecord, MatchRecord } from './match';
 
 export const MODEL = {
-  /** Win log-odds per score unit, for an item held the whole match. */
-  logOddsPerScore: 0.5,
-  /** Prior standard deviations, in log-odds. */
-  sd: { intercept: 2, spend: 2, base: 0.5, phase: 0.25, synergy: 0.25 },
-  /** An undecided match scores σ(κ·ln(own net worth / enemy net worth)); a 10% lead is 0.72. */
-  netWorthKappa: 10,
+  /** Win log-odds of contribution per score unit, for an item held the whole match (0.1 ≈ 2.5 win-rate points). */
+  logOddsPerScore: 0.1,
+  /** Prior standard deviations, in log-odds: no single item is likely to move a hero's flock by more than ~10 points. */
+  sd: { intercept: 2, spend: 2, average: 2, base: 0.2, phase: 0.1, synergy: 0.02 },
   /** Seeds per unit of the spend feature. */
   spendUnit: 1000,
   /** A pair gets a synergy term once it was held together in this many of the hero's games. */
-  minPairGames: 8,
-  // ponytail: the most co-held pairs only (the fit is O(columns³)); raise it if Phase B finds synergy beyond them.
+  minPairGames: 30,
+  // ponytail: the most co-held pairs only (the fit is O(columns³)); raise it if synergy beyond them matters.
   maxPairs: 150,
+  /** Floor on the contribution noise variance (keeps the first pass sane on tiny data). */
+  minNoise: 1e-3,
   newtonSteps: 50,
   tolerance: 1e-9,
 } as const;
+
+/** D-BAL-005: the practical margin, in win-rate percentage points, and what counts as enough data on an alternative. */
+export const MARGIN = {
+  points: 2,
+  z: 1.96,
+  /** An alternative item is judged once the hero held it in this many games; fewer: "unexplored". */
+  minGames: 30,
+  /** A core is judged once its own items and this share of its alternatives are explored. */
+  exploredShare: 0.75,
+} as const;
+/** Percentage points of win rate per log-odds near 50%. */
+export const POINTS_PER_LOGODDS = 25;
 
 /** Recommended core sizes and the tiers each phase draws from (GDD §11.8 cores: four T1, four T2–3, three T4). */
 export const CORES: Readonly<Record<GamePhase, { readonly size: number; readonly tiers: readonly number[] }>> = {
@@ -90,9 +108,9 @@ export function cholInverse(l: Float64Array, n: number): Float64Array {
   return inv;
 }
 
-// ---- Regularised logistic regression with soft labels. ----
+// ---- Regularised regressions. ----
 
-/** One observation: sparse features [column, value] and an outcome in [0, 1]. */
+/** One observation: sparse features [column, value] and an outcome. */
 export interface Row {
   readonly x: readonly (readonly [number, number])[];
   readonly y: number;
@@ -107,6 +125,7 @@ export interface Fit {
   readonly cov: Float64Array;
 }
 
+/** MAP logistic regression (outcomes in [0, 1]) by Newton's method; Laplace covariance. */
 export function fitLogistic(rows: readonly Row[], priors: readonly Prior[]): Fit {
   const n = priors.length;
   const theta = Float64Array.from(priors, (p) => p.mean);
@@ -139,6 +158,71 @@ export function fitLogistic(rows: readonly Row[], priors: readonly Prior[]): Fit
     if (biggest < MODEL.tolerance) break;
   }
   return { theta, cov: cholInverse(l, n) };
+}
+
+/** MAP linear regression with Gaussian noise of variance `noise` (exact: one solve). */
+export function fitGaussian(rows: readonly Row[], priors: readonly Prior[], noise: number): Fit {
+  const n = priors.length;
+  const h = new Float64Array(n * n);
+  const b = new Float64Array(n);
+  priors.forEach((p, i) => {
+    h[i * n + i] = 1 / (p.sd * p.sd);
+    b[i] = p.mean / (p.sd * p.sd);
+  });
+  for (const r of rows) {
+    for (const [c, v] of r.x) {
+      b[c]! += (r.y * v) / noise;
+      for (const [d, u] of r.x) h[c * n + d]! += (v * u) / noise;
+    }
+  }
+  const l = cholesky(h, n);
+  return { theta: cholSolve(l, n, b), cov: cholInverse(l, n) };
+}
+
+const predict = (theta: Float64Array, r: Row): number => r.x.reduce((s, [c, v]) => s + theta[c]! * v, 0);
+
+// ---- Contribution: a per-hero share of the win, calibrated on decided matches. ----
+
+export const STATS = ['netWorth', 'dmgHeroes', 'dmgStructures', 'k', 'd', 'a', 'support'] as const;
+type Stat = (typeof STATS)[number];
+const statOf = (h: HeroRecord, k: Stat): number => (k === 'support' ? h.healing + h.shielding : h[k]);
+const ROSTER = 12;
+
+/** Each hero's share of the match total of each stat (0 when nobody scored it). */
+function shares(m: MatchRecord): number[][] {
+  const totals = STATS.map((k) => m.heroes.reduce((s, h) => s + statOf(h, k), 0));
+  return m.heroes.map((h) => STATS.map((k, i) => (totals[i]! > 0 ? statOf(h, k) / totals[i]! : 1 / ROSTER)));
+}
+
+export interface Contribution {
+  /** [intercept for Dawn, w per STATS entry]. */
+  readonly w: readonly number[];
+  readonly matches: number;
+  /** Share of decided matches whose winner the stats model picks. */
+  readonly accuracy: number;
+}
+
+/** Fit the stat weights on decided matches (weak N(0, 10²) priors). */
+export function contributionModel(matches: readonly MatchRecord[]): Contribution {
+  const decided = matches.filter((m) => m.winner);
+  const rows: Row[] = decided.map((m) => {
+    const s = shares(m);
+    const x: [number, number][] = [[0, 1]];
+    STATS.forEach((_, k) => {
+      let a = 0;
+      m.heroes.forEach((h, i) => (a += (h.team === 'dawn' ? 1 : -1) * s[i]![k]!));
+      x.push([k + 1, a]);
+    });
+    return { x, y: m.winner === 'dawn' ? 1 : 0 };
+  });
+  const fit = fitLogistic(rows, [{ mean: 0, sd: 10 }, ...STATS.map(() => ({ mean: 0, sd: 10 }))]);
+  const right = rows.filter((r) => predict(fit.theta, r) > 0 === (r.y === 1)).length;
+  return { w: [...fit.theta], matches: decided.length, accuracy: right / Math.max(1, rows.length) };
+}
+
+/** Each hero's contribution to its flock's win log-odds, in roster order. */
+export function contributions(m: MatchRecord, model: Contribution): number[] {
+  return shares(m).map((s) => s.reduce((sum, v, k) => sum + model.w[k + 1]! * (v - 1 / ROSTER), 0));
 }
 
 // ---- From match records to one hero's observations. ----
@@ -179,27 +263,30 @@ export function holdsOf(h: Pick<HeroRecord, 'buys' | 'sells'>, end: number, cata
   return [...out, ...open.values()];
 }
 
-/** The flock's result in [0, 1]: the win, or for an undecided match the net-worth proxy. */
-export function outcome(m: Pick<MatchRecord, 'winner' | 'teams'>, team: PlayerTeam): number {
-  if (m.winner) return m.winner === team ? 1 : 0;
-  const own = Math.max(1, m.teams[team].netWorth);
-  const enemy = Math.max(1, m.teams[team === 'dawn' ? 'dusk' : 'dawn'].netWorth);
-  return sigmoid(MODEL.netWorthKappa * Math.log(own / enemy));
+/** 1 for a win, 0 for a loss, null when the match was not decided. */
+export function outcome(m: Pick<MatchRecord, 'winner'>, team: PlayerTeam): number | null {
+  return m.winner ? (m.winner === team ? 1 : 0) : null;
 }
 
-/** One hero in one match, as the model sees it. */
+/** One hero in one decided match, as the model sees it. */
 export interface Game {
   readonly seed: number;
-  readonly y: number;
+  readonly win: number;
+  /** Contribution, win log-odds. */
+  readonly c: number;
   readonly seconds: number;
   readonly holds: readonly Hold[];
 }
 
-export function gamesOf(matches: readonly MatchRecord[], hero: HeroId, catalogue: Catalogue): Game[] {
+export function gamesOf(matches: readonly MatchRecord[], hero: HeroId, catalogue: Catalogue, model: Contribution): Game[] {
   const out: Game[] = [];
   for (const m of matches) {
-    const h = m.heroes.find((x) => x.hero === hero);
-    if (h && m.seconds > 0) out.push({ seed: m.seed, y: outcome(m, h.team), seconds: m.seconds, holds: holdsOf(h, m.seconds, catalogue) });
+    const i = m.heroes.findIndex((x) => x.hero === hero);
+    const h = m.heroes[i];
+    const win = h ? outcome(m, h.team) : null;
+    if (h && win !== null && m.seconds > 0) {
+      out.push({ seed: m.seed, win, c: contributions(m, model)[i]!, seconds: m.seconds, holds: holdsOf(h, m.seconds, catalogue) });
+    }
   }
   return out;
 }
@@ -209,63 +296,91 @@ export function gamesOf(matches: readonly MatchRecord[], hero: HeroId, catalogue
 export interface HeroModel {
   readonly hero: HeroId;
   readonly games: number;
-  /** Times each item was bought in those games. */
+  /** Games in which the hero held each item. */
   readonly bought: Readonly<Record<ItemId, number>>;
   readonly scores: ItemScores;
   readonly fit: Fit;
-  /** Column layout: 0 intercept, 1 spend, then β per item, δ per item and phase, then γ per pair. */
+  /** Residual standard deviation of the contribution (log-odds). */
+  readonly noise: number;
+  /** Mean share of the match an item bought in each phase was held (for build values). */
+  readonly held: readonly [number, number, number];
+  /** Column layout (see COL): intercept, spend, the average item, β per item, δ per item and phase, γ per pair. */
   readonly items: readonly ItemId[];
   readonly pairs: readonly (readonly [ItemId, ItemId])[];
 }
 
+/**
+ * Column layout. `average` is the value of the average item held (a shared mean for every β), so an item without
+ * data is assumed average for its price plus the designer's offset, not worth exactly its price.
+ */
+const COL = {
+  intercept: 0,
+  spend: 1,
+  average: 2,
+  beta: (i: number): number => 3 + i,
+  delta: (ni: number, i: number, p: number): number => 3 + ni + i * GAME_PHASES.length + p,
+  pair: (ni: number, k: number): number => 3 + ni * (1 + GAME_PHASES.length) + k,
+} as const;
+
 const pairKey = (a: ItemId, b: ItemId): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
+/** Held shares when a phase has no data: about what a 45-minute match gives. */
+const DEFAULT_HELD: readonly [number, number, number] = [0.6, 0.35, 0.15];
 
 export function fitHero(hero: HeroId, games: readonly Game[], prior: ItemScores, catalogue: Catalogue): HeroModel {
   const c = MODEL.logOddsPerScore;
   const items = [...catalogue.keys()];
   const at = new Map(items.map((id, i) => [id, i]));
   const ni = items.length;
-  const betaCol = (i: number): number => 2 + i;
-  const deltaCol = (i: number, p: number): number => 2 + ni + i * GAME_PHASES.length + p;
+  const betaCol = COL.beta;
+  const deltaCol = (i: number, p: number): number => COL.delta(ni, i, p);
 
   const overlap = (a: Hold, b: Hold, d: number): number => Math.max(0, Math.min(a.to, b.to) - Math.max(a.from, b.from)) / d;
   const pairGames = new Map<string, number>();
   const bought: Record<ItemId, number> = {};
+  const heldSum = [0, 0, 0];
+  const heldN = [0, 0, 0];
   for (const g of games) {
     const seen = new Set<string>();
+    const inGame = new Set<ItemId>();
     for (const [k, a] of g.holds.entries()) {
-      bought[a.item] = (bought[a.item] ?? 0) + 1;
+      inGame.add(a.item);
+      heldSum[a.phase]! += (a.to - a.from) / g.seconds;
+      heldN[a.phase]!++;
       for (const b of g.holds.slice(k + 1)) {
         if (a.item !== b.item && overlap(a, b, g.seconds) > 0) seen.add(pairKey(a.item, b.item));
       }
     }
+    for (const id of inGame) bought[id] = (bought[id] ?? 0) + 1;
     for (const key of seen) pairGames.set(key, (pairGames.get(key) ?? 0) + 1);
   }
+  const held = DEFAULT_HELD.map((d, p) => (heldN[p]! > 0 ? heldSum[p]! / heldN[p]! : d)) as [number, number, number];
   const pairs = [...pairGames]
     .filter(([, n]) => n >= MODEL.minPairGames)
     .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
     .slice(0, MODEL.maxPairs)
     .map(([key]) => key)
     .sort();
-  const pairCol = new Map(pairs.map((key, i) => [key, 2 + ni * (1 + GAME_PHASES.length) + i]));
+  const pairCol = new Map(pairs.map((key, i) => [key, COL.pair(ni, i)]));
 
   const meanBase = items.reduce((s, id) => s + (prior.base[id] ?? 0), 0) / ni;
   const priors: Prior[] = [
     { mean: 0, sd: MODEL.sd.intercept },
     { mean: 0, sd: MODEL.sd.spend },
+    { mean: 0, sd: MODEL.sd.average },
     ...items.map((id) => ({ mean: c * ((prior.base[id] ?? 0) - meanBase), sd: MODEL.sd.base })),
     ...items.flatMap((id) => GAME_PHASES.map((_, p) => ({ mean: c * (prior.phase[id]?.[p] ?? 0), sd: MODEL.sd.phase }))),
     ...pairs.map(() => ({ mean: 0, sd: MODEL.sd.synergy })),
   ];
 
   const rows: Row[] = games.map((g) => {
-    const x = new Map<number, number>([[0, 1], [1, 0]]);
+    const x = new Map<number, number>([[COL.intercept, 1], [COL.spend, 0], [COL.average, 0]]);
     const add = (col: number, v: number): void => void x.set(col, (x.get(col) ?? 0) + v);
     for (const [k, a] of g.holds.entries()) {
       const share = (a.to - a.from) / g.seconds;
       const i = at.get(a.item);
       if (i === undefined || !(share > 0)) continue;
-      add(1, ((catalogue.get(a.item)?.cost ?? 0) * share) / MODEL.spendUnit);
+      add(COL.spend, ((catalogue.get(a.item)?.cost ?? 0) * share) / MODEL.spendUnit);
+      add(COL.average, share);
       add(betaCol(i), share);
       add(deltaCol(i, a.phase), share);
       for (const b of g.holds.slice(k + 1)) {
@@ -274,9 +389,16 @@ export function fitHero(hero: HeroId, games: readonly Game[], prior: ItemScores,
         if (col !== undefined && v > 0) add(col, v);
       }
     }
-    return { x: [...x], y: g.y };
+    return { x: [...x], y: g.c };
   });
-  const fit = fitLogistic(rows, priors);
+  // Noise variance: start from the outcome's variance, then refit on the residuals once.
+  const mean = rows.reduce((s, r) => s + r.y, 0) / Math.max(1, rows.length);
+  let noise = Math.max(MODEL.minNoise, rows.reduce((s, r) => s + (r.y - mean) ** 2, 0) / Math.max(1, rows.length - 1));
+  let fit = fitGaussian(rows, priors, noise);
+  if (rows.length > 1) {
+    noise = Math.max(MODEL.minNoise, rows.reduce((s, r) => s + (r.y - predict(fit.theta, r)) ** 2, 0) / (rows.length - 1));
+    fit = fitGaussian(rows, priors, noise);
+  }
   const t = fit.theta;
 
   const round = (v: number): number => Math.round(v * 1000) / 1000 || 0;
@@ -301,78 +423,128 @@ export function fitHero(hero: HeroId, games: readonly Game[], prior: ItemScores,
     bought,
     scores: { base, synergy, phase },
     fit,
+    noise: Math.sqrt(noise),
+    held,
     items,
     pairs: pairs.map((k) => k.split('|') as [ItemId, ItemId]),
   };
 }
 
+// ---- Recommended builds and their value. ----
+
 /**
- * Score of `item` for the model (as sim/ai computes it, without situational picks) and its gradient over the model's
- * columns, so a difference of two scores has variance vᵀΣv.
+ * The recommended cores: per phase, greedily the best-scoring item of the phase's tiers given everything already in
+ * the build (synergy and component chains count, at most SHOP.maxActives actives), as a Raptor (temperature 0) bot
+ * with Seeds to spare would buy. Situational picks are carried from `situational` (they need enemy-flock terms).
  */
-export function scoreWithGradient(m: HeroModel, item: ItemId, owned: ReadonlySet<ItemId>, p: GamePhase): { score: number; grad: Map<number, number> } {
-  const c = MODEL.logOddsPerScore;
-  const ni = m.items.length;
-  const i = m.items.indexOf(item);
-  const grad = new Map<number, number>([[2 + i, 1 / c], [2 + ni + i * GAME_PHASES.length + GAME_PHASES.indexOf(p), 1 / c]]);
-  for (const [k, [a, b]] of m.pairs.entries()) {
-    if ((a === item && owned.has(b)) || (b === item && owned.has(a))) grad.set(2 + ni * (1 + GAME_PHASES.length) + k, 1 / c);
+export function recommend(scores: ItemScores, catalogue: Catalogue, situational: RecommendedBuild['situational']): RecommendedBuild {
+  const chosen: ItemId[] = [];
+  const cores: Record<GamePhase, ItemId[]> = { early: [], mid: [], late: [] };
+  for (const p of GAME_PHASES) {
+    for (let k = 0; k < CORES[p].size; k++) {
+      const best = candidates(chosen, p, catalogue)
+        .map((id) => ({ id, s: itemScore(scores, id, ownedWithChains(chosen, catalogue), p, new Set()) }))
+        .sort((a, b) => b.s - a.s || (a.id < b.id ? -1 : 1))[0];
+      if (!best) break;
+      chosen.push(best.id);
+      cores[p].push(best.id);
+    }
   }
-  return { score: itemScore(m.scores, item, owned, p, new Set()), grad };
+  return { ...cores, situational };
 }
 
-/** Standard error of score(a) − score(b). */
-export function diffSe(m: HeroModel, a: Map<number, number>, b: Map<number, number>): number {
+/** Items a build could add in phase `p`: the phase's tiers, not owned through a chain, within the active cap. */
+function candidates(build: readonly ItemId[], p: GamePhase, catalogue: Catalogue): ItemId[] {
+  const owned = ownedWithChains(build, catalogue);
+  const actives = build.filter((id) => catalogue.get(id)?.active).length;
+  return [...catalogue.values()]
+    .filter((d) => CORES[p].tiers.includes(d.tier) && !owned.has(d.id) && (!d.active || actives < SHOP.maxActives))
+    .map((d) => d.id);
+}
+
+const flat = (b: Pick<RecommendedBuild, GamePhase>): { item: ItemId; p: number }[] =>
+  GAME_PHASES.flatMap((ph, p) => b[ph].map((item) => ({ item, p })));
+
+/**
+ * A build's value beyond its price as a linear function of the model's columns: each item held for its phase's typical
+ * share (average + β + δ), and each modelled pair held for the later one's share (γ). Log-odds of contribution.
+ */
+export function buildGradient(m: HeroModel, b: Pick<RecommendedBuild, GamePhase>): Map<number, number> {
+  const ni = m.items.length;
+  const g = new Map<number, number>();
+  const add = (col: number, v: number): void => void g.set(col, (g.get(col) ?? 0) + v);
+  const list = flat(b);
+  for (const { item, p } of list) {
+    const i = m.items.indexOf(item);
+    if (i < 0) continue;
+    add(COL.average, m.held[p]!);
+    add(COL.beta(i), m.held[p]!);
+    add(COL.delta(ni, i, p), m.held[p]!);
+  }
+  const phaseOfItem = new Map(list.map((x) => [x.item, x.p]));
+  for (const [k, [a, c]] of m.pairs.entries()) {
+    const pa = phaseOfItem.get(a);
+    const pc = phaseOfItem.get(c);
+    if (pa !== undefined && pc !== undefined) add(COL.pair(ni, k), m.held[Math.max(pa, pc)]!);
+  }
+  return g;
+}
+
+const dot = (theta: Float64Array, g: Map<number, number>): number => [...g].reduce((s, [c, v]) => s + theta[c]! * v, 0);
+function diff(a: Map<number, number>, b: Map<number, number>): Map<number, number> {
   const v = new Map(a);
   for (const [k, x] of b) v.set(k, (v.get(k) ?? 0) - x);
-  const n = m.items.length * (1 + GAME_PHASES.length) + 2 + m.pairs.length;
+  return v;
+}
+function se(m: HeroModel, v: Map<number, number>): number {
+  const n = m.fit.theta.length;
   let s = 0;
   for (const [i, x] of v) for (const [j, y] of v) s += x * y * m.fit.cov[i * n + j]!;
   return Math.sqrt(Math.max(0, s));
 }
 
-// ---- Recommended builds. ----
-
-/** One greedy pick: the chosen item, the runner-up, their score gap and its standard error (null without a model). */
-export interface BuildPick {
-  readonly phase: GamePhase;
-  readonly item: ItemId;
-  readonly runnerUp: ItemId | null;
-  readonly gap: number;
-  readonly se: number | null;
+/** Point estimate of value(a) − value(b) in win-rate points under `m`. */
+export function buildGap(m: HeroModel, a: Pick<RecommendedBuild, GamePhase>, b: Pick<RecommendedBuild, GamePhase>): number {
+  return dot(m.fit.theta, diff(buildGradient(m, a), buildGradient(m, b))) * POINTS_PER_LOGODDS;
 }
 
-/**
- * The recommended cores: per phase, greedily the best-scoring item of the phase's tiers given everything already in
- * the build (synergy and component chains count, at most SHOP.maxActives actives), as a Raptor (temperature 0) bot
- * with Seeds to spare would buy. Situational picks are carried from `situational` (learning them needs the enemy
- * flock in the model; Phase B).
- */
-export function recommend(
-  scores: ItemScores,
-  catalogue: Catalogue,
-  situational: RecommendedBuild['situational'],
-  model?: HeroModel,
-): { build: RecommendedBuild; picks: BuildPick[] } {
-  const chosen: ItemId[] = [];
-  const picks: BuildPick[] = [];
-  const cores: Record<GamePhase, ItemId[]> = { early: [], mid: [], late: [] };
-  for (const p of GAME_PHASES) {
-    for (let k = 0; k < CORES[p].size; k++) {
-      const owned = ownedWithChains(chosen, catalogue);
-      const actives = chosen.filter((id) => catalogue.get(id)?.active).length;
-      const ranked = [...catalogue.values()]
-        .filter((d) => CORES[p].tiers.includes(d.tier) && !owned.has(d.id) && (!d.active || actives < SHOP.maxActives))
-        .map((d) => ({ id: d.id, s: itemScore(scores, d.id, owned, p, new Set()) }))
-        .sort((a, b) => b.s - a.s || (a.id < b.id ? -1 : 1));
-      const [best, next] = ranked;
-      if (!best) break;
-      let se: number | null = null;
-      if (model && next) se = diffSe(model, scoreWithGradient(model, best.id, owned, p).grad, scoreWithGradient(model, next.id, owned, p).grad);
-      picks.push({ phase: p, item: best.id, runnerUp: next?.id ?? null, gap: next ? best.s - next.s : Infinity, se });
-      chosen.push(best.id);
-      cores[p].push(best.id);
+export interface CoreCheck {
+  readonly phase: GamePhase;
+  /** The explored one-item swap with the highest upper 95% bound on its gain, in win-rate points. */
+  readonly worst: { readonly out: ItemId; readonly in: ItemId; readonly gain: number; readonly upper: number } | null;
+  /** Alternatives the hero held in fewer than MARGIN.minGames games (not judged yet), and all alternatives. */
+  readonly unexplored: number;
+  readonly alternatives: number;
+  /** Every core item explored, at least MARGIN.exploredShare of the alternatives too, and no explored swap can plausibly gain MARGIN.points or more. */
+  readonly settled: boolean;
+}
+
+/** D-BAL-005's core test: could swapping one core item for an explored alternative gain ≥ 2 points at 95%? */
+export function checkCores(m: HeroModel, b: RecommendedBuild, catalogue: Catalogue): CoreCheck[] {
+  const base = buildGradient(m, b);
+  const explored = (id: ItemId): boolean => (m.bought[id] ?? 0) >= MARGIN.minGames;
+  return GAME_PHASES.map((p): CoreCheck => {
+    let worst: CoreCheck['worst'] = null;
+    const unexplored = new Set<ItemId>();
+    const alternatives = new Set<ItemId>();
+    for (const out of b[p]) {
+      const rest = { ...b, [p]: b[p].filter((x) => x !== out) };
+      for (const alt of candidates(flat(rest).map((x) => x.item), p, catalogue)) {
+        if (alt === out) continue;
+        alternatives.add(alt);
+        if (!explored(alt)) {
+          unexplored.add(alt);
+          continue;
+        }
+        const swapped = { ...b, [p]: b[p].map((x) => (x === out ? alt : x)) };
+        const v = diff(buildGradient(m, swapped), base);
+        const gain = dot(m.fit.theta, v) * POINTS_PER_LOGODDS;
+        const upper = gain + MARGIN.z * se(m, v) * POINTS_PER_LOGODDS;
+        if (!worst || upper > worst.upper) worst = { out, in: alt, gain, upper };
+      }
     }
-  }
-  return { build: { ...cores, situational }, picks };
+    const covered = alternatives.size - unexplored.size >= MARGIN.exploredShare * alternatives.size;
+    const settled = b[p].every(explored) && covered && (!worst || worst.upper < MARGIN.points);
+    return { phase: p, worst, unexplored: unexplored.size, alternatives: alternatives.size, settled };
+  });
 }

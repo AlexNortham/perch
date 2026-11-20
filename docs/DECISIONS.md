@@ -2661,3 +2661,39 @@ horizontal FOV and eased back over the next frames (1–2 s on a loaded machine)
 next 255k. The staged start-up (D-ARCH-031) happened to absorb that frame before the renderer existed, which hid it on
 `integrate/w5`; it would have returned once `createRenderer` moves back to boot, and the negative `dt` also reached rigs,
 VFX and audio.
+### D-BAL-005 · 21/11/2026 — Build Lab Phase B: a contribution measure calibrated on real wins, cores judged at 2 points
+**Decision:** for D-EP-049, replacing D-BAL-001's outcome and D-BAL-002's tests:
+- **Decided matches only** (60:00 cap; an undecided match is dropped and counted in the report).
+- **Contribution.** A logistic model of the winner on the flocks' differences in stat shares (Seeds, damage to heroes,
+  damage to structures, kills, deaths, assists, healing and shields given), refitted every round on all decided
+  matches. A hero's contribution is `c = Σ w·(its share − 1/12)`, in win log-odds: a flock's contributions minus the
+  enemy's are exactly the model's log-odds, so `c` is calibrated on wins and ×25 reads as win-rate points.
+- **Item model.** D-BAL-001's features with `c` as a Gaussian outcome (noise variance estimated from the residuals),
+  plus a shared "average item" term, so an item without data is assumed average for its price plus the designer's
+  offset, not worth exactly its price. Priors: 0.1 log-odds per score unit (≈ 2.5 points for an item held all match),
+  `σβ` 0.2, `σδ` 0.1, `σγ` 0.02 for the 150 most co-held pairs held together in 30+ games.
+- **Convergence**, all of: (1) ≥ 1,000 decided training matches; (2) every core settled: its items and ≥ 75% of its
+  alternatives held in 30+ of the hero's games, and no explored one-item swap has a 95% upper bound on its gain of 2
+  points or more; (3) the build fitted on each half (odd/even seeds) is within 2 points of the full build; (4) the
+  previous round's build is within 2 points of the new one; (5) duels: the newest scores beat random buying by wins at
+  p < 0.05, and are not worse than last round's by 2 points at 95% on stats-predicted wins.
+- **Rounds** of 200 hard-bot matches, 4 wide; a quarter of flocks buy at random every round (exploration and the
+  baseline); temperature `max(0.5, 0.8^(R−1))`.
+**Why:** D-EP-049 asks for decided matches, a lower-variance per-hero measure and whole cores judged at about 2 points.
+A win says little about one hero's items (a logistic model gets at most 0.25 of information per game); the
+contribution carries `4/σ²` times as much (the report prints the measured σ). Requiring the newest scores to beat
+last round's significantly contradicts convergence (they become the same), hence non-inferiority. A pair synergy
+prior wider than 0.02 makes every swap's interval include several points of pure prior uncertainty.
+
+### D-BAL-006 · 21/11/2026 — Match speed: no hash-identical 5× exists; the measure is the lever
+**Decision:** the lab changes no sim code for speed. A CPU profile of seed 1 (53.5 min, 192,528 ticks, hash
+`86bb3ec480fec522`) is flat: the heroes' Rapier character controller 20%, Rapier ray casts 11% (vision line of sight
+6.4%, projectiles 2%), world 29% (vision 11%, fledgling steering 6.6%, towers 4.8%), AI 15%, combat 9%, spatial
+queries about 9% (tower target scans 3.3%), module loading about 3%; no system above a fifth, and the largest are WASM
+physics calls whose results define the hash. Candidates, each small and in another owner's code: a cell index for
+`tryClimb` (a linear scan of every climb per hero per tick, 2.3%, Character Controller), tower target scans (3.3%,
+Objectives), fledgling steering and unit ground probes (about 10%, Objectives and Character Controller), and a
+persistent pre-bundled lab worker (about 3%, Build Lab). Together they come to well under 2×.
+**Why:** D-EP-049 allows no change to rules or determinism; 5× would need the sim to compute less (bot decision
+cadence, vision cadence, physics), which changes matches. The lower-variance measure (D-BAL-005) cuts the matches
+needed by far more than 5×.
