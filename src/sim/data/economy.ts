@@ -3,8 +3,8 @@
  * Units: metres, seconds; fractions where 0.5 means 50%.
  */
 export const ECONOMY = {
-  /** GDD §8.1: Seeds a hero starts with (SimOptions.startSeeds overrides it). */
-  startSeeds: 0,
+  /** GDD §8.1: Seeds a hero starts with (SimOptions.startSeeds overrides it); 600 per the feel reference (G23). */
+  startSeeds: 600,
   /** GDD §8.4: passive income, Seeds per second per hero from `passiveFromS` (assumed in the GDD). */
   passivePerSecond: 1,
   passiveFromS: 30,

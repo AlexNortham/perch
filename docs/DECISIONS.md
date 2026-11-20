@@ -1965,3 +1965,10 @@ with a quarter (at most 4); `PERCH_TEST_WORKERS` and `PERCH_E2E_WORKERS` overrid
 8 and 4, against Vitest's 15 and Playwright's 8 by default.
 **Why:** with several agents on the machine, a full-width run pushed world tests past their timeouts and e2e specs
 past theirs. Half the cores keeps a quiet run close to its old time; one worker (the old workaround) quadrupled it.
+
+### D-ECON-005 · 20/11/2026 — The 600-Seed purse is spent, not earned (integration, for Economy & Items, G23)
+**Decision:** every hero spawns with `ECONOMY.startSeeds` (600) in the wallet. The purse adds no net worth and no level:
+GDD §8.1 counts Seeds earned, and a purse that levelled every hero to 2 with an AP at 0:00 would move the whole level
+curve and the "zero AP at the start" rule. An explicit `SimOptions.startSeeds` (tests and tools) still starts the hero
+as if it had earned them (wallet, net worth and levels), as before.
+**Why:** the feel reference's G23: the first item lands by about 1:00 instead of several minutes in.

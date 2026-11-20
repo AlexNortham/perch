@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { EntityId, PickupEntity } from '../core/contracts';
 import { createSandbox } from '../../../tests/helpers/sandbox';
+import { ECONOMY } from '../data/economy';
 
 const at = { x: 0, y: 0, z: 0 };
 const near = { x: 5, y: 0, z: 0 };
@@ -10,7 +11,7 @@ it('a unit killing a hero shares the bounty only with living enemies within 40 m
   const sb = await createSandbox({ heroes: [
     { hero: 'shrike', at: { ...at, x: -25 } }, { hero: 'kingfisher', team: 'dusk', at: near },
     { hero: 'albatross', team: 'dusk', at: { ...at, x: 30 } },
-  ] });
+  ], options: { startSeeds: 0 } });
   const [victim, paid, unpaid] = sb.heroes as [EntityId, EntityId, EntityId];
   const attacker = sb.dummy({ kind: 'unit', type: 'slinger', team: 'dusk', at: near, hp: 100 });
   sb.apply({ kind: 'damage', type: 'talon', amount: 2000 }, victim, sb.cause(attacker, { via: 'unit' }));
@@ -44,6 +45,12 @@ it('real fixture structure deaths award both flock members, heal two crossed Mol
   expect(sb.hero(ally).progress.seeds).toBe(2800);
 });
 
+it('every hero starts with the 600-Seed purse to spend, which is not earned: no net worth, no level (G23, D-ECON-005)', async () => {
+  const sb = await createSandbox({ heroes: ['shrike'] });
+  expect(sb.hero(sb.heroes[0]!).progress).toMatchObject({ seeds: ECONOMY.startSeeds, netWorth: 0, level: 1 });
+  expect(ECONOMY.startSeeds).toBe(600);
+});
+
 it('the last threshold caps growth at 29 Molts and grants a total of 32 AP', async () => {
   const sb = await createSandbox({ heroes: ['shrike'], options: { unlockAbilities: false, startSeeds: 60_000 } });
   const h = sb.hero(sb.heroes[0]!);
@@ -59,6 +66,7 @@ async function setup(killedBy: 'hero' | 'unit') {
       { hero: 'albatross', team: 'dusk', at: near },
       { hero: 'kingfisher', team: 'dusk', at: far },
     ],
+    options: { startSeeds: 0 },
   });
   const [dawn, duskNear, duskFar] = sb.heroes as [EntityId, EntityId, EntityId];
   const unit = sb.dummy({ kind: 'unit', type: 'scrapper', team: 'dawn', at, hp: 100, height: 1 });
@@ -123,7 +131,7 @@ describe('economy (GDD §8.2)', () => {
   });
 
   it('passive income pays every hero 1 Seed a second from 0:30', async () => {
-    const sb = await createSandbox({ heroes: [{ hero: 'shrike', team: 'dawn' }, { hero: 'albatross', team: 'dusk' }] });
+    const sb = await createSandbox({ heroes: [{ hero: 'shrike', team: 'dawn' }, { hero: 'albatross', team: 'dusk' }], options: { startSeeds: 0 } });
     sb.step(30 * 60 - 1);
     expect(sb.hero(sb.heroes[0] as EntityId).progress.seeds).toBe(0);
     sb.step(10 * 60);
