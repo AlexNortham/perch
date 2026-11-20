@@ -25,15 +25,18 @@ describe('spatial hash', () => {
       point(i + 1, rng.range(-100, 100), rng.range(0, 10), rng.range(-100, 100), rng.range(0, 3)),
     );
     const grid = createSpatialHash(8);
-    grid.rebuild(entities);
     const out: number[] = [];
-    for (let q = 0; q < 50; q++) {
-      const c = { x: rng.range(-100, 100), y: rng.range(0, 10), z: rng.range(-100, 100) };
-      const r = rng.range(1, 30);
-      const expected = entities
-        .filter((e) => Math.hypot(e.pos.x - c.x, e.pos.y - c.y, e.pos.z - c.z) <= r + e.radius)
-        .map((e) => e.id);
-      expect(grid.query(c, r, out)).toEqual(expected);
+    // The second rebuild hands the same entities in another order: still right, only slower.
+    for (const input of [entities, [...entities].reverse()]) {
+      grid.rebuild(input);
+      for (let q = 0; q < 50; q++) {
+        const c = { x: rng.range(-100, 100), y: rng.range(0, 10), z: rng.range(-100, 100) };
+        const r = rng.range(1, 30);
+        const expected = entities
+          .filter((e) => Math.hypot(e.pos.x - c.x, e.pos.y - c.y, e.pos.z - c.z) <= r + e.radius)
+          .map((e) => e.id);
+        expect(grid.query(c, r, out)).toEqual(expected);
+      }
     }
   });
 
@@ -45,7 +48,7 @@ describe('spatial hash', () => {
     expect(grid.query({ x: 50, y: 0, z: 50 }, 1, [])).toEqual([2]);
   });
 
-  it('keeps still entries (structures) right as they spawn, move, resize and despawn between rebuilds (D-ARCH-029)', () => {
+  it('stays right as entities spawn, stand still, move across cells, resize and despawn between rebuilds (D-ARCH-029)', () => {
     const rng = createRng(4, 'spatial-still');
     const still = (id: number): Entity =>
       ({ ...point(id, rng.range(-60, 60), 0, rng.range(-60, 60), rng.range(0.5, 4)), kind: 'structure' }) as unknown as Entity;
