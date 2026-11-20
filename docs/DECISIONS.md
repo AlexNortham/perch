@@ -1972,3 +1972,25 @@ GDD §8.1 counts Seeds earned, and a purse that levelled every hero to 2 with an
 curve and the "zero AP at the start" rule. An explicit `SimOptions.startSeeds` (tests and tools) still starts the hero
 as if it had earned them (wallet, net worth and levels), as before.
 **Why:** the feel reference's G23: the first item lands by about 1:00 instead of several minutes in.
+
+### D-OBJ-015 · 20/11/2026 — The objectives budget: renewing statuses, no ray for a biting creature (integration)
+**Decision:** a rat bite renews one `RAT_BITE` status per hero (the 20% heal reduction, 'max' stacking) instead of
+adding an 'independent' HEAL_REDUCTION per bite. Vision counts a creature that is attacking a hero (`unit.attacking`,
+which thickets set only within reach of a target it sees; the Roc only on a hero in its open Hollow) as seen by that
+hero's flock without a sight ray. Combat tests the 108 Nests and Feeders through the broad phase like units, and only
+the tall structures on every cast.
+**Why:** measured per phase on the worst-case benchmark, these were the objectives' own costs: a dozen heal-reduction
+instances per bitten hero, each a stat recompute; 5.8 creature sight rays a tick; and 108 cylinder tests per bullet.
+What is left is the core spatial rebuild of the extra ~210 entities (an interface request to the Architect).
+
+### D-SYS-017 · 20/11/2026 — A steering dash turns with the aim, not to it (integration, for Physics)
+**Decision:** an 'aim' dash with `steerDeg` turns by as much as the look yaw has moved since the dash started, at most
+`steerDeg` either side of its start direction. It no longer snaps to the look yaw itself.
+**Why:** the start direction is the muzzle-to-crosshair line, which the shoulder camera's parallax sets about 4° off the
+look yaw; snapping to the yaw bent every Rampage off the crosshair point and made the T3 charge miss the second hero.
+
+### D-COMBAT-010 · 20/11/2026 — A heavy lunge stops short of what it would strike (integration, for Combat)
+**Decision:** at the heavy commit, combat casts the sweep forward over lunge plus reach; the lunge ends with the first
+hitbox (a pickup included) a sweep radius ahead, and stays 3.5 m when nothing is there (GDD §5.7 "up to 3.5 m").
+**Why:** pickups have no collider, so a hero 1 m from a rune, an Ember or the Egg lunged 3.5 m past it before the hit
+landed 0.6 s after the press, and every heavy claim whiffed.
