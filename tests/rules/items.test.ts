@@ -1,6 +1,5 @@
-// The 64-item catalogue (GDD §10, D-EP-034). Written test-first (D-EP-006, W4.5 QA): gated until Items and Balance
-// land the 48 missing items and the 16 Stage 4 ones in wave 5. Run with
-//   PERCH_PENDING=1 npx vitest run tests/rules/items.test.ts
+// The 64-item catalogue (GDD §10, D-EP-034). Written test-first (D-EP-006, W4.5 QA); always on since the W5a
+// integration round, when Items landed all 64.
 // Part 1: the catalogue's shape. Part 2: one effect test per item (64), each citing its §10 row. Part 3: behaviour
 // tests for the 16 Stage 4 items and the active-item rules.
 import { describe, expect, it } from 'vitest';
@@ -17,7 +16,7 @@ const byId = (id: string) => ITEMS.find((i) => i.id === id);
 
 // ---- Part 1: the catalogue ------------------------------------------------------------------------------------------
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 the catalogue (§10)', () => {
+describe('W5 the catalogue (§10)', () => {
   it('§10 holds 64 items: 21 Talon, 21 Plumage, 22 Song; 16 per tier', () => {
     expect(ITEMS).toHaveLength(64);
     expect(ITEMS.filter((i) => i.category === 'talon')).toHaveLength(21);
@@ -156,7 +155,7 @@ const STATS: Readonly<Record<string, readonly (readonly [StatId, number])[]>> = 
   'rookery-dirge': [['songPower', 20], ['maxHealth', 300], ['songResist', 0.1]],
 };
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 one effect test per item: the stats column (§10)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 one effect test per item: the stats column (§10)', { timeout: TIMEOUT_MS }, () => {
   it('the table below covers every one of the 64 catalogue rows', () => {
     for (const row of CATALOGUE) expect(STATS[row.id], `${row.id} has a §10 stats entry`).toBeDefined();
     expect(Object.keys(STATS)).toHaveLength(64);
@@ -185,7 +184,7 @@ const ability = (sb: Sandbox, caster: EntityId, foe: EntityId, damage = 50): voi
   sb.step();
 };
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Stage 4 items, in play (§10.1–10.3 ★)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 the Stage 4 items, in play (§10.1–10.3 ★)', { timeout: TIMEOUT_MS }, () => {
   it('★ Hooked Spur §10.1: a heavy melee hit on a hero slows it 25% for 1.5 s', async () => {
     const s = await shop();
     s.buy('hooked-spur');
@@ -459,7 +458,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Stage 4 items, in play
   });
 });
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 the other actives and notable passives (§10)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 the other actives and notable passives (§10)', { timeout: TIMEOUT_MS }, () => {
   it.each(CATALOGUE.filter((r) => r.cooldownS !== null).map((r) => [r.id, r.cooldownS] as const))(
     '§10 active %s: pressing its key fires item.activated and starts its cooldown', async (id, cd) => {
       const s = await shop();
