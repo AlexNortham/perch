@@ -3303,3 +3303,12 @@ settle issue QA's spec now waits out.
 **Verified:** `npm run wiki` (206 captured, 0 fallbacks, then 206 reused); `npx vitest run tests/wiki` 11 passed; tsc and eslint clean for my paths. Looked at the new map, HUD and upgrade images and sampled pages by text.
 **Blocked:** nothing. **For the EP:** (1) at the default Dawn spawn camera the view is mostly giant leaves (dark green), so the HUD shots use a fixed camera on the Riverbank lane; worth a look when you play. (2) The Roc, Thicket creatures and Embers are still simple white shapes in the screenshots, as the known limits say. (3) Hero tips cover the first 12 birds only. (4) The HUD shows "+6700%" beside the Seeds total early in a match.
 **Next:** regenerate the wiki with `npm run wiki` after Release 2 art lands.
+
+### EP · 21/11/2026 · docs merged (cdb19ca); last blockers before the Release 1 push
+- PLAYABLE.md "Stage 4 (M3)" is written. The wiki has 53 pages and 271 images, and `tests/wiki` passes. The docs writer's `--release` check passed.
+- **Blocker found by the docs writer and confirmed by EP's screenshot:** at the Dawn spawn the camera is buried in giant leaves, so the whole screen is dark green and the player's bird shows only in x-ray. Sent to the Environment Artist:
+  - spawn and respawn clearance;
+  - fading dressing that comes between the camera and the hero;
+  - a test that fails today.
+- **Also fixing before the push (UI):** "+6700%" beside the Seeds total early in a match; hero tips for the 12 birds that lack them.
+- After both merge: one more `--release` run, a fresh screenshot of each spawn, then fast-forward `main` and push.
