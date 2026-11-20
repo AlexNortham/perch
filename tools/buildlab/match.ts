@@ -45,6 +45,11 @@ export interface AbilityRecord {
   kills: number;
   /** Hero kills by the hero's flock where this ability hit the victim within the assist window. */
   kp: number;
+  /** Healing and shields given to heroes (D-ARCH-030; shields as granted). */
+  heal: number;
+  shield: number;
+  /** Statuses put on enemy heroes (crowd control and debuffs). */
+  statuses: number;
 }
 
 export interface HeroRecord {
@@ -58,6 +63,8 @@ export interface HeroRecord {
   readonly dmgStructures: number;
   readonly dmgTaken: number;
   readonly healing: number;
+  /** Shields granted to heroes (own and allies'). */
+  readonly shielding: number;
   readonly netWorth: number;
   readonly level: number;
   /** Damage to heroes by source. */
@@ -71,7 +78,8 @@ export interface HeroRecord {
 }
 
 export interface MatchRecord {
-  readonly v: 1;
+  /** 2 from Phase B: per-ability healing, shields and statuses, and hero shielding. */
+  readonly v: 2;
   readonly seed: number;
   readonly minutes: number;
   readonly difficulty: BotDifficulty;
@@ -120,6 +128,7 @@ export async function runMatch(job: MatchJob): Promise<MatchRecord> {
   const abilities = heroes.map(() => new Map<AbilityId, AbilityRecord>());
   const dmgBy = heroes.map((): Record<DamageBucket, number> => ({ weapon: 0, melee: 0, ability: 0, item: 0, other: 0 }));
   // Slots open from level 1 unlock at creation, before these listeners: record them at 0 s.
+  const shielding = heroes.map(() => 0);
   const ups: [number, number, number][][] = [];
   for (const h of heroes) ups[h.hero.slot] = h.abilities.slots.flatMap((s, i): [number, number, number][] => (s.unlocked ? [[0, i, 0]] : []));
   /** victim → "slot ability" → last tick that ability hit it. */
@@ -128,7 +137,7 @@ export async function runMatch(job: MatchJob): Promise<MatchRecord> {
   const ab = (slot: number, id: AbilityId): AbilityRecord => {
     const m = abilities[slot]!;
     let a = m.get(id);
-    if (!a) m.set(id, (a = { casts: 0, dmgHeroes: 0, dmgOther: 0, kills: 0, kp: 0 }));
+    if (!a) m.set(id, (a = { casts: 0, dmgHeroes: 0, dmgOther: 0, kills: 0, kp: 0, heal: 0, shield: 0, statuses: 0 }));
     return a;
   };
 
@@ -157,6 +166,21 @@ export async function runMatch(job: MatchJob): Promise<MatchRecord> {
     if (!hits) recent.set(e.target, (hits = new Map()));
     hits.set(`${slot} ${e.ability}`, clock.tick);
   });
+  bus.on('heal.applied', (e) => {
+    const slot = e.source === null ? undefined : slotOf.get(e.source);
+    if (slot !== undefined && e.ability !== null) ab(slot, e.ability).heal += e.amount;
+  });
+  bus.on('shield.applied', (e) => {
+    const slot = e.source === null ? undefined : slotOf.get(e.source);
+    if (slot === undefined || !teamOf.has(e.target)) return;
+    shielding[slot]! += e.amount;
+    if (e.ability !== null) ab(slot, e.ability).shield += e.amount;
+  });
+  bus.on('status.applied', (e) => {
+    const slot = e.source === null ? undefined : slotOf.get(e.source);
+    const victim = teamOf.get(e.target);
+    if (slot !== undefined && e.ability !== null && victim !== undefined && victim !== teamOfSlot.get(slot)) ab(slot, e.ability).statuses++;
+  });
   bus.on('entity.died', (e) => {
     if (e.victimKind !== 'hero') return;
     const hits = recent.get(e.victim);
@@ -181,7 +205,7 @@ export async function runMatch(job: MatchJob): Promise<MatchRecord> {
   }
   const records = t.heroes.map((h): HeroRecord => {
     teams[h.team].netWorth += h.netWorth;
-    const a = Object.fromEntries([...abilities[h.slot]!].map(([id, x]) => [id, { ...x, dmgHeroes: r(x.dmgHeroes), dmgOther: r(x.dmgOther) }]));
+    const a = Object.fromEntries([...abilities[h.slot]!].map(([id, x]) => [id, { ...x, dmgHeroes: r(x.dmgHeroes), dmgOther: r(x.dmgOther), heal: r(x.heal), shield: r(x.shield) }]));
     const by = dmgBy[h.slot]!;
     return {
       hero: h.heroId,
@@ -194,6 +218,7 @@ export async function runMatch(job: MatchJob): Promise<MatchRecord> {
       dmgStructures: r(h.damageToStructures),
       dmgTaken: r(h.damageTaken),
       healing: r(h.healing),
+      shielding: r(shielding[h.slot]!),
       netWorth: h.netWorth,
       level: h.level,
       dmgBy: { weapon: r(by.weapon), melee: r(by.melee), ability: r(by.ability), item: r(by.item), other: r(by.other) },
@@ -204,7 +229,7 @@ export async function runMatch(job: MatchJob): Promise<MatchRecord> {
     };
   });
   return {
-    v: 1,
+    v: 2,
     seed: job.seed,
     minutes: job.minutes,
     difficulty: job.difficulty,
