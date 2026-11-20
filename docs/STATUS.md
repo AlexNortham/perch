@@ -2904,3 +2904,199 @@ bots-ride and dead-bird tests; `ai.perf` margin under load.
   - after Bot AI merges: Level polish with bot nav through interiors, and bot tuning for all 24 birds;
   - after the art lands: QA's gated-test rewrites, the 20-match run and the soak.
 - Then the Stage 4 gate.
+### W5d · Technical Artist · bird batch A · 21/11/2026 (stopped early: the EP's functionality-first wrap-up)
+**Branch:** `worktree-agent-a4ff3ed4a96134c2f` from `integrate/w5` 1c7ad07.
+**Done: the shared feather-shader fix (80e0e05, D-ART-012).**
+- Cause: the bump took screen derivatives of the feather height across near-steps. Single pixels' normals flipped,
+  dark or hue-shifted by the iridescence: the dotted edge speckle on the Peacock's neck.
+- Fix: an analytic height gradient with the slope capped at 50°, and 1.5 px edges from each edge's exact screen
+  footprint. Every value is continuous: slab roots shrink away, and the shadow outside an edge meets the dark band
+  inside it. The search is skipped once the detail has faded.
+- Evidence (git-ignored): `out/art/w5d/before/pk-back4-z.png` against `out/art/w5d/exp/fix1-z.png` (4 m, ×3), and
+  `before/pk-back8.png` against `exp/fix1-8.png` (8 m). At Low: `exp/pk-player-low-z.png`. Peacock, Swift and Cassowary
+  look the same apart from the speckle, which is gone.
+- **Cost** (`tests/anim/frame.ts mode=cost`, GPU timer queries, headless Edge on an Intel Arc 140T iGPU, not the
+  reference Iris Xe). The view is the player camera with 12 sculpted birds covering 5.9 % of 1080p, medians of paired
+  runs, on a machine shared with other agents:
+
+| Quality | Feather surface | All 12 birds |
+|---|---|---|
+| Medium | 0.09–0.12 ms | 0.45 ms |
+| Low | 0.05–0.06 ms | 0.35–0.42 ms |
+
+  Scaled to the Iris Xe (about 2–2.5× slower), the feather surface is about 0.3 ms at Medium, inside the 2.5 ms bird
+  allowance (§11.2). An exact early-out per cell measured slower and was dropped.
+- Tools: `posesheets --frame "…&clip=x,y,w,h"` saves a region at its own pixels. `frame.ts mode=cost` takes
+  `quality=low`, `frames=` and `near=`.
+
+**Not converted (left on their previous models):** Vulture, Hummingbird, Toucan, Woodpecker and Nightjar. I reverted a
+first Vulture pass, uncommitted, at the stop:
+- It read from the front: high hunched shoulders, a cream ruff and a bald head with caruncles.
+- From the player camera the shoulders hid the head and read as two balls.
+
+| Bird | Score from the player camera (before images `out/art/w5d/before/<bird>.png`) |
+|---|---|
+| Vulture | 1.5 (an egg hump, nothing at the nape) |
+| Hummingbird | 2 (a smooth green capsule from behind) |
+| Toucan | 2 (a black bottle from behind) |
+| Woodpecker | 2 (barred cards on a black bottle) |
+| Nightjar | 2 (mottled, but a stacked head on a ball) |
+
+**For the art round:**
+- The five conversions, with D-ART-010 and D-ART-011.
+- Vulture: lower the shoulders and set them wider, so the head and ruff show between them from the player camera.
+- Nightjar and Woodpecker: their mottled and barred backs need the feather surface on the mottle and barred tiles.
+  Today it covers only scales and hair. This is a Batch A shader change: multiply the triplanar tile into the feather
+  albedo.
+
+**Verified:** `npx vitest run src/client/render/models tests/anim`, 111 passed (skins, models and attachment, with
+guns held). `tsc -b` and `eslint .` pass. The full `npm run check` is skipped, as the EP asked.
+### W5d · Technical Artist (bird batch B) · 21/11/2026
+**Done (stopped early on the EP's change of priority):** Shrike and Kingfisher are converted to the sculpt pipeline
+v2.1 (D-ART-010, D-ART-011). Branch `worktree-agent-a6c1176ee04a5cc9d`, from `integrate/w5` 1c7ad07. One commit per
+bird; D-ART-013 records how batch B birds register.
+- **Shrike:** a big flat-crowned head with a black mask meeting over the hooked bill, a silvery crown over a slate nape
+  and mantle, a white breast, black folded wings with a white flash, and a long black-and-white blade tail that fans on
+  a cast. Gear: a flock collar, a knotted flock belt with butcher's hooks, a thorn bandolier and a pouch. The Barb Rifle
+  has barbs along a thornwood barrel, a bone stock and a quiver of bolts.
+- **Kingfisher:** a chunky forward-leaning body with one orange curve from the breast to a low belly over short red
+  shanks, a big blue head with a shaggy crest that lifts on a cast, orange lores and ear patch, white throat and neck
+  patches, and a cyan stripe down the deep-blue mantle to the rump. Gear: a flock sash with a brass dart clip, a belt
+  and pouch, and a quiver across the back. The Dart Pistol has a steel blade under the muzzle and fletched darts.
+- `models.test.ts` now takes its sculpted list from `SCULPTED_IDS` in `heroes.ts`, so both birds get the display, jaw,
+  blink and gun-cap tests.
+
+**Untouched (still on the old D-ART-003 models):** Albatross, Lyrebird, Flamingo, Hornbill. The Lyrebird was in progress
+(body only, no builder) and was reverted, not committed.
+
+| Bird | Level 0 / 1 / 2 / 3 triangles (skin) | Player camera: bird / gun | Honest score, player camera |
+|---|---|---|---|
+| Shrike | 8,516 / 3,366 / 1,114 / 360 (2,600 / 950 / 300 / 120) | 3.3 % / 0.41 % | 3 (2.5 from the front: a tall white egg) |
+| Kingfisher | 8,366 / 3,334 / 1,084 / 360 (2,600 / 950 / 300 / 120) | 4.1 % / 0.34 % | 3 |
+
+Images (git-ignored, reproduce with `npx tsx tests/anim/posesheets.ts --out out/art/b --frame="name=<bird>&mode=triptych&hero=<bird>"`
+and `mode=player`): `out/art/b/shrike.png`, `shrike-player.png`, `kingfisher.png`, `kingfisher-player.png`.
+
+**Verified:** `npx tsc -b` and `npx eslint .` pass. `npx vitest run src/client/render/models tests/anim` passes (113),
+including the committed skins re-baking byte-identically, budgets, hitbox, both grips held in every state, the muzzle
+on the sim's muzzle point and planted feet (D-EP-035). Full `npm run check`, the in-game golden-hour shots and the
+10/40/80 m line-ups were skipped on the EP's instruction.
+
+**Left for the art round:**
+- Convert Albatross (cloak wings to the ground), Lyrebird (the lyre as a hero shape: two banded S-curved outer plumes as
+  ribbon lofts, silver filament cards, a forward-throw display morph; check it does not block the player's crosshair),
+  Flamingo (S-neck, one-leg idle) and Hornbill (casque, gun carry with a moving feed).
+- Shrike and Kingfisher: the in-game golden-hour check and the line-ups; both bodies still read a little tall and
+  tubular front-on.
+- Shared (for Batch A): the feather surface's dark edge speckle is very visible on white and orange regions (Shrike
+  breast, Kingfisher underside), and a pattern-fade band of speckle shows where flat face regions meet the throat.
+
+**Blocked:** nothing.
+
+### W5b · Environment Artist · third pass stopped · 20/11/2026
+**Done:** the third pass was stopped for the functionality-first priority. Nothing half-built is kept: the shared-model (instancing) registry was reverted before commit. The branch is `integrate/w5` (bec687c) with my second pass already in it.
+**Verified:** typecheck and lint clean; `npx vitest run src/client/render` 53/53; `e2e/draw-budget.spec.ts` 3/3.
+**Left for the art round:** lift Riverbank, Pinewood, interiors and the Thicket camp to 3. Add big bird-scale statements to Hedgerow (woven rooftop nests between chimneys, perch towers, large feeders). Halve vertex memory from 75.5 MB with shared models for clumps, birds and nests, half-float uv, and lighter back faces. Move generation (1.2–1.5 s) onto the W6 ready hook or a worker.
+
+### W6 · Technical Artist · B3 birds (ART-B3) · 21/11/2026
+**Stopped by the EP's change of priority (D-EP-050: functionality first, art second) before any model was started.**
+Branch `worktree-agent-ae2834bbf29365e8d`, from `integrate/w5` 50a964c. No code changed.
+- **Done:** none of the four birds. Frigatebird, Cockatoo, Swan and Kiwi stay on the default bird (`genericBuild`
+  in `models/index.ts`, used for any hero id missing from `HERO_BUILDS`). No scores: nothing was built.
+- **Verified on 50a964c:** `npx vitest run src/client/render/models tests/anim` 111/111 pass (skins, budgets,
+  attachments, D-EP-035 grips); typecheck and lint pass. Full `npm run check` skipped on the EP's word.
+- **Left for the art round (brief `docs/briefs/W6-art-world.md`, Job 1):** all four birds on the v2.1 sculpt pipeline
+  (D-ART-010/011), each to an honest 3 from the player camera:
+  - Frigatebird: black W wings held half-open (3.6 m span), scissor tail, hooked bill, red throat balloon; Kite Rifle
+    (long, slim, scoped).
+  - Cockatoo: stocky white body, thick hooked grey bill, sulphur crest that lies flat and fans up on cast;
+    Screech Horn (ornate, glowing chamber).
+  - Swan: low white teardrop, long S-neck, wings arched behind like a heart, orange bill with a black knob; Lake
+    Lance (flowing, lance tip that glows on heal).
+  - Kiwi: round hairy brown ball on strong legs, no visible wings or tail, long down-curved bill with whiskers;
+    Burrow Blunderbuss (compact, one hand, a bladed detail).
+  - Builder file `birds-b3.ts`; bodies and `BODIES` lines in `bodies.ts`; one-line registration in
+    `sculpted-birds.ts`. Estimate about 2 hours a bird with renders, once the three conversion batches have merged.
+**Blocked:** nothing.
+### W6 · Technical Artist (structures, Patrons, fledglings, creatures) · ART-W · 20/11/2026
+Stopped at the EP's priority change (functionality before more art) before any model was started. No model code
+changed, so nothing was reverted. Branch `worktree-agent-a65b479d5b1ddffce` = `integrate/w5` + this entry.
+- **Done:** none of Job 2. Read the brief, style guide §8.8, §9 and §11, D-ART-009 to 011, and the current structure, fledgling and kit code.
+- **Untouched (still on their previous models):** Sentinel Hawk, Stilt Heron, Wardens, Shrines, Brood Ward dome, Elder Raven, Great Owl, both flocks' fledglings, every Thicket creature, the Roc and its Embers.
+- **Scores today (§12.2), read from the code, not from new renders:** structures and Patrons 1 (stacked ellipsoids,
+  cylinders and boxes in one flat-shaded Lambert material; no damage states); fledglings 1 (about 150-triangle primitive
+  chicks, no down cards or catchlights); Thicket creatures, the Roc and Embers 0 (`models/index.ts` draws every unit
+  except Scrapper and Slinger, and every pickup, as a team-coloured box).
+- **Left for the art round:**
+  - Creature models for `beetle`, `weasel`, `rat`, `toad`, `badger`, `cub` and `roc` (`UnitType`), plus the Ember pickup, each instanced per type, with an aggro tell.
+  - Damage and destroyed states (§9.2: cracks at 66 % and 33 %, banner tear, topple into rubble, glow dying over 2 s). These need `rigs/structure-rig.ts`, which today only hides a dead structure. The next brief should add that rig, and a creature rig, to the ART-W paths.
+  - Structures need the stone, timber, brass and banner materials, not the shared flat-shaded Lambert.
+- **Checks on this branch:** `npx vitest run src/client/render` 53/53; typecheck and lint pass. `e2e/draw-budget.spec.ts` 3/3 run serially. In parallel under machine load, lane/low triangles came out at 393k against the 330k ceiling, the same load-sensitive miss logged in the W5b Environment second-pass entry. The full `npm run check` was skipped, as the EP asked.
+### W5d · Technical Artist · bird batch C (stopped early on the EP's word) · 21/11/2026
+**Done:** Owl, Pelican and Penguin are on the v2.1 sculpt pipeline (D-ART-010, D-ART-011). Puffin, Secretarybird and
+Starling are untouched, still on their old primitive models; none was started. Branch `worktree-agent-ae09d85e4edc2662b`
+from `integrate/w5` 1c7ad07, one commit per bird.
+- **Files:**
+  - Bodies are in `bodies.ts`, as separate functions with their own `BODIES` lines.
+  - Builders are in a new `birds-c.ts`, not `heroes-b.ts`, so Batch B's Flamingo and Hornbill edits there don't collide. `C_BUILDS` joins `sculpted-birds.ts` on its own line.
+  - The old builders are deleted from `heroes-b.ts`.
+- **Shared changes (small; please route them):**
+  - `sculpted.ts` gains an optional `halo` builder (two lines). The Starling's orbiting flock needs it, and the model test requires halo vertices.
+  - `models.test.ts` dedupes `FOUR`: a converted bird sat in both lists and failed the distinct-silhouette count. Batch B will hit the same failure.
+  - No change to `bird-material`, `anatomy`, `feathers`, `sdf`, `mesher` or `skin`.
+- **Owl:**
+  - An upright barrel with no neck, and a facial disc of two concave dishes inside a raised dark ruff (sculpted, with paint marks).
+  - A V brow, ear tufts (sculpted horns plus feather blades that spread on a cast), a white bib, a streaked breast and feathered legs.
+  - Mottled hackles round the back of the head and the nape.
+  - Gear: a flock cowl with tails, a cartridge bandolier and a satchel.
+  - Gun: the Hush Rifle, with a felt-wrapped can, a moon-glass scope and a six-round box.
+- **Pelican:**
+  - A bottom-heavy pear, a thick S-neck, a silver mantle, a buff nape crest and peach facial skin.
+  - The bill and pouch are custom lofts on the head bone, so they swing with the head: a long flat bill with a red hooked nail, and a veined pouch sagging under thin rami. Both open on each shot and gape wide on a cast (Gulp).
+  - Black primaries fold down the flanks, and the feet are webbed.
+  - Gear: a neckerchief, a seed-shell bandolier and a creel.
+  - Gun: the Gullet Gatling, with five spinning barrels, a woven creel drum and a crank.
+- **Penguin:**
+  - A skittle with a sharp white bib (paint mark), gold throat and ear patches, and a slate back under a black head.
+  - Custom stiff flippers grip the gun, and the feet are webbed.
+  - Gear: snow goggles on a flock strap (the crown shape), a knitted scarf, and a harness with an ice pick.
+  - Gun: the Ice Chipper blunderbuss, with icicle teeth and a glowing ice hopper.
+
+**Evidence** (git-ignored, `out/art/c/`): triptychs `<bird>.png` and player-camera views `<bird>-player.png`; before
+renders in `out/art/before/`. Golden-hour game shots and the 10/40/80 m line-ups were not taken (stopped early).
+
+| Bird | Level 0 / 1 / 2 / 3 triangles | Player camera: bird / gun | Score (front, 3/4) | Score (player camera) |
+|---|---|---|---|---|
+| Owl | 8,916 / 3,398 / 1,192 / 366 | 5.8 % / 0.67 % | 3 | 3 |
+| Pelican | 8,458 / 3,304 / 1,092 / 380 | 4.3 % / 0.34 % | 3 | 3 |
+| Penguin | 7,800 / 2,904 / 1,102 / 364 | 5.7 % / 0.55 % | 3 | 2.5 |
+
+All are within budget, with at most three draw calls. Before, all three were old primitive models (about 1).
+
+**Verified:** `npx vitest run src/client/render/models tests/anim` passes 114 of 114: budgets, heads on hitboxes, the
+muzzle point, grips held in every state (D-EP-035), feet planted, skins byte-identical, morphs. Under load the
+Cassowary skin re-bake timed out once (not touched here); it passes alone (8/8). `tsc -b` and eslint are clean. The
+full `npm run check` was skipped on the EP's word.
+
+**Left for the art round:**
+- Puffin, Secretarybird and Starling, not started. `sculpted.ts` already has the Starling's halo hook.
+- Penguin: the flippers sit behind the body in the aim pose, so the "flippers held out" read is weak. They need an
+  outward splay or a display flare.
+- Owl: the brows show the shared feather-edge speckle (Batch A's shader fix), and the forearm panels are broad and plain.
+- Pelican: the pouch is flat-sided seen from the front.
+- All three: the golden-hour game shots and the 10/40/80 m line-up checks.
+
+**Blocked:** nothing.
+
+### EP · 21/11/2026 · art wrapped up for Release 1 (D-EP-051)
+- **Merged for Release 1:**
+  - the feather-shader aliasing fix (batch A, D-ART-012);
+  - Shrike and Kingfisher (batch B, D-ART-013);
+  - Owl, Pelican and Penguin (batch C).
+- That makes **8 of 24 birds on the sculpted models:** Peacock, Swift, Cassowary, Shrike, Kingfisher, Owl, Pelican and Penguin.
+- Model and attachment tests: 116/116 after the batch B and C merge conflicts were resolved by keeping both sides.
+- **Left for Release 2 (visual upgrade):**
+  - 12 birds still on the old models: Vulture, Hummingbird, Toucan, Woodpecker, Nightjar, Albatross, Lyrebird, Flamingo, Hornbill, Puffin, Secretarybird and Starling;
+  - the 4 B3 birds, now on the default bird;
+  - every structure, Patron, fledgling and creature, which still score 0–1 (structure damage states need `rigs/structure-rig.ts`);
+  - the environment third pass, plus moving generation off the load path and halving geometry memory.

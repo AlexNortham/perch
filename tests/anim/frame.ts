@@ -5,7 +5,7 @@
 //   mode=lineup&ids=a,b,c&dist=<m>       a row of birds at a distance (§8.6 readability at 10, 40 and 80 m)
 //   mode=closeup&hero=<id>&view=front|back|3/4|side&dist=<m>[&state=…]   the bird close up
 // Optional: team=dawn|dusk|mixed, state=<name>, t=<seconds into the state>, fov=<horizontal degrees>.
-import { Bone, Color, DirectionalLight, FogExp2, HemisphereLight, Mesh, MeshBasicMaterial, MeshLambertMaterial, NeutralToneMapping, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, SkinnedMesh, Vector3, WebGLRenderer, WebGLRenderTarget } from 'three';
+import { Bone, Color, DirectionalLight, FogExp2, HemisphereLight, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshStandardMaterial, NeutralToneMapping, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, SkinnedMesh, Vector3, WebGLRenderer, WebGLRenderTarget } from 'three';
 import type { Material, Object3D } from 'three';
 import { HERO_IDS, ViewFlag } from '../../src/sim/core/contracts';
 import type { EntityView, HeroId } from '../../src/sim/core/contracts';
@@ -36,11 +36,13 @@ const settle = Number(q.get('t')) || 1.5;
 const isHero = (s: string): s is HeroId => (HERO_IDS as readonly string[]).includes(s);
 
 const root = document.getElementById('frame') as HTMLDivElement;
-const renderer = new WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-renderer.setPixelRatio(1);
+// quality=low draws as the game's Low preset does: three-quarter render scale, no MSAA, no shadows (§11.6).
+const low = q.get('quality') === 'low';
+const renderer = new WebGLRenderer({ antialias: !low, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(low ? 0.75 : 1);
 renderer.setSize(W, H);
 renderer.toneMapping = NeutralToneMapping;
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !low;
 renderer.shadowMap.type = PCFShadowMap;
 root.appendChild(renderer.domElement);
 
@@ -151,6 +153,88 @@ if (mode === 'player') {
   stats['gun'] = coverage([rig], true);
   renderer.render(scene, camera);
   label(`${HEROES[hero].def.name} from the player camera (${stateName}): bird ${(stats['bird'] * 100).toFixed(1)} % of the screen, gun ${(stats['gun'] * 100).toFixed(2)} %`, 16, 12);
+} else if (mode === 'cost') {
+  // The feather surface's GPU cost (§11.1–11.2): the player-camera view of `hero` with 11 more birds (`ids`, cycled)
+  // from 4 to 20 m (near=<k> scales that), drawn `frames` times each way, alternating: with the feather surface, with it compiled out, and
+  // with no birds. GPU time from EXT_disjoint_timer_query_webgl2 when the browser offers it, else wall time per frame
+  // with the queue drained. quality=low draws as the Low preset; Medium takes a 1024 shadow map.
+  const hero = q.get('hero') ?? 'peacock';
+  if (!isHero(hero)) throw new Error(`unknown hero ${hero}`);
+  const ids = (q.get('ids') ?? 'peacock,swift,cassowary').split(',').filter(isHero);
+  const frames = Number(q.get('frames')) || 60;
+  sun.shadow.mapSize.set(1024, 1024);
+  const rigs = [place(hero, 0, 'dawn', 0, 0, 0)];
+  const spots: [number, number][] = [[-2, 4], [2, 5], [-3, 7], [1.5, 8], [3, 10], [-1, 11], [0, 13], [-4, 14], [4, 16], [-2, 18], [2, 20]];
+  // near=<k> pulls the crowd in by that factor (a close fight).
+  const near = Number(q.get('near')) || 1;
+  spots.forEach(([x, z], i) => rigs.push(place(ids[i % ids.length] ?? 'peacock', i + 1, i % 2 ? 'dawn' : 'dusk', x * near, 1.5 + (z - 1.5) * near, Math.PI)));
+  const plan = HEROES[hero].def.body;
+  const ray = aimRay({ x: 0, y: 0, z: 0 }, 0, 0, 1, plan, false);
+  camera.position.set(ray.origin.x, ray.origin.y, ray.origin.z);
+  camera.lookAt(ray.origin.x + ray.dir.x * 10, ray.origin.y + ray.dir.y * 10, ray.origin.z + ray.dir.z * 10);
+  const solids = new Map<SkinnedMesh, MeshStandardMaterial>();
+  scene.traverse((o) => o instanceof SkinnedMesh && o.material instanceof MeshStandardMaterial && o.material.name === 'bird-solid' && solids.set(o, o.material));
+  const [real] = [...new Set(solids.values())];
+  if (!real) throw new Error('no sculpted bird in the scene');
+  const flat = real.clone();
+  flat.onBeforeCompile = (shader, r) => {
+    real.onBeforeCompile(shader, r);
+    const before = shader.fragmentShader;
+    shader.fragmentShader = before.replace('if (k * tileStrength > 0.0)', 'if (false)');
+    if (shader.fragmentShader === before) console.warn('cost: no feather branch to compile out');
+  };
+  flat.customProgramCacheKey = () => 'perch-bird-solid-flat';
+  const gl = renderer.getContext() as WebGL2RenderingContext;
+  const timer = gl.getExtension('EXT_disjoint_timer_query_webgl2') as { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null;
+  const pixel = new Uint8Array(4);
+  const drain = (): void => gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+  const nextFrame = (): Promise<void> => new Promise((done) => requestAnimationFrame(() => done()));
+  /** Mean ms per frame for one variant. */
+  const run = async (variant: 'feathers' | 'flat' | 'none'): Promise<number> => {
+    for (const [m, mat] of solids) {
+      m.material = variant === 'flat' ? flat : mat;
+      m.visible = variant !== 'none';
+    }
+    for (const r of rigs) r.visible = variant !== 'none';
+    renderer.render(scene, camera);
+    drain();
+    if (timer) {
+      const queries: WebGLQuery[] = [];
+      for (let i = 0; i < frames; i++) {
+        const query = gl.createQuery();
+        gl.beginQuery(timer.TIME_ELAPSED_EXT, query);
+        renderer.render(scene, camera);
+        gl.endQuery(timer.TIME_ELAPSED_EXT);
+        queries.push(query);
+      }
+      let ns = 0;
+      for (const query of queries) {
+        while (!gl.getQueryParameter(query, gl.QUERY_RESULT_AVAILABLE)) await nextFrame();
+        ns += gl.getQueryParameter(query, gl.QUERY_RESULT) as number;
+        gl.deleteQuery(query);
+      }
+      return ns / frames / 1e6;
+    }
+    const t0 = performance.now();
+    for (let i = 0; i < frames; i++) renderer.render(scene, camera);
+    drain();
+    return (performance.now() - t0) / frames;
+  };
+  const results: Record<'feathers' | 'flat' | 'none', number[]> = { feathers: [], flat: [], none: [] };
+  for (let rep = 0; rep < 7; rep++) for (const v of ['feathers', 'flat', 'none'] as const) results[v].push(await run(v));
+  const median = (a: number[]): number => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)] ?? 0;
+  const [withF, without, none] = (['feathers', 'flat', 'none'] as const).map((v) => (stats[v] = median(results[v])));
+  // The other variants ran beside each one, so the medians of the paired differences shrug off a busy GPU.
+  const feathers = (stats['featherMs'] = median(results.feathers.map((v, i) => v - (results.flat[i] ?? v))));
+  const allBirds = (stats['birdMs'] = median(results.feathers.map((v, i) => v - (results.none[i] ?? v))));
+  stats['gpuTimer'] = timer ? 1 : 0;
+  for (const [m, mat] of solids) Object.assign(m, { material: mat, visible: true });
+  for (const r of rigs) r.visible = true;
+  const birds = (stats['birds'] = coverage(rigs, false));
+  const info = gl.getExtension('WEBGL_debug_renderer_info');
+  const gpu = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : 'unknown GPU';
+  renderer.render(scene, camera);
+  label(`${low ? 'Low' : 'Medium'}, ${gpu}: birds ${(birds * 100).toFixed(1)} % of the screen; ms per frame with feathers ${withF?.toFixed(3)}, without ${without?.toFixed(3)}, no birds ${none?.toFixed(3)}; birds cost ${allBirds.toFixed(3)}, of which the feather surface ${feathers.toFixed(3)} (${timer ? 'GPU timer' : 'wall time'})`, 16, 12, 18);
 } else if (mode === 'lineup') {
   const ids = (q.get('ids') ?? 'peacock').split(',').filter(isHero);
   const dist = Number(q.get('dist')) || 40;
