@@ -37,7 +37,7 @@ const HIGH_PASS_DAMAGE: Effect = {
   durationS: HIGH_PASS_BUFF_S,
 };
 
-/** Harpoon Line: the pull is the standard displacement arc (about 0.65 s for 15 m, D-HEROB-003). */
+/** Harpoon Line: the pull is the standard displacement arc (about 0.65 s for 15 m, D-HEROB-012). */
 export const HARPOON = { speed: 120, radius: 0.35, pullM: 15 } as const;
 
 const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [

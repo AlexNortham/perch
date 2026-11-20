@@ -8,7 +8,7 @@ import { ROOT } from '../data/combat';
 
 /**
  * A named value a tier can raise to lengthen a channel (Sulphur Shriek T2, Burrow T1): seconds added to `channelS`.
- * Stands in for a typed `AbilityUpgrade.channelS` until the next contract round (D-HEROB-001).
+ * Stands in for a typed `AbilityUpgrade.channelS` until the next contract round (D-HEROB-010).
  */
 export const CHANNEL_EXTRA_VALUE = 'channelExtraS';
 

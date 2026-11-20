@@ -1,7 +1,7 @@
 /**
  * Kiwi (GDD §9.24): assassin. Every number is the GDD's; "k×SP" scaling is the `song` part of a Magnitude. Tiers only
  * add (D-ABIL-006). Underground is intangible plus invisible (heroes never collide with each other, so that is all
- * "no collision with heroes" needs); a lengthened Burrow raises `channelExtraS` along with `duration` (D-HEROB-001).
+ * "no collision with heroes" needs); a lengthened Burrow raises `channelExtraS` along with `duration` (D-HEROB-010).
  */
 import type { AbilityDef, Effect, HeroDef, Magnitude, StatusDef, TargetFilter } from '../../core/contracts';
 import { ROOT, SLOW, TALON_SHRED } from '../combat';

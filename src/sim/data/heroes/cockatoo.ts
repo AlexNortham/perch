@@ -1,7 +1,7 @@
 /**
  * Cockatoo (GDD §9.22): spirit burst. Every number is the GDD's; "k×SP" scaling is the `song` part of a Magnitude.
  * Tiers only add (D-ABIL-006): a number a tier raises is a named value, an extra effect is appended by the tier,
- * and a channel a tier lengthens does it through the `channelExtraS` value (D-HEROB-001).
+ * and a channel a tier lengthens does it through the `channelExtraS` value (D-HEROB-010).
  */
 import type { AbilityDef, Effect, HeroDef, Magnitude, StatusDef, TargetFilter } from '../../core/contracts';
 import { SILENCE } from '../combat';
