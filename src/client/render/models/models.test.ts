@@ -8,6 +8,7 @@ import type { Frame } from '../../app/contracts';
 import { BirdRig } from '../rigs/bird-rig';
 import { FledglingProxy } from '../rigs/fledgling-rig';
 import type { BoneName } from './bird';
+import { GUN_CAP } from './constants';
 import { STATES } from './debug';
 import { BIRD_LOD } from './sculpted';
 import { SCULPTED_BUILDS } from './sculpted-birds';
@@ -379,6 +380,14 @@ describe('sculpted birds (D-ART-004)', () => {
       for (const m of rig.meshes) expect(m.morphTargetInfluences, id).toHaveLength(3);
     }
   }, SLOW_TEST_MS);
+
+  it('keeps every sculpted gun within the held-gun cap (G15): at most 0.45 × the height of its bird', () => {
+    for (const id of SCULPTED) {
+      const rig = rigOf(kit.create(heroEntity(id)));
+      const box = partBox(rig, 'gun').union(partBox(rig, 'spin'));
+      expect(box.max.z - box.min.z, id).toBeLessThanOrEqual(HEROES[id].def.body.height * GUN_CAP.lengthOfHeight);
+    }
+  });
 
   it('switches level of detail by distance from the camera (style guide §11.3)', () => {
     const rig = rigOf(kit.create(heroEntity(SCULPTED[0] ?? 'peacock')));

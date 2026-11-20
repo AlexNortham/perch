@@ -310,7 +310,7 @@ export function toucan(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSp
 /** Bill Rifle: a long slim lacquered barrel with brass bands, a brass scope, a bill-curved orange fore-end. */
 function toucanGun(s: number, d: Detail): SculptedSpec['gun'] {
   const T = TOUCAN;
-  const L = 0.74 * s;
+  const L = 0.72 * s;
   const r = 0.011 * s;
   return {
     main: [0, -0.055 * s, -L * 0.7],
@@ -476,7 +476,7 @@ export function woodpecker(plan: BodyPlan, team: TeamColours, d: Detail): Sculpt
 
 /** Drum Drill: six drill-bit barrels that spin as it fires, a brass seed drum feeding it, a heavy wood stock. */
 function woodpeckerGun(s: number, d: Detail): SculptedSpec['gun'] {
-  const L = 0.76 * s;
+  const L = 0.74 * s;
   const ringR = 0.024 * s;
   return {
     main: [0, -0.075 * s, -L * 0.72],
