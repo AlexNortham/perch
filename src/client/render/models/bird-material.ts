@@ -47,6 +47,13 @@ export const FEATHER_SURFACE = {
   near: 2.5,
   nearTo: 10,
   far: 0.65,
+  /** Width of a feather's edge on screen (pixels), whatever its size or angle (v2.2 filtering). */
+  edgePx: 1.5,
+  /** The soft shadow a feather casts beyond its edge (oval units, at least `edgePx` wide) and how dark it is there. */
+  shadow: 0.22,
+  shadowDepth: 0.38,
+  /** Steepest relief slope: the bumped normal tilts at most atan(1.2), 50°, so it never turns away (no speckle). */
+  maxSlope: 1.2,
 } as const;
 
 const VERTEX_HEAD = /* glsl */ `
@@ -85,49 +92,70 @@ vec3 featherHash(vec3 p) {
 }
 // Overlapping feathers along a flow, in units of the feather spacing: each cell of a jittered 3D grid roots one
 // feather, an oval running downstream (along f) from its root. Where several cover a point the most upstream lies on
-// top; across its edge the surface steps down to the feather beneath, which it shades, over about two pixels so the
-// edge reads as a clean line, not speckle. Returns (height 0-1, albedo multiplier).
-vec2 featherField(vec3 P, vec3 n, vec3 f, float len, float wid, float px) {
+// top; across its edge the surface steps down to the feather beneath, which lies in its shadow.
+// Filtered, so it never speckles (v2.2): every value is continuous (a root leaving the surface's slab shrinks its
+// feather away; the shadow outside an edge meets the dark band inside it), each edge is 1.5 pixels wide whatever the
+// feather's shape (its exact screen footprint, from the analytic gradient and the pixel's footprint pdx, pdy), and the
+// relief's gradient is analytic, so the bump never takes finite differences across an edge.
+// Returns (height 0-1, albedo multiplier); grad is the height's gradient per spacing.
+vec2 featherField(vec3 P, vec3 n, vec3 f, float len, float wid, vec3 pdx, vec3 pdy, out vec3 grad) {
   vec3 s = cross(n, f);
   vec3 base = floor(P);
-  // x: key (upstream first), y: along (0 root, 1 tip), z: inside (0 at the edge), w: tint.
+  // x: key (upstream first), y: along (0 root, 1 tip), z: inside (0 at the edge), w: tint; and the offset from the root.
   vec4 top = vec4(1e9, 0.0, 0.0, 1.0);
   vec4 under = vec4(1e9, 0.0, 0.0, 1.0);
-  float shadeKey = 1e9;
-  float shade = 0.0;
+  vec3 topD = vec3(0.0);
+  // The two strongest shadows of feathers that miss P: (key, strength 1 at their edge).
+  vec2 sh1 = vec2(1e9, 0.0);
+  vec2 sh2 = vec2(1e9, 0.0);
+  float shadowW = max(${FEATHER_SURFACE.shadow}, ${FEATHER_SURFACE.edgePx} * max(length(pdx), length(pdy)) / min(wid, 0.58 * len));
   for (int k = -1; k <= 1; k++) for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
     vec3 cell = base + vec3(float(i), float(j), float(k));
     vec3 r = featherHash(cell);
     vec3 c = cell + 0.15 + 0.7 * r;
     vec3 d = P - c;
-    if (abs(dot(d, n)) > 0.9) continue;
+    float dn = abs(dot(d, n));
+    if (dn > 0.9) continue;
     float t = dot(d, f) / len;
     float u = dot(d, s) / wid;
-    float m = 1.0 - length(vec2(u, (t - 0.42) / 0.58));
-    vec4 me = vec4(dot(c, f), clamp(t, 0.0, 1.0), m, 0.9 + 0.2 * r.z);
+    float m = 1.0 - length(vec2(u, (t - 0.42) / 0.58)) - 1.4 * smoothstep(0.6, 0.9, dn);
+    vec4 me = vec4(dot(c, f), t, m, 0.9 + 0.2 * r.z);
     if (m > 0.0) {
-      if (me.x < top.x) { under = top; top = me; }
+      if (me.x < top.x) { under = top; top = me; topD = d; }
       else if (me.x < under.x) under = me;
-    } else if (t > 0.6) {
-      float sh = 1.0 - clamp(-m / 0.22, 0.0, 1.0);
-      if (sh > shade) { shade = sh; shadeKey = me.x; }
+    } else if (m > -shadowW) {
+      float sh = 1.0 + m / shadowW;
+      if (sh > sh1.y) { sh2 = sh1; sh1 = vec2(me.x, sh); }
+      else if (sh > sh2.y) sh2 = vec2(me.x, sh);
     }
   }
-  if (top.x > 1e8) return vec2(0.3, 0.8);
-  float ew = clamp(px * 2.0, 0.04, 0.35);
-  float hTop = 0.35 + 0.65 * top.y;
-  float vTop = top.w * (0.88 + 0.16 * top.y);
+  // Shadows fall only from feathers lying above the one on top here.
+  float shade = max(sh1.x < top.x ? sh1.y : 0.0, sh2.x < top.x ? sh2.y : 0.0);
+  float shadowed = 1.0 - ${FEATHER_SURFACE.shadowDepth} * shade;
+  grad = vec3(0.0);
+  if (top.x > 1e8) return vec2(0.3, 0.8 * shadowed);
+  float tTop = clamp(top.y, 0.0, 1.0);
+  float hTop = 0.35 + 0.65 * tTop;
+  float vTop = top.w * (0.88 + 0.16 * tTop);
   bool hasUnder = under.x < 1e8;
-  float hUnder = hasUnder ? 0.35 + 0.65 * under.y : 0.3;
-  // The feather beneath is in the top one's shadow right at its edge.
-  float vUnder = (hasUnder ? under.w * (0.88 + 0.16 * under.y) : 0.8) * 0.62;
+  float tUnder = clamp(under.y, 0.0, 1.0);
+  float hUnder = hasUnder ? 0.35 + 0.65 * tUnder : 0.3;
+  // The feather beneath is in the top one's shadow right at its edge (as dark as the shadow just outside it).
+  float vUnder = (hasUnder ? under.w * (0.88 + 0.16 * tUnder) : 0.8) * (1.0 - ${FEATHER_SURFACE.shadowDepth});
+  // The top feather's edge: m's gradient, and so its exact footprint on screen.
+  float qa = (top.y - 0.42) / 0.58;
+  float ua = dot(topD, s) / wid;
+  vec3 gm = -(ua / wid * s + qa / (0.58 * len) * f) / max(length(vec2(ua, qa)), 1e-4);
+  float ew = max(${FEATHER_SURFACE.edgePx} * (abs(dot(gm, pdx)) + abs(dot(gm, pdy))), 0.04);
   float cover = smoothstep(0.0, ew, top.z);
-  float edge = (1.0 - smoothstep(0.0, ew + 0.08, top.z)) * smoothstep(0.45, 0.65, top.y) * cover;
+  float x = clamp(top.z / ew, 0.0, 1.0);
+  float edge = (1.0 - smoothstep(0.0, ew + 0.08, top.z)) * smoothstep(0.45, 0.65, tTop) * cover;
   float h = mix(hUnder, hTop, cover);
+  float rise = 0.65 / len * mix(hasUnder && under.y > 0.0 && under.y < 1.0 ? 1.0 : 0.0, top.y > 0.0 && top.y < 1.0 ? 1.0 : 0.0, cover);
+  grad = (hTop - hUnder) * 6.0 * x * (1.0 - x) / ew * gm + rise * f;
   // Hair (narrow strands) takes no edge highlight: on thin strands it would sparkle.
   float v = mix(vUnder, vTop, cover) + 0.1 * edge * step(0.4, wid);
-  if (shadeKey < top.x) v *= 1.0 - 0.38 * shade;
-  return vec2(h, v);
+  return vec2(h, v * shadowed);
 }
 `;
 
@@ -141,7 +169,8 @@ vec2 featherField(vec3 P, vec3 n, vec3 f, float len, float wid, float px) {
 const S = FEATHER_SURFACE;
 const TILE_SAMPLE = /* glsl */ `
   float featherH = 0.0;
-  float featherDepth = 0.0;
+  float featherDhx = 0.0;
+  float featherDhy = 0.0;
 #ifdef USE_MAP
   vec2 tileCount = vec2(${TILE_GRID.cols}.0, ${TILE_GRID.rows}.0);
   float tileIndex = floor(vFx.w + 0.5);
@@ -161,13 +190,20 @@ const TILE_SAMPLE = /* glsl */ `
     vec3 bn = normalize(vBindNormal);
     bool hair = abs(tileIndex - ${TILE.wood}.0) < 0.5;
     if ((hair || abs(tileIndex - ${TILE.scales}.0) < 0.5) && dot(vFlow, vFlow) > 0.25) {
-      vec3 fl = normalize(vFlow - bn * dot(vFlow, bn));
       float px = length(bpDx) + length(bpDy);
-      vec2 fv = featherField(bp, bn, fl, hair ? ${S.hairLength} : ${S.length}, hair ? ${S.hairWidth} : ${S.width}, px);
       float k = (1.0 - smoothstep(${S.fadeFrom}, ${S.fadeTo}, px)) * mix(1.0, ${S.far}, smoothstep(${S.near.toFixed(1)}, ${S.nearTo.toFixed(1)}, length(vViewPosition)));
-      featherH = fv.x * k * tileStrength;
-      featherDepth = (hair ? ${S.hairRelief} : ${S.relief}) / rep;
-      sampledDiffuseColor = vec4(vec3(mix(1.0, fv.y, k)), 1.0);
+      sampledDiffuseColor = vec4(1.0);
+      // Once fully faded (feathers under about 3 px) the search is skipped.
+      if (k * tileStrength > 0.0) {
+        vec3 fl = normalize(vFlow - bn * dot(vFlow, bn));
+        vec3 grad;
+        vec2 fv = featherField(bp, bn, fl, hair ? ${S.hairLength} : ${S.length}, hair ? ${S.hairWidth} : ${S.width}, bpDx, bpDy, grad);
+        float depth = (hair ? ${S.hairRelief} : ${S.relief}) / rep * k * tileStrength;
+        featherH = fv.x * k * tileStrength;
+        featherDhx = depth * dot(grad, bpDx);
+        featherDhy = depth * dot(grad, bpDy);
+        sampledDiffuseColor = vec4(vec3(mix(1.0, fv.y, k)), 1.0);
+      }
     } else {
       vec3 bw = pow(abs(bn), vec3(4.0));
       bw /= bw.x + bw.y + bw.z;
@@ -182,18 +218,22 @@ const TILE_SAMPLE = /* glsl */ `
 #endif
 `;
 
-/** The feather surface's relief: bump the view-space normal by the height's screen derivatives (no tangents needed). */
+/**
+ * The feather surface's relief: bump the view-space normal by the height's change across the pixel (no tangents
+ * needed). The change comes from the analytic gradient, not finite differences of the height, which spiked across
+ * feather edges into single-pixel speckle; the slope is capped so the normal never turns away from the viewer.
+ */
 const FEATHER_BUMP = /* glsl */ `
-  {
+  if (featherH > 0.0) {
     vec3 dpx = dFdx(-vViewPosition);
     vec3 dpy = dFdy(-vViewPosition);
-    float hh = featherH * featherDepth;
-    float dhx = dFdx(hh);
-    float dhy = dFdy(hh);
     vec3 r1 = cross(dpy, normal);
     vec3 r2 = cross(normal, dpx);
     float det = dot(dpx, r1);
-    if (abs(det) > 1e-12) normal = normalize(abs(det) * normal - sign(det) * (dhx * r1 + dhy * r2));
+    if (abs(det) > 1e-12) {
+      vec3 slope = sign(det) * (featherDhx * r1 + featherDhy * r2) / abs(det);
+      normal = normalize(normal - slope * min(1.0, ${S.maxSlope} / max(length(slope), 1e-6)));
+    }
   }
 `;
 
