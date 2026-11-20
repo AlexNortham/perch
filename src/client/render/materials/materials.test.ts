@@ -1,7 +1,7 @@
 import { BoxGeometry, BufferGeometry, Float32BufferAttribute, Matrix4, MeshLambertMaterial, MeshStandardMaterial, PlaneGeometry } from 'three';
 import { describe, expect, it } from 'vitest';
 import { renderLayer } from './generate';
-import { bakeAO, generatePixels, getMaterialLibrary, layerOf, MATERIAL_IDS, paint, RECIPES } from './index';
+import { bakeAO, compactGeometry, generatePixels, geometryBytes, getMaterialLibrary, layerOf, MATERIAL_IDS, paint, RECIPES } from './index';
 
 const SIZE = 32;
 const RGBA = 4;
@@ -98,5 +98,25 @@ describe('material library', () => {
     g.setAttribute('position', new Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
     paint(g, 'timber', { uv: 'cylinder' });
     expect(Array.from(g.getAttribute('color').array).every((c) => c === 1)).toBe(true);
+  });
+
+  it('compacts painted geometry: welded and packed, same triangles, same look, at a fraction of the bytes', () => {
+    const soup = paint(new BoxGeometry(4, 3, 2, 4, 3, 2), 'brick', { tint: 0x808080 });
+    bakeAO(soup, { ground: () => -1.5, rays: false });
+    const before = geometryBytes(soup);
+    const tris = soup.getAttribute('position').count / 3;
+    const sample = { n: soup.getAttribute('normal').getY(0), c: soup.getAttribute('color').getX(0), l: soup.getAttribute('matLayer').getX(0) };
+    const out = compactGeometry(soup);
+    expect(out.index!.count / 3).toBe(tris);
+    expect(out.getAttribute('position').count).toBeLessThan(tris * 3 * 0.5);
+    expect(geometryBytes(out)).toBeLessThan(before * 0.4);
+    const v = out.index!.getX(0);
+    expect(out.getAttribute('normal').getY(v)).toBeCloseTo(sample.n, 1);
+    expect(out.getAttribute('color').getX(v)).toBeCloseTo(sample.c, 2);
+    expect(out.getAttribute('matLayer').getX(v)).toBe(sample.l);
+    // An indexed mesh keeps its triangles through the weld.
+    const indexed = new BoxGeometry(1, 1, 1);
+    const count = indexed.index!.count;
+    expect(compactGeometry(indexed).index!.count).toBe(count);
   });
 });

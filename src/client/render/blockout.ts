@@ -26,7 +26,7 @@ import type { Camera, Material } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { BlockoutPrim, Climb, MapData, MaterialTag, PlayerTeam, Vec3 } from '../../sim/core/contracts';
 import { CellBatch, LodInstances, updateBands } from './batch';
-import { bakeAO, paint, retarget } from './materials';
+import { bakeAO, compactGeometry, paint, retarget } from './materials';
 import type { MaterialId, MaterialLibrary, PaintOptions } from './materials';
 import { chamferBox, column, leafClump, stairs, trunk, tube, wedge } from './shapes';
 import { ART, BACKDROP, CELL, SHADOW_PROXY_SIDES, CHIMNEY_RADIUS, LANE_ART, SHOP_ART, STATION_ART, SUN, UPDRAFT_HEIGHT, VINE_ART } from './constants';
@@ -606,13 +606,13 @@ function backdrop(map: MapData, lib: MaterialLibrary, toSun: Vector3, low: boole
     }
   }
   // Variants built at unit-ish size and instanced with a uniform scale (bark and leaves keep their proportions).
-  const trunkG = paint(trunk(BACKDROP.trunkRadius, BACKDROP.trunkHeight, BACKDROP.trunkSeed), 'bark', { uv: 'cylinder' });
+  const trunkG = compactGeometry(paint(trunk(BACKDROP.trunkRadius, BACKDROP.trunkHeight, BACKDROP.trunkSeed), 'bark', { uv: 'cylinder' }));
   const canopyParts = BACKDROP.clumps.map(({ x, y, z, r }, i) => {
     const { cards, core } = leafClump(r, Math.round(BACKDROP.cardsPerClump * (low ? ART.lowCards : 1)), BACKDROP.canopySeed + i, toSun, r * BACKDROP.cardOfClump * (low ? ART.lowCardGrow : 1));
     return { cards: cards.translate(x, y, z), core: core.translate(x, y, z) };
   });
-  const cards = paint(mergeGeometries(canopyParts.map((c) => c.cards)), 'leafCard', { uv: 'keep', tint: BACKDROP.leafTint });
-  const cores = paint(mergeGeometries(canopyParts.map((c) => c.core)), 'hedge', { tint: ART.coreTint });
+  const cards = compactGeometry(paint(mergeGeometries(canopyParts.map((c) => c.cards)), 'leafCard', { uv: 'keep', tint: BACKDROP.leafTint }));
+  const cores = compactGeometry(paint(mergeGeometries(canopyParts.map((c) => c.core)), 'hedge', { tint: ART.coreTint }));
   for (const c of canopyParts) {
     c.cards.dispose();
     c.core.dispose();

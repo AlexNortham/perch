@@ -42,7 +42,10 @@ describe('map layer', () => {
         for (const l of layers(x.geometry)) expect(l >= 0 && l < 64, `${x.name} layer ${l}`).toBe(true);
         expect(x.material === lib.opaque || x.material === lib.cutout, x.name).toBe(true);
       }
-      const colours = all.filter((x) => x.name.endsWith(':opaque:far')).flatMap((x) => Array.from(x.geometry.getAttribute('color').array));
+      const colours = all.filter((x) => x.name.endsWith(':opaque:far')).flatMap((x) => {
+        const c = x.geometry.getAttribute('color');
+        return Array.from({ length: c.count }, (_, i) => c.getX(i));
+      });
       expect(colours.reduce((a, c) => Math.min(a, c), 1), 'baked AO darkens somewhere').toBeLessThan(0.8);
       b.dispose();
     }, FULL_MAP_MS);

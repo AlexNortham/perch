@@ -16,7 +16,7 @@
 import { BufferAttribute, Frustum, Group, InstancedMesh, Matrix4, Mesh, Sphere, Vector3 } from 'three';
 import type { BufferGeometry, Camera, Color, Material, Object3D } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { bakeAOAll } from './materials';
+import { bakeAOAll, compactGeometry } from './materials';
 import type { MaterialKind, MaterialLibrary } from './materials';
 import { CELL, LOD, SHADOW_LAYER } from './constants';
 
@@ -112,14 +112,14 @@ export class CellBatch {
     const baked = merged.map((m) => m.baked).filter((g): g is BufferGeometry => g !== null);
     bakeAOAll(baked, { occluders, reach: CELL.aoReach, voxel: CELL.aoVoxel, underside: false });
     for (const { b, baked, plain } of merged) {
-      const g = baked && plain ? mergeGeometries([baked, plain]) : (baked ?? plain);
+      const mergedG = baked && plain ? mergeGeometries([baked, plain]) : (baked ?? plain);
       if (baked && plain) {
         baked.dispose();
         plain.dispose();
       }
-      if (!g) continue;
-      g.computeBoundingBox();
-      g.computeBoundingSphere();
+      if (!mergedG) continue;
+      // Weld and pack: indexed, small attribute types (vertex memory, W5b joint pass with the Environment Artist).
+      const g = compactGeometry(mergedG);
       const mesh = new Mesh(g, b.kind === 'cutout' ? lib.cutout : lib.opaque);
       mesh.name = `${name}:${b.cell}:${b.kind}:${b.band}`;
       if (b.kind === 'shadow') {

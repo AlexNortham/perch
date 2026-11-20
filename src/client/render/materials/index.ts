@@ -45,6 +45,7 @@ import { MATERIAL_TIERS, MACRO_VARIATION, EMISSIVE_HDR, ENV_INTENSITY, WATER_FLO
 export { MATERIAL_IDS, RECIPES } from './data/recipes';
 export type { MaterialId, Recipe } from './data/recipes';
 export { MATERIAL_TIERS } from './constants';
+export { compactGeometry, geometryBytes } from './compact';
 
 /** Which shared material a mesh uses: opaque surfaces or alpha-tested, double-sided cards. */
 export type MaterialKind = 'opaque' | 'cutout';

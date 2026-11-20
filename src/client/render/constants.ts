@@ -244,8 +244,8 @@ export const ART = {
   crownHeight: 0.9,
   crownLift: 0.15,
   /** §7.6 faded flock tints for base dressing (saturation ≤ 45 %, value ≤ 60 % after the albedo). */
-  dawnFaded: 0xe8cfa6,
-  duskFaded: 0xb6b4d8,
+  dawnFaded: 0xf0e4cc,
+  duskFaded: 0xc8c8e2,
   /** Blue slate walls of the Dusk base from granite. */
   duskStoneTint: 0xa4b4e0,
 } as const;
