@@ -571,6 +571,7 @@ export const BODIES = {
   pelican: pelicanBody,
   penguin: penguinBody,
   frigatebird: frigatebirdBody,
+  cockatoo: cockatooBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */
@@ -639,6 +640,56 @@ export function frigatebirdBody(plan: BodyPlan): Body {
       // gular skin running up to the chin.
       ell([0, 1.25 * s, 0.18 * s], [0.155 * s, 0.185 * s, 0.17 * s], 'body', 'balloon', { k: 0.035 * s }),
       cone(at(hc, hr, [0, -0.72, 0.42]), [0, 1.36 * s, 0.17 * s], 0.06 * s, 0.1 * s, 'head', 'balloon', { k: 0.03 * s, boneSoft: 0.07 }),
+    ],
+  };
+}
+
+// =================================================================================================================
+// Cockatoo: a stocky parrot sat upright on short legs. A deep, round chest, a short thick neck, a big round head with
+// puffed cheeks round a very deep hooked bill, bare skin round the eye, and the crest's root along the crown.
+
+export function cockatooAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.75;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.74, 1.16 * s, -0.04 * s], hip: [R * 0.38, plan.height * 0.15, 0.0], tail: [0, 0.5 * s, -0.24 * s],
+    legLen: plan.height * 0.15, legThick: 0.03 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export const COCKATOO_HEAD: HeadShape = {
+  skull: [1.2, 1.06, 1.14], skullAt: [0, 0.02, -0.06], face: [0.76, 0.66, 0.6], faceAt: [0, -0.16, 0.42],
+  cheek: [0.56, 0.52, 0.55], cheekAt: [0.5, -0.36, 0.3], brow: [0.46, 0.17, 0.4], browAt: [0.48, 0.38, 0.48], browTilt: 0.2,
+  nape: [0.88, 0.75, 0.7], napeAt: [0, -0.48, -0.46], throat: [0.66, 0.5, 0.58], throatAt: [0, -0.74, 0.22],
+  eye: [0.76, 0.12, 0.68], socket: 0.24, bill: [0, -0.2, 0.92], billW: 0.34, billH: 0.36,
+};
+
+export function cockatooBody(plan: BodyPlan): Body {
+  const a = cockatooAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  const hr = a.hr;
+  return {
+    tris: [2000, 640, 170, 80],
+    ops: [
+      // A stocky pear sat upright: the chest deep and round, the belly full over the short legs, the back straight.
+      ell([0, 0.84 * s, -0.06 * s], [0.26 * s, 0.42 * s, 0.22 * s], 'body', 'back', { rot: [0.1, 0, 0], k: 0.05 }),
+      ...pair(ell([0.1 * s, 0.98 * s, 0.08 * s], [0.17 * s, 0.26 * s, 0.18 * s], 'body', 'breast', { k: 0.07, rot: [0.05, 0.25, 0] })),
+      ell([0, 0.92 * s, 0.17 * s], [0.07 * s, 0.26 * s, 0.1 * s], 'body', 'breast', { k: 0.05, rot: [0.08, 0, 0] }),
+      ell([0, 0.56 * s, 0.02 * s], [0.22 * s, 0.22 * s, 0.2 * s], 'body', 'belly', { k: 0.08 }),
+      ell([0, 1.1 * s, -0.13 * s], [0.21 * s, 0.2 * s, 0.075 * s], 'body', 'mantle', { k: 0.06, rot: [0.15, 0, 0] }),
+      cone([0, 0.56 * s, -0.2 * s], [0, 0.44 * s, -0.3 * s], 0.13 * s, 0.06 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.17 * s, 1.1 * s, -0.08 * s], scapularR: [0.1 * s, 0.17 * s, 0.09 * s], root: 0.07 * s, inset: 0.08 }),
+      ...thighs(a, { r: 0.08 * s, rKnee: 0.05 * s, reach: 0.55, root: [0.11 * s, 0.38 * s, 0.0] }),
+      // A short, thick neck: the big head sits down on the shoulders.
+      ...neck([[0, 1.18 * s, 0.0], [0, 1.28 * s, 0.01 * s], [0, hc[1] - 0.1 * s, 0.0]], [0.2 * s, 0.17 * s, 0.16 * s], 'neck', 0.45),
+      ...head(hc, hr, COCKATOO_HEAD),
+      // The crest's root: a low ridge along the crown from the forehead back over the skull.
+      cone(at(hc, hr, [0, 0.82, 0.38]), at(hc, hr, [0, 0.92, -0.42]), 0.26 * hr, 0.3 * hr, 'head', 'crestRoot', { k: 0.14 * hr, flow: [0, 0.2, -1] }),
+      // Markings: the bare pale skin round each eye, and a pale sulphur wash over the ear coverts.
+      ...pair(ell(at(hc, hr, [0.76, 0.12, 0.68]), mulS([0.3, 0.3, 0.28], hr), 'head', 'ring', { mark: true, soft: 0.004 })),
+      ...pair(ell(at(hc, hr, [0.78, -0.25, 0.05]), mulS([0.3, 0.32, 0.42], hr), 'head', 'ear', { mark: true, soft: 0.02 })),
     ],
   };
 }

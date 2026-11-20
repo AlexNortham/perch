@@ -8,7 +8,7 @@ import type { HeroId } from '../../src/sim/core/contracts';
 export const PLAYABLE: readonly HeroId[] = [
   'shrike', 'albatross', 'kingfisher', 'lyrebird', 'owl', 'pelican', 'secretarybird', 'starling', 'hornbill', 'flamingo', 'penguin', 'puffin',
   'peacock', 'vulture', 'swift', 'hummingbird', 'cassowary', 'toucan', 'woodpecker', 'nightjar',
-  'frigatebird',
+  'frigatebird', 'cockatoo',
 ];
 
 export const SHEET_STATES: readonly string[] = [
