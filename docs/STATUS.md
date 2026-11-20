@@ -3560,3 +3560,21 @@ D-ARCH-034, D-ARCH-035; INTERFACES §17; GDD §3.7 (Match start row), §6.6, §1
   start: the world test has no heroes and the objectives test uses dummies. The rerun passed `ai.perf`. sim and e2e
   were then run by hand: sim PASS (3 min, no crash); e2e 80 passed, 3 failed. All three were specs that assumed Play starts at the base spawn (`play.spec` x2, `match.spec`). With `?zipline=0`, a new Play-on-foot switch for those suites, they pass: 4/4 with `lane-start`.
 **Blocked:** nothing.
+
+### EP · 21/11/2026 · stopped by the user (weekly usage)
+- `main` = Release 1.1 (8e9ac07), pushed. Nothing after it has been pushed.
+- **integrate/w5 (70e916e), merged but not release-checked:**
+  - the scene-start FOV fix;
+  - 21 of 24 birds sculpted;
+  - structures and Patrons;
+  - environment interiors, memory and deferred generation;
+  - lane assignment and the zipline start;
+  - Build Lab Phase B code.
+- **Not merged:**
+  - **Lanes rework:** `worktree-agent-acf352408673877f6` (f52b8a6). The 20 release matches passed (10/10); the release check had not run yet.
+  - **WIP:** `wip/batch-g` (the Swan fails one grip test; Kiwi not started) and `wip/structures` (fledglings and creatures; the Roc and Embers not started).
+  - **Build Lab:** 36 of 200 round-1 matches saved. Resume with `npx tsx tools/buildlab/run.ts --round 1 --matches 200 --parallel 4`.
+- **To resume:**
+  1. Merge the lanes branch.
+  2. Run `npm run check -- --release` three times, then `npm run release-matches` and `npm run soak -- --minutes 30`.
+  3. Fast-forward `main` and push.
