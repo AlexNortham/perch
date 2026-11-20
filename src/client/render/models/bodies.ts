@@ -315,9 +315,9 @@ export function shrikeBody(plan: BodyPlan): Body {
     ops: [
       // Upright and a little forward: a full breast high under the head, a waist over the thighs, the rump over the tail.
       ell([0, 0.9 * s, -0.07 * s], [0.2 * s, 0.36 * s, 0.17 * s], 'body', 'back', { rot: [0.22, 0, 0], k: 0.05 }),
-      ...pair(ell([0.08 * s, 1.02 * s, 0.08 * s], [0.16 * s, 0.24 * s, 0.18 * s], 'body', 'breast', { k: 0.06, rot: [0.2, 0.22, 0] })),
+      ...pair(ell([0.095 * s, 1.03 * s, 0.07 * s], [0.18 * s, 0.25 * s, 0.19 * s], 'body', 'breast', { k: 0.06, rot: [0.2, 0.22, 0] })),
       ell([0, 0.97 * s, 0.17 * s], [0.07 * s, 0.22 * s, 0.1 * s], 'body', 'breast', { k: 0.05, rot: [0.25, 0, 0] }),
-      ell([0, 0.66 * s, 0.04 * s], [0.14 * s, 0.2 * s, 0.13 * s], 'body', 'belly', { k: 0.07, rot: [0.15, 0, 0] }),
+      ell([0, 0.66 * s, 0.03 * s], [0.125 * s, 0.19 * s, 0.12 * s], 'body', 'belly', { k: 0.07, rot: [0.15, 0, 0] }),
       ell([0, 1.06 * s, -0.13 * s], [0.17 * s, 0.24 * s, 0.075 * s], 'body', 'mantle', { k: 0.06, rot: [0.3, 0, 0] }),
       cone([0, 0.66 * s, -0.17 * s], [0, 0.58 * s, -0.33 * s], 0.11 * s, 0.05 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
       ...shoulders(a, { scapular: [0.14 * s, 1.1 * s, -0.08 * s], scapularR: [0.09 * s, 0.16 * s, 0.08 * s], root: 0.065 * s, inset: 0.07 }),

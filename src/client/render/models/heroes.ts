@@ -8,7 +8,7 @@
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { HeroId } from '../../../sim/core/contracts';
 import type { TeamColours } from '../palette';
-import { beak, eye, foldedWings, hackles, inBone, legsOf, norm, tailFan, wingsOf } from './anatomy';
+import { beak, eye, foldedWings, hackles, inBone, legsOf, norm, shingle, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
 import { assemble, dims, eyes, headShell } from './bird';
 import type { BirdBuild } from './bird';
@@ -65,10 +65,10 @@ const shrike: SculptedBird = (plan, team, d) => {
     scapular: { paint: (p) => mix(P.pale, P.white, Math.min(1, Math.max(0, (p.y - 1.0 * s) / (0.15 * s)))), finish: { ...FEATHERS, size: 0.07 } },
     shoulder: { paint: P.black, finish: FEATHERS },
     coverts: { paint: P.mantle, finish: FEATHERS },
-    // A white breast, greying a little down the sides.
-    breast: { paint: (p) => mix(P.white, P.pale, Math.min(0.6, Math.abs(p.x) / (0.25 * s))), finish: { ...FEATHERS, size: 0.08 } },
-    belly: { paint: mix(P.white, P.pale, 0.3), finish: FEATHERS },
-    thigh: { paint: P.pale, finish: { ...FEATHERS, size: 0.06 } },
+    // A white breast, washing to grey down the flanks and under the belly.
+    breast: { paint: (p) => mix(P.white, P.grey, Math.min(0.75, Math.max(0, Math.abs(p.x) / (0.2 * s) - 0.3))), finish: { ...FEATHERS, size: 0.08 } },
+    belly: { paint: (p) => mix(P.white, P.grey, Math.min(0.85, Math.max(0, (0.86 * s - p.y) / (0.2 * s)) + Math.abs(p.x) / (0.3 * s))), finish: FEATHERS },
+    thigh: { paint: P.grey, finish: { ...FEATHERS, size: 0.06 } },
     // White at the front of the neck, slate behind: a silvery crown over a slate nape and mantle, so the head
     // separates from the back from behind.
     neck: { paint: (p) => mix(P.mantle, P.white, Math.min(1, Math.max(0, (p.z + 0.02 * s) / (0.08 * s)))), finish: FEATHERS },
@@ -102,6 +102,15 @@ const shrike: SculptedBird = (plan, team, d) => {
     const collar = field.only(...TRUNK, 'neck').surface(...axis, [0, 0, 1]);
     // The player-camera standard: the black wings folded down the flanks, framing the slate mantle.
     foldedWings(k, field.only(...TRUNK).surface([0, 0.52 * s, -0.2 * s], [0, 1.16 * s, 0.06 * s]), wing, { t: [0.42, 0.8], a: 0.38, len: 0.32 * s, wid: 0.12 * s }, d);
+    // Front view: grey flank feathers lie over the sides of the breast below the wings, scalloping the white egg into
+    // a breast and flanks.
+    for (const side of [1, -1]) {
+      const a0 = Math.PI / 2 + side * 0.95;
+      shingle(k, torso, {
+        t: [0.28, 0.62], a: [a0 - 0.32, a0 + 0.32], rows: 3, cols: 3, len: 0.13 * s, wid: 0.1 * s, toward: [0, -1, 0.15], lift: 0.16,
+        paint: (t) => mix(P.pale, P.grey, 0.35 + 0.4 * (1 - t)), finish: FEATHERS, seed: side > 0 ? 51 : 57,
+      }, d);
+    }
     // The butcher's belt in the flock colour, knotted behind, and a flock collar (both read from behind), with iron
     // hooks on the belt.
     const off = 0.012 * s;
