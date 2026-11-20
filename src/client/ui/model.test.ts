@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { EntityView, HeroView, ItemDef, SimView } from '../../sim/core/contracts';
-import { clock, createGhosts, damageNumberStyle, dummies, mapPoint, mapVisible, mapWorld, quoteItem, upgradeDisplay } from './model';
+import { ViewFlag } from '../../sim/core/contracts';
+import { clock, createGhosts, damageNumberStyle, dummies, laneBanner, mapPoint, mapVisible, mapWorld, quoteItem, startLane, upgradeDisplay } from './model';
 import { NUMBER_CSS } from './constants';
 
 const slot = (over = {}) => ({ ability: 'a', unlocked: true, tier: 0, readyAt: 0, cooldownTicks: 0, charges: 1, ...over });
@@ -88,5 +89,24 @@ describe('numbers, clock and dummies', () => {
       entities: [{ id: 2, hp: 232, maxHp: 580 }, { id: 3, hp: 720, maxHp: 720 }],
     } as unknown as SimView;
     expect(dummies(view).map((d) => [d.label, d.hp, d.maxHp])).toEqual([['Ally dummy', 232, 580], ['Enemy dummy', 720, 720]]);
+  });
+});
+
+describe('the start lane (D-ARCH-035)', () => {
+  const view = (seconds: number, flags: number, lane?: string) => ({
+    seconds,
+    localHero: 1,
+    heroes: [{ id: 1, team: 'dawn', heroId: 'shrike', ...(lane && { lane }) }, { id: 2, team: 'dawn', heroId: 'owl', lane: 'pinewood' }],
+    entities: [{ id: 1, flags }],
+  }) as unknown as SimView;
+
+  it('names the local bird\'s lane, says how to drop off while riding, and stops once the match is half a minute old', () => {
+    expect(laneBanner(view(0, ViewFlag.OnUpdraft, 'riverbank'))).toEqual({
+      main: 'You\'re on Riverbank', sub: 'Riding its Updraft out · Jump or Crouch to drop off',
+    });
+    expect(laneBanner(view(0, 0, 'hedgerow'))).toEqual({ main: 'You\'re on Hedgerow', sub: '' });
+    expect(startLane(view(29, 0, 'pinewood'))).toBe('pinewood');
+    expect(startLane(view(30, 0, 'pinewood'))).toBeNull();
+    expect(laneBanner(view(0, ViewFlag.OnUpdraft))).toBeNull();
   });
 });

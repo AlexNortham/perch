@@ -3,14 +3,14 @@
  * bottom. Enemies follow the map-visibility bits (mapSeenBy), last-seen enemy heroes fade as ghosts, pings pulse.
  */
 import { ViewFlag } from '../../sim/core/contracts';
-import type { MapData, PlayerTeam, SimView } from '../../sim/core/contracts';
+import type { LaneId, MapData, PlayerTeam, SimView } from '../../sim/core/contracts';
 import { TICK_RATE } from '../../sim/data/core';
 import { loadMap } from '../../sim/world/map';
 import type { AppActions } from '../app/contracts';
 import { ALLY_TEAL, ENEMY_RED, LANE_COLOURS, NEUTRAL_COLOUR, TEAM_COLOURS } from '../app/palette';
 import { hex, MAP_ASPECT, MAP_STYLE, PING_CSS, PING_S } from './constants';
 import { el } from './dom';
-import { createGhosts, mapPoint, mapVisible, mapWorld } from './model';
+import { createGhosts, laneName, mapPoint, mapVisible, mapWorld, startLane } from './model';
 import type { PingMark } from './world';
 
 /** The zone under the minimap: the lane the local bird is on, else the map's own name. */
@@ -18,7 +18,7 @@ export function zoneName(view: SimView): string {
   const me = view.entities.find((e) => e.id === view.localHero);
   const map = mapOf(view.map);
   if (!me) return map.name;
-  let best: { id: string; d: number } | null = null;
+  let best: { id: LaneId; d: number } | null = null;
   for (const lane of map.lanes) {
     for (let i = 1; i < lane.path.length; i++) {
       const a = lane.path[i - 1];
@@ -31,7 +31,7 @@ export function zoneName(view: SimView): string {
       if (!best || d < best.d) best = { id: lane.id, d };
     }
   }
-  return best && best.d <= ZONE_LANE_MARGIN_M ? `${best.id.slice(0, 1).toUpperCase()}${best.id.slice(1)}` : map.name;
+  return best && best.d <= ZONE_LANE_MARGIN_M ? laneName(best.id) : map.name;
 }
 const ZONE_LANE_MARGIN_M = 12;
 const NEAR_ZERO = 1e-6;
@@ -86,17 +86,24 @@ export function createMapView(parent: HTMLElement, cls: string, size: () => { wi
       ctx.fillStyle = 'rgba(12,14,18,0.82)';
       ctx.fillRect(0, 0, width, height);
       ctx.lineCap = 'round';
+      // The local bird's assigned lane glows white under its colour for the match's first seconds (D-ARCH-035).
+      const glow = startLane(view);
       for (const lane of map.lanes) {
-        ctx.strokeStyle = hex(LANE_COLOURS[lane.id]);
-        ctx.globalAlpha = 0.55;
-        ctx.lineWidth = Math.max(2, lane.halfWidth * 2 * (width / (b.max.x - b.min.x)));
-        ctx.beginPath();
-        lane.path.forEach((p, i) => {
-          const q = P(p);
-          if (i === 0) ctx.moveTo(q.x, q.y);
-          else ctx.lineTo(q.x, q.y);
-        });
-        ctx.stroke();
+        const width0 = Math.max(2, lane.halfWidth * 2 * (width / (b.max.x - b.min.x)));
+        const stroke = (style: string, alpha: number, w: number): void => {
+          ctx.strokeStyle = style;
+          ctx.globalAlpha = alpha;
+          ctx.lineWidth = w;
+          ctx.beginPath();
+          lane.path.forEach((p, i) => {
+            const q = P(p);
+            if (i === 0) ctx.moveTo(q.x, q.y);
+            else ctx.lineTo(q.x, q.y);
+          });
+          ctx.stroke();
+        };
+        if (lane.id === glow) stroke('#ffffff', MAP_STYLE.laneGlowAlpha, width0 + MAP_STYLE.laneGlow * k);
+        stroke(hex(LANE_COLOURS[lane.id]), lane.id === glow ? 1 : MAP_STYLE.laneAlpha, width0);
       }
       ctx.globalAlpha = 1;
       const dot = (p: { x: number; y: number; z: number }, r: number, fill: string, ring?: string, alpha = 1): void => {

@@ -1,5 +1,6 @@
 /** Pure view-to-display logic for the panels (unit tested): upgrades, shop quotes, minimap, scoreboard, numbers. */
-import type { EntityView, HeroView, ItemDef, PlayerTeam, SimView, Vec3 } from '../../sim/core/contracts';
+import { ViewFlag } from '../../sim/core/contracts';
+import type { EntityView, HeroView, ItemDef, LaneId, PlayerTeam, SimView, Vec3 } from '../../sim/core/contracts';
 import type { AbilitySlotState } from '../../sim/core/contracts/entity';
 import { AP_COSTS, UNLOCK_LEVELS } from '../../sim/data/abilities';
 import { TICK_RATE } from '../../sim/data/core';
@@ -7,6 +8,7 @@ import {
   BASE_ITEM_SLOTS,
   FULL_REFUND_FRACTION,
   GHOST_FADE_S,
+  LANE_HIGHLIGHT_S,
   MAX_TIER,
   SECONDS_PER_MINUTE,
   SELL_REFUND_FRACTION,
@@ -184,4 +186,22 @@ export function dummies(view: SimView): DummyInfo[] {
     if (e) out.push({ id: h.id, label: h.team === me.team ? 'Ally dummy' : 'Enemy dummy', hero: h, hp: e.hp, maxHp: e.maxHp });
   }
   return out;
+}
+
+/** A lane's display name ('riverbank' → 'Riverbank'). */
+export const laneName = (lane: LaneId): string => `${lane.slice(0, 1).toUpperCase()}${lane.slice(1)}`;
+
+/** The local bird's assigned lane while the match is young (D-ARCH-035): the minimap glows it. Null otherwise. */
+export function startLane(view: SimView): LaneId | null {
+  if (view.seconds >= LANE_HIGHLIGHT_S) return null;
+  return view.heroes.find((h) => h.id === view.localHero)?.lane ?? null;
+}
+
+/** The match-start banner: the assigned lane, and how to leave the Updraft when the bird starts on it. */
+export function laneBanner(view: SimView): { main: string; sub: string } | null {
+  const lane = startLane(view);
+  if (!lane) return null;
+  const me = view.entities.find((e) => e.id === view.localHero);
+  const riding = me !== undefined && (me.flags & ViewFlag.OnUpdraft) !== 0;
+  return { main: `You're on ${laneName(lane)}`, sub: riding ? 'Riding its Updraft out · Jump or Crouch to drop off' : '' };
 }

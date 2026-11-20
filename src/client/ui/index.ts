@@ -3,13 +3,14 @@
  * the upgrade panel, the Magpie's Hoard, scoreboard, big map, pings, damage numbers, pause, Options and the end screen.
  * Every panel only submits intents through AppActions; nothing here writes the sim view.
  */
-import type { PingKind } from '../../sim/core/contracts';
+import type { PingKind, SimView } from '../../sim/core/contracts';
 import type { AppActions, Frame, Screen, ScreenContext, Settings, Ui } from '../app/contracts';
-import { BIG_MAP_FALLBACK_PX, BIG_MAP_SCREEN_SHARE, MAP_ASPECT, MINIMAP_SIZE, PING_CSS, PING_LABEL, WHEEL_PINGS } from './constants';
+import { BIG_MAP_FALLBACK_PX, BIG_MAP_SCREEN_SHARE, LANE_BANNER_MS, MAP_ASPECT, MINIMAP_SIZE, PING_CSS, PING_LABEL, WHEEL_PINGS } from './constants';
 import { button, el } from './dom';
 import { createFeed } from './feed';
 import { createHud } from './hud';
 import { createMapView, zoneName } from './minimap';
+import { laneBanner } from './model';
 import { optionsScreen } from './options';
 import { endScreen, heroSelectScreen, menuScreen, pauseScreen } from './screens';
 import { createShop } from './shop';
@@ -34,6 +35,22 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
   const miniWrap = el('pu-minimap', 'div', hud.root);
   const mini = createMapView(miniWrap, 'pu-minimap-canvas', () => MINIMAP_SIZE, actions);
   const zoneLabel = el('pu-zone', 'div', hud.root);
+  // The match-start lane banner (D-ARCH-035): "You're on Riverbank", then gone.
+  const laneBox = el('pu-announce pu-lane', 'div', hud.root);
+  laneBox.setAttribute('role', 'status');
+  laneBox.setAttribute('aria-label', 'Your lane');
+  const laneMain = el('', 'b', laneBox);
+  const laneSub = el('', 'small', laneBox);
+  const showLane = (view: SimView): void => {
+    const b = laneBanner(view);
+    if (!b) return;
+    laneMain.textContent = b.main;
+    laneSub.textContent = b.sub;
+    laneBox.animate([{ opacity: 1 }, { opacity: 1, offset: 0.85 }, { opacity: 0 }], LANE_BANNER_MS).onfinish = () => {
+      laneMain.textContent = '';
+      laneSub.textContent = '';
+    };
+  };
   const bigSize = (): { width: number; height: number } => {
     const height = Math.round(host.clientHeight * BIG_MAP_SCREEN_SHARE) || BIG_MAP_FALLBACK_PX;
     return { width: Math.round((height * MAP_ASPECT.width) / MAP_ASPECT.height), height };
@@ -101,6 +118,7 @@ export function createUi(root: HTMLElement, actions: AppActions): Ui {
       topbar.reset();
       mini.reset();
       big.reset();
+      showLane(c.view);
     }
     const current = settings ?? c.settings;
     applySettings(current);
