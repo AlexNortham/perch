@@ -27,6 +27,14 @@ async function setup(others: readonly { hero: HeroId; at: Vec3 }[] = [], tiers: 
 const hitsOn = (sb: Sandbox, me: EntityId, foe: EntityId, ability?: string) =>
   sb.eventsOf('damage.applied').filter((e) => e.source === me && e.target === foe && (ability === undefined || e.ability === ability));
 const slot = (sb: Sandbox, me: EntityId, i: number) => sb.hero(me).abilities.slots[i];
+/** Put an ability on a cooldown with `seconds` left, and read what is left. */
+function cool(sb: Sandbox, me: EntityId, i: number, seconds: number): void {
+  const s = slot(sb, me, i)!;
+  s.charges = 0;
+  s.cooldownTicks = seconds * TICK_RATE;
+  s.readyAt = sb.sim.tick + seconds * TICK_RATE;
+}
+const left = (sb: Sandbox, me: EntityId, i: number): number => ((slot(sb, me, i)?.readyAt ?? 0) - sb.sim.tick) / TICK_RATE;
 function durations(sb: Sandbox, who: EntityId, id: string): number[] {
   const out: number[] = [];
   sb.ctx.bus.on('status.applied', (e) => {
@@ -118,17 +126,17 @@ describe('Cockatoo', () => {
     it('gives +25 SP and +15% Song damage for 6 s and drops the other cooldowns by 3 s', async () => {
       const { sb, me } = await setup();
       const sp = sb.ctx.stats.get(me, 'songPower');
-      slot(sb, me, 0)!.cooldownTicks = 10 * TICK_RATE;
-      slot(sb, me, 2)!.cooldownTicks = 10 * TICK_RATE;
-      slot(sb, me, 3)!.cooldownTicks = 2 * TICK_RATE;
+      cool(sb, me, 0, 10);
+      cool(sb, me, 2, 10);
+      cool(sb, me, 3, 2);
       sb.cast(me, 1);
       sb.step(2);
       expect(sb.ctx.stats.get(me, 'songPower')).toBeCloseTo(sp + 25, 3);
       expect(sb.ctx.stats.get(me, 'songDamage')).toBeCloseTo(0.15, 3);
-      expect(slot(sb, me, 0)?.cooldownTicks).toBeLessThanOrEqual(7 * TICK_RATE);
-      expect(slot(sb, me, 0)?.cooldownTicks).toBeGreaterThan(6.5 * TICK_RATE);
-      expect(slot(sb, me, 2)?.cooldownTicks).toBeLessThanOrEqual(7 * TICK_RATE);
-      expect(slot(sb, me, 3)?.cooldownTicks).toBe(0);
+      expect(left(sb, me, 0)).toBeLessThanOrEqual(7);
+      expect(left(sb, me, 0)).toBeGreaterThan(6.5);
+      expect(left(sb, me, 2)).toBeLessThanOrEqual(7);
+      expect(slot(sb, me, 3)?.charges).toBe(1);
       expect(slot(sb, me, 1)?.cooldownTicks).toBeGreaterThan(19 * TICK_RATE);
       sb.step(TICK_RATE * 6);
       expect(sb.ctx.stats.get(me, 'songPower')).toBeCloseTo(sp, 3);
@@ -138,11 +146,11 @@ describe('Cockatoo', () => {
     it('T1 8 s; T2 +10 SP; T3 a 6 s cooldown drop', async () => {
       const { sb, me } = await setup([], [0, 3, 0, 0]);
       const sp = sb.ctx.stats.get(me, 'songPower');
-      slot(sb, me, 0)!.cooldownTicks = 11 * TICK_RATE;
+      cool(sb, me, 0, 11);
       sb.cast(me, 1);
       sb.step(2);
       expect(sb.ctx.stats.get(me, 'songPower')).toBeCloseTo(sp + 35, 3);
-      expect(slot(sb, me, 0)?.cooldownTicks).toBeLessThanOrEqual(5 * TICK_RATE);
+      expect(left(sb, me, 0)).toBeLessThanOrEqual(5);
       sb.step(TICK_RATE * 7);
       expect(sb.ctx.stats.get(me, 'songPower')).toBeCloseTo(sp + 35, 3);
       sb.step(TICK_RATE * 1.2);
