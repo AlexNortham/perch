@@ -3316,3 +3316,22 @@ settle issue QA's spec now waits out.
 ### W5b · Environment Artist · camera clearance fix · 20/11/2026
 **Done:** fixed the Play-start blocker where the spawn camera was buried in leaves (060b3b3, on `integrate/w5` 6e67885). Leaf clumps, cards and forest-edge trunks stay out of a cylinder round every spawn and shop (D-ENV-006). The layer's materials discard dressing within 1.0–1.4 m of the camera's view line over the boom, with a dithered rim, so nothing of the layer sits between the camera and the hero anywhere.
 **Verified:** `npm run check -- --release`: all six steps PASS (e2e 112/112). A new perf-suite test casts camera-to-hero rays at both spawns for every body size, both shoulders and three pitches; it failed before the fix (forest-edge trunk and leaves behind the Dawn spawn). Shots looked at: the Dawn spawn in Play (Kingfisher), the Dusk spawn, respawn slots Dawn 5 and Dusk 3, and a Lantern Row path (`out/env/spawn/`).
+
+### EP · 21/11/2026 · Stage 4 Release 1 closed (functionality, D-EP-050/051)
+- **Final candidate:** integrate/w5 with the camera clearance fix (e7b545b), the UI fixes and the regenerated wiki (53 pages, 271 images, tips for all 24 birds).
+- **Final `npm run check -- --release`:** PASS on every step (typecheck 11 s, lint 21 s, test 87 s, perf 33 s, sim 6 s, e2e 512 s; 670 s in all). That makes four green release-mode runs in a row on this release line.
+- **Release matches:** 20/20 decided, 0 crashes. **Soak:** 30 min stable, 0 page errors.
+- **EP checked by eye:** Play as Kingfisher at the Dawn spawn shows the bird, the base and the HUD.
+- **Gate M3, Release 1:**
+  - [x] all 24 heroes and 64 items;
+  - [x] the Golden Egg, Roc and Embers, Thickets and runes work;
+  - [x] the detailed map (54 enterable buildings, the Cellar Run, the jungle and 100 Nests), within frame budgets;
+  - [x] 20 seeded headless matches with zero crashes, every one decided;
+  - [x] hold-to-upgrade with the free cursor;
+  - [x] no Interact key;
+  - [x] Practice Swap bird;
+  - [x] the always-on top scoreboard;
+  - [x] varied, synergistic bot builds (`bot-shopping` in `npm run slow`);
+  - [x] launchable with any of the 24, and PLAYABLE.md "Stage 4 (M3)" written.
+  - The "no placeholder shapes" item moves to Release 2 (the visual upgrade).
+- `main` is fast-forwarded to this commit and pushed to GitHub.
