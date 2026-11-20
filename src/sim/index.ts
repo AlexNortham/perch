@@ -63,20 +63,21 @@ const BUTTON_BITS = Object.values(Button).reduce((bits, b) => bits | b, 0);
 type LatchedCommand = { -readonly [K in keyof PlayerCommand]: PlayerCommand[K] };
 
 const finite = (v: number, fallback: number): number => (Number.isFinite(v) ? v : fallback);
+const wrapYaw = (yaw: number): number => (Math.abs(yaw) > Math.PI ? yaw - TURN * Math.round(yaw / TURN) : yaw);
 const isFiniteVec = (v: { x: number; y: number; z: number }): boolean =>
   Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
 
 /**
  * Copy `src` into the hero's latch with every field made safe (D-ARCH-011): axes finite and within ±1; look angles
- * finite (else the previous ones are kept), yaw wrapped to ±π, pitch clamped; unknown button bits cleared; an upgrade slot
- * outside 0–3 and a ping at a non-finite point dropped.
+ * finite (else the previous ones are kept), yaw wrapped to ±π, pitch clamped; unknown button bits cleared; an
+ * upgrade slot outside 0–3 and a ping at a non-finite point dropped.
  */
 function latchCommand(into: LatchedCommand, src: PlayerCommand): void {
   const yaw = finite(src.yaw, into.yaw);
   const up = src.upgrade;
   into.right = clamp(finite(src.right, 0), -1, 1);
   into.forward = clamp(finite(src.forward, 0), -1, 1);
-  into.yaw = Math.abs(yaw) > Math.PI ? yaw - TURN * Math.round(yaw / TURN) : yaw;
+  into.yaw = wrapYaw(yaw);
   into.pitch = clampPitch(finite(src.pitch, into.pitch));
   into.held = src.held & BUTTON_BITS;
   into.pressed = src.pressed & BUTTON_BITS;
@@ -126,7 +127,7 @@ function resolveConfig(c: SimConfig): ResolvedSimConfig {
     options: {
       waves,
       practiceHub: c.options?.practiceHub ?? false,
-      ...(start && { practiceStart: { pos: copy(start.pos), yaw: start.yaw } }),
+      ...(start && { practiceStart: { pos: copy(start.pos), yaw: wrapYaw(start.yaw) } }),
       structures: c.options?.structures ?? (map === 'main' && c.options?.waves === undefined && c.roster.length > 0),
       neutrals: c.options?.neutrals ?? waves,
       unlockAbilities: c.options?.unlockAbilities ?? false,

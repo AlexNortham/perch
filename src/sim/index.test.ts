@@ -67,6 +67,8 @@ describe('createSim', () => {
     expect([me?.pos.x, me?.pos.z, me?.yaw]).toEqual([5, 7, 1]);
     expect(dummy?.pos).toEqual(plain.ctx.store.list('hero')[1]?.pos);
     await expect(createSim({ seed: 1, map: 'arena', roster, options: { practiceStart } })).rejects.toThrow(/practiceHub/);
+    const turned = await createSim({ seed: 1, map: 'arena', roster, options: { ...options, practiceStart: { ...practiceStart, yaw: 1 + 4 * Math.PI } } });
+    expect(turned.ctx.store.list('hero')[0]?.yaw).toBeCloseTo(1);
     const nan = { ...practiceStart, yaw: Number.NaN };
     await expect(createSim({ seed: 1, map: 'arena', roster, options: { ...options, practiceStart: nan } })).rejects.toThrow(/finite/);
   });

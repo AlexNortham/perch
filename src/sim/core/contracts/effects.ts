@@ -119,7 +119,10 @@ export interface StatModEffect {
   readonly maxStacks?: number;
 }
 
-/** Remove statuses: every negative one, every positive one, or the listed ids (shields with a listed `id` too). Owner: sim/combat. */
+/**
+ * Remove statuses: every negative one, every positive one, or the listed ids (and shields whose `id` is listed).
+ * Owner: sim/combat.
+ */
 export interface CleanseEffect {
   readonly kind: 'cleanse';
   readonly remove: 'negative' | 'positive' | readonly StatusId[];
@@ -278,8 +281,9 @@ export interface MovementModeEffect {
   readonly onEnd?: readonly Effect[];
   /**
    * Besides its duration, the mode ends when the hero lands, presses Jump and/or is stunned ('stun': the 'stunned'
-   * condition, D-ARCH-027; `onEnd` still runs, so Tree Cling's cleanse of its gun bonus is data). Absent keeps physics' per-mode
-   * default (glide ends on both, D-CTRL-009; toboggan on Jump, with its hop). Lets kits say it without a hook.
+   * condition, D-ARCH-027; `onEnd` still runs, so Tree Cling's cleanse of its gun bonus is data). Absent keeps
+   * physics' per-mode default (glide ends on both, D-CTRL-009; toboggan on Jump, with its hop). Lets kits say it
+   * without a hook.
    */
   readonly endOn?: readonly ('land' | 'jump' | 'stun')[];
 }
