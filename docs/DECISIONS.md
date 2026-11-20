@@ -2234,3 +2234,10 @@ closed in to their gun's range. Hunter and Raptor parry a seen heavy wind-up wit
 60% of swings, decided once per swing (GDD §11.2).
 **Why:** pairs pushing their own lanes broke every Hawk (115 of 120 over 20 matches) but rarely a Heron (21), and no
 match ended by 60:00. Grouping is GDD §11.3's sieging rule and the cheapest lever on that stall.
+
+### D-BUILD-011 · 20/11/2026 — preview-regressions runs in the serial e2e project for now (integration)
+**Decision:** `e2e/preview-regressions.spec.ts` joins audio and result in the `serial` Playwright project: one worker,
+after the parallel suites. Its timeouts are unchanged.
+**Why:** since the Rendering merge a page load takes about 4 s, and its side-button test chains four loads inside 30 s;
+it passes alone (5 of 5) and timed out in two of three full runs beside three other browsers. The fix is the
+renderer-ready hook (Architect, then Rendering); that round moves the spec back to the parallel project.
