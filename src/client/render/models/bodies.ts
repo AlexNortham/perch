@@ -656,6 +656,52 @@ export const ALBATROSS_HEAD: HeadShape = {
   eye: [0.76, 0.14, 0.5], socket: 0.25, bill: [0, -0.1, 1.0], billW: 0.3, billH: 0.32,
 };
 
+// =================================================================================================================
+// Flamingo: a small oval body carried level on very long legs, a slender S-curved neck rising from the breast,
+// forward and back like a question mark, into a small head over a deep, sharply bent bill.
+
+export function flamingoAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 2.3;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.6, 1.44 * s, -0.02 * s], hip: [R * 0.3, plan.height * 0.5, -0.05 * s], tail: [0, 1.37 * s, -0.42 * s],
+    legLen: plan.height * 0.5, legThick: 0.016 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export function flamingoBody(plan: BodyPlan): Body {
+  const a = flamingoAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2300, 850, 270, 110], cell: 0.007,
+    ops: [
+      // A small oval carried level, deepest at the breast, tapering to the tail.
+      ell([0, 1.36 * s, -0.08 * s], [0.18 * s, 0.16 * s, 0.3 * s], 'body', 'back', { rot: [-0.08, 0, 0], k: 0.05 }),
+      ...pair(ell([0.065 * s, 1.36 * s, 0.1 * s], [0.12 * s, 0.15 * s, 0.14 * s], 'body', 'breast', { k: 0.06, rot: [-0.2, 0.25, 0] })),
+      ell([0, 1.3 * s, 0.16 * s], [0.055 * s, 0.13 * s, 0.09 * s], 'body', 'breast', { k: 0.05 }),
+      ell([0, 1.25 * s, -0.05 * s], [0.14 * s, 0.11 * s, 0.22 * s], 'body', 'belly', { k: 0.07 }),
+      ell([0, 1.46 * s, -0.11 * s], [0.14 * s, 0.06 * s, 0.24 * s], 'body', 'mantle', { k: 0.06, rot: [-0.08, 0, 0] }),
+      cone([0, 1.38 * s, -0.32 * s], [0, 1.34 * s, -0.47 * s], 0.1 * s, 0.05 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.11 * s, 1.44 * s, -0.08 * s], scapularR: [0.07 * s, 0.06 * s, 0.2 * s], root: 0.05 * s, inset: 0.06 }),
+      ...thighs(a, { r: 0.052 * s, rKnee: 0.028 * s, reach: 0.22, root: [0.055 * s, 1.24 * s, -0.04 * s] }),
+      // The S-neck: up and forward off the breast, back over the shoulders, then up and forward under the head.
+      ...neck(
+        [[0, 1.38 * s, 0.17 * s], [0, 1.52 * s, 0.25 * s], [0, 1.66 * s, 0.22 * s], [0, 1.78 * s, 0.1 * s], [0, 1.9 * s, 0.01 * s], [0, 2.0 * s, -0.01 * s], [0, hc[1] - 0.06 * s, 0.01 * s]],
+        [0.085 * s, 0.07 * s, 0.062 * s, 0.058 * s, 0.058 * s, 0.06 * s, 0.07 * s], 'neck', 0.62,
+      ),
+      ...head(hc, a.hr, FLAMINGO_HEAD),
+    ],
+  };
+}
+
+export const FLAMINGO_HEAD: HeadShape = {
+  skull: [1.06, 1.04, 1.12], skullAt: [0, 0.02, -0.06], face: [0.72, 0.64, 0.62], faceAt: [0, -0.08, 0.44],
+  brow: [0.46, 0.18, 0.42], browAt: [0.48, 0.42, 0.48], browTilt: 0.15, nape: [0.78, 0.7, 0.62], napeAt: [0, -0.45, -0.5],
+  eye: [0.72, 0.18, 0.5], socket: 0.25, bill: [0, -0.06, 0.98], billW: 0.34, billH: 0.4,
+};
+
 /** The birds with implicit bodies, by hero id. */
 export const BODIES = {
   peacock: peacockBody,
@@ -668,6 +714,7 @@ export const BODIES = {
   penguin: penguinBody,
   hornbill: hornbillBody,
   albatross: albatrossBody,
+  flamingo: flamingoBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */
