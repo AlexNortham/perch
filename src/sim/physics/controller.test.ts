@@ -4,7 +4,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { createSandbox } from '../../../tests/helpers/sandbox';
-import { Button, IDLE_COMMAND, LAYERS_SOLID, Layer } from '../core/contracts';
+import { Button, IDLE_COMMAND, LAYERS_SOLID, Layer, RETIRED_BUTTONS } from '../core/contracts';
 import type {
   BlockoutPrim,
   Climb,
@@ -665,7 +665,7 @@ describe('Updrafts (GDD §3.7)', () => {
     c.step(HOLD, 30);
     expect(c.h.motor.updraft).toBeNull();
     const d = await bench(line, { x: 1, y: 0, z: -31 });
-    d.step({ yaw: 0, pressed: Button.Interact, held: Button.Interact }, 30);
+    d.step({ yaw: 0, pressed: RETIRED_BUTTONS.Interact, held: RETIRED_BUTTONS.Interact }, 30);
     expect(d.h.motor.updraft).toBeNull();
   });
 

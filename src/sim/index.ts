@@ -57,27 +57,30 @@ import { loadMap } from './world/map';
 const MAX_HEROES = TEAM_SIZE * 2;
 const TURN = Math.PI * 2;
 const ABILITY_SLOTS = 4;
+/** Every live button bit; latching clears the rest, retired ones included (RETIRED_BUTTONS, D-ARCH-025). */
+const BUTTON_BITS = Object.values(Button).reduce((bits, b) => bits | b, 0);
 
 type LatchedCommand = { -readonly [K in keyof PlayerCommand]: PlayerCommand[K] };
 
 const finite = (v: number, fallback: number): number => (Number.isFinite(v) ? v : fallback);
+const wrapYaw = (yaw: number): number => (Math.abs(yaw) > Math.PI ? yaw - TURN * Math.round(yaw / TURN) : yaw);
 const isFiniteVec = (v: { x: number; y: number; z: number }): boolean =>
   Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
 
 /**
  * Copy `src` into the hero's latch with every field made safe (D-ARCH-011): axes finite and within ±1; look angles
- * finite (else the previous ones are kept), yaw wrapped to ±π, pitch clamped; button bits integral; an upgrade slot
- * outside 0–3 and a ping at a non-finite point dropped.
+ * finite (else the previous ones are kept), yaw wrapped to ±π, pitch clamped; unknown button bits cleared; an
+ * upgrade slot outside 0–3 and a ping at a non-finite point dropped.
  */
 function latchCommand(into: LatchedCommand, src: PlayerCommand): void {
   const yaw = finite(src.yaw, into.yaw);
   const up = src.upgrade;
   into.right = clamp(finite(src.right, 0), -1, 1);
   into.forward = clamp(finite(src.forward, 0), -1, 1);
-  into.yaw = Math.abs(yaw) > Math.PI ? yaw - TURN * Math.round(yaw / TURN) : yaw;
+  into.yaw = wrapYaw(yaw);
   into.pitch = clampPitch(finite(src.pitch, into.pitch));
-  into.held = src.held | 0;
-  into.pressed = src.pressed | 0;
+  into.held = src.held & BUTTON_BITS;
+  into.pressed = src.pressed & BUTTON_BITS;
   into.upgrade = typeof up === 'number' && Number.isInteger(up) && up >= 0 && up < ABILITY_SLOTS ? up : null;
   into.buy = src.buy;
   into.sell = src.sell;
@@ -112,6 +115,10 @@ function resolveConfig(c: SimConfig): ResolvedSimConfig {
     if (++perTeam[r.team] > TEAM_SIZE) throw new Error(`createSim: more than ${TEAM_SIZE} heroes on ${r.team}`);
     if (r.controller === 'human' && ++humans > 1) throw new Error('createSim: more than one human');
   }
+  const start = c.options?.practiceStart;
+  if (start && (!c.options?.practiceHub || !isFiniteVec(start.pos) || !Number.isFinite(start.yaw))) {
+    throw new Error('createSim: practiceStart needs practiceHub and a finite position and yaw');
+  }
   const waves = c.options?.waves ?? map === 'main';
   return {
     seed: c.seed,
@@ -120,6 +127,7 @@ function resolveConfig(c: SimConfig): ResolvedSimConfig {
     options: {
       waves,
       practiceHub: c.options?.practiceHub ?? false,
+      ...(start && { practiceStart: { pos: copy(start.pos), yaw: wrapYaw(start.yaw) } }),
       structures: c.options?.structures ?? (map === 'main' && c.options?.waves === undefined && c.roster.length > 0),
       neutrals: c.options?.neutrals ?? waves,
       unlockAbilities: c.options?.unlockAbilities ?? false,
@@ -145,18 +153,20 @@ function spawnHero(ctx: SimContext, slot: number, r: RosterSlot, indexInTeam: nu
     pos: { x: humanSpawn.pos.x + (r.team === 'dawn' ? -1 : 1) * TRAINING_TARGET.side, y: humanSpawn.pos.y, z: humanSpawn.pos.z + TRAINING_TARGET.ahead },
     hp: stats.final.maxHealth * (r.team === 'dawn' ? TRAINING_TARGET.alliedHpFraction : 1),
   } : undefined;
+  const start = r.controller === 'human' ? ctx.config.options.practiceStart : undefined;
+  const yaw = start?.yaw ?? anchor.yaw;
   const [a1, a2, a3, a4] = def.abilities;
   return ctx.store.spawn({
     kind: 'hero',
     team: r.team,
-    pos: copy(training?.pos ?? anchor.pos),
+    pos: copy(training?.pos ?? start?.pos ?? anchor.pos),
     vel: vec3(),
-    yaw: anchor.yaw,
+    yaw,
     radius: def.body.radius,
     hero: { heroId: r.hero, slot, controller: r.controller, ...(training && { training }) },
     pitch: 0,
     shoulder: 1,
-    command: { ...IDLE_COMMAND, yaw: anchor.yaw },
+    command: { ...IDLE_COMMAND, yaw },
     health: {
       hp: training?.hp ?? stats.final.maxHealth,
       talonShield: 0,
@@ -175,6 +185,7 @@ function spawnHero(ctx: SimContext, slot: number, r: RosterSlot, indexInTeam: nu
       dashing: false,
       mantling: false,
       updraft: null,
+      updraftInReach: null,
       climb: null,
       knockedUp: false,
       mode: null,

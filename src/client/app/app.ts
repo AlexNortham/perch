@@ -224,15 +224,9 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     const old = session.hero === null ? undefined : entityById(session.curr, session.hero);
     const look = { ...input.look };
     const id = ++sessionRequest;
-    const fresh = await startSession(practiceConfig(session.seed, hero), 'player', 0);
+    const start = old && { pos: { ...old.pos }, yaw: look.yaw };
+    const fresh = await startSession(practiceConfig(session.seed, hero, start), 'player', 0);
     if (id !== sessionRequest) return;
-    if (old && fresh.hero !== null) {
-      // ponytail: SimOptions has no practice start position yet, so the respawn event puts the new bird on the old spot (physics re-seats on it); ask the Architect for an option.
-      fresh.sim.ctx.bus.emit({ type: 'hero.respawned', hero: fresh.hero, pos: { ...old.pos } });
-      fresh.sim.step([]);
-      fresh.sim.drainEvents();
-      fresh.prev = fresh.curr = fresh.sim.view;
-    }
     session = fresh;
     activateSession();
     input.setLook(look);

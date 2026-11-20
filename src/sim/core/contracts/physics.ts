@@ -10,12 +10,21 @@
 import type { EntityId, Vec3 } from './base';
 import type { System } from './sim';
 
-/** Collision layer bits. Queries take a mask of layers to hit. */
+/**
+ * Collision layer bits. Queries take a mask of layers to hit. LAYERS_SOLID alone (bullets, areas) hits none of the
+ * last three, so a query that should honour them adds the bit (D-SYS-010, D-ARCH-027).
+ */
 export const Layer = {
   World: 0x1,
   Structure: 0x2,
   Hero: 0x4,
   Unit: 0x8,
+  /** Prims with `blocks: 'sight'` (ivy curtains): vision and `unit` targeting add it to their mask. */
+  Sight: 0x10,
+  /** Prims with `blocks: 'movement'` (shot-window fillers): heroes and units collide with them. */
+  Movement: 0x20,
+  /** `Opening.blocksEggCarrier` gaps: only the Egg carrier's moves collide with them. */
+  EggCarrier: 0x40,
 } as const;
 /** Everything that blocks bullets and sight. */
 export const LAYERS_SOLID = Layer.World | Layer.Structure;
@@ -62,9 +71,9 @@ export interface PhysicsService {
   /**
    * Stage 4 (D-EP-039, GDD §3.7): the nearest Updraft cable point within mounting reach of a hero standing at `pos`
    * (anywhere along the cable, reach from movement data), or null. `t` is the arc length along the cable from its
-   * first point. Physics uses it to mount on held Jump; sim/ai to plan mounts. Optional until physics lands it.
+   * first point. Physics uses it to mount on held Jump; sim/ai to plan mounts. Required since W5.5 (D-ARCH-027).
    */
-  updraftInReach?(pos: Vec3): { readonly updraft: number; readonly point: Vec3; readonly t: number } | null;
+  updraftInReach(pos: Vec3): { readonly updraft: number; readonly point: Vec3; readonly t: number } | null;
 }
 
 /** What src/sim/physics's `createPhysics` resolves to. */
