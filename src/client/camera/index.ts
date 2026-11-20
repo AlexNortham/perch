@@ -31,7 +31,6 @@ import {
 
 export { rayWorldPoint } from './collide';
 
-/** Move `v` toward `goal` by at most `step`. */
 /** Move v toward goal by at most |step|; never away from it (a negative step once widened the FOV, D-RENDER-018). */
 function approach(v: number, goal: number, step: number): number {
   const s = Math.abs(step);
