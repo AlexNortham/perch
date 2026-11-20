@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Button, HERO_IDS, IDLE_COMMAND, Layer, RETIRED_BUTTONS, ViewFlag } from './core/contracts';
+import { TICK_RATE } from './data/core';
 import { PHYSICS_LAYERS } from './data/movement';
 import type { HeroCommand, RosterSlot, Sim } from './core/contracts';
 import { allBotRoster, createSim, humanRoster } from './index';
@@ -199,7 +200,8 @@ describe('concession', () => {
     const hero = sim.view.localHero as number;
     sim.step([{ hero, command: { ...IDLE_COMMAND, concede: true } }]);
     expect(sim.isOver).toBe(false);
-    while (sim.view.seconds < 15 * 60) sim.step();
+    // sim.tick, not sim.view: a view is built on each read after a step, and 54,000 of them pushed this past 5 s.
+    while (sim.tick < 15 * 60 * TICK_RATE) sim.step();
     sim.step([{ hero, command: { ...IDLE_COMMAND, concede: true } }]);
     expect(sim.winner).toBe('dusk');
     const tick = sim.tick;
