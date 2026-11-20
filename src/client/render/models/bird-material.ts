@@ -2,7 +2,8 @@
  * Materials for sculpted birds (style guide §7.3, §8.2, §8.7). Two per bird kind, shared by every sculpted bird:
  * - `solid`: the opaque body, gear and gun. Vertex colour × a tile of the solid pattern atlas (feather scales, wood,
  *   leather…), chosen per vertex by the finish attribute `fx.w` and repeated in the shader;
- * - `cards`: the alpha-tested, double-sided feather cards, vertex colour × the card atlas (cut out at 0.5).
+ * - `cards`: the double-sided feathers, solid tapered geometry (clean edges at every distance, no alpha test),
+ *   vertex colour × an opaque feather pattern.
  * Both are physically based (metalness 0), with the per-vertex finish `fx` = (iridescence, glow, gloss, tile):
  * iridescent plumage shifts hue with view angle by up to 40°, glow lights catchlights, beads and chambers, gloss
  * polishes eyes, bills, claws and brass, and a fresnel rim (#FFE6C0) keeps birds the crispest thing on screen.
@@ -24,7 +25,6 @@ export const BIRD_SHADING = {
   /** Roughness where gloss is 1 (eyes, claws, bills, brass). */
   glossRoughness: 0.2,
   cardRoughness: 0.72,
-  alphaTest: 0.5,
   /** Inset of a tile's uv so bilinear filtering never reads the next tile (texels). */
   tileInset: 0.5,
 } as const;
@@ -111,8 +111,6 @@ export function birdMaterials(): BirdMaterials {
       roughness: BIRD_SHADING.cardRoughness,
       metalness: 0,
       map: cardAtlas(),
-      alphaTest: BIRD_SHADING.alphaTest,
-      alphaToCoverage: true,
       side: DoubleSide,
     }),
     false,

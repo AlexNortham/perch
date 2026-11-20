@@ -4,9 +4,8 @@
  * image files. Two atlases, both sRGB colour multipliers on the vertex colour:
  * - the SOLID atlas: 4 × 2 seamless tiles of surface pattern for the opaque body, gear and gun (feather scales, barred
  *   and mottled plumage, wood grain, leather, weave, tarsus scutes, and a flat white tile);
- * - the CARD atlas: 4 × 4 feather shapes for the alpha-tested cards (contour, primary, tail, down, the Peacock's eye,
- *   crest spoon, hair plume, wing blur, barred, mottled, quill, cloth, ragged, ruff, sickle, spotted), each with a
- *   rachis line, a vane gradient and edge notches, cut out at alpha 0.5.
+ * - the CARD atlas: 4 × 2 opaque feather patterns (plain vane, barred, mottled, spotted, the Peacock's eye, hair,
+ *   cloth, wing blur) painted on solid feather geometry whose outline comes from `outline()`.
  * Painted, not photographic: flat blocks, soft gradients, dark crevices and light edges; detail in shape, not grain.
  */
 import { ClampToEdgeWrapping, DataTexture, LinearFilter, LinearMipmapLinearFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType } from 'three';
@@ -15,14 +14,86 @@ import { ClampToEdgeWrapping, DataTexture, LinearFilter, LinearMipmapLinearFilte
 export const TILE = { flat: 0, scales: 1, barred: 2, mottle: 3, wood: 4, leather: 5, weave: 6, rings: 7 } as const;
 export const TILE_GRID = { cols: 4, rows: 2, px: 128 } as const;
 
-/** Card atlas cells (the `cell` of a card). */
+/**
+ * Feathers are solid tapered geometry (sculpt.ts `card`): an outline SHAPE gives the silhouette, so edges are clean at
+ * every distance (no alpha test, no dither), and an opaque PATTERN cell paints the vane.
+ */
+export const SHAPE = { contour: 0, primary: 1, tail: 2, sickle: 3, ragged: 4, spoon: 5, eye: 6, hair: 7, quill: 8, down: 9, cloth: 10, blur: 11 } as const;
+export const PATTERN = { plain: 0, barred: 1, mottled: 2, spotted: 3, eye: 4, hair: 5, cloth: 6, blur: 7 } as const;
+/** A feather as an outline and a painted pattern. */
+export type Feather = readonly [shape: number, pattern: number];
+/** The feathers birds are dressed in. */
 export const CARD = {
-  contour: 0, primary: 1, tail: 2, down: 3,
-  eye: 4, spoon: 5, hair: 6, blur: 7,
-  barred: 8, mottled: 9, quill: 10, cloth: 11,
-  ragged: 12, ruff: 13, sickle: 14, spotted: 15,
-} as const;
-export const CARD_GRID = { cols: 4, rows: 4, w: 128, h: 256 } as const;
+  contour: [SHAPE.contour, PATTERN.plain],
+  primary: [SHAPE.primary, PATTERN.plain],
+  tail: [SHAPE.tail, PATTERN.plain],
+  sickle: [SHAPE.sickle, PATTERN.plain],
+  ragged: [SHAPE.ragged, PATTERN.plain],
+  spoon: [SHAPE.spoon, PATTERN.plain],
+  eye: [SHAPE.eye, PATTERN.eye],
+  hair: [SHAPE.hair, PATTERN.hair],
+  quill: [SHAPE.quill, PATTERN.plain],
+  down: [SHAPE.down, PATTERN.plain],
+  ruff: [SHAPE.down, PATTERN.plain],
+  cloth: [SHAPE.cloth, PATTERN.cloth],
+  blur: [SHAPE.blur, PATTERN.blur],
+  barred: [SHAPE.primary, PATTERN.barred],
+  barredTail: [SHAPE.tail, PATTERN.barred],
+  mottled: [SHAPE.contour, PATTERN.mottled],
+  mottledTail: [SHAPE.tail, PATTERN.mottled],
+  spotted: [SHAPE.primary, PATTERN.spotted],
+  spottedTail: [SHAPE.tail, PATTERN.spotted],
+} as const satisfies Record<string, Feather>;
+export const CARD_GRID = { cols: 4, rows: 2, w: 128, h: 256 } as const;
+
+/**
+ * A feather outline: the left and right half-widths (shares of half the card's width) at s (0 root, 1 tip), and where
+ * the rachis ends at the tip row (below 1 makes a notched, fishtail tip).
+ */
+export function outline(shape: number, s: number): readonly [number, number] {
+  const sinp = (e: number, k: number): number => Math.max(0, Math.sin(Math.PI * Math.min(0.9999, s ** e))) ** k;
+  switch (shape) {
+    case SHAPE.contour:
+      return [sinp(1.35, 0.5), sinp(1.35, 0.5)];
+    case SHAPE.primary: {
+      const w = sinp(1.6, 0.45);
+      return [0.42 * w, 0.95 * w];
+    }
+    case SHAPE.tail: {
+      const w = s < 0.86 ? 0.88 * Math.sqrt(clamp01(s * 6)) : 0.88 * Math.sqrt(Math.max(0, 1 - ((s - 0.86) / 0.14) ** 2));
+      return [w, w];
+    }
+    case SHAPE.sickle: {
+      const w = s < 0.16 ? Math.sqrt(s / 0.16) : (1 - (s - 0.16) / 0.84) ** 0.85;
+      return [0.45 * w, 0.85 * w];
+    }
+    case SHAPE.ragged: {
+      const w = Math.sqrt(clamp01(s * 4)) * (s > 0.85 ? 1 - 0.35 * (s - 0.85) / 0.15 : 1);
+      return [0.95 * w, 0.95 * w];
+    }
+    case SHAPE.spoon: {
+      const w = s < 0.6 ? 0.14 : 0.14 + 0.86 * Math.sqrt(Math.max(0, 1 - ((s - 0.8) / 0.2) ** 2));
+      return [w, w];
+    }
+    case SHAPE.eye: {
+      const w = s < 0.55 ? 0.12 + 0.5 * s : Math.max(0.12 + 0.5 * 0.55, 0.92 * Math.sqrt(Math.max(0, 1 - ((s - 0.78) / 0.22) ** 2)));
+      return [s > 0.97 ? 0.92 * Math.sqrt(Math.max(0, 1 - ((s - 0.78) / 0.22) ** 2)) : w, s > 0.97 ? 0.92 * Math.sqrt(Math.max(0, 1 - ((s - 0.78) / 0.22) ** 2)) : w];
+    }
+    case SHAPE.hair:
+      return [0.6 * sinp(1.1, 0.7), 0.6 * sinp(1.1, 0.7)];
+    case SHAPE.quill:
+      return [0.22 * (1 - s) ** 0.8, 0.22 * (1 - s) ** 0.8];
+    case SHAPE.down:
+      return [sinp(1.2, 0.35), sinp(1.2, 0.35)];
+    case SHAPE.cloth:
+      return [0.95, 0.95];
+    default:
+      return [1, 1];
+  }
+}
+
+/** Where the rachis ends on the tip row (ragged feathers have a notched end). */
+export const rachisTip = (shape: number): number => (shape === SHAPE.ragged ? 0.86 : 1);
 
 type RGBA = [number, number, number, number];
 
@@ -92,8 +163,9 @@ function scale(x: number, y: number, R = 16, sh = 16): number {
     const dist = Math.hypot(x - cx, y - ((own + 1) * sh + R));
     shadow = Math.max(shadow, 1 - smooth(R * 1.12, R * 1.12 + 3.5, dist));
   }
-  const body = 1 - 0.1 * smooth(0.55, 1, t) + 0.04 * (1 - t);
-  return Math.min(1, body - 0.14 * shadow);
+  // Soft: a hint of feathering under painted gradients, not fish scales.
+  const body = 1 - 0.07 * smooth(0.55, 1, t) + 0.03 * (1 - t);
+  return Math.min(1, body - 0.09 * shadow);
 }
 
 function solidTile(tile: number, x: number, y: number): number {
@@ -110,7 +182,8 @@ function solidTile(tile: number, x: number, y: number): number {
       const n = fbm(x / 16, y / 16, 8, 3);
       const worm = Math.abs(Math.sin((x + 9 * fbm(x / 22, y / 22, 6, 5)) * 0.22 + y * 0.09));
       const speck = hash(x >> 2, y >> 2, 11) > 0.93 ? 1.18 : 1;
-      return Math.min(1, scale(x, y, 32, 32) * (0.55 + 0.45 * smooth(0.25, 0.75, n)) * (0.92 + 0.08 * smooth(0.1, 0.5, worm)) * speck);
+      // Blotches only: no feather rows, which would circle a loft end as concentric rings.
+      return Math.min(1, (0.58 + 0.42 * smooth(0.25, 0.75, n)) * (0.92 + 0.08 * smooth(0.1, 0.5, worm)) * speck);
     }
     case TILE.wood: {
       // Grain along the length (y), soft growth lines, a darker knot now and then.
@@ -148,186 +221,83 @@ function solidTile(tile: number, x: number, y: number): number {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Card shapes: x in [-1, 1] across (64 px per unit), y in [0, 1] root to tip (256 px per unit).
+// Feather patterns, fully opaque: x in [-1, 1] across the card (0 is the rachis), y in [0, 1] root to tip. The
+// geometry's outline cuts the shape; these paint a clean vane: a bright rachis with a soft shadow beside it, a
+// darker root, a lighter tip, and barbs only as a whisper of shading.
 
 const CW = CARD_GRID.w / 2;
 const CH = CARD_GRID.h;
-const GREY = (v: number, a: number): RGBA => [v, v, v, a];
-/** Soft edge over ~1.5 px for an inside distance `d` in pixels (positive inside). */
-const edge = (d: number): number => smooth(-0.75, 0.75, d);
+const GREY = (v: number): RGBA => [v, v, v, 1];
 
-/** A vane between a left and right half-width at height y, with rachis, gradient, barbs and seeded notches. */
-function vane(x: number, y: number, left: number, right: number, seed: number, o: { rachis?: number; notch?: number; barb?: number; base?: number } = {}): RGBA {
-  const rx = o.rachis ?? 0;
-  const half = x < rx ? left : right;
-  const dx = Math.abs(x - rx);
-  let inside = (half - dx) * CW;
-  // Notches: thin wedges cut in from the edge at seeded heights.
-  const notches = o.notch ?? 3;
-  for (let i = 0; i < notches; i++) {
-    const ny = 0.35 + 0.55 * hash(i, x < rx ? 1 : 2, seed);
-    const depth = 0.25 + 0.35 * hash(i, 9, seed);
-    const dist = Math.abs(y - ny) * CH - (dx / Math.max(half, 1e-3)) * 6;
-    if (dx > half * (1 - depth)) inside = Math.min(inside, dist - 1);
-  }
-  // Fluffy afterfeather at the base.
-  const base = o.base ?? 0.12;
-  let a = edge(inside);
-  if (y < base) a *= 0.35 + 0.65 * smooth(0.45, 0.6, hash(Math.floor(x * 40), Math.floor(y * 90), seed + 5));
-  const shaft = Math.abs(x - rx) * CW < 1.1 ? 1 : 0;
-  const barb = 1 - (o.barb ?? 0.05) * smooth(0.55, 0.85, Math.sin((y * CH * 0.9 - dx * CW * 1.6) * 0.9));
-  const grad = 0.72 + 0.28 * smooth(0, 0.85, y);
-  const rim = 1 - 0.12 * smooth(2.5, 0, inside);
-  const v = shaft ? Math.min(1, grad + 0.12) : grad * barb * rim;
-  return GREY(v, a);
+function vanePaint(x: number, y: number): number {
+  const ax = Math.abs(x);
+  const rachis = ax < 0.035 ? 0.14 : ax < 0.1 ? -0.07 * (1 - (ax - 0.035) / 0.065) : 0;
+  const barbs = 0.025 * Math.sin((y * CH * 0.55 - ax * CW * 0.9) * 0.9);
+  const along = 0.8 + 0.2 * smooth(0, 0.6, y);
+  const edge = 0.05 * smooth(0.45, 0.95, ax);
+  return Math.min(1, along + rachis + barbs + edge);
 }
 
-/** A tapering bare shaft from root to `top`, `w0` px wide at the root. */
-const shaftAlpha = (x: number, y: number, top: number, w0: number, rx = 0): number =>
-  y > top ? 0 : edge(w0 * (1 - 0.7 * (y / top)) - Math.abs(x - rx) * CW);
-
-function card(cell: number, x: number, y: number): RGBA {
+function pattern(cell: number, x: number, y: number): RGBA {
+  const v = vanePaint(x, y);
   switch (cell) {
-    case CARD.contour: {
-      const w = 0.92 * Math.sqrt(Math.max(0, 1 - ((y - 0.56) / 0.44) ** 2));
-      return vane(x, y, w, w, 1, { notch: 2, base: 0.25 });
+    case PATTERN.barred: {
+      // Crisp black-and-white ladder bars (use with a pale vertex colour).
+      const f = fract(y * 7 + 0.15);
+      const bar = smooth(0.4, 0.46, f) * (1 - smooth(0.9, 0.96, f));
+      return GREY(v * (0.12 + 0.88 * bar));
     }
-    case CARD.primary: {
-      const p = Math.sqrt(Math.max(0, Math.sin(Math.PI * Math.min(0.999, y ** 0.75))));
-      return vane(x, y, 0.32 * p, 0.86 * p, 2, { rachis: -0.42, notch: 2, barb: 0.07 });
+    case PATTERN.mottled: {
+      const m = smooth(0.32, 0.68, fbm(x * 3 + 5, y * 8, 64, 61));
+      const fleck = hash(Math.floor((x + 1) * 20), Math.floor(y * 60), 67) > 0.93 ? 0.15 : 0;
+      return GREY(Math.min(1, v * (0.62 + 0.38 * m) + fleck));
     }
-    case CARD.tail: {
-      const w = y < 0.88 ? 0.74 * Math.sqrt(clamp01(y * 5)) : 0.74 * Math.sqrt(Math.max(0, 1 - ((y - 0.88) / 0.12) ** 2));
-      return vane(x, y, w, w, 3, { notch: 3, barb: 0.07 });
+    case PATTERN.spotted: {
+      const spot = ((x - 0.12) / 0.5) ** 2 + ((y - 0.72) / 0.085) ** 2;
+      const pale = 1 - smooth(0.85, 1, spot);
+      return [v * 0.78 + pale * 0.3, v * 0.78 + pale * 0.28, v * 0.78 + pale * 0.25, 1];
     }
-    case CARD.down: {
-      // Filaments radiating from the root, curling at the ends.
-      let a = 0;
-      for (let k = 0; k < 18; k++) {
-        const ang = -1.15 + (2.3 * k) / 17 + 0.12 * (hash(k, 1, 4) - 0.5);
-        const len = 0.65 + 0.35 * hash(k, 2, 4);
-        const t = y / len;
-        if (t > 1) continue;
-        const cx = Math.sin(ang) * t * 0.95 * (CH / CW) * 0.32 + 0.15 * Math.sin(t * 5 + k) * t;
-        a = Math.max(a, edge(2.2 * (1 - t) + 0.6 - Math.abs(x - cx) * CW));
+    case PATTERN.eye: {
+      // The Peacock's train feather: bronze-green barbs below, the ocellus at the tip in crisp rings.
+      const ey = 0.78;
+      const r = Math.sqrt((x / 0.82) ** 2 + ((y - ey) / 0.2) ** 2);
+      const heart = (x / 0.3) ** 2 + ((y - ey + 0.015) / 0.075) ** 2 - 0.3 * Math.max(0, (y - ey) / 0.075) * Math.abs(x / 0.3);
+      const ring = (inner: number, outer: number): number => smooth(inner - 0.03, inner + 0.03, r) * (1 - smooth(outer - 0.03, outer + 0.03, r));
+      if (heart < 1) return [0.08, 0.13, 0.48, 1];
+      if (r < 0.52) return [0.06, 0.62, 0.72, 1];
+      const bronze: RGBA = [0.78, 0.55, 0.18, 1];
+      const green: RGBA = [0.18, 0.58, 0.3, 1];
+      const gold: RGBA = [0.86, 0.78, 0.3, 1];
+      if (r < 1.05) {
+        const t1 = ring(0.52, 0.7);
+        const t2 = ring(0.7, 0.88);
+        const c = t1 > 0.5 ? bronze : t2 > 0.5 ? green : gold;
+        return c;
       }
-      return GREY(0.82 + 0.18 * y, a * smooth(0, 0.08, y));
+      const streak = 0.85 + 0.15 * Math.sin((y * CH * 0.7 - Math.abs(x) * CW) * 0.7);
+      return [0.36 * streak, 0.62 * streak, 0.26 * streak, 1];
     }
-    case CARD.eye: {
-      // The Peacock's train feather: a bare shaft with loose bronze-green barbs, ending in the ocellus.
-      const ey = 0.8;
-      const ex = (x / 0.78) ** 2 + ((y - ey) / 0.19) ** 2;
-      if (ex <= 1.12) {
-        const r = Math.sqrt(ex);
-        // Heart-shaped navy centre (offset down), turquoise, bronze and gold-green rings, then a fringe.
-        const heart = (x / 0.3) ** 2 + ((y - ey + 0.02) / 0.075) ** 2 - 0.25 * Math.max(0, (y - ey) / 0.075) * Math.abs(x / 0.3);
-        const col: RGBA = heart < 1 ? [0.11, 0.16, 0.5, 1] : r < 0.55 ? [0.12, 0.62, 0.66, 1] : r < 0.72 ? [0.67, 0.52, 0.2, 1] : r < 0.9 ? [0.2, 0.52, 0.28, 1] : [0.55, 0.6, 0.22, 1];
-        const fringe = r > 0.9 ? smooth(0.4, 0.6, hash(Math.floor(x * 50), Math.floor(y * 120), 41)) : 1;
-        return [col[0], col[1], col[2], edge((1.12 - ex) * 30) * fringe];
-      }
-      const shaft = shaftAlpha(x, y, ey, 1.6);
-      const barbs = y > 0.12 && y < ey && Math.abs(x) < 0.55 * Math.sin(Math.PI * (y / ey)) && Math.sin((y * CH - Math.abs(x) * CW * 1.2) * 0.75) > -0.35 ? 1 : 0;
-      const a = Math.max(shaft, barbs * 0.95);
-      return [0.42, 0.56, 0.2, a];
+    case PATTERN.hair: {
+      // Strands painted along the plume.
+      const strand = 0.5 + 0.5 * Math.sin((x * 9 + 0.6 * Math.sin(y * 9)) * Math.PI);
+      return GREY(Math.min(1, (0.72 + 0.22 * strand) * (0.86 + 0.14 * y)));
     }
-    case CARD.spoon: {
-      // Crest spoon: a bare shaft and a small fan at the tip with a pale rim.
-      const fy = 0.8;
-      const d = Math.hypot(x * CW, (y - fy) * CH);
-      if (y > 0.58) {
-        const r = 50;
-        const v = d < r - 8 ? 0.82 + 0.1 * Math.sin(Math.atan2(x, y - fy) * 12) : 1;
-        return GREY(v, Math.max(edge(r - d), shaftAlpha(x, y, fy, 4)));
-      }
-      return GREY(0.8, shaftAlpha(x, y, 1, 4));
+    case PATTERN.cloth: {
+      const weave = 0.9 + 0.1 * Math.sin(x * CW * 1.6) * Math.sin(y * CH * 1.6);
+      const stripe = Math.abs(Math.abs(x) - 0.74) < 0.06 ? 0.7 : 1;
+      const hem = y > 0.9 ? 0.82 : 1;
+      return GREY(weave * stripe * hem);
     }
-    case CARD.hair: {
-      // Hair-like plume (Cassowary): a dense bunch of wavy strands from a shared root, fanning and tapering.
-      let a = 0;
-      let v = 0.7;
-      for (let k = 0; k < 9; k++) {
-        const spread = (k - 4) * 0.2;
-        const cx = spread * smooth(0.02, 0.9, y) + 0.06 * Math.sin(y * 11 + k * 1.7);
-        const len = 0.8 + 0.2 * hash(k, 4, 91);
-        const w = 5 * (1 - 0.75 * y / len) * (y < len ? 1 : 0);
-        const ink = edge(w - Math.abs(x - cx) * CW);
-        if (ink > a) {
-          a = ink;
-          v = 0.7 + 0.3 * (1 - Math.abs(x - cx) * CW / Math.max(w, 1));
-        }
-      }
-      return GREY(v * (0.85 + 0.15 * (1 - y)), a);
-    }
-    case CARD.blur: {
-      // Hummingbird wing blur: a fan of motion streaks from the root, denser at the edges of the sweep.
-      const px = x * CW;
-      const py = y * CH * 0.5;
-      const r = Math.hypot(px, py) / (CW * 0.98);
-      const ang = Math.atan2(px, py);
-      if (r > 1 || Math.abs(ang) > 1.2) return GREY(1, 0);
-      const sweepEdge = smooth(0.7, 1.2, Math.abs(ang));
-      const streak = fract(ang * 9 + hash(Math.floor(r * 6), 1, 51) * 0.3);
-      const keep = streak < 0.42 + 0.4 * sweepEdge ? 1 : 0;
-      return GREY(0.85 + 0.15 * r, keep * edge((1 - r) * CW) * smooth(0.05, 0.2, r));
-    }
-    case CARD.barred: {
-      const p = Math.sqrt(Math.max(0, Math.sin(Math.PI * Math.min(0.999, y ** 0.8))));
-      const f = vane(x, y, 0.5 * p, 0.8 * p, 8, { rachis: -0.25, notch: 1 });
-      const bar = 0.14 + 0.86 * smooth(0.42, 0.5, fract(y * 7.5 + 0.2)) * (1 - smooth(0.88, 0.96, fract(y * 7.5 + 0.2)));
-      return [f[0] * bar, f[1] * bar, f[2] * bar, f[3]];
-    }
-    case CARD.mottled: {
-      const w = 0.9 * Math.sqrt(Math.max(0, 1 - ((y - 0.55) / 0.45) ** 2));
-      const f = vane(x, y, w, w, 9, { notch: 2, base: 0.2 });
-      const m = 0.55 + 0.45 * smooth(0.3, 0.7, fbm(x * 4 + 3, y * 9, 64, 61));
-      const worm = 0.8 + 0.2 * smooth(0.2, 0.6, Math.abs(Math.sin(x * 9 + y * 30 + 3 * fbm(x * 2, y * 4, 64, 63))));
-      const tip = smooth(0.82, 0.9, y) * 0.3;
-      const v = Math.min(1, f[0] * m * worm + tip);
-      return GREY(v, f[3]);
-    }
-    case CARD.quill: {
-      // A bare, glossy quill (Cassowary wing spines): a thick shaft to a point.
-      const w = 4.5 * (1 - y) + 0.5;
-      return GREY(0.75 + 0.25 * (1 - Math.abs(x) * CW / w), edge(w - Math.abs(x) * CW) * (y < 0.98 ? 1 : 0));
-    }
-    case CARD.cloth: {
-      // A woven scarf tail with a frayed, fringed end.
-      const w = 0.92;
-      const weave = 0.86 + 0.14 * Math.sin(x * CW * 1.6) * Math.sin(y * CH * 1.6);
-      const hem = Math.abs(Math.abs(x) - 0.8) * CW < 1.2 ? 0.75 : 1;
-      let a = edge((w - Math.abs(x)) * CW);
-      if (y > 0.86) a *= Math.sin(x * CW * 1.4) > -0.2 ? edge((1 - y) * CH * 0.5 + 2) : 0;
-      return GREY(weave * hem * (0.9 + 0.1 * y), a);
-    }
-    case CARD.ragged: {
-      // Vulture coat: broad and dark with a deeply ragged, uneven tip.
-      const w = 0.94 * Math.sqrt(clamp01(y * 5));
-      const tipLine = 0.86 + 0.08 * Math.sin(x * 7 + 1) * Math.sin(x * 13) + 0.05 * hash(Math.floor((x + 1) * 9), 3, 71);
-      const f = vane(x, y, w, w, 12, { notch: 1, barb: 0.1 });
-      return GREY(f[0] * (0.85 + 0.15 * (1 - y)), f[3] * edge((tipLine - y) * CH));
-    }
-    case CARD.ruff: {
-      // A soft lance of down for ruffs and throats.
-      const w = 0.7 * Math.sqrt(Math.max(0, Math.sin(Math.PI * Math.min(0.999, y))));
-      const fil = smooth(0.25, 0.55, Math.abs(Math.sin(x * CW * 0.7 + y * 20)));
-      const a = edge((w - Math.abs(x)) * CW) * (Math.abs(x) > w * 0.6 ? fil : 1);
-      return GREY(0.88 + 0.12 * y, a);
-    }
-    case CARD.sickle: {
-      // Swift primary: long, narrow and pointed.
-      const p = y < 0.9 ? Math.sqrt(clamp01(y * 6)) : Math.max(0, (1 - y) / 0.1);
-      return vane(x, y, 0.22 * p, 0.6 * p, 14, { rachis: -0.3, notch: 1, barb: 0.06 });
-    }
-    case CARD.spotted: {
-      // A long feather with a pale spot near the tip (Nightjar wing and tail spots).
-      const p = Math.sqrt(Math.max(0, Math.sin(Math.PI * Math.min(0.999, y ** 0.8))));
-      const f = vane(x, y, 0.55 * p, 0.8 * p, 15, { rachis: -0.2, notch: 2 });
-      const spot = ((x - 0.1) / 0.45) ** 2 + ((y - 0.7) / 0.08) ** 2 < 1 ? 1 : 0;
-      const m = 0.7 + 0.3 * fbm(x * 3, y * 8, 64, 81);
-      return spot ? [1, 0.98, 0.94, f[3]] : GREY(f[0] * m * 0.75, f[3]);
+    case PATTERN.blur: {
+      // A wing beating: radial streaks fanning from the shoulder, densest at the ends of the stroke.
+      const ang = Math.atan2(x, Math.max(y, 1e-3));
+      const r = Math.hypot(x, y);
+      const streak = 0.5 + 0.5 * Math.sin(ang * 26);
+      const ends = smooth(0.6, 1.15, Math.abs(ang));
+      return GREY(Math.min(1, 0.66 + 0.2 * streak + 0.2 * ends + 0.12 * smooth(0.6, 1, r)));
     }
     default:
-      return GREY(1, 0);
+      return GREY(v);
   }
 }
 
@@ -369,13 +339,13 @@ export function solidAtlas(): DataTexture {
   return solid;
 }
 
-/** The feather card atlas (shared by every sculpted bird). */
+/** The feather pattern atlas (opaque; shared by every sculpted bird). */
 export function cardAtlas(): DataTexture {
   cards ??= texture(CARD_GRID.cols * CARD_GRID.w, CARD_GRID.rows * CARD_GRID.h, (px, py) => {
     const cell = Math.floor(py / CARD_GRID.h) * CARD_GRID.cols + Math.floor(px / CARD_GRID.w);
     const x = ((px % CARD_GRID.w) + 0.5) / CW - 1;
     const y = ((py % CARD_GRID.h) + 0.5) / CH;
-    return card(cell, x, y);
+    return pattern(cell, x, y);
   });
   return cards;
 }

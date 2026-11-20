@@ -10,7 +10,8 @@
  */
 import { BufferGeometry, Color, Euler, Float32BufferAttribute, Matrix3, Matrix4, Quaternion, Uint16BufferAttribute, Uint32BufferAttribute, Vector3 } from 'three';
 import type { BufferAttribute } from 'three';
-import { cardUv, TILE } from './feathers';
+import { cardUv, outline, rachisTip, SHAPE, TILE } from './feathers';
+import type { Feather } from './feathers';
 
 export type V3 = readonly [number, number, number];
 export const MORPHS = ['display', 'jaw', 'blink'] as const;
@@ -39,7 +40,7 @@ export interface Place {
 }
 
 /** A colour (0xRRGGBB, sRGB) or a painter by position along (t, 0–1) and around (a, radians) a loft. */
-export type Paint = number | ((t: number, a: number) => number);
+export type Paint = number | ((t: number, a: number, p: Vector3) => number);
 
 /** A loft control ring: centre, half-width (x side), top and bottom radii, optional cross-section up direction. */
 export interface Ring {
@@ -74,12 +75,13 @@ export interface CardOptions {
   readonly face: V3;
   readonly len: number;
   readonly wid: number;
-  readonly cell: number;
+  /** The feather: its outline shape and painted pattern (feathers.ts CARD). */
+  readonly cell: Feather;
   /** Bend out of the plane toward the face normal over the length (rad, + curls toward the face). */
   readonly curl?: number;
   /** In-plane curve over the length (rad, + toward the card's +x = dir × face). */
   readonly sweep?: number;
-  /** Segments along the length (default 2) and a raised rachis (cupped vane) when > 0. */
+  /** Rows along the length (default 4; the outline needs at least 2) and a raised rachis (cupped vane) when > 0. */
   readonly segs?: number;
   readonly cup?: number;
   /** Root and tip colours. */
@@ -87,8 +89,6 @@ export interface CardOptions {
   readonly tip?: number;
   readonly finish?: Finish;
   readonly morph?: Morphs;
-  /** Share of the cell's height the shape uses (the wing blur fan uses its lower half). */
-  readonly vSpan?: number;
 }
 
 /** A point on a loft's surface: position, outward normal and the loft's direction there. */
@@ -348,12 +348,14 @@ export class Sculpt {
     const di = new Vector3();
     const nrm = new Vector3();
     const big = Math.max(...R.map((r) => r.w + (r.up + r.dn) / 2), 1e-6);
+    // Round the loft at its widest in a whole number of tiles: every ring shares it, so tapering rings compress the
+    // pattern (and fade at the ends) instead of shearing it into streaks, and the seam meets itself.
+    const uTiles = Math.max(1, Math.round((Math.PI * big) / tileSize));
     for (let i = 0; i < nR; i++) {
       const r = R[i] as FullRing;
       const row = P[i] as Vector3[];
-      const circ = Math.PI * (r.w + (r.up + r.dn) / 2);
       // Rings squeeze toward a closed end; the pattern fades there rather than pinching into concentric rings.
-      const fade = 1 - Math.min(1, (r.w + (r.up + r.dn) / 2) / (big * 0.45));
+      const fade = 1 - Math.min(1, (r.w + (r.up + r.dn) / 2) / (big * 0.85));
       for (let j = 0; j <= seg; j++) {
         const jp = j === seg ? 1 : j + 1;
         const jm = j === 0 ? seg - 1 : j - 1;
@@ -365,8 +367,8 @@ export class Sculpt {
         const p = row[j] as Vector3;
         const t = len > 0 ? (along[i] as number) / len : 0;
         const a = (j / seg) * Math.PI * 2;
-        const hex = typeof paint === 'number' ? paint : paint(t, a);
-        const u = f.tile === undefined || f.tile === TILE.flat ? 0.5 : ((j / seg) * Math.max(circ, 1e-3)) / tileSize;
+        const hex = typeof paint === 'number' ? paint : paint(t, a, p);
+        const u = f.tile === undefined || f.tile === TILE.flat ? 0.5 : (j / seg) * uTiles;
         const v = f.tile === undefined || f.tile === TILE.flat ? 0.5 : (along[i] as number) / tileSize;
         if (o.uvSwap) this.put(L, p.x, p.y, p.z, nrm.x, nrm.y, nrm.z, v, u, hex, f, fade);
         else this.put(L, p.x, p.y, p.z, nrm.x, nrm.y, nrm.z, u, v, hex, f, fade);
@@ -388,12 +390,12 @@ export class Sculpt {
         if (r.w + r.up + r.dn < 1e-5) continue;
         const t = (T[end] as Vector3).clone().multiplyScalar(end === 0 ? -1 : 1);
         const centre = L.count;
-        const hex = typeof paint === 'number' ? paint : paint(end === 0 ? 0 : 1, 0);
+        const hex = typeof paint === 'number' ? paint : paint(end === 0 ? 0 : 1, 0, r.c);
         this.put(L, r.c.x, r.c.y, r.c.z, t.x, t.y, t.z, 0.5, 0.5, hex, f);
         const first = L.count;
         for (let j = 0; j < seg; j++) {
           const p = (P[end] as Vector3[])[j] as Vector3;
-          this.put(L, p.x, p.y, p.z, t.x, t.y, t.z, 0.5, 0.5, typeof paint === 'number' ? paint : paint(end === 0 ? 0 : 1, (j / seg) * Math.PI * 2), f);
+          this.put(L, p.x, p.y, p.z, t.x, t.y, t.z, 0.5, 0.5, typeof paint === 'number' ? paint : paint(end === 0 ? 0 : 1, (j / seg) * Math.PI * 2, p), f);
         }
         for (let j = 0; j < seg; j++) {
           const a = first + j;
@@ -453,11 +455,14 @@ export class Sculpt {
     return this;
   }
 
-  /** A feather card: a strip root → tip, optionally curled, swept and cupped, cut out by the card atlas. */
+  /**
+   * A feather: solid tapered geometry root → tip whose outline is the feather's shape (so its edge is clean at every
+   * distance), optionally curled, swept and cupped, its vane painted by an opaque pattern and a root-to-tip gradient.
+   * Drawn double-sided in the feather layer.
+   */
   card(o: CardOptions): this {
     if (o.len <= 0 || o.wid <= 0) return this;
-    const segs = Math.max(1, o.segs ?? 2);
-    const cols = (o.cup ?? 0) > 0 ? 3 : 2;
+    const [shape, pat] = o.cell;
     const dir = new Vector3(...o.dir).normalize();
     const face = new Vector3(...o.face);
     face.addScaledVector(dir, -face.dot(dir)).normalize();
@@ -465,57 +470,82 @@ export class Sculpt {
     const across = new Vector3().crossVectors(dir, face).normalize();
     const M = new Matrix4().makeBasis(across, dir, face).setPosition(o.at[0], o.at[1], o.at[2]);
     this.begin(M, o.morph);
-    const [u0, v0, u1, v1full] = cardUv(o.cell);
-    const v1 = v0 + (v1full - v0) * (o.vSpan ?? 1);
+    const [u0, v0, u1, v1] = cardUv(pat);
     const L = this.cards;
     const base = L.count;
     const f = o.finish ?? {};
+    if (shape === SHAPE.blur) {
+      // A wing beat: a fan of wedges from the root, ±1.2 rad about the card's direction.
+      const wedges = Math.max(4, o.segs ?? 8);
+      const r = o.len;
+      this.put(L, 0, 0, 0, 0, 0, 1, (u0 + u1) / 2, v0, o.root, f);
+      for (let i = 0; i <= wedges; i++) {
+        const ang = -1.2 + (2.4 * i) / wedges;
+        const x = Math.sin(ang) * r;
+        const y = Math.cos(ang) * r;
+        this.put(L, x, y, 0, 0, 0, 1, u0 + (u1 - u0) * (0.5 + x / (2 * r)), v0 + (v1 - v0) * (y / r), o.tip ?? o.root, f);
+      }
+      for (let i = 0; i < wedges; i++) L.i.push(base, base + 1 + i, base + 2 + i);
+      return this;
+    }
+    const segs = Math.max(2, o.segs ?? 4);
     const curl = o.curl ?? 0;
     const sweep = o.sweep ?? 0;
     const cup = (o.cup ?? 0) * o.wid;
-    // Walk the centreline in card space (x across, y along, z out of the face).
+    const tipRachis = rachisTip(shape);
+    // Walk the centreline in card space (x across, y along, z out of the face), rows closer together near the tip.
     let x = 0;
     let y = 0;
     let z = 0;
     let pitch = 0;
     let yaw = 0;
-    const step = o.len / segs;
-    for (let s = 0; s <= segs; s++) {
-      if (s > 0) {
-        pitch += curl / segs;
-        yaw += sweep / segs;
+    let prevS = 0;
+    for (let k = 0; k <= segs; k++) {
+      const s = 1 - (1 - k / segs) ** 1.8;
+      const step = (s - prevS) * o.len;
+      prevS = s;
+      if (k > 0) {
+        pitch += (curl * step) / o.len;
+        yaw += (sweep * step) / o.len;
         x += Math.sin(yaw) * Math.cos(pitch) * step;
         y += Math.cos(yaw) * Math.cos(pitch) * step;
         z += Math.sin(pitch) * step;
       }
-      const k = s / segs;
-      const hex = o.tip === undefined ? o.root : mix(o.root, o.tip, k);
-      // Across direction (perpendicular to the in-plane heading) and the face normal (tilted by the curl).
+      const hex = o.tip === undefined ? o.root : mix(o.root, o.tip, s);
       const ax = Math.cos(yaw);
       const ay = -Math.sin(yaw);
       const nz = Math.cos(pitch);
       const ny = -Math.sin(pitch) * Math.cos(yaw);
       const nx = -Math.sin(pitch) * Math.sin(yaw);
-      for (let c = 0; c < cols; c++) {
-        const side = cols === 2 ? c * 2 - 1 : c - 1;
-        const half = (o.wid / 2) * side;
-        const lift = cols === 3 && c === 1 ? cup : 0;
-        const u = u0 + (u1 - u0) * (side + 1) / 2;
-        const v = v0 + (v1 - v0) * k;
-        this.put(L, x + ax * half + nx * lift, y + ay * half + ny * lift, z + nz * lift, nx, ny, nz, u, v, hex, f);
-      }
+      const [wl, wr] = outline(shape, s);
+      // The rachis ends short of the edges on a notched (ragged) tip.
+      const back = k === segs ? (1 - tipRachis) * o.len : 0;
+      const columns: [number, number, number][] = [
+        [-wl * (o.wid / 2), 0, 0],
+        [0, cup * Math.min(1, s * 4) * (1 - s), back],
+        [wr * (o.wid / 2), 0, 0],
+      ];
+      const v = v0 + (v1 - v0) * s;
+      columns.forEach(([cx, lift, shorten], c) => {
+        const px = x + ax * cx + nx * lift - Math.sin(yaw) * shorten;
+        const py = y + ay * cx + ny * lift - Math.cos(yaw) * shorten;
+        const pz = z + nz * lift;
+        const u = u0 + (u1 - u0) * (0.5 + cx / o.wid);
+        this.put(L, px, py, pz, nx, ny, nz, u, v, c === 1 ? shade(hex, 1.06) : hex, f);
+      });
     }
-    for (let s = 0; s < segs; s++) {
-      for (let c = 0; c < cols - 1; c++) {
-        const a = base + s * cols + c;
+    for (let k = 0; k < segs; k++) {
+      for (let c = 0; c < 2; c++) {
+        const a = base + k * 3 + c;
         const b = a + 1;
-        const d = a + cols;
+        const d = a + 3;
         const e = d + 1;
         L.i.push(a, b, d, b, e, d);
       }
     }
     return this;
   }
+
 
   /** Triangles in each layer. */
   triangles(): { solid: number; cards: number } {

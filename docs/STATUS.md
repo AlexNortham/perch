@@ -2355,3 +2355,81 @@ tests 45 (materials, compaction, map layer, ride, identity).
   the bytes), and keep its BatchedMeshes tagged so `budget()` reports them (it now counts what they drew).
 
 **Next:** a worker path for generation once the readiness hook exists; decals (§7.5); the canopy dapple at Medium.
+### W5b · Technical Artist · second pass on the eight birds · 20/11/2026
+**Done:** the shared pipeline was fixed first, then each bird re-tuned. `integrate/w5` was merged in first. Branch
+`worktree-agent-a92af01b0682191d3` (D-ART-007).
+- **Feathers** (`feathers.ts`, `sculpt.card`, `bird-material.ts`): solid tapered blades with a raised rachis replace
+  the cut-out quads, with clean edges and no dithered fringe. Patterns are opaque, with bars, spots, mottle, and the
+  Peacock's crisp eyespots. There are fewer, larger feathers, each placed deliberately.
+- **Heads** (`anatomy.headForm`): one loft from inside the body's neck through the nape, crown, brow and cheek into
+  the beak base, used by all eight birds. Necks and napes are fuller, so no head sits as a ball on a tube.
+- **Wings** (`wingArm`, `wingHand`): broad tapered panels with the flock wing bar, two rows of coverts, graduated
+  secondaries, and primaries spread as fingers round the grip.
+- **Surface** (`sculpt.loft`): the pattern repeats a whole number of times round each loft's widest ring, so it no
+  longer shears into streaks or rings. It fades at closed ends. The scale tile is softened to a hint of feathering
+  under painted gradients.
+- **Colour and value:** every bird has a lighter belly, a darker back and one strong accent, plus the rim and a gloss
+  or iridescent finish. The Peacock's train is iridescent teal, green and bronze.
+- **Per bird:**
+  - Peacock: a train of five tiers with eyespots, and a full nape.
+  - Swift: a leaning teardrop body, crescent sickle wings from the shoulders, a mantle of glossy scapulars, a forked
+    tail, a pale throat and goggles.
+  - Vulture: a bald head lofted as one form, and a ruff of 12 tufts.
+  - Hummingbird: a puffed breast, a ruby throat, broader wings and geometric blur fans.
+  - Cassowary: a wider neck, and hair rows kept clear of the rump pole.
+  - Toucan: a bib.
+  - Woodpecker: painted crown, mask and stripes.
+  - Nightjar: the head sits down into the breast, the gape is a thin line, the chin is a pale throat patch, and the
+    mottle is clean.
+
+**Evidence:** before and after images are in `out/art/before/<bird>.png` and `out/art/after/<bird>.png` (git-ignored).
+Each is a neutral-light triptych: 3/4, front, and the back from the player camera. `out/art/after/<bird>-player.png`
+is the real player camera. I compared them side by side with `HP8-yBieQK8\t2010.jpg` (crisp planes, one saturated
+accent, soft gradients, edge light). Reproduce with
+`npx tsx tests/anim/posesheets.ts --out=out/art/after --frame="name=<bird>&mode=triptych&hero=<bird>"`, or
+`mode=player`.
+
+| Bird | Level 0 / 1 / 2 / 3 triangles | Player camera: bird / gun | Honest score (3 = finished, professional) |
+|---|---|---|---|
+| Peacock | 8,568 / 3,060 / 1,078 / 396 | 3.6 % / 0.20 % | 2 |
+| Vulture | 8,044 / 3,190 / 1,034 / 388 | 5.3 % / 0.22 % | 2 |
+| Swift | 7,298 / 2,786 / 1,046 / 386 | 4.9 % / 0.21 % | 2 |
+| Hummingbird | 6,578 / 2,502 / 864 / 354 | 5.6 % / 0.21 % | 2 |
+| Cassowary | 8,392 / 3,164 / 1,124 / 394 | 4.8 % / 0.28 % | 1 |
+| Toucan | 7,798 / 2,898 / 988 / 330 | 3.9 % / 0.23 % | 2 |
+| Woodpecker | 7,414 / 2,904 / 944 / 366 | 3.3 % / 0.32 % | 2 |
+| Nightjar | 6,738 / 2,582 / 890 / 342 | 5.4 % / 0.21 % | 2 |
+
+All are within budget (9,000 / 3,500 / 1,200 / 400), with at most three draw calls.
+
+**Still short of 3:** these gaps are structural, not tuning.
+- Bodies are single lofts that read as eggs or bottles. They need a sculpted breast, shoulder and back planes, and a
+  coat of large contour feathers over the back, not a tiled surface.
+- The Peacock's secondaries hang as a skirt.
+- The Cassowary's back is still a black egg, and its plumes look grey from behind.
+- The Nightjar is still two stacked rounds from the front.
+- Long necks (Peacock, Cassowary) still read as tubes from the player camera.
+
+**Verified:**
+- The model, render and attachment tests pass (106): budgets, ≤ 3 draw calls, the head on its hitbox, the gun cap,
+  the morphs and the LOD. Wings are on the grips and the muzzle is on the sim's muzzle point. Feet are planted in
+  every grounded state (D-EP-035).
+- `npm run check`, each step run, with `integrate/w5` 061e266 merged (clean):
+  - **typecheck, lint and sim:** pass. The sim is seed 1, 3 minutes, 12 bots, in 3.4 s.
+  - **test:** 1,083 pass and 6 fail. None of the failures is in this branch's files.
+    - Five sim tests fail deterministically on `src/sim`, which is byte-identical to `integrate/w5`:
+      `interactables` (Bell Feeder) and `neutrals` (Nests, Thickets, Roc).
+    - The wiki-coverage test times out under load.
+    - The all-bird model tests now have a 30 s timeout, because one timed out at 5 s under load.
+  - **perf:** the two `world.perf` timing tests run over budget while other agents load the machine.
+  - **e2e:** 60–61 of 62 pass. A different spec fails on each run (match shop, Swap bird). Both pass when rerun
+    alone (7/7).
+### EP · 20/11/2026 · art review of the environment layer (first pass, not merged yet)
+- Branch `worktree-agent-a347043346bfb584a` (2de8b3d) carries Rendering's work-in-progress branch at 1213e1d. It merges after Rendering, never before.
+- EP agrees with the artist's 2.6 against the 3.2 pass mark. Hedgerow's terrace, roofs and lighting are a real step up. Second pass ordered:
+  - bird life at every scale in each street view (D-EP-048);
+  - a real layered jungle instead of a lawn;
+  - the giant blank boundary wall dressed as a skyline;
+  - interior floors (grass shows indoors) and bird-purpose furnishing;
+  - volumetric Nests and objective sites;
+  - vertex memory down from about 95 MB, jointly with Rendering.
