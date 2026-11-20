@@ -327,9 +327,9 @@ describe('W5 Hides (§7.15)', { timeout: TIMEOUT_MS }, () => {
 
   it('§7.15 it shows for 2 s after it deals damage or applies a status to an enemy; true sight reveals it; an enemy in the same Hide sees it', async () => {
     const { sb, hero, foe, inside } = await hide();
-    // The Hide's door is on a short end (GDD §6.9) and faces west for the first one: stand the enemy 8 m out in the
+    // The Hide's door is on a short end (GDD §6.9) and faces west for the first one: stand the enemy 2 m outside it, within 3 m of its ivy curtain (which otherwise blocks sight, §6.8), in the
     // doorway's line, so a sight line into the shed exists once the Hide is lifted (the map origin has none).
-    sb.place(foe, { x: inside.x - 8, y: inside.y, z: inside.z });
+    sb.place(foe, { x: inside.x - 5, y: inside.y, z: inside.z });
     sb.step(2);
     sb.apply({ kind: 'damage', amount: 10, type: 'talon' }, foe, sb.cause(hero, { via: 'weapon' }));
     sb.step(2); // vision runs before the damage phase, so the exposure shows from the next tick
