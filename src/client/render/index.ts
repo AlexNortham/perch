@@ -411,7 +411,10 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       // Antialiasing is fixed when a WebGL context is created, so a new preset gets a new context.
       preset = next;
       lib = getMaterialLibrary(q);
-      blockout?.setLibrary(lib);
+      // The map layer is built per tier (§11.6: Low has no geometric bevels or trims): rebuild it.
+      const map = current;
+      current = null;
+      if (map) setMap(map);
       shadowHalf = 0;
       sun.shadow.map?.dispose();
       sun.shadow.map = null;

@@ -143,6 +143,8 @@ interface Ctx {
   readonly foliage: readonly BlockoutPrim[];
   readonly district: (x: number, z: number) => District;
   readonly toSun: Vector3;
+  /** §11.6 Low: bevels in texture only, no trims or hedge fringes, sparser cards. */
+  readonly low: boolean;
 }
 
 /** Paint and queue one piece; walls standing on something get the contact band and damp gradient. */
@@ -179,7 +181,7 @@ function boxPrim(ctx: Ctx, p: BlockoutPrim & { shape: 'box' }, i: number): void 
   const footprint = Math.min(sx, sz);
   const bottom = p.centre.y - sy / 2;
   const big = Math.max(sx, sz) > ART.hugePiece;
-  const chamfer = Math.max(ART.chamferMin, Math.min(ART.chamferMax, minDim * ART.chamferShare));
+  const chamfer = ctx.low ? 0 : Math.max(ART.chamferMin, Math.min(ART.chamferMax, minDim * ART.chamferShare));
   const loops = sy >= ART.loopMinHeight ? [ART.contactLoop, ART.dampLoop] : [];
   const geo = (): BufferGeometry => place(chamferBox(sx, sy, sz, { chamfer, bottom: bottom > ART.groundEps, loops, ...(big && { segment: ART.hugeSegment }) }), p.centre, p.yaw);
   const tag: MaterialTag = p.material;
@@ -217,7 +219,7 @@ function boxPrim(ctx: Ctx, p: BlockoutPrim & { shape: 'box' }, i: number): void 
       // Wall tops grow moss (§5.8); broad tops are walkable flat roofs, paved.
       put(ctx, top, thin && p.centre.y + sy / 2 > ART.mossAbove ? 'moss' : 'flagstone', { ...common, ground: undefined });
       put(ctx, side, id, { ...common, ...(tint !== undefined && { tint }) });
-      if (!big && sy >= ART.trimMinHeight && footprint >= ART.trimMinFootprint) trims(ctx, p, i * ART.seedStride, tag === 'brick' ? pal.stone : id, tint);
+      if (!ctx.low && !big && sy >= ART.trimMinHeight && footprint >= ART.trimMinFootprint) trims(ctx, p, i * ART.seedStride, tag === 'brick' ? pal.stone : id, tint);
       return;
     }
     case 'wood': {
@@ -245,7 +247,7 @@ function boxPrim(ctx: Ctx, p: BlockoutPrim & { shape: 'box' }, i: number): void 
       return;
     case 'foliage': {
       put(ctx, place(chamferBox(sx, sy, sz, { chamfer: Math.min(ART.hedgeChamfer, minDim / 2), bottom: false }), p.centre, p.yaw), 'hedge', { ...common, ground: bottom });
-      hedgeFringe(ctx, p, i);
+      if (!ctx.low) hedgeFringe(ctx, p, i);
       return;
     }
     case 'trunk':
@@ -327,7 +329,7 @@ function canopy(ctx: Ctx, p: BlockoutPrim & { shape: 'cylinder' }, i: number): v
     const a = hash(s) * Math.PI * 2;
     const d = (p.radius - r) * Math.sqrt(hash(s + 1));
     const y = p.centre.y + (hash(s + 2) - 1 / 2) * Math.max(0, p.height - r);
-    const count = Math.round(ART.cardsPerM2 * r * r);
+    const count = Math.round(ART.cardsPerM2 * r * r * (ctx.low ? ART.lowCards : 1));
     const { cards, core } = leafClump(r, count, s, ctx.toSun, ART.canopyCard);
     const at = (g: BufferGeometry): BufferGeometry => g.translate(p.centre.x + Math.cos(a) * d, y, p.centre.z + Math.sin(a) * d);
     const tint = hash(s + ART.canopyTintSalt) < 1 / 2 ? ART.canopyTint : ART.canopyTintAlt;
@@ -543,7 +545,7 @@ function chimneys(map: MapData): Mesh | null {
  * The forest beyond the bounds (decoration only): a ground plane to the horizon and rings of giant trees, each an
  * instanced bark trunk and a canopy of leaf clumps. Sizes and spacing scale with the map's depth.
  */
-function backdrop(map: MapData, lib: MaterialLibrary, toSun: Vector3): { objects: (Mesh | Group)[]; instances: LodInstances[] } {
+function backdrop(map: MapData, lib: MaterialLibrary, toSun: Vector3, low: boolean): { objects: (Mesh | Group)[]; instances: LodInstances[] } {
   const { min, max } = map.bounds;
   const floorG = new PlaneGeometry(BACKDROP.floorSize, BACKDROP.floorSize).rotateX(-Math.PI / 2).toNonIndexed();
   floorG.translate((min.x + max.x) / 2, BACKDROP.floorY, (min.z + max.z) / 2);
@@ -572,7 +574,7 @@ function backdrop(map: MapData, lib: MaterialLibrary, toSun: Vector3): { objects
   // Variants built at unit-ish size and instanced with a uniform scale (bark and leaves keep their proportions).
   const trunkG = paint(trunk(BACKDROP.trunkRadius, BACKDROP.trunkHeight, BACKDROP.trunkSeed), 'bark', { uv: 'cylinder' });
   const canopyParts = BACKDROP.clumps.map(({ x, y, z, r }, i) => {
-    const { cards, core } = leafClump(r, BACKDROP.cardsPerClump, BACKDROP.canopySeed + i, toSun, r * BACKDROP.cardOfClump);
+    const { cards, core } = leafClump(r, Math.round(BACKDROP.cardsPerClump * (low ? ART.lowCards : 1)), BACKDROP.canopySeed + i, toSun, r * BACKDROP.cardOfClump * (low ? ART.lowCardGrow : 1));
     return { cards: cards.translate(x, y, z), core: core.translate(x, y, z) };
   });
   const cards = paint(mergeGeometries(canopyParts.map((c) => c.cards)), 'leafCard', { uv: 'keep', tint: BACKDROP.leafTint });
@@ -604,7 +606,7 @@ export function buildBlockout(map: MapData, lib: MaterialLibrary): Blockout {
   const root = new Group();
   root.name = 'blockout';
   const toSun = new Vector3(SUN.azimuth.x * Math.cos(SUN.elevationDeg * ART.deg), Math.sin(SUN.elevationDeg * ART.deg), SUN.azimuth.z * Math.cos(SUN.elevationDeg * ART.deg)).normalize();
-  const ctx: Ctx = { batch: new CellBatch(), foliage: map.prims.filter((p) => p.material === 'foliage' && p.shape === 'cylinder'), district: districts(map), toSun };
+  const ctx: Ctx = { batch: new CellBatch(), foliage: map.prims.filter((p) => p.material === 'foliage' && p.shape === 'cylinder'), district: districts(map), toSun, low: lib.quality === 'low' };
   map.prims.forEach((p, i) => {
     if (p.shape === 'box') boxPrim(ctx, p, i);
     else if (p.shape === 'ramp') rampPrim(ctx, p, i);
@@ -618,7 +620,7 @@ export function buildBlockout(map: MapData, lib: MaterialLibrary): Blockout {
   root.add(mapRoot);
   const shimmer = chimneys(map);
   if (shimmer) root.add(shimmer);
-  const back = backdrop(map, lib, toSun);
+  const back = backdrop(map, lib, toSun, ctx.low);
   root.add(...back.objects, ...back.instances.map((x) => x.root));
   return {
     root,

@@ -86,8 +86,9 @@ describe('map layer', () => {
     expect(worst).toBeLessThanOrEqual(0.2 + 1e-6);
   });
 
-  it('shows trims and cards only within their distance bands', () => {
-    const b = buildBlockout(loadMap('main'), lib);
+  it('shows trims only within their distance band (Medium), and builds Low without trims or bevels', () => {
+    expect(meshes(buildBlockout(FIXTURE_MAP, lib).root).some((x) => x.name.endsWith(':opaque:mid'))).toBe(false);
+    const b = buildBlockout(loadMap('main'), getMaterialLibrary('medium'));
     const cam = new PerspectiveCamera(70, 1, 0.1, 1000);
     cam.position.set(0, 400, 0);
     cam.updateMatrixWorld();

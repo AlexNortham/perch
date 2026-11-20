@@ -223,6 +223,9 @@ export const ART = {
   clumpOfRadius: 0.55,
   clumpOfHeight: 0.6,
   cardsPerM2: 2.6,
+  /** Low: this share of the cards, each this much bigger, so clumps keep their silhouette. */
+  lowCards: 0.45,
+  lowCardGrow: 1.4,
   canopyCard: 1.4,
   canopyTint: 0x8fae80,
   canopyTintAlt: 0x9fb784,
