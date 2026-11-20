@@ -42,7 +42,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Nests (§7.9)', { timeout:
   it('§7.9 spawn: surface Nests at 3:00, below-ground ones at 5:00, the four in the Hollow at 10:00', async () => {
     const sb = await world({ heroes: ['shrike', 'lyrebird'] });
     const cellar = (a: { storey?: number; pos: { y: number } }) => (a.storey ?? 0) < 0;
-    const hollow = (a: { pos: { y: number } }) => a.pos.y <= -2;
+    const hollow = (a: { storey?: number; pos: { y: number } }) => !cellar(a) && a.pos.y <= -2; // cellars lie below −2 too
     const count = (pick: (a: StructureEntity) => boolean) => nests(sb).filter(pick).length;
     const anchorOf = (s: StructureEntity) => sb.ctx.map.nests[s.structure.anchor!]!;
     advanceTo(sb, SPAWN_S.surface - 2);
@@ -81,14 +81,16 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Nests (§7.9)', { timeout:
   it('§7.9 Twig breaks when a hero passes through at ≥ 8.5 m/s (a sprint), not at a walk', async () => {
     const { sb, hero } = await standing();
     const [slow, fast] = nests(sb, 'twig').slice(0, 2) as [StructureEntity, StructureEntity];
-    for (const [nest, speed] of [[slow, 4], [fast, SPRINT_BREAK_MS + 1]] as const) {
+    // A hero running forward sprints (run 7 m/s + sprint 2 m/s ≥ 8.5), so the walk takes its speed down to 3 m/s.
+    // Each judged straight after its own run: the sprint's 30 m path may cross the other Nest.
+    for (const [nest, speed, sprint] of [[slow, -4, -2], [fast, SPRINT_BREAK_MS + 1, SPRINT_BREAK_MS + 1]] as const) {
       sb.place(hero, { x: nest.pos.x - 3, y: nest.pos.y, z: nest.pos.z }, Math.PI / 2);
-      sb.modify(hero, 'qa-speed', { stats: [{ stat: 'sprintSpeed', op: 'add', value: speed }, { stat: 'moveSpeed', op: 'add', value: speed }] });
+      sb.modify(hero, 'qa-speed', { stats: [{ stat: 'sprintSpeed', op: 'add', value: sprint }, { stat: 'moveSpeed', op: 'add', value: speed }] });
       sb.move(hero, 1);
       sb.step(2 * TICK_RATE);
       sb.move(hero, 0);
+      if (nest === slow) expect(slow.health.dead || slow.removed, 'a walk does not break it').toBeFalsy();
     }
-    expect(slow.health.dead || slow.removed, 'a walk does not break it').toBeFalsy();
     expect(fast.health.dead || fast.removed, 'a sprint does').toBe(true);
   });
 
@@ -126,11 +128,13 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Nests (§7.9)', { timeout:
     expect(all, '16 Woven Nests stand').toHaveLength(16);
     for (const n of all) {
       standBeside(sb, hero, n.pos);
+      sb.clearEvents();
       heavyMelee(sb, hero);
+      // The melee hit leaves the hero within 1.5 m, so it collects the sprig at once (seeds paid for 'nest').
+      const paid = sb.eventsOf('seeds.gained').filter((e) => e.hero === hero && e.reason === 'nest');
+      expect(paid, 'every Woven Nest drops a sprig').toHaveLength(1);
+      expect(Math.abs(paid[0]!.amount - (WOVEN_SPRIG.base + WOVEN_SPRIG.perMin * minutes(sb)))).toBeLessThan(1);
     }
-    const sprigs = pickupsOf(sb, 'sprig');
-    expect(sprigs, 'every Woven Nest drops a sprig').toHaveLength(all.length);
-    for (const s of sprigs) expect(s.pickup.value).toBeCloseTo(WOVEN_SPRIG.base + WOVEN_SPRIG.perMin * minutes(sb), 0);
   });
 
   it('§7.9 Keepsake Nest: 50% to drop one keepsake pickup; collecting it adds a keepsake and fires keepsakeGained', async () => {

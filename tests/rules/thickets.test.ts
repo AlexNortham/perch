@@ -36,6 +36,12 @@ const LEASH_M = 18;
 const familyOf = (a: ThicketAnchor): ThicketFamily => a.family ?? (a.tier === 1 ? 'beetles' : a.tier === 2 ? 'weasels' : 'badgers');
 const campsOf = (sb: Sandbox, f: ThicketFamily) => sb.ctx.map.thickets.map((a, i) => [a, i] as const).filter(([a]) => familyOf(a) === f);
 const unitsOf = (sb: Sandbox, camp: number): UnitEntity[] => sb.ctx.store.list('unit').filter((u) => u.unit.camp === camp && !u.removed);
+/** Max HP far above what a camp deals, with current HP filled to it (raising max HP alone leaves the hero at its base). */
+const tough = (sb: Sandbox, hero: EntityId): void => {
+  sb.modify(hero, 'qa-hp', { stats: [{ stat: 'maxHealth', op: 'add', value: 100_000 }] });
+  sb.apply({ kind: 'heal', amount: 100_000 }, hero, sb.cause(null));
+  sb.step();
+};
 const hit = (sb: Sandbox, source: EntityId, target: EntityId, amount: number) =>
   sb.apply({ kind: 'damage', amount, type: 'talon' }, target, sb.cause(source, { via: 'weapon' }));
 
@@ -103,6 +109,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Thickets (§7.8)', { timeo
 
     it('§7.8 respawn: all at once, the table\'s time after the last creature dies; one survivor stops it', async () => {
       const { sb, anchor, index, hero } = await at(f);
+      tough(sb, hero); // it stands in the camp past the respawn time with one creature still biting
       sb.place(hero, anchor.pos);
       sb.step();
       const all = unitsOf(sb, index);
@@ -162,7 +169,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Thickets (§7.8)', { timeo
   it('§7.8 beetle: 12 Talon bite every 1.0 s at 2.0 m reach, +0.5% damage per minute at spawn', async () => {
     const f = FAMILIES[0]!;
     const { sb, anchor, index, hero } = await at(f);
-    sb.modify(hero, 'qa-hp', { stats: [{ stat: 'maxHealth', op: 'add', value: 100_000 }] });
+    tough(sb, hero);
     sb.place(hero, { x: anchor.pos.x + 1.5, y: anchor.pos.y, z: anchor.pos.z });
     const units = unitsOf(sb, index);
     sb.step();
@@ -177,7 +184,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Thickets (§7.8)', { timeo
   it('§7.8 weasel: 22 Talon bite every 1.0 s; every 6 s a dash-bite, a 6 m lunge for 40 Talon', async () => {
     const f = FAMILIES[1]!;
     const { sb, anchor, index, hero } = await at(f);
-    sb.modify(hero, 'qa-hp', { stats: [{ stat: 'maxHealth', op: 'add', value: 100_000 }] });
+    tough(sb, hero);
     sb.place(hero, { x: anchor.pos.x + 5, y: anchor.pos.y, z: anchor.pos.z });
     sb.step();
     hit(sb, hero, unitsOf(sb, index)[0]!.id, 1);
@@ -193,7 +200,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Thickets (§7.8)', { timeo
   it('§7.8 rat (indoor): 10 Talon bite every 0.7 s; each bite applies 20% heal reduction for 2 s', async () => {
     const f = FAMILIES[2]!;
     const { sb, anchor, index, hero } = await at(f);
-    sb.modify(hero, 'qa-hp', { stats: [{ stat: 'maxHealth', op: 'add', value: 100_000 }] });
+    tough(sb, hero);
     sb.place(hero, { x: anchor.pos.x + 1, y: anchor.pos.y, z: anchor.pos.z });
     sb.step();
     hit(sb, hero, unitsOf(sb, index)[0]!.id, 1);
@@ -207,14 +214,15 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Thickets (§7.8)', { timeo
   it('§7.8 toad (indoor): 30 Song tongue lash every 1.5 s at 16 m; every 8 s a slime spit makes a 3 m puddle for 4 s (20 Song per second, 30% slow)', async () => {
     const f = FAMILIES[3]!;
     const { sb, anchor, index, hero } = await at(f);
-    sb.modify(hero, 'qa-hp', { stats: [{ stat: 'maxHealth', op: 'add', value: 100_000 }] });
-    sb.place(hero, { x: anchor.pos.x + 12, y: anchor.pos.y, z: anchor.pos.z });
+    tough(sb, hero);
+    // Indoors: toads need line of sight, so the hero stands in their room, inside the 16 m range.
+    sb.place(hero, { x: anchor.pos.x + 3, y: anchor.pos.y, z: anchor.pos.z });
     sb.step();
     hit(sb, hero, unitsOf(sb, index)[0]!.id, 1);
     sb.clearEvents();
     advanceBy(sb, 10);
     const lashes = sb.eventsOf('unit.attack').filter((e) => e.attack === 'lash');
-    expect(lashes.length, '12 m is inside the 16 m range').toBeGreaterThanOrEqual(4);
+    expect(lashes.length, 'inside the 16 m range').toBeGreaterThanOrEqual(4);
     expect(sb.eventsOf('unit.attack').filter((e) => e.attack === 'spit').length).toBeGreaterThanOrEqual(1);
     const song = sb.eventsOf('damage.applied').filter((e) => e.target === hero && e.damageType === 'song');
     expect(song[0]!.amount).toBeCloseTo(30 * (1 + DMG_PER_MIN * 5) * (1 - sb.hero(hero).stats.final.songResist), 0);
@@ -223,7 +231,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Thickets (§7.8)', { timeo
   it('§7.8 badger: 50 Talon every 1.0 s; every 6 s a Slam (0.6 s telegraph, 6 m radius, 110 Song, 4 m knockback); cubs bite for 20 Talon', async () => {
     const f = FAMILIES[4]!;
     const { sb, anchor, index, hero } = await at(f);
-    sb.modify(hero, 'qa-hp', { stats: [{ stat: 'maxHealth', op: 'add', value: 100_000 }] });
+    tough(sb, hero);
     sb.place(hero, { x: anchor.pos.x + 2, y: anchor.pos.y, z: anchor.pos.z });
     sb.step();
     const badger = unitsOf(sb, index).find((u) => u.unit.type === 'badger')!;
@@ -246,7 +254,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Thickets (§7.8)', { timeo
   it('§7.8 leash: 18 m from the anchor; past it (or 6 s without damage) a creature walks home, heals to full, and the camp sleeps 5 s later', async () => {
     const f = FAMILIES[0]!;
     const { sb, anchor, index, hero } = await at(f);
-    sb.modify(hero, 'qa-hp', { stats: [{ stat: 'maxHealth', op: 'add', value: 100_000 }] });
+    tough(sb, hero);
     sb.place(hero, { x: anchor.pos.x + 5, y: anchor.pos.y, z: anchor.pos.z });
     sb.step();
     const unit = unitsOf(sb, index)[0]!;
@@ -265,7 +273,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Thickets (§7.8)', { timeo
     const f = FAMILIES[3]!;
     const { sb, anchor, index, hero } = await at(f);
     const building = sb.ctx.map.buildings![anchor.building!]!;
-    sb.modify(hero, 'qa-hp', { stats: [{ stat: 'maxHealth', op: 'add', value: 100_000 }] });
+    tough(sb, hero);
     sb.place(hero, anchor.pos);
     sb.step();
     hit(sb, hero, unitsOf(sb, index)[0]!.id, 1);

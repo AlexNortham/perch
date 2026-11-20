@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { EntityId, PickupEntity, StatId } from '../../src/sim/core/contracts';
 import { TICK_RATE } from '../../src/sim/data/core';
 import type { Sandbox } from '../helpers/sandbox';
-import { advanceBy, advanceTo, heavyMelee, lethal, lightMelee, mmss, objectiveEvents, pickupsOf, seconds, standBeside, world } from '../helpers/world';
+import { advanceBy, advanceTo, heavyMelee, lethal, lightMelee, mmss, objectiveEvents, pickupsOf, standBeside, world } from '../helpers/world';
 
 const TIMEOUT_MS = 300_000;
 const SPOTS = [{ x: -95, y: 6, z: 0 }, { x: 95, y: 6, z: 0 }] as const;
@@ -28,7 +28,7 @@ const pair = (sb: Sandbox) => runes(sb).map(typeOf).sort();
 const lerp = (a: number, b: number, t: number) => a + (b - a) * Math.min(1, Math.max(0, t));
 
 async function claimAt(timeS: number, seed = 1) {
-  const sb = await world({ heroes: ['shrike', 'lyrebird'], seed });
+  const sb = await world({ heroes: ['shrike', 'lyrebird'], seed, regen: true });
   const hero = sb.heroes[0]!;
   advanceTo(sb, timeS + 0.5);
   const base = { ...sb.hero(hero).stats.final };
@@ -99,17 +99,23 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Feather runes (§7.10)', {
       it(`§7.10 claimed at ${label}: strength is linear from the 5:00 value to the 40:00 value and held after`, async () => {
         // Seeds 1–4 until the wanted type is on offer at this time.
         for (const seed of [1, 2, 3, 4, 5, 6]) {
-          const sb = await world({ heroes: ['shrike', 'lyrebird'], seed });
+          const sb = await world({ heroes: ['shrike', 'lyrebird'], seed, regen: true });
           const hero = sb.heroes[0]!;
           advanceTo(sb, at + 0.5);
           const rune = runes(sb).find((r) => typeOf(r) === type);
           if (!rune) continue;
           const base = { ...sb.hero(hero).stats.final };
+          // Strength is set when the claim lands, which is before heavyMelee() returns.
+          let claimedAt = -1;
+          sb.ctx.bus.on('objective', (e) => { if (e.action === 'runeTaken' && claimedAt < 0) claimedAt = sb.sim.tick; });
           standBeside(sb, hero, rune.pos);
           heavyMelee(sb, hero);
-          const f = (seconds(sb) - T_FIRST) / (T_LAST - T_FIRST);
+          const f = (claimedAt / TICK_RATE - T_FIRST) / (T_LAST - T_FIRST);
           for (const [stat, lo, hi] of STRENGTH[type]) {
-            expect(sb.hero(hero).stats.final[stat] - base[stat], `${type} ${stat}`).toBeCloseTo(lerp(lo, hi, f), 1);
+            const now = sb.hero(hero).stats.final[stat];
+            // "+30% magazine size" is a share of the hero's own magazine (D-OBJ-014); the rest add flat.
+            const gain = stat === 'magazine' ? now / base[stat] - 1 : now - base[stat];
+            expect(gain, `${type} ${stat}`).toBeCloseTo(lerp(lo, hi, f), 1);
           }
           return;
         }
@@ -137,7 +143,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Feather runes (§7.10)', {
   });
 
   it('§7.10 a new rune replaces the one a hero holds (they do not stack)', async () => {
-    const sb = await world({ heroes: ['shrike', 'lyrebird'] });
+    const sb = await world({ heroes: ['shrike', 'lyrebird'], regen: true }); // Stout's +HP/s needs regeneration on
     const hero = sb.heroes[0]!;
     advanceTo(sb, T_FIRST + 1);
     const base = { ...sb.hero(hero).stats.final };
