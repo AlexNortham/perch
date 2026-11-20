@@ -75,7 +75,7 @@ export function head(c: V3, hr: number, h: HeadShape): Op[] {
     ell(at(c, hr, h.faceAt ?? [0, -0.12, 0.42]), mulS(h.face ?? [0.7, 0.62, 0.62], hr), 'head', 'face', { k: 0.08 * hr }),
     ...pair(ell(at(c, hr, h.cheekAt ?? [0.48, -0.32, 0.3]), mulS(h.cheek ?? [0.5, 0.48, 0.55], hr), 'head', 'cheek', { k: 0.12 * hr })),
     ...pair(ell(at(c, hr, h.browAt ?? [0.48, 0.42, 0.45]), mulS(h.brow ?? [0.5, 0.2, 0.42], hr), 'head', 'brow', { k: 0.1 * hr, rot: [-(h.browTilt ?? 0.25), 0.35, -0.25] })),
-    ell(at(c, hr, h.napeAt ?? [0, -0.45, -0.55]), mulS(h.nape ?? [0.78, 0.7, 0.65], hr), 'head', 'nape', { k: 0.2 * hr, boneSoft: 0.06, soft: 0.025 }),
+    ell(at(c, hr, h.napeAt ?? [0, -0.45, -0.55]), mulS(h.nape ?? [0.78, 0.7, 0.65], hr), 'head', 'nape', { k: 0.32 * hr, boneSoft: 0.06, soft: 0.025 }),
     ell(at(c, hr, h.throatAt ?? [0, -0.72, 0.2]), mulS(h.throat ?? [0.58, 0.45, 0.55], hr), 'head', 'throat', { k: 0.18 * hr }),
     cone(at(c, hr, [h.bill[0], h.bill[1], h.bill[2] - 0.45]), at(c, hr, h.bill), h.billH * 1.5 * hr, h.billH * hr, 'head', 'bill', { k: 0.12 * hr }),
     ell(at(c, hr, [h.bill[0], h.bill[1], h.bill[2] - 0.1]), [h.billW * hr, h.billH * hr, 0.16 * hr], 'head', 'bill', { k: 0.1 * hr }),
@@ -170,7 +170,7 @@ export function peacockBody(plan: BodyPlan): Body {
 export const TRUNK = ['back', 'breast', 'belly', 'mantle', 'scapular', 'coverts'] as const;
 
 export const PEACOCK_HEAD: HeadShape = {
-  skull: [1.06, 1.02, 1.16], skullAt: [0, 0.02, -0.08], nape: [0.9, 0.8, 0.72], napeAt: [0, -0.5, -0.48], eye: [0.74, 0.12, 0.5], socket: 0.27,
+  skull: [1.06, 1.02, 1.16], skullAt: [0, 0.02, -0.08], nape: [0.82, 0.72, 0.62], napeAt: [0, -0.55, -0.42], eye: [0.74, 0.12, 0.5], socket: 0.27,
   bill: [0, -0.12, 0.98], billW: 0.27, billH: 0.22, browTilt: 0.35,
 };
 
@@ -193,17 +193,17 @@ export function swiftBody(plan: BodyPlan): Body {
   const s = a.s;
   const hc = a.head;
   return {
-    tris: [3000, 950, 300, 110],
+    tris: [2900, 950, 300, 110],
     ops: [
       // A torpedo leaning forward: a broad, full chest high under the head, a narrow waist, tapering to the tail.
-      ell([0, 0.78 * s, -0.06 * s], [0.17 * s, 0.33 * s, 0.15 * s], 'body', 'back', { rot: [0.42, 0, 0], k: 0.05 }),
+      ell([0, 0.74 * s, -0.07 * s], [0.17 * s, 0.37 * s, 0.15 * s], 'body', 'back', { rot: [0.42, 0, 0], k: 0.05 }),
       ...pair(ell([0.07 * s, 0.96 * s, 0.05 * s], [0.13 * s, 0.19 * s, 0.15 * s], 'body', 'breast', { k: 0.06, rot: [0.35, 0.2, 0] })),
       ell([0, 0.9 * s, 0.13 * s], [0.05 * s, 0.17 * s, 0.08 * s], 'body', 'breast', { k: 0.05, rot: [0.35, 0, 0] }),
-      ell([0, 0.64 * s, 0.0], [0.12 * s, 0.17 * s, 0.11 * s], 'body', 'belly', { k: 0.07, rot: [0.4, 0, 0] }),
+      ell([0, 0.56 * s, -0.01 * s], [0.135 * s, 0.2 * s, 0.12 * s], 'body', 'belly', { k: 0.07, rot: [0.35, 0, 0] }),
       ell([0, 0.92 * s, -0.12 * s], [0.15 * s, 0.24 * s, 0.065 * s], 'body', 'mantle', { k: 0.06, rot: [0.45, 0, 0] }),
-      cone([0, 0.56 * s, -0.15 * s], [0, 0.37 * s, -0.27 * s], 0.1 * s, 0.035 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      cone([0, 0.5 * s, -0.15 * s], [0, 0.33 * s, -0.27 * s], 0.1 * s, 0.035 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
       ...shoulders(a, { scapular: [0.12 * s, 1.0 * s, -0.07 * s], scapularR: [0.08 * s, 0.13 * s, 0.07 * s], root: 0.055 * s, inset: 0.06 }),
-      ...thighs(a, { r: 0.05 * s, rKnee: 0.026 * s, reach: 0.45, root: [0.06 * s, 0.52 * s, -0.03 * s] }),
+      ...thighs(a, { r: 0.045 * s, rKnee: 0.026 * s, reach: 0.3, root: [0.06 * s, 0.43 * s, -0.03 * s] }),
       ...neck([[0, 1.04 * s, 0.01 * s], [0, 1.16 * s, 0.01 * s], [0, hc[1] - 0.06 * s, 0]], [0.14 * s, 0.13 * s, 0.12 * s], 'neck', 0.5),
       ...head(hc, a.hr, SWIFT_HEAD),
       // The pale throat patch, soft-edged under the gape.

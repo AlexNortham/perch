@@ -77,7 +77,7 @@ export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedS
   const skin = skinFor('peacock', plan, PEACOCK_SKIN, d.level, {
     back: { paint: (p) => mix(P.bronze, P.green, Math.min(1, Math.max(0, (p.y - bodyY) / (0.2 * s) + 0.4))), finish: BRONZE },
     mantle: { paint: mix(P.bronze, P.green, 0.6), finish: BRONZE },
-    scapular: { paint: P.buff, finish: { tile: 2, size: 0.09, gloss: 0.2 } },
+    scapular: { paint: (p) => mix(P.buff, P.bar, Math.min(0.6, Math.max(0, (bodyY + 0.16 * s - p.y) / (0.12 * s)))), finish: { tile: 1, size: 0.07, gloss: 0.2 } },
     shoulder: { paint: P.buff, finish: { tile: 1, size: 0.08 } },
     coverts: { paint: mix(P.green, P.teal, 0.3), finish: { ...BRONZE, iri: -0.8 } },
     // The breast lightest down the keel, deepening to the sides and under toward the belly.
@@ -104,14 +104,14 @@ export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedS
   };
   const wing: WingStyle = {
     covert: P.buff, secondary: 0x46603a, primary: P.chestnut, primaryTip: shade(P.chestnut, 0.75), trim: team.primary,
-    thick: 0.032 * s, chord: 0.28 * s, primaries: 7, secondaries: 7, primaryLen: 0.62, secondaryLen: 0.7,
+    thick: 0.032 * s, chord: 0.28 * s, primaries: 7, secondaries: 7, primaryLen: 0.62, secondaryLen: 0.55,
   };
 
   const body = (k: Sculpt): void => {
     // The body is the baked implicit skin (bodies.ts); gear and feathers sit on its surface.
     const torso = field.only(...TRUNK).surface([0, bodyY + 0.02 * s, -0.46 * s], [0, bodyY + 0.22 * s, 0.3 * s]);
     // A cape of broad bronze-green scale feathers over the mantle, lying back toward the train.
-    shingle(k, torso, { t: [0.26, 0.62], a: [Math.PI * 0.25, Math.PI * 0.75], rows: 3, cols: 4, len: 0.12 * s, wid: 0.1 * s, paint: (t) => mix(shade(P.bronze, 0.85), P.green, 0.25 + 0.5 * t), lift: 0.08, finish: BRONZE, seed: 5 }, d);
+    shingle(k, torso, { t: [0.26, 0.62], a: [Math.PI * 0.25, Math.PI * 0.75], rows: 3, cols: 4, len: 0.12 * s, wid: 0.1 * s, paint: (t) => shade(mix(P.bronze, P.green, 0.45 + 0.2 * t), 0.82), lift: 0.08, finish: BRONZE, seed: 5 }, d);
     // Gear: a flock-colour silk sash over the left shoulder and across the back with a brass buckle, a silk collar
     // with ribbon tails down the back, and a dart satchel on the right hip.
     sash(k, torso, 0.56, 0.3, Math.PI * 0.3, { width: 0.1 * s, thick: 0.014 * s, hex: team.primary, stitch: team.light, finish: { gloss: 0.4 } }, d);
@@ -503,7 +503,7 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
     pale: { paint: mix(W.pale, W.brown, 0.35), finish: { tile: 1, size: 0.05, gloss: 0.15 } },
   });
   const leg: LegStyle = {
-    skin: W.leg, claw: W.claw, thick: A.legThick, thigh: W.soot, fringe: 0.45,
+    skin: W.leg, claw: W.claw, thick: A.legThick, thigh: W.soot, fringe: 0.6, skinned: { r: 0.034 * s, at: 0.2 },
     toes: [{ yaw: -0.55, len: 0.07 * s }, { yaw: -0.18, len: 0.08 * s }, { yaw: 0.18, len: 0.08 * s }, { yaw: 0.55, len: 0.07 * s }],
     clawLen: 0.03 * s,
   };
@@ -551,7 +551,7 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
       }
     }
     // The mantle: broad glossy scapulars layered down the back, so the player camera sees feathers, not a bottle.
-    shingle(k, torso, { t: [0.42, 0.86], a: [-Math.PI * 0.85, -Math.PI * 0.15], rows: 3, cols: 4, len: 0.15 * s, wid: 0.12 * s, paint: (t) => mix(W.soot, W.brown, 0.2 + 0.5 * t), lift: 0.14, seed: 4, finish: GLOSS }, d);
+    shingle(k, torso, { t: [0.42, 0.86], a: [-Math.PI * 0.85, -Math.PI * 0.15], rows: 3, cols: 4, len: 0.15 * s, wid: 0.12 * s, paint: (t) => mix(W.brown, mix(W.brown, W.pale, 0.18), t), lift: 0.12, seed: 4, finish: GLOSS }, d);
     // Gear: a slim harness with a magazine pouch, and the flock-colour scarf with two long streamers behind.
     sash(k, torso, 0.62, 0.16, Math.PI * 0.65, { width: 0.04 * s, thick: 0.01 * s, hex: GEAR.leather, finish: LEATHER }, d);
     pouch(k, torso.at(0.58, Math.PI * 0.6, 0), [0.07 * s, 0.09 * s, 0.045 * s], GEAR.leatherDark, d);
@@ -570,13 +570,21 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
     for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.55, 0.02, 0.83], { r: hr * 0.3, iris: W.iris, ring: W.soot, lid: W.brown, ringW: hr * 0.04 }, d);
     const B = SWIFT_HEAD.bill;
     beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.02)], len: hr * 0.36, w: hr * 0.3, up: hr * 0.13, dn: hr * 0.09, curve: hr * 0.04, hook: hr * 0.02, base: W.bill, tip: W.bill, gape: 1.5, open: 0.4 }, d);
-    // Flight goggles pushed up on the brow, on a leather strap over the crown.
+    // Flight goggles pushed up on the brow, on a leather strap round the back of the head.
     if (d.level < 3) {
       for (const x of [1, -1]) {
         const at: V3 = [x * hr * 0.42, hr * 0.8, hr * 0.42];
         ring(k, at, hr * 0.26, hr * 0.07, d, GEAR.brass, undefined, [-0.9, x * 0.45, 0]);
         bead(k, at, hr * 0.23, W.lens, 0.2, d, [1, 1, 0.45]);
       }
+      // The strap: a loop round the skull, tilted from the goggles down to the nape, in the head bone's frame.
+      const tilt = norm([0, 1, -0.75]);
+      const c: V3 = [A.head[0], A.head[1] + hr * 0.15, A.head[2] - hr * 0.05];
+      const skull = field.only('crown', 'nape', 'brow', 'cheek').surface(
+        [c[0] - tilt[0] * hr, c[1] - tilt[1] * hr, c[2] - tilt[2] * hr], [c[0] + tilt[0] * hr, c[1] + tilt[1] * hr, c[2] + tilt[2] * hr],
+      );
+      const inHead = (p: Vector3): Vector3 => p.sub(new Vector3(...A.head));
+      band(k, { at: (t, a, off) => { const p = skull.at(t, a, off); return { ...p, p: inHead(p.p) }; } }, 0.5, { width: 0.035 * s, thick: 0.01 * s, hex: GEAR.leatherDark, finish: LEATHER }, d);
     }
   };
 
@@ -588,7 +596,7 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
   return {
     body, head, tail, skin,
     wing: wingsOf(arm, d),
-    leg: (k, seg, side, upper, lower, ankle) => seg !== 'thigh' && legsOf(leg, d)(k, seg, side, upper, lower, ankle),
+    leg: legsOf(leg, d),
     gun: swiftGun(s, d),
     pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
     legLen, legThick: leg.thick, wingLen: H * 0.36,

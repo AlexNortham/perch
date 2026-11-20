@@ -66,7 +66,7 @@ export function cassowary(plan: BodyPlan, team: TeamColours, d: Detail): Sculpte
     face: { paint: (p) => mix(C.blue, C.teal, Math.min(1, Math.abs(p.x) / (0.12 * s))), finish: BARE },
     cheek: { paint: C.teal, finish: BARE },
     brow: { paint: shade(C.blue, 0.85), finish: BARE },
-    nape: { paint: C.nape, finish: BARE },
+    nape: { paint: (p) => mix(C.blue, C.nape, Math.min(0.85, Math.max(0, (A.head[1] - 0.04 * s - p.y) / (0.2 * s)))), finish: BARE },
     throat: { paint: C.blue, finish: BARE },
     bill: { paint: C.bill, finish: { gloss: 0.5 } },
     socket: { paint: shade(C.blue, 0.7), finish: BARE },
@@ -79,7 +79,7 @@ export function cassowary(plan: BodyPlan, team: TeamColours, d: Detail): Sculpte
     clawLen: 0.045 * s,
   };
   const wing: WingStyle = {
-    covert: C.black, secondary: C.black, primary: C.black, primaryTip: shade(C.black, 1.6), trim: team.primary,
+    covert: C.black, secondary: C.black, primary: C.black, primaryTip: C.sheen, trim: team.primary,
     thick: 0.045 * s, chord: 0.2 * s, primaries: 5, secondaries: 4, primaryLen: 0.6, cell: CARD.quill, secondaryCell: CARD.hair, secondaryLen: 1.6,
   };
 
@@ -89,7 +89,7 @@ export function cassowary(plan: BodyPlan, team: TeamColours, d: Detail): Sculpte
     // The haystack: long hair-like plumes drooping all over, bristling out on the display.
     shingle(k, torso, {
       // Rows start clear of the rump pole (seen end-on from the player camera), where they would meet in a starburst.
-      t: [0.16, 0.96], a: [0, Math.PI * 2], rows: 5, cols: 10, len: 0.72 * s, wid: 0.34 * s, cell: CARD.hair, toward: [0, -1, -0.3], lift: 0.2, seed: 13,
+      t: [0.16, 0.96], a: [0, Math.PI * 2], rows: 5, cols: 12, len: 0.74 * s, wid: 0.27 * s, cell: CARD.hair, toward: [0, -1, -0.3], lift: 0.2, seed: 13,
       paint: (_t, a) => mix(C.black, C.sheen, 0.35 * jitter(Math.round(a * 20), 7)), finish: { iri: 0.3, gloss: 0.2 },
       morph: (_t, _a, at, dir, n) => flare(at, dir, n, 0.55),
     }, d);
