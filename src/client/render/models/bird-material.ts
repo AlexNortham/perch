@@ -11,6 +11,7 @@
 import { Color, DoubleSide, MeshStandardMaterial } from 'three';
 import type { WebGLProgramParametersWithUniforms } from 'three';
 import { cardAtlas, solidAtlas, TILE_GRID } from './feathers';
+import { PATTERN_FADE } from './sculpt';
 
 /** Style guide §8.7 and §7.3. */
 export const BIRD_SHADING = {
@@ -54,12 +55,13 @@ const TILE_SAMPLE = /* glsl */ `
 #ifdef USE_MAP
   vec2 tileCount = vec2(${TILE_GRID.cols}.0, ${TILE_GRID.rows}.0);
   float tileIndex = floor(vFx.w + 0.5);
+  float tileStrength = 1.0 - clamp((vFx.w - tileIndex) / ${PATTERN_FADE}, 0.0, 1.0);
   vec2 tileOrigin = vec2(mod(tileIndex, tileCount.x), floor(tileIndex / tileCount.x));
   float inset = ${BIRD_SHADING.tileInset} / ${TILE_GRID.px}.0;
   vec2 inTile = inset + fract(vRawUv) * (1.0 - 2.0 * inset);
   vec2 atlasUv = (tileOrigin + inTile) / tileCount;
   vec4 sampledDiffuseColor = textureGrad(map, atlasUv, dFdx(vRawUv) / tileCount, dFdy(vRawUv) / tileCount);
-  diffuseColor *= sampledDiffuseColor;
+  diffuseColor *= mix(vec4(1.0), sampledDiffuseColor, tileStrength);
 #endif
 `;
 

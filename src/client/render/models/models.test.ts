@@ -23,6 +23,8 @@ const SCULPTED = Object.keys(SCULPTED_BUILDS) as HeroId[];
 const FOUR: readonly HeroId[] = [...TWELVE, ...SCULPTED];
 /** Style guide §11.3: at most three draw calls per bird (opaque body, cut-out feathers, gun). */
 const SCULPTED_DRAW_CALLS = 3;
+/** Building every sculpted bird at every level takes a few seconds under a parallel run. */
+const SLOW_TEST_MS = 30_000;
 const HEAD_TOLERANCE = 0.02;
 const HERO_TRIANGLES = 1500;
 const FLEDGLING_TRIANGLES = 150;
@@ -376,7 +378,7 @@ describe('sculpted birds (D-ART-004)', () => {
       // Every mesh of the rig carries the same three morph targets, driven together.
       for (const m of rig.meshes) expect(m.morphTargetInfluences, id).toHaveLength(3);
     }
-  });
+  }, SLOW_TEST_MS);
 
   it('switches level of detail by distance from the camera (style guide §11.3)', () => {
     const rig = rigOf(kit.create(heroEntity(SCULPTED[0] ?? 'peacock')));

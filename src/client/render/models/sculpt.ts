@@ -14,6 +14,8 @@ import { cardUv, TILE } from './feathers';
 
 export type V3 = readonly [number, number, number];
 export const MORPHS = ['display', 'jaw', 'blink'] as const;
+/** fx.w carries the pattern tile plus up to this much fade (bird-material.ts reads it back). */
+export const PATTERN_FADE = 0.45;
 export type Morph = (typeof MORPHS)[number];
 export type Morphs = Partial<Record<Morph, Matrix4>>;
 
@@ -61,6 +63,8 @@ export interface LoftOptions extends Place {
   readonly finish?: Finish;
   /** Close open ends with flat caps (rings of zero radius close themselves). */
   readonly caps?: boolean;
+  /** Run the surface pattern round the loft instead of along it (hair falling down a horizontal body). */
+  readonly uvSwap?: boolean;
 }
 
 export interface CardOptions {
@@ -259,7 +263,7 @@ export class Sculpt {
   }
 
   /** Push one vertex: local position and normal through the primitive's transform, then each morph's. */
-  private put(L: Layer, x: number, y: number, z: number, nx: number, ny: number, nz: number, u: number, v: number, hex: number, f: Finish): void {
+  private put(L: Layer, x: number, y: number, z: number, nx: number, ny: number, nz: number, u: number, v: number, hex: number, f: Finish, fade = 0): void {
     tmpP.set(x, y, z).applyMatrix4(this.M);
     tmpN.set(nx, ny, nz).applyMatrix3(this.NM).normalize();
     L.p.push(tmpP.x, tmpP.y, tmpP.z);
@@ -267,7 +271,8 @@ export class Sculpt {
     L.uv.push(u, v);
     const c = toLinear(hex);
     L.c.push(c[0], c[1], c[2]);
-    L.fx.push(f.iri ?? 0, f.glow ?? 0, f.gloss ?? 0, f.tile ?? TILE.flat);
+    // The tile index, plus up to PATTERN_FADE of fade: the pattern weakens toward a loft's closed ends.
+    L.fx.push(f.iri ?? 0, f.glow ?? 0, f.gloss ?? 0, (f.tile ?? TILE.flat) + PATTERN_FADE * Math.min(1, Math.max(0, fade)));
     for (let i = 0; i < MORPHS.length; i++) {
       const mm = this.morph[i];
       const mp = L.m[i] as number[];
@@ -316,12 +321,8 @@ export class Sculpt {
     }
     // Positions on the grid (seg + 1 columns: the seam repeats for the uv).
     const P: Vector3[][] = [];
-    let len = 0;
-    const along: number[] = [];
     for (let i = 0; i < nR; i++) {
       const r = R[i] as FullRing;
-      if (i > 0) len += r.c.distanceTo((R[i - 1] as FullRing).c);
-      along.push(len);
       const row: Vector3[] = [];
       for (let j = 0; j <= seg; j++) {
         const a = (j / seg) * Math.PI * 2;
@@ -330,16 +331,29 @@ export class Sculpt {
       }
       P.push(row);
     }
+    // Distance along the loft measured over its surface (the mean of each column's step), so patterns keep their size
+    // where a closed end turns to face along the loft.
+    let len = 0;
+    const along: number[] = [0];
+    for (let i = 1; i < nR; i++) {
+      let step = 0;
+      for (let j = 0; j < seg; j++) step += ((P[i] as Vector3[])[j] as Vector3).distanceTo((P[i - 1] as Vector3[])[j] as Vector3);
+      len += step / seg;
+      along.push(len);
+    }
     const L = this.solid;
     const base = L.count;
     const paint = o.paint ?? 0xffffff;
     const dj = new Vector3();
     const di = new Vector3();
     const nrm = new Vector3();
+    const big = Math.max(...R.map((r) => r.w + (r.up + r.dn) / 2), 1e-6);
     for (let i = 0; i < nR; i++) {
       const r = R[i] as FullRing;
       const row = P[i] as Vector3[];
       const circ = Math.PI * (r.w + (r.up + r.dn) / 2);
+      // Rings squeeze toward a closed end; the pattern fades there rather than pinching into concentric rings.
+      const fade = 1 - Math.min(1, (r.w + (r.up + r.dn) / 2) / (big * 0.45));
       for (let j = 0; j <= seg; j++) {
         const jp = j === seg ? 1 : j + 1;
         const jm = j === 0 ? seg - 1 : j - 1;
@@ -354,7 +368,8 @@ export class Sculpt {
         const hex = typeof paint === 'number' ? paint : paint(t, a);
         const u = f.tile === undefined || f.tile === TILE.flat ? 0.5 : ((j / seg) * Math.max(circ, 1e-3)) / tileSize;
         const v = f.tile === undefined || f.tile === TILE.flat ? 0.5 : (along[i] as number) / tileSize;
-        this.put(L, p.x, p.y, p.z, nrm.x, nrm.y, nrm.z, u, v, hex, f);
+        if (o.uvSwap) this.put(L, p.x, p.y, p.z, nrm.x, nrm.y, nrm.z, v, u, hex, f, fade);
+        else this.put(L, p.x, p.y, p.z, nrm.x, nrm.y, nrm.z, u, v, hex, f, fade);
       }
     }
     const w = seg + 1;

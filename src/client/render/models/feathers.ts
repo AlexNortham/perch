@@ -110,7 +110,7 @@ function solidTile(tile: number, x: number, y: number): number {
       const n = fbm(x / 16, y / 16, 8, 3);
       const worm = Math.abs(Math.sin((x + 9 * fbm(x / 22, y / 22, 6, 5)) * 0.22 + y * 0.09));
       const speck = hash(x >> 2, y >> 2, 11) > 0.93 ? 1.18 : 1;
-      return Math.min(1, scale(x, y, 32, 32) * (0.55 + 0.45 * smooth(0.25, 0.75, n)) * (0.82 + 0.18 * smooth(0.1, 0.5, worm)) * speck);
+      return Math.min(1, scale(x, y, 32, 32) * (0.55 + 0.45 * smooth(0.25, 0.75, n)) * (0.92 + 0.08 * smooth(0.1, 0.5, worm)) * speck);
     }
     case TILE.wood: {
       // Grain along the length (y), soft growth lines, a darker knot now and then.
@@ -242,15 +242,21 @@ function card(cell: number, x: number, y: number): RGBA {
       return GREY(0.8, shaftAlpha(x, y, 1, 4));
     }
     case CARD.hair: {
-      // Hair-like plume (Cassowary): strands splitting from a short shaft, wavy and tapering.
+      // Hair-like plume (Cassowary): a dense bunch of wavy strands from a shared root, fanning and tapering.
       let a = 0;
-      for (let k = 0; k < 4; k++) {
-        const spread = (k - 1.5) * 0.18;
-        const cx = spread * smooth(0.1, 1, y) * 1.6 + 0.05 * Math.sin(y * 14 + k * 2);
-        const w = 3.2 * (1 - 0.8 * y) * (y < 0.08 && k > 0 ? 0 : 1);
-        a = Math.max(a, edge(w - Math.abs(x - cx) * CW));
+      let v = 0.7;
+      for (let k = 0; k < 9; k++) {
+        const spread = (k - 4) * 0.2;
+        const cx = spread * smooth(0.02, 0.9, y) + 0.06 * Math.sin(y * 11 + k * 1.7);
+        const len = 0.8 + 0.2 * hash(k, 4, 91);
+        const w = 5 * (1 - 0.75 * y / len) * (y < len ? 1 : 0);
+        const ink = edge(w - Math.abs(x - cx) * CW);
+        if (ink > a) {
+          a = ink;
+          v = 0.7 + 0.3 * (1 - Math.abs(x - cx) * CW / Math.max(w, 1));
+        }
       }
-      return GREY(0.78 + 0.22 * (1 - y), a);
+      return GREY(v * (0.85 + 0.15 * (1 - y)), a);
     }
     case CARD.blur: {
       // Hummingbird wing blur: a fan of motion streaks from the root, denser at the edges of the sweep.

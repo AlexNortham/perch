@@ -244,9 +244,9 @@ export function thigh(k: Sculpt, len: number, s: LegStyle, d: Detail, side: 1 | 
   k.loft(
     [
       { c: [0, len * 0.2, 0], w: 0, up: 0 },
-      { c: [0, len * 0.1, 0], w: t * 2.1, up: t * 2.3 },
-      { c: [0, -len * 0.45, -t * 0.2], w: t * 2.0, up: t * 2.1 },
-      { c: [0, -len * 0.85, 0], w: t * 1.3, up: t * 1.3 },
+      { c: [0, len * 0.1, 0], w: t * 1.7, up: t * 1.8 },
+      { c: [0, -len * 0.45, -t * 0.15], w: t * 1.55, up: t * 1.65 },
+      { c: [0, -len * 0.85, 0], w: t * 1.2, up: t * 1.25 },
       { c: [0, -len * 1.02, 0], w: t * 1.05, up: t * 1.1 },
     ],
     { n: d.n(7, 3), seg: d.n(10, 3), ref: [0, 0, 1], paint: (u) => shade(col, 0.82 + 0.25 * u), finish: s.thigh !== undefined ? FEATHER : SKIN },
