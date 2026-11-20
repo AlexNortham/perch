@@ -41,7 +41,7 @@ describe('environment mesher', () => {
       const g = m.geometry;
       // What WebGL does on upload, and the first frame (which also starts watching the canvas).
       for (const a of [...Object.values(g.attributes), g.index]) (a as BufferAttribute).onUploadCallback();
-      m.onBeforeRender({ domElement: canvas } as never, null as never, new PerspectiveCamera(), g, m.material as never, null);
+      m.onBeforeRender({ domElement: canvas } as never, null as never, new PerspectiveCamera(), g, m.material as never, null as never);
       expect(g.getAttribute('position').array.length).toBe(0);
       expect(g.index?.array.BYTES_PER_ELEMENT).toBeGreaterThan(0);
       for (let i = 0; i < m.instanceCount; i++) expect(m.getBoundingSphereAt(i, new Sphere())?.radius).toBeGreaterThan(0);

@@ -198,7 +198,7 @@ function furnish(w: World, room: Room, archetype: string, seed: number, { blocke
   if (height > 3.2 && hx > 2.2 && hz > 2.2) {
     const g = M(1);
     const y = ceil - 1.25;
-    for (const [sx, sz] of [[-1, -1], [1, 1], [1, -1], [-1, 1]].filter((_, i) => hash2(seed, 40 + i) < 0.5).slice(0, 2)) {
+    for (const [sx, sz] of ([[-1, -1], [1, 1], [1, -1], [-1, 1]] as const).filter((_, i) => hash2(seed, 40 + i) < 0.5).slice(0, 2)) {
       const x = sx * (hx - 1.2);
       const z = sz * (hz - 1.2);
       if (!free(x, z, 0.4, y)) continue;
@@ -251,7 +251,8 @@ function furnish(w: World, room: Room, archetype: string, seed: number, { blocke
       const pick = hash2(s, 1);
       // A tall piece also needs its top clear (window sills sit at 1.2 m); otherwise a low one stands there instead.
       let kind = choose(archetype, pick);
-      if (TALL[kind] !== undefined && !free(x, z, 0.6, floor + Math.min(TALL[kind], height - 0.3))) kind = low(archetype, pick);
+      const tall = TALL[kind];
+      if (tall !== undefined && !free(x, z, 0.6, floor + Math.min(tall, height - 0.3))) kind = low(archetype, pick);
       const g1 = M(pick < 0.5 ? 0 : 1);
       g1.within(placed(...pos3(wall.at(u, 0), floor), wall.yaw), () => wallPiece(g1, kind, height, s, M));
     }
