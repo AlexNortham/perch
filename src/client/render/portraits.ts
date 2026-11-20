@@ -124,16 +124,23 @@ export const portraits: PortraitProvider = {
   },
 };
 
-/** The UI scoreboard's provider (ui/portraits.ts): an image of the rendered portrait, the placeholder without one. */
+/**
+ * The UI scoreboard's provider (ui/portraits.ts): an image filled in just after the current frame (so building a
+ * match's bar never waits on twelve renders), the placeholder without a renderer.
+ */
 export const uiPortraits: UiPortraits = {
   face(hero, team) {
-    const url = portraits.get(hero, team);
-    if (!url) return placeholderPortraits.face(hero, team);
+    if (!source) return placeholderPortraits.face(hero, team);
     const img = document.createElement('img');
-    img.src = url;
     img.alt = '';
     img.draggable = false;
     img.style.cssText = 'display:block;width:100%;height:100%;object-fit:cover';
+    const fill = (): void => {
+      const url = portraits.get(hero, team);
+      if (url) img.src = url;
+    };
+    if (cache.has(`${hero}:${team}`)) fill();
+    else setTimeout(fill, 0);
     return img;
   },
 };

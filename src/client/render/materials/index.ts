@@ -491,7 +491,33 @@ const RAYS: readonly (readonly [number, number, number])[] = Array.from({ length
  * occluders. Vertices need normals; bake after painting (colours are multiplied in place).
  */
 export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
-  bakeAOAll([geometry], opts);
+  if (opts.rays === false) gradients(geometry, opts);
+  else bakeAOAll([geometry], opts);
+}
+
+/** The cheap terms only (no voxel grid): faces under overhangs, the contact band and the damp gradient. */
+function gradients(geometry: BufferGeometry, opts: AoOptions): void {
+  const strength = opts.strength ?? 1;
+  const pos = geometry.getAttribute('position');
+  const nor = geometry.getAttribute('normal');
+  let col = geometry.getAttribute('color');
+  if (!col) {
+    col = new BufferAttribute(new Float32Array(pos.count * XYZ).fill(1), XYZ);
+    geometry.setAttribute('color', col);
+  }
+  for (let v = 0; v < pos.count; v++) {
+    const ny = nor.getY(v);
+    let f = opts.underside !== false && ny < AO.downFacing ? 1 - AO.underside * strength : 1;
+    if (opts.ground && Math.abs(ny) < AO.wallNormalY) {
+      const h = pos.getY(v) - opts.ground(pos.getX(v), pos.getZ(v));
+      if (h >= 0) {
+        f *= 1 - AO.contact * strength * Math.max(0, 1 - h / AO.contactBand);
+        f *= 1 - AO.damp * strength * Math.max(0, 1 - h / AO.dampBand);
+      }
+    }
+    if (f !== 1) col.setXYZ(v, col.getX(v) * f, col.getY(v) * f, col.getZ(v) * f);
+  }
+  col.needsUpdate = true;
 }
 
 /**

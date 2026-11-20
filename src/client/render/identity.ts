@@ -112,37 +112,50 @@ function withRim(m: Material): Material {
 }
 
 export interface Identity {
-  readonly outline: SkinnedMesh;
-  readonly xray: SkinnedMesh;
+  /** One outline and one x-ray per solid body mesh (one per LOD level; only the visible level draws). */
+  readonly outlines: readonly SkinnedMesh[];
+  readonly xrays: readonly SkinnedMesh[];
 }
 
-/** Add the identity overlays and the rim to a hero model, once. Null for models without a skinned body. */
+/** Materials that already carry the §8.7 rim (the sculpted birds' own, D-ART-004) keep theirs. */
+const hasRim = (m: Material): boolean => m.name.startsWith(IDENTITY.rimmedPrefix) || rimmed.get(m) === m;
+
+/** Add the identity overlays and, where missing, the rim to a hero model, once. Null without a skinned body. */
 export function attachIdentity(model: Object3D): Identity | null {
-  let body: SkinnedMesh | null = null;
+  const skinned: SkinnedMesh[] = [];
   model.traverse((o) => {
-    if (!body && o instanceof SkinnedMesh && !o.userData['identity']) body = o;
+    if (o instanceof SkinnedMesh && !o.userData['identity']) skinned.push(o);
   });
-  const b = body as SkinnedMesh | null;
-  if (!b || !b.parent) return null;
-  if (!Array.isArray(b.material)) b.material = withRim(b.material);
-  b.renderOrder = IDENTITY.bodyOrder;
-  const overlay = (material: ShaderMaterial, name: string, order: number): SkinnedMesh => {
-    const m = new SkinnedMesh(b.geometry, material);
-    m.bind(b.skeleton, b.bindMatrix);
-    m.name = name;
-    m.userData['identity'] = true;
-    m.frustumCulled = false;
-    m.castShadow = false;
-    m.receiveShadow = false;
-    m.renderOrder = order;
-    m.visible = false;
-    m.position.copy(b.position);
-    m.quaternion.copy(b.quaternion);
-    m.scale.copy(b.scale);
-    b.parent?.add(m);
-    return m;
-  };
-  return { outline: overlay(MATERIALS.outline, 'outline', IDENTITY.bodyOrder), xray: overlay(MATERIALS.xrayAlly, 'xray', IDENTITY.xrayOrder) };
+  if (skinned.length === 0) return null;
+  const outlines: SkinnedMesh[] = [];
+  const xrays: SkinnedMesh[] = [];
+  for (const b of skinned) {
+    // Every part draws after the x-rays, so an x-ray never shows through the bird's own feathers.
+    b.renderOrder = IDENTITY.bodyOrder;
+    if (Array.isArray(b.material)) continue;
+    const solid = b.material.alphaTest === 0 && !b.material.transparent;
+    if (solid && !hasRim(b.material)) b.material = withRim(b.material);
+    if (!solid || !b.parent) continue;
+    const overlay = (material: ShaderMaterial, name: string, order: number): SkinnedMesh => {
+      const m = new SkinnedMesh(b.geometry, material);
+      m.bind(b.skeleton, b.bindMatrix);
+      m.name = name;
+      m.userData['identity'] = true;
+      m.frustumCulled = false;
+      m.castShadow = false;
+      m.receiveShadow = false;
+      m.renderOrder = order;
+      m.visible = false;
+      m.position.copy(b.position);
+      m.quaternion.copy(b.quaternion);
+      m.scale.copy(b.scale);
+      b.parent?.add(m);
+      return m;
+    };
+    outlines.push(overlay(MATERIALS.outline, 'outline', IDENTITY.bodyOrder));
+    xrays.push(overlay(MATERIALS.xrayAlly, 'xray', IDENTITY.xrayOrder));
+  }
+  return outlines.length > 0 ? { outlines, xrays } : null;
 }
 
 /**
@@ -150,7 +163,9 @@ export function attachIdentity(model: Object3D): Identity | null {
  * revealed), allies x-rayed teal behind walls, the local bird and hidden models nothing.
  */
 export function updateIdentity(id: Identity, relation: 'self' | 'ally' | 'enemy', revealed: boolean, shown: boolean): void {
-  id.outline.visible = shown && relation === 'enemy';
-  id.xray.visible = shown && (relation === 'ally' || (relation === 'enemy' && revealed));
-  id.xray.material = relation === 'enemy' ? MATERIALS.xrayEnemy : MATERIALS.xrayAlly;
+  for (const o of id.outlines) o.visible = shown && relation === 'enemy';
+  for (const x of id.xrays) {
+    x.visible = shown && (relation === 'ally' || (relation === 'enemy' && revealed));
+    x.material = relation === 'enemy' ? MATERIALS.xrayEnemy : MATERIALS.xrayAlly;
+  }
 }

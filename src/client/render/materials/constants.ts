@@ -44,7 +44,7 @@ export const PIECE_VARIATION = { value: 0.05, hueDeg: 3, fullTurnDeg: 360, hueTi
 export const AO = {
   voxel: 0.25,
   reach: 1.5,
-  rays: 6,
+  rays: 5,
   /** π(3 − √5): spreads the ray directions evenly. */
   goldenAngle: 2.399963229728653,
   /** Start rays this many voxels off the surface so a face doesn't occlude itself. */
@@ -53,7 +53,7 @@ export const AO = {
   maxVoxels: 64_000_000,
   voxelGrowth: 1.25,
   /** Voxelising stops splitting a triangle once its edges are this many voxels long. */
-  leafVoxels: 2,
+  leafVoxels: 2.5,
   /** The mask of space near baked vertices is this many voxels per cell (and never finer than the reach). */
   coarseVoxels: 4,
   /** Sample points that agree to 1 cm share one trace; keys pack x, y, z (±200 m) into one safe integer. */

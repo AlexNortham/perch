@@ -123,7 +123,7 @@ export const POST = {
 } as const;
 
 /** §11.4: static architecture merges per 64 × 64 m cell; AO bakes across neighbouring cells. */
-export const CELL = { size: 64, aoReach: 1.5, aoVoxel: 0.6 } as const;
+export const CELL = { size: 64, aoReach: 1.5, aoVoxel: 0.75 } as const;
 /** §11.4 distance bands and the 10 % hysteresis on every LOD switch. */
 export const LOD = { near: 40, mid: 90, hysteresis: 0.1 } as const;
 
@@ -395,6 +395,8 @@ export const IDENTITY = {
   rim: 0.25,
   rimLow: 0.15,
   rimColour: 0xffe6c0,
+  /** Bird materials named with this prefix carry their own rim (models/bird-material.ts). */
+  rimmedPrefix: 'bird-',
   /** Draw order: x-rays after the world and before bodies, so only pixels walls hide pass the greater test. */
   xrayOrder: 1,
   bodyOrder: 2,
