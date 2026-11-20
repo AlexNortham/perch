@@ -38,8 +38,6 @@ export const WAVES = {
     { fromS: 0, scrapper: 3, slinger: 1 },
     { fromS: 10 * 60, scrapper: 3, slinger: 2 },
     { fromS: 20 * 60, scrapper: 4, slinger: 2 },
-    // D-AI-010 (for Objectives): the 35:00 lever (GDD §15.2) also grows the waves, so one flock breaks through.
-    { fromS: 35 * 60, scrapper: 5, slinger: 3 },
   ],
   /** A column two wide; files and rows this far apart. */
   files: 2,
@@ -141,8 +139,9 @@ export const DEFENCE = {
   rain: { range: 35, radius: 3, targets: 4, damage: 180, warning: 1, interval: 6 },
   gale: { range: 30, cosHalf: Math.SQRT1_2, damage: 60, push: 10, interval: 12 },
   transition: { duration: 3, range: 20, push: 8, hp: 20_000, heartHeight: 6, heartRadius: 1 },
-  // D-AI-010 (for Objectives): the 35:00 lever lifts the Ward entirely and siege fledglings hit structures 50% harder.
-  ward: { range: 30, early: 0.35, late: 1, lateAtS: 35 * 60, lateFledglingMult: 1.5 },
+  // D-AI-010 (for Objectives): from the 35:00 lever the Ward is lifted, fledglings hit structures 50% harder, and every
+  // structure takes lateGrowthPerMin more damage per full minute past it (the stalemate breaker, GDD §15.2, §15.4).
+  ward: { range: 30, early: 0.35, late: 1, lateAtS: 35 * 60, lateFledglingMult: 1.5, lateGrowthPerMin: 0.05, lateGrowthEveryS: 60 },
   roost: { interval: 1, healFraction: 0.2, damage: 300 },
 } as const;
 

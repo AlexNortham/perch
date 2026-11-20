@@ -198,6 +198,8 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
     }
   }
 
+  /** The damage-taken factor each structure last got from ward() (Ward and late growth). */
+  const wardFactor = new Map<EntityId, number>();
   function ward(s: StructureEntity): void {
     let active = true;
     for (const u of fledglings[enemyTeam(s)]) {
@@ -206,9 +208,13 @@ export function createStructures(ctx: SimContext, hurtAt: ReadonlyMap<EntityId, 
         break;
       }
     }
-    const factor = ctx.clock.seconds >= D.ward.lateAtS ? D.ward.late : D.ward.early;
-    if (active === s.structure.broodWard && (!active || s.stats.final.damageTaken === factor)) return;
-    ctx.stats.set(s.id, 'world:ward', active ? { stats: [{ stat: 'damageTaken', op: 'mul', value: factor }] } : null);
+    const late = ctx.clock.seconds >= D.ward.lateAtS;
+    // D-AI-010: past the late lever every structure takes lateGrowthPerMin more damage per full minute.
+    const growth = late ? 1 + D.ward.lateGrowthPerMin * Math.floor((ctx.clock.seconds - D.ward.lateAtS) / D.ward.lateGrowthEveryS) : 1;
+    const factor = (active ? (late ? D.ward.late : D.ward.early) : 1) * growth;
+    if (active === s.structure.broodWard && wardFactor.get(s.id) === factor) return;
+    wardFactor.set(s.id, factor);
+    ctx.stats.set(s.id, 'world:ward', factor !== 1 ? { stats: [{ stat: 'damageTaken', op: 'mul', value: factor }] } : null);
     if (active !== s.structure.broodWard) {
       s.structure.broodWard = active;
       ctx.bus.emit({ type: 'structure.state', structure: s.id, state: active ? 'wardUp' : 'wardDown' });
