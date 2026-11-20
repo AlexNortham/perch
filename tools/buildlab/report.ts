@@ -244,7 +244,7 @@ export function reportMarkdown(r: ReportInput): string {
     '| Test | Value | Needed | State |',
     '|---|---|---|---|',
     `| Decided training matches | ${decidedMatches.length} | ≥ ${CONVERGENCE.minMatches} | ${yes(enough)} |`,
-    `| Cores settled: no explored one-item swap gains ≥ ${MARGIN.points} points at 95% | ${settledCores} of ${cores.length} cores | every core | ${yes(settledCores === cores.length)} |`,
+    `| Cores settled: explored, and no one-item swap gains ≥ ${MARGIN.points} points at 95% | ${settledCores} of ${cores.length} cores | every core | ${yes(settledCores === cores.length)} |`,
     `| Halves agree: the worse half's build vs the full build | worst ${fmt(Math.max(...halfGaps), 2)}, median ${fmt(median(halfGaps), 2)} points | every hero < ${MARGIN.points} | ${yes(halfGaps.every((g) => g < MARGIN.points))} |`,
     `| Rounds agree: round ${r.round - 1}'s build vs this round's | worst ${fmt(Math.max(...roundGaps), 2)}, median ${fmt(median(roundGaps), 2)} points | every hero < ${MARGIN.points} | ${yes(roundGaps.every((g) => g < MARGIN.points))} |`,
     `| Duel vs random buying (wins) | ${vsRandom ? vsRandom.text : 'not run'} | better, p < 0.05 | ${yes(!!vsRandom?.better)} |`,
@@ -381,19 +381,22 @@ export function reportMarkdown(r: ReportInput): string {
     '## Recommended builds',
     '',
     'Greedy cores from the learned scores: four T1 early, four T2–3 mid, three T4 late, synergy and component chains ' +
-      `counted, at most four actives. Cores: ✓ when no explored one-item swap could gain ${MARGIN.points} points at 95%, else ` +
-      'the riskiest swap and its upper bound. Halves and rounds: win-rate points lost by the other build. Situational ' +
-      'picks are the designer\'s (the model has no enemy-flock terms).',
+      `counted, at most four actives. Cores: ✓ when its items and ${pct(MARGIN.exploredShare)} of the alternatives were held in ` +
+      `${MARGIN.minGames}+ games and no explored one-item swap could gain ${MARGIN.points} points at 95%; else the riskiest swap ` +
+      'and its upper bound, or "explore" when there is too little data to judge. Unexplored: alternatives held in too few ' +
+      'games, of all. Halves and rounds: win-rate points lost by the other build. Situational picks are the designer\'s ' +
+      '(the model has no enemy-flock terms).',
     '',
     '| Hero | Games | Early | Mid | Late | Cores (early / mid / late) | Unexplored | Halves | Rounds |',
     '|---|---|---|---|---|---|---|---|---|',
   );
   for (const [hero, l] of r.learned) {
     const list = (p: GamePhase): string => l.build[p].map(itemName).join(', ');
-    const core = l.cores.map((c) => (c.settled ? '✓' : `${itemName(c.worst!.out)} → ${itemName(c.worst!.in)} ≤ +${fmt(c.worst!.upper, 1)}`)).join(' / ');
+    const verdict = (c: CoreCheck): string =>
+      c.settled ? '✓' : c.worst && c.worst.upper >= MARGIN.points ? `${itemName(c.worst.out)} → ${itemName(c.worst.in)} ≤ +${fmt(c.worst.upper, 1)}` : 'explore';
     push(
-      `| ${name(hero)} | ${l.model?.games ?? 0} | ${list('early')} | ${list('mid')} | ${list('late')} | ${core || '–'} | ` +
-        `${l.cores.map((c) => c.unexplored).join('/') || '–'} | ${fmt(l.halfGap ?? NaN)} | ${fmt(l.roundGap ?? NaN)} |`,
+      `| ${name(hero)} | ${l.model?.games ?? 0} | ${list('early')} | ${list('mid')} | ${list('late')} | ${l.cores.map(verdict).join(' / ') || '–'} | ` +
+        `${l.cores.map((c) => `${c.unexplored}/${c.alternatives}`).join(', ') || '–'} | ${fmt(l.halfGap ?? NaN)} | ${fmt(l.roundGap ?? NaN)} |`,
     );
   }
   push(

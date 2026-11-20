@@ -44,6 +44,8 @@ export const MARGIN = {
   z: 1.96,
   /** An alternative item is judged once the hero held it in this many games; fewer: "unexplored". */
   minGames: 30,
+  /** A core is judged once its own items and this share of its alternatives are explored. */
+  exploredShare: 0.75,
 } as const;
 /** Percentage points of win rate per log-odds near 50%. */
 export const POINTS_PER_LOGODDS = 25;
@@ -510,23 +512,27 @@ export interface CoreCheck {
   readonly phase: GamePhase;
   /** The explored one-item swap with the highest upper 95% bound on its gain, in win-rate points. */
   readonly worst: { readonly out: ItemId; readonly in: ItemId; readonly gain: number; readonly upper: number } | null;
-  /** Alternatives the hero held in fewer than MARGIN.minGames games (not judged yet). */
+  /** Alternatives the hero held in fewer than MARGIN.minGames games (not judged yet), and all alternatives. */
   readonly unexplored: number;
-  /** No explored swap can plausibly gain MARGIN.points or more. */
+  readonly alternatives: number;
+  /** Every core item explored, at least MARGIN.exploredShare of the alternatives too, and no explored swap can plausibly gain MARGIN.points or more. */
   readonly settled: boolean;
 }
 
 /** D-BAL-005's core test: could swapping one core item for an explored alternative gain ≥ 2 points at 95%? */
 export function checkCores(m: HeroModel, b: RecommendedBuild, catalogue: Catalogue): CoreCheck[] {
   const base = buildGradient(m, b);
+  const explored = (id: ItemId): boolean => (m.bought[id] ?? 0) >= MARGIN.minGames;
   return GAME_PHASES.map((p): CoreCheck => {
     let worst: CoreCheck['worst'] = null;
     const unexplored = new Set<ItemId>();
+    const alternatives = new Set<ItemId>();
     for (const out of b[p]) {
       const rest = { ...b, [p]: b[p].filter((x) => x !== out) };
       for (const alt of candidates(flat(rest).map((x) => x.item), p, catalogue)) {
         if (alt === out) continue;
-        if ((m.bought[alt] ?? 0) < MARGIN.minGames) {
+        alternatives.add(alt);
+        if (!explored(alt)) {
           unexplored.add(alt);
           continue;
         }
@@ -537,6 +543,8 @@ export function checkCores(m: HeroModel, b: RecommendedBuild, catalogue: Catalog
         if (!worst || upper > worst.upper) worst = { out, in: alt, gain, upper };
       }
     }
-    return { phase: p, worst, unexplored: unexplored.size, settled: !worst || worst.upper < MARGIN.points };
+    const covered = alternatives.size - unexplored.size >= MARGIN.exploredShare * alternatives.size;
+    const settled = b[p].every(explored) && covered && (!worst || worst.upper < MARGIN.points);
+    return { phase: p, worst, unexplored: unexplored.size, alternatives: alternatives.size, settled };
   });
 }
