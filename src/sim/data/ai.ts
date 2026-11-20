@@ -196,6 +196,8 @@ export const RETREAT = {
   roostHp: 0.3,
   /** Stays at the Roost until this healthy. */
   healedHp: 0.9,
+  /** Committed to an open enemy base, a bot goes home only below this HP fraction (D-AI-009). */
+  committedHp: 0.15,
   /** Uses an escape ability when an enemy hero is this close. */
   escapeM: 15,
 } as const;

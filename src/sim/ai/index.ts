@@ -154,7 +154,7 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
     const s = ctx.clock.seconds;
     const start = mine >= OBJECTIVE.commitMinAllies && (theirs <= OBJECTIVE.wipeAlive ||
       now - rocKilledAt[team] <= ticks(OBJECTIVE.rocPushS) || (ctx.teams[team].rekindle?.until ?? 0) > now ||
-      (s >= OBJECTIVE.pushFromS && mine - theirs >= OBJECTIVE.commitEdge) || (s >= OBJECTIVE.allInFromS && mine >= theirs));
+      (s >= OBJECTIVE.pushFromS && mine - theirs >= OBJECTIVE.commitEdge) || (s >= OBJECTIVE.allInFromS && theirs - mine < OBJECTIVE.commitEdge));
     const stop = mine <= OBJECTIVE.fallBackAlive || theirs - mine >= OBJECTIVE.commitEdge;
     committed[team] = committed[team] ? !stop : start;
     const lane = pushLane(team);
@@ -189,10 +189,11 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
 
   /**
    * "Defend at home" (GDD §11.3 Defend): an open Shrine or the Patron with a seen enemy hero within homeM, or
-   * homeFledglings enemy fledglings within the Brood Ward's 30 m. Returns the structure under the most pressure.
+   * homeFledglings enemy fledglings within the Brood Ward's 30 m. Returns the structure under the most pressure and
+   * how many bots answer: the 3 nearest (§11.3), or one more than the heroes inside.
    */
-  function homeThreat(team: PlayerTeam): StructureEntity | null {
-    let worst: StructureEntity | null = null;
+  function homeThreat(team: PlayerTeam): { structure: StructureEntity; defenders: number } | null {
+    let worst: { structure: StructureEntity; defenders: number } | null = null;
     let most = 0;
     for (const s of towers) {
       if (s.team !== team || s.structure.lane !== null || s.stats.conditions.has('invulnerable')) continue;
@@ -207,7 +208,7 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
       const pressure = heroes * OBJECTIVE.homeFledglings + units;
       if ((heroes > 0 || units >= OBJECTIVE.homeFledglings) && pressure > most) {
         most = pressure;
-        worst = s;
+        worst = { structure: s, defenders: Math.max(OBJECTIVE.defendBots, heroes + 1) };
       }
     }
     return worst;

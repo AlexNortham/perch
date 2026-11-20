@@ -46,7 +46,7 @@ export interface Shared {
   /** The flock's siege: committed or not, and what it is taking (D-AI-009). */
   readonly siege: (team: PlayerTeam) => Siege;
   /** An open Shrine or Patron of the flock with enemies inside the base, or null. */
-  readonly homeThreat: (team: PlayerTeam) => StructureEntity | null;
+  readonly homeThreat: (team: PlayerTeam) => { readonly structure: StructureEntity; readonly defenders: number } | null;
 }
 
 /** A flock's siege (index.ts `siege`). */
@@ -450,22 +450,25 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       return;
     }
     // Retreat (GDD §11.3): HP under the threshold → the Home Roost until healed; outnumbered or losing → fall back.
-    if ((homeRetreat && hp < RETREAT.healedHp) || hp < d.retreatHp) {
+    // Committed to an open base, a bot stays in until a lower threshold ("commit everyone to the push").
+    const atBase = sg.commit && sg.target !== null && sg.target.structure.lane === null;
+    if ((homeRetreat && hp < RETREAT.healedHp) || hp < (atBase ? RETREAT.committedHp : d.retreatHp)) {
       homeRetreat = true;
       mode = 'retreat';
       goal = { ...home };
       return;
     }
     homeRetreat = false;
-    // Defend at home: the base entered, everyone not committed elsewhere (and committed bots nearer home) go back.
+    // Defend at home: the base entered → the 3 nearest bots, or one more than the heroes inside (GDD §11.3 Defend).
     const threat = w.homeThreat(team);
-    if (threat && (!sg.commit || !sg.target || flat(h.pos, threat.pos) < flat(h.pos, sg.target.pos))) {
+    if (threat && among(friends, threat.structure.pos, threat.defenders)) {
       mode = 'defend';
-      const dx = h.pos.x - threat.pos.x;
-      const dz = h.pos.z - threat.pos.z;
+      const s0 = threat.structure;
+      const dx = h.pos.x - s0.pos.x;
+      const dz = h.pos.z - s0.pos.z;
       const len = dmath.hypot(dx, dz) || 1;
-      const back = threat.structure.body.radius + OBJECTIVE.homeStandM;
-      goal = len > back ? { x: threat.pos.x + (dx / len) * back, y: threat.pos.y, z: threat.pos.z + (dz / len) * back } : null;
+      const back = s0.structure.body.radius + OBJECTIVE.homeStandM;
+      goal = len > back ? { x: s0.pos.x + (dx / len) * back, y: s0.pos.y, z: s0.pos.z + (dz / len) * back } : null;
       const prey = fightTarget(foes);
       target = prey?.id ?? laneTarget(foes, true)?.id ?? null;
       strafe = d.strafe && prey !== null;
@@ -513,11 +516,7 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
     if (sg.commit && sg.target) {
       if (objectives(foes, friends, eggEntity, true)) return;
       mode = 'push';
-      goal = siegeStand(sg.target);
-      const t = sg.target;
-      const shootable = reach(t) <= gunRange && !(t.structure.broodWard && foes.length > 0);
-      target = shootable ? t.id : (laneTarget(foes, true)?.id ?? null);
-      rideOk = true;
+      siegeOn(sg.target, foes);
       return;
     }
     // Objectives: the Egg, runes, Embers and the Roc.
@@ -534,9 +533,30 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
     const push = group || deadEnemies >= OBJECTIVE.pushDeadEnemies;
     if (!push && foes.length === 0 && farm()) return;
     mode = push ? 'push' : 'lane';
-    goal = push && sg.target && sg.target.structure.lane === null ? siegeStand(sg.target) : laneStand();
+    if (push && sg.target && sg.target.structure.lane === null) {
+      siegeOn(sg.target, foes);
+      return;
+    }
+    goal = laneStand();
     target = laneTarget(foes, true)?.id ?? null;
     rideOk = true;
+  }
+
+  /**
+   * Push on a siege target (GDD §11.3 Sieging, §7.6 Brood Ward). A lane tower or an unwarded base structure: from its
+   * stand, shooting it (a Warded one only while no enemy hero is in sight). A Warded base structure: escort the wave in
+   * behind its front, clearing the defenders' fledglings, until one of ours is within the Ward's 30 m.
+   */
+  function siegeOn(t: StructureEntity, foes: readonly HeroEntity[]): void {
+    rideOk = true;
+    if (t.structure.lane === null && t.structure.broodWard) {
+      goal = laneStand();
+      target = laneTarget(foes, true)?.id ?? null;
+      return;
+    }
+    goal = siegeStand(t);
+    const shootable = reach(t) <= gunRange && !(t.structure.broodWard && foes.length > 0);
+    target = shootable ? t.id : (laneTarget(foes, true)?.id ?? null);
   }
 
   /** A point straight away from p, for backing off. */
