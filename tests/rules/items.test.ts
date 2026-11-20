@@ -245,19 +245,26 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Stage 4 items, in play
   });
 
   it('★ Kestrel\'s Eye §10.1: gun hits from 25 m or farther deal +20% damage and reveal the target for 3 s', async () => {
+    // Damage per gun hit, Kestrel's Eye's share included: the +20% may land as a repeat of the hit (D-SYS-014).
+    const perHit = (s: Shop): number => {
+      s.sb.step(2);
+      const dealt = s.sb.eventsOf('damage.applied').filter((e) => e.source === s.buyer && e.target === s.foe);
+      const hits = dealt.filter((e) => e.via === 'weapon').length;
+      return dealt.filter((e) => e.via === 'weapon' || e.item === 'kestrel-eye').reduce((n, e) => n + e.amount, 0) / hits;
+    };
     const near = await shop();
     near.buy('kestrel-eye');
     near.lane(15);
     shoot(near);
-    const nearHit = near.sb.eventsOf('damage.applied').find((e) => e.target === near.foe && e.via === 'weapon')!;
+    const nearHit = perHit(near);
     const far = await shop();
     far.buy('kestrel-eye');
     far.lane(30);
     shoot(far);
-    const farHit = far.sb.eventsOf('damage.applied').find((e) => e.target === far.foe && e.via === 'weapon')!;
+    const farHit = perHit(far);
     expect(far.sb.hero(far.foe).stats.conditions.has('revealed'), 'revealed after a long-range hit').toBe(true);
     expect(near.sb.hero(near.foe).stats.conditions.has('revealed'), 'not from close range').toBe(false);
-    expect(farHit.amount / nearHit.amount, '+20% beyond 25 m (falloff aside)').toBeGreaterThan(1.1);
+    expect(farHit / nearHit, '+20% beyond 25 m (falloff aside)').toBeGreaterThan(1.1);
     far.sb.step(t(3.4));
     expect(far.sb.hero(far.foe).stats.conditions.has('revealed'), 'reveal lasts 3 s').toBe(false);
   });
@@ -407,7 +414,11 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Stage 4 items, in play
     s.sb.step(t(4.2));
     const ticks = songDamage(s.sb, s.buyer, s.foe);
     const total = ticks.reduce((n, e) => n + e.amount, 0);
-    expect(total, 'four seconds of Blight').toBeCloseTo(4 * (0.03 * hp + 0.06 * sp) * (1 - s.sb.hero(s.foe).stats.final.songResist), -1);
+    // "3% of the target's current HP": read as each tick lands, so four seconds of it lie between the totals at the
+    // starting and the ending HP.
+    const blight = (current: number) => 4 * (0.03 * current + 0.06 * sp) * (1 - s.sb.hero(s.foe).stats.final.songResist);
+    expect(total, 'four seconds of Blight').toBeLessThanOrEqual(blight(hp) + 1);
+    expect(total, 'four seconds of Blight').toBeGreaterThanOrEqual(blight(hp - total) - 1);
     s.sb.clearEvents();
     s.sb.step(t(2));
     expect(songDamage(s.sb, s.buyer, s.foe), 'Blight is over').toHaveLength(0);
@@ -429,16 +440,18 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Stage 4 items, in play
 
   it('★ Rookery Dirge §10.3: aura 12 m: enemy heroes inside take Song damage of 1.5% max HP + 0.05×SP per second and have −8% Song resist', async () => {
     const s = await shop();
+    // Effective Song resist: resist less shred (−8% may be either). Measured before the foe walks into the aura.
+    const resist = () => s.sb.hero(s.foe).stats.final.songResist - s.sb.hero(s.foe).stats.final.songShred;
+    const resist0 = resist();
     s.buy('rookery-dirge');
     s.lane(10);
     const sp = s.sb.hero(s.buyer).stats.final.songPower;
     const max = s.sb.hero(s.foe).stats.final.maxHealth;
-    const resist0 = s.sb.hero(s.foe).stats.final.songResist;
     s.sb.clearEvents();
     s.sb.step(t(3));
     const dealt = songDamage(s.sb, s.buyer, s.foe).reduce((n, e) => n + e.amount, 0);
     expect(dealt / 3, 'per second').toBeCloseTo((0.015 * max + 0.05 * sp) * (1 - (resist0 - 0.08)), -1);
-    expect(s.sb.hero(s.foe).stats.final.songResist - resist0).toBeCloseTo(-0.08, 2);
+    expect(resist() - resist0).toBeCloseTo(-0.08, 2);
     s.lane(16);
     s.sb.clearEvents();
     s.sb.step(t(3));
@@ -478,7 +491,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the other actives and nota
   });
 
   it('§10 Nestmother\'s Mantle: a 15 m aura gives allied heroes (you included) +10% Talon and Song resist and +4 HP/s', async () => {
-    const s = await shop();
+    const s = await shop('shrike', true); // keep regeneration: the sandbox otherwise multiplies healthRegen by 0
     s.buy('nestmother-mantle');
     s.lane(10);
     s.sb.step(t(1));
@@ -486,7 +499,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the other actives and nota
     expect(a.talonResist).toBeCloseTo(0.1, 2);
     expect(a.songResist).toBeCloseTo(0.1, 2);
     expect(a.healthRegen).toBeGreaterThanOrEqual(4);
-    expect(s.sb.hero(s.buyer).stats.final.talonResist, 'you too').toBeGreaterThanOrEqual(0.1);
+    expect(s.sb.hero(s.buyer).stats.final.talonResist, 'you too').toBeCloseTo(0.1, 6);
     expect(s.sb.hero(s.foe).stats.final.talonResist, 'not enemies').toBe(0);
   });
 });

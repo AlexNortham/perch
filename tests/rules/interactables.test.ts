@@ -4,8 +4,9 @@
 // Run with PERCH_PENDING=1 npx vitest run tests/rules/interactables.test.ts
 import { describe, expect, it } from 'vitest';
 import { canSee, canSeeOnMap } from '../../src/sim/core/vision';
-import { Button, type EntityId, type BoxPrim, type InteractableAnchor, type RampPrim, type PickupEntity, type StatId, type StructureEntity, type Vec3 } from '../../src/sim/core/contracts';
+import { type EntityId, type BoxPrim, type InteractableAnchor, type RampPrim, type PickupEntity, type StatId, type StructureEntity, type Vec3 } from '../../src/sim/core/contracts';
 import { TICK_RATE } from '../../src/sim/data/core';
+import { COMBAT } from '../../src/sim/data/combat';
 import type { Sandbox } from '../helpers/sandbox';
 import { advanceTo, dist, earned, flat, heavyMelee, lightMelee, minutes, mmss, pickupsOf, seconds, standBeside, world } from '../helpers/world';
 
@@ -114,7 +115,7 @@ const feeders = (sb: Sandbox): StructureEntity[] =>
 const FEEDER_QUARTER = [[58, 13.5, 38], [21, 5.2, 101]] as const;
 
 async function feederWorld() {
-  const sb = await world({ heroes: ['shrike', 'kingfisher', 'lyrebird'] });
+  const sb = await world({ heroes: ['shrike', { hero: 'kingfisher', team: 'dawn' }, 'lyrebird'] });
   advanceTo(sb, mmss(8, 1));
   const [hero, ally, foe] = sb.heroes as [EntityId, EntityId, EntityId];
   const feeder = feeders(sb)[0]!;
@@ -214,7 +215,16 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Bell Feeders (§7.14)', { 
       // Reduce to the last hit, then wait for a lit moment.
       while (feeder.health.hp > (heavy ? 120 : 60)) lightMelee(sb, hero);
       expect(sb.stepUntil(() => feeder.structure.lit === true, 3 * TICK_RATE), 'the lamp lights').not.toBeNull();
-      if (heavy) { sb.hold(hero, Button.Melee); sb.step(Math.ceil(0.36 * TICK_RATE)); sb.release(hero, Button.Melee); sb.step(2 * TICK_RATE); } else lightMelee(sb, hero);
+      if (heavy) {
+        // A heavy hit lands 0.6 s after its press, longer than either lit window (D-OBJ-013): press ahead of the beat
+        // so it lands just after the lamp next lights.
+        const start = sb.sim.tick;
+        sb.stepUntil(() => feeder.structure.lit === false, 3 * TICK_RATE);
+        sb.stepUntil(() => feeder.structure.lit === true, 3 * TICK_RATE);
+        const period = sb.sim.tick - start;
+        sb.step(period - Math.round(COMBAT.melee.heavyWindupS * TICK_RATE) + 2);
+        heavyMelee(sb, hero);
+      } else lightMelee(sb, hero);
       expect(sb.hero(hero).keepsakes?.count ?? 0, heavy ? 'heavy on the beat: 3' : 'light on the beat: 1').toBe(heavy ? 3 : 1);
     }
     const { sb, hero, feeder } = await feederWorld();
@@ -277,7 +287,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Berries (§7.15)', { timeo
 
 describe.runIf(process.env.PERCH_PENDING === '1')('W5 Hides (§7.15)', { timeout: TIMEOUT_MS }, () => {
   async function hide() {
-    const sb = await world({ heroes: ['shrike', 'kingfisher', 'lyrebird'] });
+    const sb = await world({ heroes: ['shrike', { hero: 'kingfisher', team: 'dawn' }, 'lyrebird'] });
     const [hero, ally, foe] = sb.heroes as [EntityId, EntityId, EntityId];
     const room = hides(sb)[0]!;
     const inside = floorOf(room);
@@ -361,7 +371,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 Bough Springs (§7.15)', {
   });
 
   it('§7.15 once per hero per 1.0 s; grounded heroes and the Egg carrier cannot use it', async () => {
-    const sb = await world({ heroes: ['shrike', 'kingfisher', 'lyrebird'] });
+    const sb = await world({ heroes: ['shrike', { hero: 'kingfisher', team: 'dawn' }, 'lyrebird'] });
     const [a, b] = sb.heroes as [EntityId, EntityId];
     const s = sb.ctx.map.springs![0]!;
     sb.modify(a, 'qa-grounded', { conditions: ['grounded'] });
@@ -486,7 +496,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Cellar Run and the Mag
   });
 
   it('§7.15 the Egg carrier cannot enter: the stair heads block the carrier only', async () => {
-    const sb = await world({ heroes: ['shrike', 'kingfisher', 'lyrebird'] });
+    const sb = await world({ heroes: ['shrike', { hero: 'kingfisher', team: 'dawn' }, 'lyrebird'] });
     const [carrier, other] = sb.heroes as [EntityId, EntityId];
     const stair = (sb.ctx.map.openings ?? []).find((o) => o.blocksEggCarrier)!;
     expect(stair, 'a stair-head opening blocks the Egg carrier').toBeDefined();

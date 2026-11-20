@@ -24,7 +24,7 @@ const valueAt = (m: number) => 400 + 70 * m;
 
 /** Two Dawn heroes (the courier and an escort), one Dusk hero; time at 10:00 with the Egg landed. */
 async function landed() {
-  const sb = await world({ heroes: ['shrike', 'kingfisher', 'lyrebird'] });
+  const sb = await world({ heroes: ['shrike', { hero: 'kingfisher', team: 'dawn' }, 'lyrebird'] });
   const [courier, escort, foe] = sb.heroes as [EntityId, EntityId, EntityId];
   advanceTo(sb, mmss(10));
   sb.step(2);

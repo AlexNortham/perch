@@ -63,8 +63,10 @@ export function lightMelee(sb: Sandbox, hero: EntityId): void {
   sb.step(Math.ceil(0.6 * TICK_RATE));
 }
 
-/** A heavy melee hit: hold past the 0.35 s commitment, release, let the swing finish. */
+/** A heavy melee hit: press, hold past the 0.35 s commitment, release, let the swing finish. */
 export function heavyMelee(sb: Sandbox, hero: EntityId): void {
+  // A swing starts on the press edge; a hold alone never swings.
+  sb.press(hero, Button.Melee);
   sb.hold(hero, Button.Melee);
   sb.step(HEAVY_HOLD_TICKS);
   sb.release(hero, Button.Melee);

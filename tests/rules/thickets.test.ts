@@ -40,7 +40,7 @@ const hit = (sb: Sandbox, source: EntityId, target: EntityId, amount: number) =>
   sb.apply({ kind: 'damage', amount, type: 'talon' }, target, sb.cause(source, { via: 'weapon' }));
 
 async function at(f: Family, extra: readonly ('shrike' | 'kingfisher')[] = []) {
-  const sb = await world({ heroes: ['shrike', ...extra, 'lyrebird'] });
+  const sb = await world({ heroes: ['shrike', ...extra.map((hero) => ({ hero, team: 'dawn' as const })), 'lyrebird'] });
   expect(campsOf(sb, f.family).length, '§7.8 the detailed map has ' + f.family + ' camps').toBeGreaterThan(0);
   const [anchor, index] = campsOf(sb, f.family)[0]!;
   advanceTo(sb, f.firstS + 1);

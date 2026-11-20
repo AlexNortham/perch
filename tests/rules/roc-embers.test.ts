@@ -24,7 +24,7 @@ const hit = (sb: Sandbox, source: EntityId, target: EntityId, amount: number, ty
   sb.apply({ kind: 'damage', amount, type }, target, sb.cause(source, { via: 'weapon' }));
 
 async function woken() {
-  const sb = await world({ heroes: ['shrike', 'kingfisher', 'lyrebird'] });
+  const sb = await world({ heroes: ['shrike', { hero: 'kingfisher', team: 'dawn' }, 'lyrebird'] });
   const [a, b, foe] = sb.heroes as [EntityId, EntityId, EntityId];
   advanceTo(sb, WAKE_S + 1);
   expect(roc(sb), '§7.12 the Roc is awake at 20:00').toBeDefined();
