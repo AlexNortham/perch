@@ -24,7 +24,7 @@ export const RAMPAGE_HIT_HOOK = 'rampageHit';
 export const RAMPAGE = { distanceM: 20, durationS: 1, knockUpM: 1.758, steerDeg: 30 } as const;
 /** What Rampage does to a hero it runs into: the hook applies it to heroes only and stops the charge unless T3. */
 export const RAMPAGE_HIT: readonly Effect[] = [song('damage', 0.8), { kind: 'displace', mode: 'up', distance: RAMPAGE.knockUpM }];
-/** Bristle: enemy heroes within 15 m who damage you take this fraction back as Song damage (the hook). */
+/** Bristle: enemy heroes within 15 m who damage you take this fraction of the hit back as Song damage. */
 export const BRISTLE = { radiusM: 15, durationS: 5, reflect: 0.2 } as const;
 /** Boom Call: unstoppable with +40% Talon and Song resist for 4 s once the pull is done. */
 export const BOOM_AFTER_S = 4;
@@ -97,9 +97,19 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     range: BRISTLE.radiusM,
     cooldownS: 24,
     charges: 1,
-    hook: true, // the thorns: a fraction of the damage taken, which a Magnitude can't say
     values: { shield: 250, duration: BRISTLE.durationS },
-    effects: [{ kind: 'shield', absorbs: 'talon', amount: { of: 'shield', song: 2 }, durationS: 'duration' }],
+    effects: [
+      { kind: 'shield', absorbs: 'talon', amount: { of: 'shield', song: 2 }, durationS: 'duration' },
+      // The thorns: a share of each enemy hero's hit, before the Cassowary's resists (D-SYS-014).
+      {
+        kind: 'trigger',
+        durationS: 'duration',
+        trigger: {
+          on: 'damaged', heroesOnly: true, withinM: BRISTLE.radiusM, chance: 1, cooldownS: 0, target: 'other',
+          effects: [{ kind: 'damage', amount: 0, type: 'song', triggerPct: BRISTLE.reflect }],
+        },
+      },
+    ],
     upgrades: [
       { description: '+100 shield (350 + 2.0 x SP)', values: { shield: 100 } },
       { description: '-6 s cooldown', cooldownS: -6 },
