@@ -89,7 +89,7 @@ only for the phases it uses (`System.phases`).
 | 1 | `ai` | sim/ai | Bots write `HeroEntity.command` from what their flock saw last tick |
 | – | core: latch | core | `step()` commands override bots; the command is copied into the hero's latch and sanitised, or the last one repeats without its one-shot fields (D-ARCH-011); look yaw/pitch and shoulder swap applied; pings (rate-limited) and concession handled |
 | 2 | `movement` | physics, world | Hero controllers from commands (walk, sprint, jump, dash, slide, mantle, Updrafts, Chimneys, Vines), displacements of heroes and units; world steers fledglings and neutrals that aren't rooted or stunned |
-| – | core: spatial | core | Spatial hash rebuilt from every live entity; structures (towers, Nests, Feeders, the Patron) are re-indexed only on a tick when their list, a position or a radius changed (D-ARCH-029) |
+| – | core: spatial | core | Spatial hash brought up to date with every live entity; only an entity that spawned, despawned or now covers other cells touches the cells (D-ARCH-029) |
 | 3 | `abilities` | abilities, items | AP upgrades, casts, channels, areas, summons, tethers, delays, hero hooks; item actives |
 | 4 | `combat` | combat | Guns (aim model, fire, reload), melee, parry, projectiles; hits become damage requests |
 | 5 | `world` | world | Vision (`seenBy`); fledglings, structures and neutrals pick targets and attack; waves, Brood Ward, gates, Patron phases, Egg, runes, Nests, Roc and Ember |

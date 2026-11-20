@@ -291,9 +291,15 @@ use it (D-ARCH-032). The W5.5 line "`TetherEffect.breakDistance` becomes a `Magn
 
 ### Objectives (sim/world)
 
-- With the spatial rebuild fixed, world's vision pass is the largest objectives cost: in a profile of the objectives
-  benchmark, `world/vision.ts` self time is about 3.3× the objectives-off match. The 108 Nests and Feeders go through
-  the eye loop every tick; they never move, so their visibility could be cached or refreshed every few ticks.
+- **Release 1 blocker (objectives budget):** with the spatial hash incremental (D-ARCH-029 took it to about 1.5 % of
+  the objectives cost), world's vision pass is about 80 % of it: in a CPU profile of the benchmark's objectives-on and
+  -off matches, `vision.ts` (inclusive) is +1,842 ms of a +2,163 ms difference in the step. The extra work is the awake
+  camp creatures: about 26,500 more `sees` calls over the run, each giving `clear()` (a Rapier ray with the target's
+  collider filtered out, about 11 µs each here) for every enemy hero within 40 m, and the dummy heroes stand 4 m from
+  every camp. Sleeping creatures, Nests, Feeders and pickups already skip early. Options, cheapest first: let a
+  creature that is awake be seen by any enemy hero within its camp's aggro range without a ray (as the `biting` rule
+  already does for the one it attacks); keep each creature's last ray result for `neutralStaggerTicks`; or raise the
+  neutral stagger for awake creatures. Thickets (+238 ms) and the Egg (+92 ms) are the next two.
 
 ### Balance & Data (tools/buildlab)
 

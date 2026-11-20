@@ -2407,22 +2407,25 @@ regenerable from the records alone.
 
 **Why:** the 108-match pilot settled every hero's core between rounds, but item ranks agreed only at ρ 0.71 between halves, and no pick was settled by its confidence intervals.
 
-### D-ARCH-029 · 21/11/2026 — Structures are still entries in the spatial hash
-**Decision:** the spatial hash keeps two sets of entries per cell. Moving entries (heroes, units, projectiles, pickups,
-areas) are re-indexed every tick as before. Structures (towers, Nests, Feeders, Shrines, the Patron) are still entries:
-the rebuild collects them in store order and re-indexes them only when that list, or any one's position or radius,
-differs from what the cells hold. The check compares values, so nothing has to announce a change and a structure that
-did move is still found. Cell coordinates are clamped to ±16,383 so a packed key stays a small integer (V8 hashes it
-without boxing a double; an entity past the clamp lands in the edge cell and the exact sphere test still filters), and
-queries dedup by a per-entry stamp instead of a `Set`. No contract change. Query results are identical, so hashes are
-unchanged (seed 1 objectives match: `142c8c2013a0b34e` before and after).
+### D-ARCH-029 · 21/11/2026 — An incremental spatial hash: an entity touches the cells only when it changes cells
+**Decision:** every entity keeps a stable slot in the spatial hash. The rebuild walks the store's entities beside the
+last rebuild's slots, both in ascending id order, and touches the cells only for an entity that spawned, despawned or
+now covers other cells; one that stayed in its cells (every tower, Nest and Feeder, sleeping camps, lying pickups,
+and most movers from one tick to the next, with 8 m cells) just has its centre and radius updated. Comparisons are by
+value, so nothing has to announce a change; input in another order is still right, only slower. Cell coordinates are
+clamped to ±16,383 so a packed key stays a small integer (V8 hashes it without boxing a double; an entity past the
+clamp lands in the edge cell and the exact sphere test still filters), and queries dedup with a per-slot stamp instead
+of a `Set`. No contract change. Query results are identical, so hashes are unchanged (`npm run sim -- --seed 1
+--minutes 3 --bots 12`: `c076003e96ac8a88` with the old hash and the new). A first version kept only structures as
+still entries; this replaces it.
 **Why:** the integration round measured the per-tick rebuild of 108 static Nests and Feeders as the largest objectives
-cost. A/B on a recorded objectives workload, one process, interleaved (loaded machine): rebuild plus queries 197 → 91
-µs a tick with every objective live, 84 → 43 µs without; the rebuild alone 138 → 67 µs. The objectives budget test
-read +0.73 and +0.56 ms before and +0.31 and +0.30 ms after, under heavy load ("without" 0.92–0.99 ms before, 0.59–0.60
-after); its bound is absolute, so a quiet run is the real reading. Kind-based, not a per-entity flag: every structure
-stands still, and a flag would be a contract field for one consumer. The largest remaining objectives cost is
-world's vision pass (follow-up).
+cost. Measured three ways: (1) the spatial work alone on a recorded objectives tick, old and new interleaved in one
+process: 86 → 18 µs with every objective live, 28 → 8 µs without (the rebuild alone 65.5 → 8.1 µs); (2) the objectives
+benchmark's own setup with four matches (old and new hash, objectives on and off) stepped in interleaved 1 s chunks in
+one process, so load falls on all alike: objectives cost +0.19 → +0.12 and +0.19 → +0.15 ms a tick (medians of 49
+chunks, two runs); (3) a CPU profile of the objectives-on and -off matches: the spatial hash is now about 1.5 % of the
+objectives cost and world's vision pass about 80 % (follow-up). The budget test itself swings with machine load (its
+"without" match read 0.33 to 3.7 ms/tick during this round), so its absolute bound is only meaningful on a quiet run.
 
 ### D-ARCH-030 · 21/11/2026 — Heals, shields and statuses carry the ability and item that caused them
 **Decision:** `heal.applied` and `status.applied` gain required `ability` and `item` (as `damage.applied` has), and a new
