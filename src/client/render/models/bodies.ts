@@ -570,6 +570,7 @@ export const BODIES = {
   owl: owlBody,
   pelican: pelicanBody,
   penguin: penguinBody,
+  vulture: vultureBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */
@@ -588,3 +589,74 @@ export function bodyField(id: keyof typeof BODIES, plan: BodyPlan): Field {
   if (!f) fields.set(key, (f = new Field(BODIES[id](plan))));
   return f;
 }
+
+// =================================================================================================================
+// Batch D (W7). Vulture: hunched. Broad sloping shoulders (the folded wings' wrists) flank a sunken neck, a cream
+// ruff collars it, and the bald head hangs low and forward on a bare, folded neck; the body falls away behind and
+// below to a dark breast, feathered trousers and a short tail.
+
+export function vultureAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 2;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.62, 1.46 * s, -0.2 * s], hip: [R * 0.36, plan.height * 0.29, -0.1 * s], tail: [0, 0.98 * s, -0.56 * s],
+    legLen: plan.height * 0.29, legThick: 0.034 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+/** The ruff: a collar of down puffs round the base of the neck, interleaved in two tiers. */
+function ruff(c: V3, r: number, s: number): Op[] {
+  const ops: Op[] = [ell(c, [r * 1.05, 0.07 * s, r * 1.05], 'body', 'ruff', { k: 0.03 })];
+  for (let tier = 0; tier < 2; tier++) {
+    const n = 11;
+    for (let i = 0; i < n; i++) {
+      const phi = ((i + 0.5 * tier) / n) * Math.PI * 2;
+      const j = 0.85 + 0.3 * (((i * 5 + tier * 3) % 7) / 6);
+      const rr = r * (tier ? 0.82 : 1);
+      const p: V3 = [c[0] + Math.sin(phi) * rr, c[1] + (tier ? 0.06 : -0.01) * s, c[2] + Math.cos(phi) * rr];
+      ops.push(ell(p, [0.07 * s * j, 0.06 * s, 0.07 * s * j], 'body', 'ruff', { k: 0.03, flow: [Math.sin(phi), -0.8, Math.cos(phi)] }));
+    }
+  }
+  return ops;
+}
+
+export function vultureBody(plan: BodyPlan): Body {
+  const a = vultureAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2600, 880, 300, 120], cell: 0.009,
+    ops: [
+      // The hunched trunk: carried upright, its top rolled forward over the breast.
+      ell([0, 1.16 * s, -0.24 * s], [0.32 * s, 0.4 * s, 0.32 * s], 'body', 'back', { rot: [0.32, 0, 0], k: 0.06 }),
+      ...pair(ell([0.1 * s, 1.18 * s, 0.0], [0.17 * s, 0.24 * s, 0.17 * s], 'body', 'breast', { k: 0.07, rot: [-0.1, 0.25, 0] })),
+      ell([0, 1.08 * s, 0.1 * s], [0.07 * s, 0.22 * s, 0.1 * s], 'body', 'breast', { k: 0.05, rot: [-0.25, 0, 0] }),
+      ell([0, 0.86 * s, -0.16 * s], [0.25 * s, 0.2 * s, 0.27 * s], 'body', 'belly', { k: 0.08 }),
+      // The hunched back: a broad mantle sloping up to the shoulders, below the neck so the head shows over it.
+      ell([0, 1.3 * s, -0.36 * s], [0.27 * s, 0.15 * s, 0.26 * s], 'body', 'mantle', { k: 0.07, rot: [0.6, 0, 0] }),
+      cone([0, 1.0 * s, -0.46 * s], [0, 0.9 * s, -0.64 * s], 0.17 * s, 0.08 * s, 'tail', 'coverts', { k: 0.07, boneSoft: 0.06 }),
+      // Broad sloping shoulders: the folded wings' wrists, wide and flat like a coat's padding, not balls.
+      ...shoulders(a, { scapular: [0.22 * s, 1.4 * s, -0.27 * s], scapularR: [0.15 * s, 0.09 * s, 0.22 * s], root: 0.085 * s, inset: 0.08 }),
+      ...thighs(a, { r: 0.1 * s, rKnee: 0.06 * s, reach: 0.55 }),
+      ...ruff([0, 1.48 * s, -0.13 * s], 0.18 * s, s),
+      // The bare neck rising forward out of the ruff, with folds of skin down its back.
+      ...neck([[0, 1.38 * s, -0.15 * s], [0, 1.5 * s, -0.12 * s], [0, 1.58 * s, -0.07 * s], [0, hc[1] - 0.06 * s, -0.02 * s]], [0.085 * s, 0.07 * s, 0.064 * s, 0.07 * s], 'neck', 0.5),
+      ...([[1.52, -0.135], [1.57, -0.105], [1.62, -0.075]] as const).map(([y, z], i) => ell([0, y * s, z * s], [0.068 * s, 0.015 * s, 0.05 * s], i === 0 ? 'body' : 'head', 'folds', { k: 0.014, rot: [-0.5, 0, 0], flow: [0, -1, 0] })),
+      ...head(hc, a.hr, VULTURE_HEAD),
+      // Caruncles: fleshy lumps across the crown and down the back of the skull, so the bald head is never a ball.
+      ...([[0, 1.0, 0.15, 0.16], [0.2, 0.92, -0.12, 0.18], [-0.2, 0.92, -0.12, 0.18], [0, 0.86, -0.42, 0.2], [0, 0.55, -0.8, 0.19]] as const).map(([x, y, z, r]) => ell(at(hc, a.hr, [x, y, z]), mulS([r, r * 0.8, r], a.hr), 'head', 'caruncle', { k: 0.05 * a.hr })),
+      // Wrinkles: thick folds of skin across the back of the skull, so the player camera sees creased hide, not a ball.
+      ...([[0.5, -0.9, -0.45, 0.62], [0.1, -1.04, -0.1, 0.78], [-0.32, -0.98, 0.35, 0.7]] as const).map(([y, z, tilt, w]) => ell(at(hc, a.hr, [0, y, z]), mulS([w, 0.075, 0.2], a.hr), 'head', 'folds', { k: 0.09 * a.hr, rot: [tilt, 0, 0], flow: [0, -1, 0] })),
+      // A dark mask round each eye.
+      ...pair(ell(at(hc, a.hr, [0.66, 0.22, 0.5]), mulS([0.24, 0.2, 0.26], a.hr), 'head', 'mask', { mark: true, soft: 0.008 })),
+    ],
+  };
+}
+
+export const VULTURE_HEAD: HeadShape = {
+  skull: [1.06, 1.0, 1.1], skullAt: [0, 0, -0.04], face: [0.7, 0.66, 0.66], faceAt: [0, -0.1, 0.46],
+  brow: [0.52, 0.22, 0.44], browAt: [0.48, 0.46, 0.5], browTilt: 0.45,
+  nape: [0.7, 0.66, 0.6], napeAt: [0, -0.5, -0.46], throat: [0.55, 0.5, 0.55], throatAt: [0, -0.75, 0.15],
+  eye: [0.72, 0.2, 0.56], socket: 0.26, bill: [0, -0.06, 1.08], billW: 0.34, billH: 0.3,
+};
