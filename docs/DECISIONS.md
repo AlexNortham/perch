@@ -2003,7 +2003,7 @@ draws it through three `BatchedMesh`es: opaque, opaque that casts shadows, and a
 calls for the whole layer (four with the shadow pass) with WEBGL_multi_draw. The batch frustum-culls each cell entry;
 before that, the layer hides bands by the camera's distance to the cell's bounds, with 10 % hysteresis: band 0 (trims,
 small props, interiors, ground cover) to 30 m at Medium, band 1 (frames, shutters, rails, medium props) to 70 m, band 2
-(skins, roofs, trees, cover, landmarks) always. High reaches 45 and 100 m; Low draws no band 0 and band 1 to 40 m.
+(skins, roofs, trees, cover, landmarks) always. High reaches 45 and 100 m; Low draws band 2 only (§11.6 has no trims at Low).
 **Why:** style guide §11.3 and §11.4 without per-piece meshes. Band 1 stops at 70 m, not 80, to keep street-level
 views inside the 450k map row.
 
