@@ -31,7 +31,7 @@ export interface AbilityUpgrade {
   readonly range?: number;
   /**
    * Seconds added to `channelS` (Sulphur Shriek T2, Burrow T1). Replaces Hero B3's `channelExtraS` value name
-   * (D-ARCH-032); sim/abilities folds it in with the other tier numbers from the B3 merge (owner follow-up).
+   * (D-ARCH-032).
    */
   readonly channelS?: number;
   /** Appended to the cast's effects. */

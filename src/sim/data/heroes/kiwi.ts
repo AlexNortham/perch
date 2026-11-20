@@ -1,7 +1,7 @@
 /**
  * Kiwi (GDD §9.24): assassin. Every number is the GDD's; "k×SP" scaling is the `song` part of a Magnitude. Tiers only
  * add (D-ABIL-006). Underground is intangible plus invisible (heroes never collide with each other, so that is all
- * "no collision with heroes" needs); a lengthened Burrow raises `channelExtraS` along with `duration` (D-HEROB-010).
+ * "no collision with heroes" needs); a lengthened Burrow raises `channelS` along with `duration` (D-HEROB-010, D-ARCH-032).
  */
 import type { AbilityDef, Effect, HeroDef, Magnitude, StatusDef, TargetFilter } from '../../core/contracts';
 import { ROOT, SLOW, TALON_SHRED } from '../combat';
@@ -63,7 +63,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     charges: 1,
     channelS: 4, // the press that ends the channel surfaces the Kiwi
     hook: false,
-    values: { duration: 4, channelExtraS: 0, damage: 80, healPct: 0 },
+    values: { duration: 4, damage: 80, healPct: 0 },
     effects: [
       apply(UNDERGROUND, 'duration'),
       {
@@ -89,7 +89,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
       },
     ],
     upgrades: [
-      { description: '+1 s duration (5 s)', values: { duration: 1, channelExtraS: 1 } },
+      { description: '+1 s duration (5 s)', channelS: 1, values: { duration: 1 } },
       { description: '-4 s cooldown', cooldownS: -4 },
       { description: 'Resurfacing heals you 15% of max HP', values: { healPct: BURROW_HEAL_FRACTION } },
     ],
