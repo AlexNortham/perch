@@ -54,6 +54,8 @@ export const FEATHER_SURFACE = {
   shadowDepth: 0.38,
   /** Steepest relief slope: the bumped normal tilts at most atan(1.2), 50°, so it never turns away (no speckle). */
   maxSlope: 1.2,
+  /** Mottled and barred plumage: the pattern tile's repeats per feather spacing (one tile spans 2.5 feathers). */
+  pattern: 0.4,
 } as const;
 
 const VERTEX_HEAD = /* glsl */ `
@@ -84,6 +86,14 @@ vec3 hueShift(vec3 c, float a) {
 vec4 tileTap(sampler2D atlas, vec2 raw, vec2 dx, vec2 dy, vec2 origin, vec2 count, float inset) {
   vec2 inTile = inset + fract(raw) * (1.0 - 2.0 * inset);
   return textureGrad(atlas, (origin + inTile) / count, dx / count, dy / count);
+}
+// A tile taken world-aligned from three projections of p, blended by the normal n (D-ART-008).
+vec4 triTap(sampler2D atlas, vec3 p, vec3 dx, vec3 dy, vec3 n, vec2 origin, vec2 count, float inset) {
+  vec3 bw = pow(abs(n), vec3(4.0));
+  bw /= bw.x + bw.y + bw.z;
+  return bw.x * tileTap(atlas, p.zy, dx.zy, dy.zy, origin, count, inset)
+    + bw.y * tileTap(atlas, p.xz, dx.xz, dy.xz, origin, count, inset)
+    + bw.z * tileTap(atlas, p.xy, dx.xy, dy.xy, origin, count, inset);
 }
 vec3 featherHash(vec3 p) {
   p = fract(p * vec3(0.1031, 0.1030, 0.0973));
@@ -189,7 +199,9 @@ const TILE_SAMPLE = /* glsl */ `
     bpDy *= rep;
     vec3 bn = normalize(vBindNormal);
     bool hair = abs(tileIndex - ${TILE.wood}.0) < 0.5;
-    if ((hair || abs(tileIndex - ${TILE.scales}.0) < 0.5) && dot(vFlow, vFlow) > 0.25) {
+    // Patterned plumage (mottled, barred) is feathered too, with its pattern laid over the feathers (v2.2).
+    bool pattern = abs(tileIndex - ${TILE.mottle}.0) < 0.5 || abs(tileIndex - ${TILE.barred}.0) < 0.5;
+    if ((hair || pattern || abs(tileIndex - ${TILE.scales}.0) < 0.5) && dot(vFlow, vFlow) > 0.25) {
       float px = length(bpDx) + length(bpDy);
       float k = (1.0 - smoothstep(${S.fadeFrom}, ${S.fadeTo}, px)) * mix(1.0, ${S.far}, smoothstep(${S.near.toFixed(1)}, ${S.nearTo.toFixed(1)}, length(vViewPosition)));
       sampledDiffuseColor = vec4(1.0);
@@ -204,12 +216,10 @@ const TILE_SAMPLE = /* glsl */ `
         featherDhy = depth * dot(grad, bpDy);
         sampledDiffuseColor = vec4(vec3(mix(1.0, fv.y, k)), 1.0);
       }
+      // The pattern spans several feathers and stays when the feathers fade with distance.
+      if (pattern) sampledDiffuseColor *= triTap(map, bp * ${S.pattern}, bpDx * ${S.pattern}, bpDy * ${S.pattern}, bn, tileOrigin, tileCount, inset);
     } else {
-      vec3 bw = pow(abs(bn), vec3(4.0));
-      bw /= bw.x + bw.y + bw.z;
-      sampledDiffuseColor = bw.x * tileTap(map, bp.zy, bpDx.zy, bpDy.zy, tileOrigin, tileCount, inset)
-        + bw.y * tileTap(map, bp.xz, bpDx.xz, bpDy.xz, tileOrigin, tileCount, inset)
-        + bw.z * tileTap(map, bp.xy, bpDx.xy, bpDy.xy, tileOrigin, tileCount, inset);
+      sampledDiffuseColor = triTap(map, bp, bpDx, bpDy, bn, tileOrigin, tileCount, inset);
     }
   } else {
     sampledDiffuseColor = tileTap(map, vRawUv, uvDx, uvDy, tileOrigin, tileCount, inset);

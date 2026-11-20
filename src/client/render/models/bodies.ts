@@ -570,6 +570,11 @@ export const BODIES = {
   owl: owlBody,
   pelican: pelicanBody,
   penguin: penguinBody,
+  vulture: vultureBody,
+  hummingbird: hummingbirdBody,
+  toucan: toucanBody,
+  woodpecker: woodpeckerBody,
+  nightjar: nightjarBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */
@@ -588,3 +593,267 @@ export function bodyField(id: keyof typeof BODIES, plan: BodyPlan): Field {
   if (!f) fields.set(key, (f = new Field(BODIES[id](plan))));
   return f;
 }
+
+// =================================================================================================================
+// Batch D (W7). Vulture: hunched. Broad sloping shoulders (the folded wings' wrists) flank a sunken neck, a cream
+// ruff collars it, and the bald head hangs low and forward on a bare, folded neck; the body falls away behind and
+// below to a dark breast, feathered trousers and a short tail.
+
+export function vultureAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 2;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.62, 1.46 * s, -0.2 * s], hip: [R * 0.36, plan.height * 0.29, -0.1 * s], tail: [0, 0.98 * s, -0.56 * s],
+    legLen: plan.height * 0.29, legThick: 0.034 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+/** The ruff: a collar of down puffs round the base of the neck, interleaved in two tiers. */
+function ruff(c: V3, r: number, s: number): Op[] {
+  const ops: Op[] = [ell(c, [r * 1.05, 0.07 * s, r * 1.05], 'body', 'ruff', { k: 0.03 })];
+  for (let tier = 0; tier < 2; tier++) {
+    const n = 11;
+    for (let i = 0; i < n; i++) {
+      const phi = ((i + 0.5 * tier) / n) * Math.PI * 2;
+      const j = 0.85 + 0.3 * (((i * 5 + tier * 3) % 7) / 6);
+      const rr = r * (tier ? 0.82 : 1);
+      const p: V3 = [c[0] + Math.sin(phi) * rr, c[1] + (tier ? 0.06 : -0.01) * s, c[2] + Math.cos(phi) * rr];
+      ops.push(ell(p, [0.07 * s * j, 0.06 * s, 0.07 * s * j], 'body', 'ruff', { k: 0.03, flow: [Math.sin(phi), -0.8, Math.cos(phi)] }));
+    }
+  }
+  return ops;
+}
+
+export function vultureBody(plan: BodyPlan): Body {
+  const a = vultureAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2600, 880, 300, 120], cell: 0.009,
+    ops: [
+      // The hunched trunk: carried upright, its top rolled forward over the breast.
+      ell([0, 1.16 * s, -0.24 * s], [0.32 * s, 0.4 * s, 0.32 * s], 'body', 'back', { rot: [0.32, 0, 0], k: 0.06 }),
+      ...pair(ell([0.1 * s, 1.18 * s, 0.0], [0.17 * s, 0.24 * s, 0.17 * s], 'body', 'breast', { k: 0.07, rot: [-0.1, 0.25, 0] })),
+      ell([0, 1.08 * s, 0.1 * s], [0.07 * s, 0.22 * s, 0.1 * s], 'body', 'breast', { k: 0.05, rot: [-0.25, 0, 0] }),
+      ell([0, 0.86 * s, -0.16 * s], [0.25 * s, 0.2 * s, 0.27 * s], 'body', 'belly', { k: 0.08 }),
+      // The hunched back: a broad mantle sloping up to the shoulders, below the neck so the head shows over it.
+      ell([0, 1.3 * s, -0.36 * s], [0.27 * s, 0.15 * s, 0.26 * s], 'body', 'mantle', { k: 0.07, rot: [0.6, 0, 0] }),
+      cone([0, 1.0 * s, -0.46 * s], [0, 0.9 * s, -0.64 * s], 0.17 * s, 0.08 * s, 'tail', 'coverts', { k: 0.07, boneSoft: 0.06 }),
+      // Broad sloping shoulders: the folded wings' wrists, wide and flat like a coat's padding, not balls.
+      ...shoulders(a, { scapular: [0.22 * s, 1.4 * s, -0.27 * s], scapularR: [0.15 * s, 0.09 * s, 0.22 * s], root: 0.085 * s, inset: 0.08 }),
+      ...thighs(a, { r: 0.1 * s, rKnee: 0.06 * s, reach: 0.55 }),
+      ...ruff([0, 1.48 * s, -0.13 * s], 0.18 * s, s),
+      // The bare neck rising forward out of the ruff, with folds of skin down its back.
+      ...neck([[0, 1.38 * s, -0.15 * s], [0, 1.5 * s, -0.12 * s], [0, 1.58 * s, -0.07 * s], [0, hc[1] - 0.06 * s, -0.02 * s]], [0.085 * s, 0.07 * s, 0.064 * s, 0.07 * s], 'neck', 0.5),
+      ...([[1.52, -0.135], [1.57, -0.105], [1.62, -0.075]] as const).map(([y, z], i) => ell([0, y * s, z * s], [0.068 * s, 0.015 * s, 0.05 * s], i === 0 ? 'body' : 'head', 'folds', { k: 0.014, rot: [-0.5, 0, 0], flow: [0, -1, 0] })),
+      ...head(hc, a.hr, VULTURE_HEAD),
+      // Caruncles: fleshy lumps across the crown and down the back of the skull, so the bald head is never a ball.
+      ...([[0, 1.0, 0.15, 0.16], [0.2, 0.92, -0.12, 0.18], [-0.2, 0.92, -0.12, 0.18], [0, 0.86, -0.42, 0.2], [0, 0.55, -0.8, 0.19]] as const).map(([x, y, z, r]) => ell(at(hc, a.hr, [x, y, z]), mulS([r, r * 0.8, r], a.hr), 'head', 'caruncle', { k: 0.05 * a.hr })),
+      // Wrinkles: thick folds of skin across the back of the skull, so the player camera sees creased hide, not a ball.
+      ...([[0.5, -0.9, -0.45, 0.62], [0.1, -1.04, -0.1, 0.78], [-0.32, -0.98, 0.35, 0.7]] as const).map(([y, z, tilt, w]) => ell(at(hc, a.hr, [0, y, z]), mulS([w, 0.075, 0.2], a.hr), 'head', 'folds', { k: 0.09 * a.hr, rot: [tilt, 0, 0], flow: [0, -1, 0] })),
+      // A dark mask round each eye.
+      ...pair(ell(at(hc, a.hr, [0.66, 0.22, 0.5]), mulS([0.24, 0.2, 0.26], a.hr), 'head', 'mask', { mark: true, soft: 0.008 })),
+    ],
+  };
+}
+
+export const VULTURE_HEAD: HeadShape = {
+  skull: [1.06, 1.0, 1.1], skullAt: [0, 0, -0.04], face: [0.7, 0.66, 0.66], faceAt: [0, -0.1, 0.46],
+  brow: [0.52, 0.22, 0.44], browAt: [0.48, 0.46, 0.5], browTilt: 0.45,
+  nape: [0.7, 0.66, 0.6], napeAt: [0, -0.5, -0.46], throat: [0.55, 0.5, 0.55], throatAt: [0, -0.75, 0.15],
+  eye: [0.72, 0.2, 0.56], socket: 0.26, bill: [0, -0.06, 1.08], billW: 0.34, billH: 0.3,
+};
+
+// =================================================================================================================
+// Batch D (W7). Hummingbird: the smallest hero, an iridescent drop. A deep flight-muscle breast under a ruby gorget,
+// a short neck into a big round head with large eyes and a crest at the back of the crown, the body tapering to the
+// tail; tiny feathered legs.
+
+export function hummingbirdAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.3;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.62, 0.86 * s, -0.04 * s], hip: [R * 0.32, plan.height * 0.13, -0.02 * s], tail: [0, 0.24 * s, -0.12 * s],
+    legLen: plan.height * 0.13, legThick: 0.016 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export function hummingbirdBody(plan: BodyPlan): Body {
+  const a = hummingbirdAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2300, 850, 280, 110], cell: 0.007,
+    ops: [
+      // The drop: deepest at the breast (the flight muscles), tapering down and back to the tail.
+      ell([0, 0.6 * s, -0.05 * s], [0.19 * s, 0.34 * s, 0.18 * s], 'body', 'back', { rot: [0.12, 0, 0], k: 0.05 }),
+      ...pair(ell([0.07 * s, 0.76 * s, 0.06 * s], [0.13 * s, 0.19 * s, 0.13 * s], 'body', 'breast', { k: 0.06, rot: [-0.15, 0.25, 0] })),
+      ell([0, 0.7 * s, 0.12 * s], [0.05 * s, 0.17 * s, 0.08 * s], 'body', 'breast', { k: 0.04, rot: [-0.2, 0, 0] }),
+      ell([0, 0.4 * s, -0.03 * s], [0.14 * s, 0.17 * s, 0.14 * s], 'body', 'belly', { k: 0.06 }),
+      ell([0, 0.8 * s, -0.11 * s], [0.14 * s, 0.17 * s, 0.07 * s], 'body', 'mantle', { k: 0.05, rot: [0.2, 0, 0] }),
+      cone([0, 0.32 * s, -0.1 * s], [0, 0.2 * s, -0.16 * s], 0.09 * s, 0.04 * s, 'tail', 'coverts', { k: 0.04, boneSoft: 0.04 }),
+      ...shoulders(a, { scapular: [0.1 * s, 0.84 * s, -0.08 * s], scapularR: [0.07 * s, 0.1 * s, 0.07 * s], root: 0.045 * s, inset: 0.05, drop: 0.05 }),
+      ...thighs(a, { r: 0.045 * s, rKnee: 0.03 * s, reach: 0.45, root: [0.05 * s, 0.24 * s, -0.02 * s] }),
+      ...neck([[0, 0.9 * s, 0.0], [0, 0.98 * s, 0.0], [0, hc[1] - 0.06 * s, 0]], [0.13 * s, 0.115 * s, 0.1 * s], 'neck', 0.5),
+      ...head(hc, a.hr, HUMMINGBIRD_HEAD),
+      // The crest: a short swept fan of crown feathers lifting off the back of the skull.
+      ell(at(hc, a.hr, [0, 0.82, -0.62]), mulS([0.34, 0.2, 0.48], a.hr), 'head', 'crest', { k: 0.08 * a.hr, rot: [0.55, 0, 0], flow: [0, 0.3, -1] }),
+      // Markings: the ruby gorget over the throat and upper breast, and a white spot behind each eye.
+      ell([0, 0.98 * s, 0.1 * s], [0.14 * s, 0.13 * s, 0.11 * s], 'body', 'gorget', { mark: true, soft: 0.01 }),
+      ...pair(ell(at(hc, a.hr, [0.66, 0.22, -0.12]), mulS([0.14, 0.1, 0.14], a.hr), 'head', 'spot', { mark: true, soft: 0.004 })),
+    ],
+  };
+}
+
+export const HUMMINGBIRD_HEAD: HeadShape = {
+  skull: [1.12, 1.08, 1.1], skullAt: [0, 0.02, -0.04], face: [0.62, 0.55, 0.6], faceAt: [0, -0.1, 0.48],
+  brow: [0.46, 0.16, 0.38], browAt: [0.5, 0.42, 0.52], browTilt: 0.2,
+  throat: [0.55, 0.45, 0.55], throatAt: [0, -0.7, 0.25],
+  eye: [0.66, 0.14, 0.62], socket: 0.3, bill: [0, -0.1, 1.0], billW: 0.14, billH: 0.12,
+};
+
+// =================================================================================================================
+// Batch D (W7). Toucan: a compact, upright black body with a deep breast, a white bib edged in yellow, a maroon nape,
+// a white rump band over a red vent, and a big head built round the base of the gigantic bill, with bare blue skin
+// round the eyes.
+
+export function toucanAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.7;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.68, 1.1 * s, -0.04 * s], hip: [R * 0.36, plan.height * 0.2, -0.03 * s], tail: [0, 0.42 * s, -0.17 * s],
+    legLen: plan.height * 0.2, legThick: 0.026 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export function toucanBody(plan: BodyPlan): Body {
+  const a = toucanAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2250, 900, 290, 115], cell: 0.008,
+    ops: [
+      // Compact and upright, leaning a little forward over a deep breast.
+      ell([0, 0.8 * s, -0.06 * s], [0.23 * s, 0.37 * s, 0.21 * s], 'body', 'back', { rot: [0.15, 0, 0], k: 0.05 }),
+      ...pair(ell([0.09 * s, 0.98 * s, 0.07 * s], [0.15 * s, 0.2 * s, 0.15 * s], 'body', 'breast', { k: 0.06, rot: [-0.15, 0.25, 0] })),
+      ell([0, 0.9 * s, 0.15 * s], [0.06 * s, 0.18 * s, 0.09 * s], 'body', 'breast', { k: 0.05, rot: [-0.2, 0, 0] }),
+      ell([0, 0.56 * s, -0.03 * s], [0.19 * s, 0.19 * s, 0.19 * s], 'body', 'belly', { k: 0.07 }),
+      ell([0, 1.08 * s, -0.14 * s], [0.18 * s, 0.17 * s, 0.08 * s], 'body', 'mantle', { k: 0.05, rot: [0.25, 0, 0] }),
+      cone([0, 0.5 * s, -0.15 * s], [0, 0.4 * s, -0.22 * s], 0.12 * s, 0.05 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.14 * s, 1.08 * s, -0.09 * s], scapularR: [0.09 * s, 0.12 * s, 0.09 * s], root: 0.06 * s, inset: 0.06, drop: 0.06 }),
+      ...thighs(a, { r: 0.07 * s, rKnee: 0.045 * s, reach: 0.5, root: [0.07 * s, 0.42 * s, -0.03 * s] }),
+      ...neck([[0, 1.16 * s, 0.02 * s], [0, 1.27 * s, 0.02 * s], [0, hc[1] - 0.07 * s, 0]], [0.17 * s, 0.15 * s, 0.13 * s], 'neck', 0.5),
+      ...head(hc, a.hr, TOUCAN_HEAD),
+      // Markings: the yellow-edged white bib, the white rump band and the red vent under the tail.
+      ell([0, 1.15 * s, 0.13 * s], [0.21 * s, 0.17 * s, 0.15 * s], 'body', 'bibEdge', { mark: true, soft: 0.006 }),
+      ell([0, 1.24 * s, 0.13 * s], [0.2 * s, 0.16 * s, 0.15 * s], 'body', 'bib', { mark: true, soft: 0.006 }),
+      ell([0, 0.52 * s, -0.22 * s], [0.12 * s, 0.045 * s, 0.08 * s], 'tail', 'rump', { mark: true, soft: 0.008 }),
+      ell([0, 0.42 * s, -0.08 * s], [0.12 * s, 0.07 * s, 0.1 * s], 'body', 'vent', { mark: true, soft: 0.01 }),
+    ],
+  };
+}
+
+export const TOUCAN_HEAD: HeadShape = {
+  skull: [1.08, 1.06, 1.1], skullAt: [0, 0.04, -0.06], face: [0.74, 0.72, 0.62], faceAt: [0, -0.04, 0.42],
+  brow: [0.5, 0.2, 0.42], browAt: [0.5, 0.46, 0.46], browTilt: 0.2,
+  nape: [0.8, 0.72, 0.62], napeAt: [0, -0.5, -0.45], throat: [0.6, 0.5, 0.55], throatAt: [0, -0.72, 0.22],
+  eye: [0.72, 0.24, 0.48], socket: 0.3, bill: [0, 0.1, 0.94], billW: 0.4, billH: 0.56,
+};
+
+// =================================================================================================================
+// Batch D (W7). Woodpecker: upright, leaning back onto its prop tail, a buff breast, a ladder-barred black-and-white
+// back, a white face crossed by a black eye stripe and moustache, and a red crown that rises into a nape crest.
+
+export function woodpeckerAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.75;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.68, 1.14 * s, -0.06 * s], hip: [R * 0.36, plan.height * 0.22, -0.04 * s], tail: [0, 0.44 * s, -0.21 * s],
+    legLen: plan.height * 0.22, legThick: 0.025 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export function woodpeckerBody(plan: BodyPlan): Body {
+  const a = woodpeckerAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2300, 880, 290, 115], cell: 0.008,
+    ops: [
+      // Upright, the top leaning back a little toward the tail it props on.
+      ell([0, 0.86 * s, -0.08 * s], [0.21 * s, 0.4 * s, 0.19 * s], 'body', 'back', { rot: [-0.1, 0, 0], k: 0.05 }),
+      ...pair(ell([0.08 * s, 1.03 * s, 0.05 * s], [0.14 * s, 0.2 * s, 0.14 * s], 'body', 'breast', { k: 0.06, rot: [-0.15, 0.25, 0] })),
+      ell([0, 0.95 * s, 0.13 * s], [0.055 * s, 0.18 * s, 0.08 * s], 'body', 'breast', { k: 0.05, rot: [-0.15, 0, 0] }),
+      ell([0, 0.6 * s, -0.04 * s], [0.18 * s, 0.2 * s, 0.18 * s], 'body', 'belly', { k: 0.07 }),
+      ell([0, 1.12 * s, -0.17 * s], [0.17 * s, 0.2 * s, 0.08 * s], 'body', 'mantle', { k: 0.05, rot: [-0.08, 0, 0] }),
+      cone([0, 0.54 * s, -0.2 * s], [0, 0.44 * s, -0.26 * s], 0.11 * s, 0.05 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.13 * s, 1.12 * s, -0.11 * s], scapularR: [0.09 * s, 0.12 * s, 0.09 * s], root: 0.06 * s, inset: 0.06, drop: 0.06 }),
+      ...thighs(a, { r: 0.065 * s, rKnee: 0.04 * s, reach: 0.5, root: [0.07 * s, 0.46 * s, -0.04 * s] }),
+      ...neck([[0, 1.2 * s, -0.01 * s], [0, 1.33 * s, 0.0], [0, hc[1] - 0.07 * s, 0.01 * s]], [0.15 * s, 0.13 * s, 0.12 * s], 'neck', 0.5),
+      ...head(hc, a.hr, WOODPECKER_HEAD),
+      // The nape crest: the red crown swept back into a keel off the back of the skull.
+      ell(at(hc, a.hr, [0, 0.72, -0.62]), mulS([0.32, 0.3, 0.55], a.hr), 'head', 'crest', { k: 0.08 * a.hr, rot: [0.65, 0, 0], flow: [0, 0.2, -1] }),
+      // Markings: a black stripe through each eye to the nape, and a black moustache from the bill.
+      ...pair(ell(at(hc, a.hr, [0.92, 0.08, -0.05]), mulS([0.3, 0.12, 0.8], a.hr), 'head', 'stripe', { mark: true, rot: [0.15, 0.3, 0], soft: 0.004 })),
+      ...pair(ell(at(hc, a.hr, [0.72, -0.42, 0.42]), mulS([0.3, 0.1, 0.5], a.hr), 'head', 'stripe', { mark: true, rot: [-0.3, 0.45, 0], soft: 0.004 })),
+    ],
+  };
+}
+
+export const WOODPECKER_HEAD: HeadShape = {
+  skull: [1.06, 1.08, 1.12], skullAt: [0, 0.02, -0.04], face: [0.68, 0.6, 0.62], faceAt: [0, -0.1, 0.46],
+  brow: [0.5, 0.2, 0.42], browAt: [0.5, 0.44, 0.48], browTilt: 0.3,
+  eye: [0.72, 0.1, 0.56], socket: 0.24, bill: [0, -0.08, 1.0], billW: 0.27, billH: 0.25,
+};
+
+// =================================================================================================================
+// Batch D (W7). Nightjar: a flat horizontal wedge, pressed long and low as if along a branch, a wide flat head with
+// enormous eyes under heavy brows, a tiny bill over a wide mouth, a tawny collar round the nape, and a long tail.
+
+export function nightjarAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.55;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.78, 1.08 * s, -0.1 * s], hip: [R * 0.4, plan.height * 0.36, -0.04 * s], tail: [0, 1.0 * s, -0.7 * s],
+    legLen: plan.height * 0.36, legThick: 0.02 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export function nightjarBody(plan: BodyPlan): Body {
+  const a = nightjarAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2300, 880, 290, 115], cell: 0.008,
+    ops: [
+      // The wedge: long, low and flat, deepest under the breast and tapering back to the tail.
+      ell([0, 1.0 * s, -0.38 * s], [0.27 * s, 0.14 * s, 0.5 * s], 'body', 'back', { rot: [0.04, 0, 0], k: 0.06 }),
+      ...pair(ell([0.1 * s, 1.02 * s, 0.03 * s], [0.15 * s, 0.17 * s, 0.15 * s], 'body', 'breast', { k: 0.07, rot: [-0.2, 0.25, 0] })),
+      ell([0, 0.98 * s, 0.12 * s], [0.07 * s, 0.15 * s, 0.1 * s], 'body', 'breast', { k: 0.05, rot: [-0.3, 0, 0] }),
+      ell([0, 0.9 * s, -0.16 * s], [0.23 * s, 0.12 * s, 0.3 * s], 'body', 'belly', { k: 0.08 }),
+      ell([0, 1.12 * s, -0.3 * s], [0.24 * s, 0.07 * s, 0.36 * s], 'body', 'mantle', { k: 0.06 }),
+      cone([0, 1.0 * s, -0.62 * s], [0, 0.99 * s, -0.78 * s], 0.13 * s, 0.06 * s, 'tail', 'coverts', { k: 0.06, boneSoft: 0.06 }),
+      ...shoulders(a, { scapular: [0.19 * s, 1.1 * s, -0.2 * s], scapularR: [0.12 * s, 0.07 * s, 0.24 * s], root: 0.07 * s, inset: 0.07, drop: 0.06 }),
+      ...thighs(a, { r: 0.065 * s, rKnee: 0.04 * s, reach: 0.4, root: [0.1 * s, 0.86 * s, -0.06 * s] }),
+      // A short, thick neck: the wide head sits down into the shoulders, filled out so it never pinches.
+      ...neck([[0, 1.1 * s, 0.06 * s], [0, 1.18 * s, 0.04 * s], [0, hc[1] - 0.1 * s, 0.0]], [0.2 * s, 0.19 * s, 0.18 * s], 'neck', 0.2),
+      ell([0, 1.15 * s, -0.15 * s], [0.28 * s, 0.11 * s, 0.24 * s], 'body', 'neck', { k: 0.07 }),
+      ...head(hc, a.hr, NIGHTJAR_HEAD),
+      // Markings: a pale throat band and the pale stripe under each eye.
+      ell(at(hc, a.hr, [0, -0.66, 0.42]), mulS([0.7, 0.16, 0.4], a.hr), 'head', 'pale', { mark: true, soft: 0.008 }),
+      ...pair(ell(at(hc, a.hr, [0.92, -0.08, 0.3]), mulS([0.22, 0.08, 0.5], a.hr), 'head', 'pale', { mark: true, rot: [0, 0.6, 0], soft: 0.006 })),
+    ],
+  };
+}
+
+export const NIGHTJAR_HEAD: HeadShape = {
+  skull: [1.6, 1.06, 1.1], skullAt: [0, -0.02, -0.06], face: [0.92, 0.52, 0.62], faceAt: [0, -0.14, 0.42],
+  cheek: [0.6, 0.45, 0.5], cheekAt: [0.72, -0.3, 0.3], brow: [0.56, 0.18, 0.4], browAt: [0.74, 0.46, 0.4], browTilt: 0.15,
+  nape: [1.1, 0.62, 0.6], napeAt: [0, -0.45, -0.5], throat: [0.75, 0.48, 0.5], throatAt: [0, -0.8, 0.3],
+  eye: [0.9, 0.3, 0.42], socket: 0.38, bill: [0, -0.18, 1.0], billW: 0.3, billH: 0.12,
+};
