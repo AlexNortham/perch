@@ -149,8 +149,9 @@ function owl(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
     for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.3, 0.02, 0.95], { r: hr * 0.3, iris: O.iris, ring: O.rim, lid: shade(O.tawny, 0.8), ringW: hr * 0.035, pupil: 0.5 }, d);
     const B = OWL_HEAD.bill;
     beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.08)], len: hr * 0.42, w: hr * 0.13, up: hr * 0.2, dn: hr * 0.1, curve: hr * 0.2, hook: hr * 0.08, base: O.bill, tip: shade(O.bill, 1.5), open: 0.3 }, d);
-    // Ear tufts: layered feathers up the two horns, spreading and rising on a cast (the display).
-    if (d.level < 3) {
+    // Ear tufts: layered feathers up the two horns, spreading and rising on a cast (the display). They are the owl's
+    // primary shape, so two a side stay at the far level, where the skin's simplified horns no longer carry it.
+    {
       for (const x of [1, -1]) {
         const n = d.keep(5, 2);
         for (let i = 0; i < n; i++) {
