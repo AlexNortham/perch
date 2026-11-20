@@ -3,10 +3,10 @@
  * fledglings, and the old team-coloured box for everything else (structures, Patrons, pickups, areas, projectiles
  * and the other units wait for their own models). Rigs and animation live in ../rigs. Owner: Technical Artist.
  */
-import type { Object3D } from 'three';
+import type { Material, Object3D } from 'three';
 import { BoxGeometry, DoubleSide, Mesh, MeshBasicMaterial, MeshLambertMaterial } from 'three';
 import { HERO_IDS, ViewFlag } from '../../../sim/core/contracts';
-import type { EntityView, HeroId, PlayerTeam, StructureType } from '../../../sim/core/contracts';
+import type { EntityId, EntityView, HeroId, PlayerTeam, SimView, StructureType } from '../../../sim/core/contracts';
 import { STRUCTURE_RADIUS } from '../../../sim/data/world';
 import { HEROES } from '../../../sim/heroes/registry';
 import type { Frame, ModelKit } from '../../app/contracts';
@@ -15,6 +15,9 @@ import { TEAM_COLOURS } from '../palette';
 import { BirdRig } from '../rigs/bird-rig';
 import { FledglingGroup, FledglingProxy } from '../rigs/fledgling-rig';
 import { DomeGroup, StructureRig } from '../rigs/structure-rig';
+import type { Ruin } from '../rigs/structure-rig';
+import type { MaterialLibrary } from '../materials';
+import { libraryOpaque } from './world-mesh';
 import type { StructureMaterials } from '../rigs/structure-rig';
 import type { BirdBuild } from './bird';
 import { dummyMarker } from './dummy';
@@ -58,7 +61,12 @@ const STRUCTURE_TYPES: readonly string[] = ['hawk', 'heron', 'warden', 'shrine',
 const isStructure = (id: string): id is Exclude<StructureType, 'nest'> => STRUCTURE_TYPES.includes(id);
 const isFledgling = (id: string): id is FledglingType => id === 'scrapper' || id === 'slinger';
 
-export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitDebug {
+/** What the kit borrows from the renderer: the material library of the current quality (architecture on structures). */
+export interface KitOptions {
+  readonly library?: () => MaterialLibrary | null;
+}
+
+export function createModelKit(overrides: Partial<DebugOptions> = {}, kitOptions: KitOptions = {}): ModelKitDebug {
   const dev = import.meta.env.DEV && typeof location !== 'undefined' ? readDebugOptions(location.search) : null;
   const opt: DebugOptions = { hitboxes: false, lineup: [], wave: 0, yaw: 0, states: [], team: 'dawn', structures: [], ...dev, ...overrides };
 
@@ -74,10 +82,40 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
     neutral: new MeshLambertMaterial({ color: PLACEHOLDER_COLOURS.neutral }),
   };
   const structureMats: StructureMaterials = {
-    lit: material,
-    heart: new MeshBasicMaterial({ color: STRUCTURE.heartColour, side: DoubleSide }),
+    arch: (): Material => libraryOpaque(kitOptions.library?.() ?? null),
+    heart: new MeshBasicMaterial({ vertexColors: true, side: DoubleSide }),
   };
-  const domes = new DomeGroup(new MeshBasicMaterial({ color: STRUCTURE.domeColour, transparent: true, opacity: STRUCTURE.domeOpacity, depthWrite: false }));
+  const domes = new DomeGroup();
+  // Destroyed structures (the sim despawns them as they die): each live structure's rig, its parent and entity, and the
+  // ruins left behind for the rest of the match.
+  const tracked = new Map<StructureRig, { e: EntityView; parent: Object3D | null }>();
+  const ruins: Ruin[] = [];
+  const liveIds = new Set<EntityId>();
+  let lastView: SimView | null = null;
+  const tickWorld = (frame: Frame): void => {
+    const v = frame.curr;
+    if (v === lastView) return;
+    if (lastView && v.tick < lastView.tick) {
+      for (const r of ruins) {
+        r.removeFromParent();
+        r.free();
+      }
+      ruins.length = 0;
+      tracked.clear();
+    }
+    lastView = v;
+    liveIds.clear();
+    for (const e of v.entities) if (e.kind === 'structure') liveIds.add(e.id);
+    for (const [rig, { e, parent }] of tracked) {
+      if (liveIds.has(e.id)) continue;
+      tracked.delete(rig);
+      if (!parent) continue;
+      const r = rig.ruin();
+      parent.add(r);
+      ruins.push(r);
+    }
+    for (const r of ruins) r.update(frame.dt);
+  };
   const structureBuilds = new Map<string, StructureBuild>();
   const markerMaterial = new MeshBasicMaterial({ vertexColors: true });
   const markers = new Map<string, Mesh>();
@@ -200,6 +238,7 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
       return mesh;
     },
     pose(model, entity, frame) {
+      tickWorld(frame);
       const t = frame.prev.seconds + (frame.curr.seconds - frame.prev.seconds) * frame.alpha;
       if (model instanceof BirdRig) {
         const before = entityById(frame.prev, entity.id);
@@ -217,6 +256,7 @@ export function createModelKit(overrides: Partial<DebugOptions> = {}): ModelKitD
           if (entity.id === (frame.curr.localHero ?? entity.id)) debugScene.update(model.parent, model, frame, t);
         }
       } else if (model instanceof StructureRig) {
+        if (liveIds.has(entity.id)) tracked.set(model, { e: entity, parent: model.parent ?? tracked.get(model)?.parent ?? null });
         model.animate(entity, frame.dt, t, frame.curr);
       } else if (model instanceof FledglingProxy) {
         model.animate(entity, t);

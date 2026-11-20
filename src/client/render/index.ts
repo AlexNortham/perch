@@ -310,7 +310,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     : null;
 
   const devTeams = dev?.has('renderTeams') ?? false;
-  const kit: ModelKit = createModelKit();
+  const kit: ModelKit = createModelKit({}, { library: () => lib });
   const entities = createEntityLayer(scene, kit);
   registerPortraitSource({ gl: () => gl, kit });
   setPortraitProvider(uiPortraits);
