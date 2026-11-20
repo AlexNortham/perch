@@ -5,20 +5,24 @@
  * from the BodyPlan at runtime (head about the head hitbox centre, body inside the capsule, the gun's tip at the
  * muzzle); only fractions and authored offsets are written here.
  */
+import { SphereGeometry } from 'three';
 import type { Vector3 } from 'three';
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
-import { beak, eye, foldedWings, hackles, inBone, legsOf, norm, shingle, tailFan, wingsOf } from './anatomy';
+import { beak, eye, flare, foldedWings, hackles, inBone, legsOf, norm, ovoid, shingle, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
-import { bodyField, flipX, OWL_HEAD, owlAnchors, PELICAN_HEAD, pelicanAnchors, PENGUIN_HEAD, penguinAnchors, skinFor, TRUNK } from './bodies';
+import { bodyField, flipX, OWL_HEAD, owlAnchors, PELICAN_HEAD, pelicanAnchors, PENGUIN_HEAD, penguinAnchors, PUFFIN_HEAD, puffinAnchors, SECRETARYBIRD_HEAD, secretarybirdAnchors, skinFor, STARLING_HEAD, starlingAnchors, TRUNK } from './bodies';
 import { SKIN as OWL_SKIN } from './data/skins/owl';
 import { SKIN as PELICAN_SKIN } from './data/skins/pelican';
 import { SKIN as PENGUIN_SKIN } from './data/skins/penguin';
+import { SKIN as PUFFIN_SKIN } from './data/skins/puffin';
+import { SKIN as SECRETARYBIRD_SKIN } from './data/skins/secretarybird';
+import { SKIN as STARLING_SKIN } from './data/skins/starling';
 import { CARD, TILE } from './feathers';
 import { band, bead, block, BRASS, carve, GEAR, LEATHER, lathe, plume, pouch, ring, sash, scope, stud, WEAVE, WOOD } from './gear';
 import type { Detail, SculptedBird, SculptedSpec } from './sculpted';
 import { hinge, jitter, mix, shade } from './sculpt';
-import type { Sculpt, V3 } from './sculpt';
+import type { Sculpt, Surface, V3 } from './sculpt';
 
 const clamp01 = (x: number): number => Math.min(1, Math.max(0, x));
 /** Soft, deterministic blotches in [0, 1] by model-frame position (`f` cycles per metre): mottled plumage. */
@@ -145,8 +149,9 @@ function owl(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
     for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.3, 0.02, 0.95], { r: hr * 0.3, iris: O.iris, ring: O.rim, lid: shade(O.tawny, 0.8), ringW: hr * 0.035, pupil: 0.5 }, d);
     const B = OWL_HEAD.bill;
     beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.08)], len: hr * 0.42, w: hr * 0.13, up: hr * 0.2, dn: hr * 0.1, curve: hr * 0.2, hook: hr * 0.08, base: O.bill, tip: shade(O.bill, 1.5), open: 0.3 }, d);
-    // Ear tufts: layered feathers up the two horns, spreading and rising on a cast (the display).
-    if (d.level < 3) {
+    // Ear tufts: layered feathers up the two horns, spreading and rising on a cast (the display). They are the owl's
+    // primary shape, so two a side stay at the far level, where the skin's simplified horns no longer carry it.
+    {
       for (const x of [1, -1]) {
         const n = d.keep(5, 2);
         for (let i = 0; i < n; i++) {
@@ -504,29 +509,37 @@ const PENGUIN = {
 } as const;
 
 /**
- * A penguin's flipper segment along -y (the IK still bends it at the elbow to hold the gun): a stiff, flat paddle,
- * black on the outer face (+x) and white beneath with a white trailing edge, tapering to a rounded tip at the grip.
+ * A penguin's flipper segment along -y (the IK still bends it at the elbow to hold the gun): a stiff, flat paddle whose
+ * broad blade stands out from the side of the body along the wing's outer axis (+x), so it reads held out from the
+ * front and from the player camera behind. Black on the back face (-z) and the outer edge, white on the front face,
+ * narrowing at the hand to a rounded tip that closes on the grip.
  */
 function flipper(k: Sculpt, seg: 'arm' | 'hand', upper: number, lower: number, chord: number, thick: number, d: Detail): void {
   const P = PENGUIN;
   const len = seg === 'arm' ? upper : lower;
+  const blade = (y: number, out: number, half: number, t: number): { c: V3; w: number; up: number; dn: number } => ({ c: [chord * out, y, 0], w: chord * half, up: thick * t, dn: thick * t });
   const rings = seg === 'arm'
     ? [
-      { c: [0, thick * 1.5, -chord * 0.1] as V3, w: 0, up: 0, dn: 0 },
-      { c: [0, thick * 0.3, -chord * 0.12] as V3, w: thick, up: chord * 0.22, dn: chord * 0.62 },
-      { c: [0, -len * 0.55, -chord * 0.1] as V3, w: thick * 0.9, up: chord * 0.24, dn: chord * 0.62 },
-      { c: [0, -len * 1.02, -chord * 0.06] as V3, w: thick * 0.85, up: chord * 0.22, dn: chord * 0.56 },
+      { c: [chord * 0.1, thick * 1.5, 0] as V3, w: 0, up: 0, dn: 0 },
+      blade(thick * 0.2, 0.24, 0.3, 1.1),
+      blade(-len * 0.35, 0.44, 0.52, 1),
+      blade(-len * 0.75, 0.4, 0.46, 0.95),
+      blade(-len * 1.0, 0.32, 0.38, 0.9),
+      // A rounded end at the elbow, under the hand's root.
+      blade(-len - chord * 0.22, 0.26, 0.26, 0.75),
+      { c: [chord * 0.22, -len - chord * 0.34, 0] as V3, w: 0, up: 0, dn: 0 },
     ]
     : [
-      { c: [0, thick * 0.6, -chord * 0.06] as V3, w: thick * 0.85, up: chord * 0.22, dn: chord * 0.56 },
-      { c: [0, -len * 0.5, -chord * 0.04] as V3, w: thick * 0.75, up: chord * 0.18, dn: chord * 0.45 },
-      { c: [0, -len * 0.92, 0] as V3, w: thick * 0.7, up: chord * 0.14, dn: chord * 0.3 },
-      { c: [0, -len - chord * 0.2, -chord * 0.02] as V3, w: thick * 0.4, up: chord * 0.06, dn: chord * 0.12 },
-      { c: [0, -len - chord * 0.3, -chord * 0.04] as V3, w: 0, up: 0, dn: 0 },
+      blade(thick * 0.5, 0.32, 0.38, 0.9),
+      blade(-len * 0.4, 0.24, 0.3, 0.8),
+      blade(-len * 0.8, 0.12, 0.2, 0.75),
+      blade(-len - chord * 0.08, 0.04, 0.12, 0.6),
+      { c: [0, -len - chord * 0.2, 0] as V3, w: 0, up: 0, dn: 0 },
     ];
   k.loft(rings, {
-    n: d.n(seg === 'arm' ? 7 : 8, 3), seg: d.n(14, 4), ref: [0, 0, 1],
-    paint: (_t, a) => (Math.cos(a) < -0.35 || Math.sin(a) < -0.9 ? P.white : Math.cos(a) < 0 ? P.slate : P.black),
+    n: d.n(seg === 'arm' ? 8 : 8, 3), seg: d.n(14, 4), ref: [0, 0, 1],
+    // White front face and a white outer edge (it outlines the flipper against the black body from behind).
+    paint: (_t, a) => (Math.cos(a) > 0.86 || (Math.sin(a) > 0.2 && Math.cos(a) < 0.75) ? P.white : Math.sin(a) > -0.2 && Math.cos(a) < -0.6 ? P.slate : P.black),
     finish: { tile: TILE.scales, size: 0.035, gloss: 0.3 },
   });
 }
@@ -567,7 +580,7 @@ function penguin(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
     toes: [{ yaw: -0.55, len: 0.12 * s, r: 0.022 * s }, { yaw: -0.05, len: 0.14 * s, r: 0.024 * s }, { yaw: 0.5, len: 0.12 * s, r: 0.022 * s }],
     clawLen: 0.035 * s,
   };
-  const chord = 0.17 * s;
+  const chord = 0.22 * s;
   const fthick = 0.022 * s;
 
   const body = (k: Sculpt): void => {
@@ -684,4 +697,652 @@ function penguinGun(s: number, d: Detail): SculptedSpec['gun'] {
   };
 }
 
-export const C_BUILDS: Readonly<Record<string, SculptedBird>> = { owl, pelican, penguin };
+// =================================================================================================================
+// Puffin: short and chunky, black above and white below, a big round head with full white cheeks, a dark streak back
+// from each eye under grey horn plates, and the hero shape: a tall triangular bill striped blue-grey, yellow and
+// orange, three silver sand eels draped across it. Bright orange webbed feet, a flock bandana knotted behind the head.
+// Area control: a driftwood Eel Sling with a forked yoke, kelp bands, a leather cup and a row of fishbone barbs.
+
+const PUFFIN = {
+  black: 0x17171b,
+  grey: 0x4c4e57,
+  white: 0xf3f2ee,
+  face: 0xe8e8e6,
+  blue: 0x6c8296,
+  yellow: 0xf2c84a,
+  orange: 0xf0652a,
+  groove: 0xf6a85a,
+  rosette: 0xf4d23a,
+  ring: 0xd8402e,
+  plate: 0x5e6268,
+  foot: 0xf27a2c,
+  claw: 0x2a2220,
+  iris: 0x2a1c14,
+  fish: 0xe4e9ec,
+  fishBack: 0x86a0ae,
+  drift: 0xa89a84,
+  kelp: 0x4e5a2a,
+  float: 0x5ad49a,
+} as const;
+
+/**
+ * Three sand eels held crosswise in the bill (head frame): each hangs from the cutting edge down both sides, head on
+ * one side and tail on the other, silver below and blue-grey above, with a small tail fin.
+ */
+function sandEels(k: Sculpt, base: V3, len: number, halfW: number, hr: number, d: Detail): void {
+  if (d.level >= 2) return;
+  const P = PUFFIN;
+  for (let i = 0; i < 3; i++) {
+    const z = base[2] + len * (0.22 + 0.2 * i);
+    const y0 = base[1] - hr * 0.02 - hr * 0.08 * i;
+    const w = halfW * Math.pow(1 - (0.22 + 0.2 * i), 0.85) + 0.012;
+    const drop = hr * (0.75 - 0.1 * i);
+    const out = hr * (0.45 - 0.08 * i);
+    const side = i % 2 ? -1 : 1;
+    // Held crosswise: each eel droops out and down to both sides, the way a puffin carries its catch.
+    const path: V3[] = [
+      [side * (w + out), y0 - drop, z - hr * 0.1],
+      [side * (w + out * 0.55), y0 - drop * 0.35, z - hr * 0.03],
+      [0, y0 + hr * 0.02, z],
+      [-side * (w + out * 0.55), y0 - drop * 0.3, z + hr * 0.02],
+      [-side * (w + out * 0.9), y0 - drop * 0.9, z + hr * 0.08],
+    ];
+    const rings = [];
+    const n = d.level === 0 ? 10 : 6;
+    for (let j = 0; j <= n; j++) {
+      const u = j / n;
+      const f = u * (path.length - 1);
+      const a = path[Math.min(path.length - 1, Math.floor(f))]!;
+      const b = path[Math.min(path.length - 1, Math.floor(f) + 1)]!;
+      const t = f - Math.floor(f);
+      const r = hr * 0.075 * (u < 0.1 ? 0.5 + 5 * u : 1 - 0.75 * Math.pow(u, 1.6));
+      rings.push({ c: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t] as V3, w: r * 0.7, up: r, dn: r });
+    }
+    k.loft(rings, { seg: d.n(8, 4), ref: [0, 0, 1], paint: (_t, a) => (Math.sin(a) > 0.3 ? P.fishBack : P.fish), finish: { gloss: 0.85, iri: 0.25 } });
+    const tail = path[path.length - 1]!;
+    k.card({ at: tail, dir: [0, -1, 0.1], face: [0, 0, 1], len: hr * 0.18, wid: hr * 0.16, cell: CARD.tail, root: P.fish, tip: P.fishBack, segs: 2 });
+    const head0 = path[0]!;
+    if (d.level === 0) bead(k, [head0[0] + side * hr * 0.03, head0[1] + hr * 0.04, head0[2] + hr * 0.02], hr * 0.02, 0x101418, 0, d);
+  }
+}
+
+function puffin(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
+  const H = plan.height;
+  const hr = plan.head.radius;
+  const A = puffinAnchors(plan);
+  const s = A.s;
+  const P = PUFFIN;
+  const SLEEK = { tile: TILE.scales, size: 0.07, gloss: 0.3 } as const;
+  const field = bodyField('puffin', plan);
+  const skin = skinFor('puffin', plan, PUFFIN_SKIN, d.level, {
+    back: { paint: P.black, finish: SLEEK },
+    mantle: { paint: P.black, finish: SLEEK },
+    scapular: { paint: P.black, finish: SLEEK },
+    shoulder: { paint: P.black, finish: SLEEK },
+    coverts: { paint: P.black, finish: SLEEK },
+    breast: { paint: P.black, finish: SLEEK },
+    belly: { paint: P.black, finish: SLEEK },
+    thigh: { paint: mix(P.black, P.grey, 0.4), finish: SLEEK },
+    bib: { paint: P.white, finish: { tile: TILE.scales, size: 0.06, gloss: 0.15 } },
+    neck: { paint: P.black, finish: SLEEK },
+    collar: { paint: P.black, finish: SLEEK },
+    // A charcoal crown and nape over the black mantle, and the white face wrapping round the cheeks: the head reads
+    // apart from the back from the player camera.
+    crown: { paint: P.grey, finish: { ...SLEEK, size: 0.05 } },
+    mask: { paint: P.face, finish: { gloss: 0.15 } },
+    nape: { paint: (p) => mix(P.grey, P.black, clamp01((A.head[1] - p.y) / (0.18 * s))), finish: { ...SLEEK, size: 0.05 } },
+    face: { paint: P.face, finish: { gloss: 0.15 } },
+    cheek: { paint: P.face, finish: { gloss: 0.15 } },
+    brow: { paint: mix(P.face, P.grey, 0.3), finish: { gloss: 0.15 } },
+    throat: { paint: (p) => mix(P.face, P.black, clamp01((A.head[1] - 0.06 * s - p.y) / (0.06 * s))), finish: { gloss: 0.15 } },
+    streak: { paint: P.plate, finish: { gloss: 0.2 } },
+    // The bill's base on the face is pale grey skin; the striped triangle is the loft in front of it.
+    bill: { paint: mix(P.face, P.plate, 0.35), finish: { gloss: 0.3 } },
+    socket: { paint: P.ring, finish: { gloss: 0.4 } },
+  });
+  const leg: LegStyle = {
+    skin: P.foot, claw: P.claw, thick: A.legThick, thigh: P.black, fringe: 0.5, skinned: { r: 0.075 * s, at: 0.3 },
+    toes: [{ yaw: -0.55, len: 0.11 * s, r: 0.02 * s }, { yaw: -0.05, len: 0.13 * s, r: 0.022 * s }, { yaw: 0.5, len: 0.11 * s, r: 0.02 * s }],
+    clawLen: 0.03 * s,
+  };
+  const wing: WingStyle = {
+    covert: P.black, secondary: shade(P.grey, 0.8), primary: P.black, primaryTip: shade(P.grey, 0.7), trim: team.primary,
+    thick: 0.03 * s, chord: 0.2 * s, primaries: 6, secondaries: 4, primaryLen: 0.55, secondaryLen: 0.6,
+  };
+
+  const body = (k: Sculpt): void => {
+    const torso = field.only(...TRUNK).surface([0, 0.3 * s, -0.12 * s], [0, 1.02 * s, 0.03 * s], [0, 0, 1]);
+    const collar = field.only(...TRUNK, 'neck').surface([0, 0.85 * s, -0.02 * s], [0, A.head[1] - 0.05 * s, 0.0], [0, 0, 1]);
+    hackles(k, collar, { t: [0.25, 0.7], rows: 3, cols: 5, len: 0.08 * s, wid: 0.07 * s, lift: 0.14, paint: (t) => mix(P.black, P.grey, 0.2 + 0.5 * t), finish: SLEEK }, d);
+    foldedWings(k, torso, wing, { t: [0.45, 0.85], a: 0.25, len: 0.3 * s, wid: 0.1 * s }, d);
+    // Gear: a flock satchel strap over the shoulder (it reads across the back), a rope net satchel on the hip.
+    sash(k, torso, 0.62, 0.2, Math.PI * 0.32, { width: 0.055 * s, thick: 0.012 * s, hex: team.primary, stitch: team.light, off: 0.008 * s, finish: WEAVE }, d);
+    pouch(k, torso.at(0.4, Math.PI * 1.15, 0.01 * s), [0.12 * s, 0.11 * s, 0.07 * s], GEAR.rope, d, shade(GEAR.rope, 0.8));
+    // A belt with spare eels in loops (the sling's ammo).
+    band(k, torso, 0.32, { width: 0.045 * s, thick: 0.012 * s, hex: GEAR.leatherDark, stitch: team.light, off: 0.008 * s, finish: LEATHER }, d);
+    if (d.level < 2) {
+      for (let i = 0; i < 4; i++) {
+        const p = torso.at(0.32, Math.PI * (0.25 + 0.12 * i), 0.02 * s);
+        k.loft([{ c: [p.p.x, p.p.y + 0.035 * s, p.p.z], w: 0.008 * s, up: 0.01 * s }, { c: [p.p.x, p.p.y - 0.01 * s, p.p.z + 0.004 * s], w: 0.011 * s, up: 0.013 * s }, { c: [p.p.x, p.p.y - 0.05 * s, p.p.z], w: 0, up: 0 }], { seg: 6, ref: [0, 0, 1], paint: (t) => (t < 0.4 ? P.fishBack : P.fish), finish: { gloss: 0.8 } });
+      }
+    }
+  };
+
+  const head = (k: Sculpt): void => {
+    hackles(k, inBone(field.only('crown', 'nape', 'neck').surface([A.head[0], A.head[1] - hr * 1.5, A.head[2] - hr * 0.1], [A.head[0], A.head[1] + hr * 0.9, A.head[2] - hr * 0.1], [0, 0, 1]), A.head), {
+      t: [0.22, 0.5], rows: 2, cols: 4, len: 0.07 * s, wid: 0.06 * s, lift: 0.2, paint: (t) => mix(P.black, P.grey, 0.3 + 0.5 * t), finish: SLEEK, seed: 59,
+    }, d);
+    const E = PUFFIN_HEAD.eye;
+    for (const x of [1, -1]) {
+      eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.8, 0.05, 0.6], { r: hr * 0.17, iris: P.iris, ring: P.ring, lid: P.plate, ringW: hr * 0.04 }, d);
+      // The grey horn plates over and under each eye: the puffin's sad-clown look.
+      if (d.level < 2) {
+        const c: V3 = [x * hr * (E[0] + 0.12), hr * E[1], hr * E[2]];
+        k.loft([{ c: [c[0], c[1] + hr * 0.16, c[2]], w: hr * 0.06, up: hr * 0.03 }, { c: [c[0] - x * hr * 0.02, c[1] + hr * 0.34, c[2] - hr * 0.04], w: 0, up: 0 }], { seg: 4, ref: [0, 0, 1], paint: P.plate, finish: { gloss: 0.5 } });
+        k.loft([{ c: [c[0], c[1] - hr * 0.16, c[2]], w: hr * 0.08, up: hr * 0.02 }, { c: [c[0] - x * hr * 0.03, c[1] - hr * 0.26, c[2] - hr * 0.1], w: 0, up: 0 }], { seg: 4, ref: [0, 0, 1], paint: P.plate, finish: { gloss: 0.5 } });
+      }
+    }
+    // The bill: a tall, laterally flat triangle, blue-grey at the base behind a yellow ridge, orange outward with pale
+    // grooves; a yellow rosette at each corner of the gape.
+    const B = PUFFIN_HEAD.bill;
+    const at: V3 = [0, hr * B[1], hr * (B[2] + 0.02)];
+    const len = hr * 1.3;
+    const w = hr * 0.25;
+    beak(k, {
+      at, len, w, up: hr * 0.62, dn: hr * 0.5, curve: hr * 0.32, hook: hr * 0.05, base: P.blue, tip: P.orange, open: 0.3, displayOpen: 0.45,
+      bands: [[0, P.blue], [0.26, P.yellow], [0.33, P.orange], [0.55, P.groove], [0.6, P.orange], [0.76, P.groove], [0.8, P.orange]],
+    }, d);
+    if (d.level < 2) for (const x of [1, -1]) bead(k, [x * w * 1.05, at[1] - hr * 0.06, at[2] + hr * 0.02], hr * 0.06, P.rosette, 0, d, [0.7, 1, 1]);
+    sandEels(k, at, len, w, hr, d);
+    // A flock bandana tied round the crown, knotted behind with two short tails: the crown shape from behind.
+    if (d.level < 3) {
+      const tilt = norm([0, 1, -0.3]);
+      const c: V3 = [A.head[0], A.head[1] + hr * 0.3, A.head[2] - hr * 0.05];
+      const skull = field.only('crown', 'nape', 'brow', 'cheek').surface([c[0] - tilt[0] * hr, c[1] - tilt[1] * hr, c[2] - tilt[2] * hr], [c[0] + tilt[0] * hr, c[1] + tilt[1] * hr, c[2] + tilt[2] * hr]);
+      const crown = inBone(skull, A.head);
+      band(k, crown, 0.5, { width: 0.06 * s, thick: 0.014 * s, hex: team.primary, stitch: team.light, off: 0.004 * s, finish: WEAVE }, d);
+      const knot = crown.at(0.5, -Math.PI / 2, 0.02 * s);
+      bead(k, [knot.p.x, knot.p.y, knot.p.z], 0.022 * s, team.primary, 0, d, [1, 0.8, 0.7]);
+      for (const x of [1, -1]) k.card({ at: [knot.p.x, knot.p.y, knot.p.z], dir: norm([x * 0.5, -0.8, -0.5]), face: [0, 0.3, -1], len: 0.1 * s, wid: 0.045 * s, cell: CARD.cloth, root: team.primary, tip: team.dark, curl: 0.2, sweep: x * 0.2, segs: 2 });
+    }
+  };
+
+  const tail = (k: Sculpt): void => {
+    tailFan(k, { count: 7, len: 0.14 * s, wid: 0.05 * s, spread: 0.9, droop: 0.8, root: P.black, tip: P.grey, cell: CARD.tail, finish: { gloss: 0.3 } }, d);
+  };
+
+  return {
+    body, head, tail, skin,
+    wing: wingsOf(wing, d),
+    leg: (k, seg, side, upper, lower, ankle) => {
+      legsOf(leg, d)(k, seg, side, upper, lower, ankle);
+      if (seg === 'foot') web(k, ankle, leg.toes, P.foot, side, d);
+    },
+    gun: puffinGun(s, d),
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
+    legLen: A.legLen, legThick: leg.thick, wingLen: H * 0.36,
+    // Burrow Colony, Sea Spray, Fog Bank, Rogue Wave.
+    casts: ['throw', 'sweep', 'raise', 'throw'],
+    sway: 0.08, castTail: -0.4,
+  };
+}
+
+/** Eel Sling: a driftwood stock with a forked yoke and a glass float, kelp bands to a leather cup, fishbone barbs. */
+function puffinGun(s: number, d: Detail): SculptedSpec['gun'] {
+  const P = PUFFIN;
+  const L = 0.58 * s;
+  const fork = 0.05 * s;
+  return {
+    main: [0, -0.06 * s, -L * 0.62],
+    support: [0, -0.02 * s, -0.02 * s],
+    slideAt: [0, 0.0, -L * 0.36],
+    travel: 0.05 * s,
+    build(k, part) {
+      if (part === 'slide') {
+        if (d.level >= 3) return;
+        // The leather cup with an eel ready in it, and the two kelp bands running forward to the yoke's tips.
+        block(k, [0.05 * s, 0.03 * s, 0.035 * s], [0, 0, 0], GEAR.leather, LEATHER, d);
+        if (d.level < 2) {
+          lathe(k, [[0.004 * s, 0.03 * s], [0.012 * s, 0.0], [0.004 * s, -0.035 * s]], { at: [0, 0.018 * s, 0], seg: 6, paint: P.fish, finish: { gloss: 0.8 } });
+          for (const x of [1, -1]) k.loft([{ c: [x * 0.022 * s, 0.004 * s, 0.01 * s], w: 0.005 * s, up: 0.004 * s }, { c: [x * fork, 0.04 * s, L * 0.32], w: 0.004 * s, up: 0.003 * s }], { seg: 4, paint: P.kelp, finish: { gloss: 0.5 } });
+        }
+        return;
+      }
+      if (part !== 'gun') return;
+      if (d.level >= 3) {
+        lathe(k, [[0.02 * s, 0], [0.018 * s, -L * 0.5], [0.03 * s, -L * 0.7], [0.022 * s, -L]], { seg: 4, paint: P.drift });
+        return;
+      }
+      // The yoke: two driftwood prongs forking up from the stock, rope-bound, the glass float glowing between them.
+      for (const x of [1, -1]) {
+        k.loft([{ c: [0, -0.01 * s, -0.09 * s], w: 0.012 * s, up: 0.012 * s }, { c: [x * fork * 0.6, 0.015 * s, -0.04 * s], w: 0.01 * s, up: 0.01 * s }, { c: [x * fork, 0.04 * s, -0.02 * s], w: 0.008 * s, up: 0.008 * s }, { c: [x * fork * 1.05, 0.05 * s, -0.018 * s], w: 0, up: 0 }], { seg: d.n(8, 4), paint: P.drift, finish: WOOD });
+      }
+      bead(k, [0, 0.012 * s, -0.012 * s], 0.017 * s, P.float, 0.85, d);
+      if (d.level < 2) ring(k, [0, 0.012 * s, -0.012 * s], 0.018 * s, 0.003 * s, d, GEAR.rope, undefined, [0, Math.PI / 2, 0]);
+      // The driftwood stock, bleached and knotted, bound with rope at the fork.
+      lathe(k, [[0.016 * s, -0.08 * s], [0.018 * s, -L * 0.3], [0.016 * s, -L * 0.5], [0.022 * s, -L * 0.56]], { seg: d.n(10, 4), paint: (t) => (t < 0.12 ? GEAR.rope : P.drift), finish: WOOD });
+      carve(k, [[-L * 0.56, -0.02 * s], [-L * 0.63, -0.02 * s], [-L * 0.69, -0.1 * s], [-L * 0.61, -0.105 * s]], 0.026 * s, shade(P.drift, 0.85), WOOD, d);
+      carve(k, [[-L * 0.6, 0.02 * s], [-L * 0.9, 0.02 * s], [-L, 0.0], [-L * 1.0, -0.07 * s], [-L * 0.92, -0.075 * s], [-L * 0.64, -0.03 * s]], 0.032 * s, P.drift, WOOD, d);
+      if (d.level < 2) {
+        // Fishbone barbs along the top of the stock (the area-control signature).
+        for (let i = 0; i < 5; i++) k.loft([{ c: [0, 0.016 * s, -L * (0.14 + 0.07 * i)], w: 0.004 * s, up: 0.004 * s }, { c: [0, 0.045 * s, -L * (0.14 + 0.07 * i) - 0.02 * s], w: 0, up: 0 }], { seg: 4, paint: GEAR.bone, finish: { gloss: 0.5 } });
+        // A net bag of spare eels under the stock (the ammo read).
+        lathe(k, [[0.008 * s, 0.03 * s], [0.03 * s, 0.0], [0.024 * s, -0.04 * s], [0.0, -0.06 * s]], { at: [0, -0.04 * s, -L * 0.36], rot: [Math.PI / 2, 0, 0], seg: d.n(10, 5), paint: (t, a) => (Math.sin(a * 6 + t * 20) > 0.6 ? GEAR.rope : P.fish), finish: { gloss: 0.6 } });
+      }
+    },
+  };
+}
+
+// =================================================================================================================
+// Secretarybird: the tallest, thinnest hero. A small pale-grey body on pink stilts in black feathered breeches, a
+// slender neck, an eagle's head with a heavy brow, bare orange skin and long lashes round the eye, and the hero
+// shape: a crown of long black-tipped quills fanned behind the head that rises on a cast. A long grey tail with two
+// streamers. Mobility skirmisher: the Quill Pair, two slim quill pistols with brass nib muzzles, one in each wing.
+
+const SECRETARY = {
+  pale: 0xd4d7da,
+  grey: 0xa7adb3,
+  mantle: 0x868d94,
+  black: 0x1c1c20,
+  orange: 0xf08a2a,
+  leg: 0xd2a492,
+  claw: 0x2a2422,
+  bill: 0x4a4c50,
+  billTip: 0x26262a,
+  iris: 0x4a2a14,
+  lash: 0x141416,
+  quill: 0xeee4cc,
+  nib: 0xd6a648,
+  ink: 0x1a2440,
+} as const;
+
+/**
+ * One quill pistol along -z, its brass nib at the origin: a cream quill-shaft barrel with brass bands, a fletching vane
+ * along its top, a dark carved grip at `grip` and a clip of spare quill darts down its side.
+ */
+function quillPistol(k: Sculpt, L: number, s: number, d: Detail, flip: 1 | -1): void {
+  const S = SECRETARY;
+  if (d.level >= 3) {
+    lathe(k, [[0.012 * s, 0], [0.014 * s, -L * 0.6], [0.02 * s, -L * 0.75], [0.016 * s, -L]], { seg: 4, paint: S.quill });
+    return;
+  }
+  // The nib: a split brass point, with a warm glow at its tip (the lit muzzle).
+  lathe(k, [[0.003 * s, 0.006 * s], [0.011 * s, -0.025 * s], [0.013 * s, -0.04 * s]], { seg: d.n(10, 4), paint: S.nib, finish: BRASS, flat: 0.6 });
+  bead(k, [0, 0, 0.004 * s], 0.006 * s, 0xffb24a, 0.9, d);
+  lathe(k, [[0.012 * s, -0.038 * s], [0.013 * s, -L * 0.35], [0.015 * s, -L * 0.55], [0.017 * s, -L * 0.58]], { seg: d.n(10, 4), paint: (t) => (Math.abs(t - 0.3) < 0.04 || Math.abs(t - 0.75) < 0.04 ? GEAR.brass : S.quill), finish: { gloss: 0.6 } });
+  if (d.level < 2) plume(k, [0, 0.014 * s, -L * 0.2], [0, 0.12, -1], L * 0.36, 0.03 * s, S.quill, CARD.quill, [flip * 0.3, 1, 0], S.black);
+  block(k, [0.03 * s, 0.042 * s, 0.09 * s], [0, -0.004 * s, -L * 0.64], GEAR.woodDark, WOOD, d);
+  carve(k, [[-L * 0.6, -0.02 * s], [-L * 0.68, -0.02 * s], [-L * 0.8, -0.1 * s], [-L * 0.72, -0.108 * s]], 0.024 * s, GEAR.woodRed, WOOD, d);
+  if (d.level < 2) {
+    stud(k, [flip * 0.016 * s, -0.004 * s, -L * 0.64], 0.006 * s);
+    for (let i = 0; i < 3; i++) lathe(k, [[0.003 * s, 0.03 * s], [0.003 * s, -0.03 * s]], { at: [flip * 0.018 * s, -0.012 * s - i * 0.008 * s, -L * 0.38], seg: 4, paint: S.ink, finish: { gloss: 0.5 } });
+  }
+}
+
+function secretarybird(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
+  const H = plan.height;
+  const hr = plan.head.radius;
+  const A = secretarybirdAnchors(plan);
+  const s = A.s;
+  const S = SECRETARY;
+  const SOFT = { tile: TILE.scales, size: 0.06, gloss: 0.15 } as const;
+  const field = bodyField('secretarybird', plan);
+  const skin = skinFor('secretarybird', plan, SECRETARYBIRD_SKIN, d.level, {
+    // A darker grey mantle and scapulars under the pale neck: the value break from the player camera.
+    back: { paint: (p) => mix(S.grey, S.mantle, clamp01((p.y - 1.5 * s) / (0.2 * s))), finish: SOFT },
+    mantle: { paint: S.mantle, finish: SOFT },
+    scapular: { paint: mix(S.mantle, S.black, 0.25), finish: SOFT },
+    shoulder: { paint: S.mantle, finish: SOFT },
+    coverts: { paint: S.grey, finish: SOFT },
+    breast: { paint: (p) => mix(S.pale, S.grey, clamp01(Math.abs(p.x) / (0.15 * s))), finish: SOFT },
+    belly: { paint: mix(S.grey, S.black, 0.35), finish: SOFT },
+    thigh: { paint: S.black, finish: { tile: TILE.scales, size: 0.045, gloss: 0.25 } },
+    neck: { paint: S.pale, finish: { ...SOFT, size: 0.045 } },
+    crown: { paint: S.grey, finish: { ...SOFT, size: 0.04 } },
+    crest: { paint: mix(S.grey, S.black, 0.6), finish: { ...SOFT, size: 0.04 } },
+    nape: { paint: mix(S.pale, S.grey, 0.5), finish: { ...SOFT, size: 0.04 } },
+    face: { paint: S.pale, finish: { gloss: 0.1 } },
+    cheek: { paint: S.pale, finish: { gloss: 0.1 } },
+    brow: { paint: S.grey, finish: { gloss: 0.15 } },
+    throat: { paint: S.pale, finish: SOFT },
+    facial: { paint: S.orange, finish: { gloss: 0.4 } },
+    bill: { paint: S.bill, finish: { gloss: 0.5 } },
+    socket: { paint: shade(S.orange, 0.85), finish: { gloss: 0.4 } },
+  });
+  const leg: LegStyle = {
+    skin: S.leg, claw: S.claw, thick: A.legThick, thigh: S.black, fringe: 0.22, fringeCell: CARD.contour, skinned: { r: 0.045 * s, at: 0.82 },
+    toes: [{ yaw: -0.5, len: 0.08 * s, r: 0.014 * s }, { yaw: 0, len: 0.1 * s, r: 0.015 * s }, { yaw: 0.5, len: 0.08 * s, r: 0.014 * s }, { yaw: Math.PI, len: 0.035 * s, r: 0.012 * s }],
+    clawLen: 0.02 * s,
+  };
+  const wing: WingStyle = {
+    covert: S.grey, secondary: S.black, primary: S.black, primaryTip: shade(S.black, 1.6), trim: team.primary,
+    thick: 0.03 * s, chord: 0.22 * s, primaries: 6, secondaries: 5, primaryLen: 0.6, secondaryLen: 0.8,
+  };
+
+  const body = (k: Sculpt): void => {
+    const torso = field.only(...TRUNK).surface([0, 1.42 * s, -0.4 * s], [0, 1.66 * s, 0.18 * s]);
+    const neckAxis: [V3, V3] = [[0, 1.62 * s, 0.12 * s], [0, A.head[1] - 0.05 * s, 0]];
+    const collar = field.only(...TRUNK, 'neck').surface(...neckAxis, [0, 0, 1]);
+    // The player-camera standard: pale grey hackles down the back of the neck onto the darker mantle.
+    hackles(k, collar, { t: [0.2, 0.6], rows: 3, cols: 4, len: 0.08 * s, wid: 0.06 * s, lift: 0.16, paint: (t) => mix(S.mantle, S.pale, t), finish: SOFT }, d);
+    foldedWings(k, torso, wing, { t: [0.35, 0.75], a: 0.45, len: 0.42 * s, wid: 0.09 * s }, d);
+    // Gear: a flock sash, a holster belt, and a quiver of spare quills across the back (it reads from behind).
+    sash(k, torso, 0.6, 0.2, Math.PI * 0.4, { width: 0.05 * s, thick: 0.012 * s, hex: team.primary, stitch: team.light, off: 0.008 * s, finish: WEAVE }, d);
+    band(k, torso, 0.5, { width: 0.035 * s, thick: 0.01 * s, hex: GEAR.leatherDark, off: 0.006 * s, finish: LEATHER }, d);
+    pouch(k, torso.at(0.5, Math.PI * 0.05, 0.006 * s), [0.06 * s, 0.08 * s, 0.04 * s], GEAR.leather, d);
+    if (d.level < 3) {
+      const q = torso.at(0.55, Math.PI * 0.62, 0.03 * s);
+      const qa: V3 = [q.p.x, q.p.y, q.p.z];
+      lathe(k, [[0.026 * s, 0.11 * s], [0.03 * s, 0.09 * s], [0.03 * s, -0.11 * s], [0.024 * s, -0.12 * s]], { at: qa, rot: [-0.7, 0, -0.5], seg: d.n(10, 5), caps: true, paint: (t) => (t < 0.12 || t > 0.9 ? GEAR.brass : GEAR.leather), finish: LEATHER });
+      if (d.level < 2) {
+        for (let i = 0; i < 5; i++) {
+          const dir = norm([-0.3 + (i - 2) * 0.08, 0.75, -0.55]);
+          k.card({ at: [qa[0] - 0.04 * s + i * 0.008 * s, qa[1] + 0.08 * s, qa[2] - 0.05 * s], dir, face: [0, 0.4, -1], len: 0.16 * s, wid: 0.025 * s, cell: CARD.quill, root: S.quill, tip: i % 2 ? S.black : team.primary, segs: 2 });
+        }
+      }
+    }
+  };
+
+  const head = (k: Sculpt): void => {
+    hackles(k, inBone(field.only('crown', 'nape', 'neck', 'crest').surface([A.head[0], A.head[1] - hr * 1.8, A.head[2] - hr * 0.1], [A.head[0], A.head[1] + hr * 0.9, A.head[2] - hr * 0.1], [0, 0, 1]), A.head), {
+      t: [0.2, 0.5], rows: 2, cols: 4, len: 0.06 * s, wid: 0.05 * s, lift: 0.2, paint: (t) => mix(S.grey, S.pale, t), finish: SOFT, seed: 61,
+    }, d);
+    const E = SECRETARYBIRD_HEAD.eye;
+    for (const x of [1, -1]) {
+      eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.78, 0.05, 0.62], { r: hr * 0.24, iris: S.iris, ring: S.orange, lid: S.orange, ringW: hr * 0.045 }, d);
+      // Long dark lashes over each eye.
+      if (d.level < 2) {
+        for (let i = 0; i < 4; i++) {
+          const u = i / 3;
+          const at: V3 = [x * hr * (E[0] + 0.05), hr * (E[1] + 0.22), hr * (E[2] - 0.12 + 0.24 * u)];
+          k.card({ at, dir: norm([x * 0.5, 0.6, 0.3 + 0.4 * u]), face: [x, 0.2, 0], len: hr * 0.32, wid: hr * 0.06, cell: CARD.hair, root: S.lash, tip: S.lash, segs: 2 });
+        }
+      }
+    }
+    // A raptor's hooked bill, grey to a dark tip.
+    const B = SECRETARYBIRD_HEAD.bill;
+    beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.05)], len: hr * 0.95, w: hr * 0.24, up: hr * 0.3, dn: hr * 0.16, curve: hr * 0.32, hook: hr * 0.18, base: S.bill, tip: S.billTip, open: 0.32 }, d);
+    // The quill crown: long black-tipped quills fanned back from the nape in two tiers, rising on a cast. It is the
+    // bird's primary shape, so four quills survive even at the far level.
+    const tiers: [number, number][] = d.level === 0 ? [[7, 1], [6, 0.78]] : d.level === 1 ? [[5, 1], [4, 0.78]] : d.level === 2 ? [[5, 1]] : [[4, 1]];
+    tiers.forEach(([n, len], tier) => {
+      for (let i = 0; i < n; i++) {
+        const u = n === 1 ? 0 : (i / (n - 1)) * 2 - 1;
+        // A fan rising up and back from the nape; each quill faces along the fan's normal, so the crown is broadside
+        // to the player camera behind and to a viewer in front.
+        const rise = tier === 0 ? 0.62 : 0.2;
+        const at: V3 = [u * hr * 0.42, hr * (0.4 - 0.28 * tier - 0.1 * Math.abs(u)), -hr * (0.6 + 0.08 * tier)];
+        const dir = norm([u * 0.75, rise - 0.25 * Math.abs(u), -0.8]);
+        k.card({
+          at, dir, face: norm([0, 0.8, rise]), len: hr * 2.7 * len * (0.92 + 0.12 * jitter(i + tier * 7, 3)), wid: hr * 0.38, cell: CARD.tail, root: shade(S.black, 2.2), tip: S.black,
+          curl: -0.25, segs: d.level === 0 ? 5 : d.level === 3 ? 2 : 3, finish: { gloss: 0.3 },
+          morph: { display: hinge(at, [1, 0, 0], -0.8 - 0.2 * tier) },
+        });
+      }
+    });
+  };
+
+  const tail = (k: Sculpt): void => {
+    // A long graduated tail, its two central streamers far beyond the rest, black-tipped.
+    tailFan(k, { count: 8, len: 0.42 * s, wid: 0.06 * s, spread: 0.5, droop: 0.75, centreLonger: 0.9, root: S.grey, tip: S.black, cell: CARD.tail, finish: { gloss: 0.2 } }, d);
+  };
+
+  return {
+    body, head, tail, skin,
+    wing: wingsOf(wing, d),
+    leg: legsOf(leg, d),
+    gun: secretarybirdGun(s, d),
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
+    legLen: A.legLen, legThick: leg.thick, wingLen: H * 0.24,
+    // Stomp Kick, Long Stride, Snake Stamp, Viper Dance.
+    casts: ['stomp', 'leap', 'leap', 'stomp'],
+    sway: 0.05, castTail: -0.5,
+  };
+}
+
+/** Quill Pair: two quill pistols side by side, one in each wing; the second rides the slide and kicks back in turn. */
+function secretarybirdGun(s: number, d: Detail): SculptedSpec['gun'] {
+  const L = 0.4 * s;
+  return {
+    main: [0, -0.06 * s, -L * 0.68],
+    support: [0, -0.06 * s, -L * 0.68],
+    slideAt: [0.075 * s, -0.004 * s, -0.03 * s],
+    travel: 0.03 * s,
+    build(k, part) {
+      if (part === 'gun') quillPistol(k, L, s, d, -1);
+      else if (part === 'slide') quillPistol(k, L, s, d, 1);
+    },
+  };
+}
+
+// =================================================================================================================
+// Starling: small, plump and spiky. Glossy black with a purple sheen on the head and green on the body, pale-tipped
+// speckled feathers over the mantle and breast, a ruff of spiky shoulder feathers that bristles on a cast, lanceolate
+// throat hackles, a crest tuft, a long yellow bill, reddish legs, a short square tail, and the hero shape: a halo of
+// eight tiny starlings orbiting at head height. Spirit burst: a twin-barrelled Chatter Pistol with a glass jar of
+// glowing specks and a music-box key.
+
+const STARLING = {
+  black: 0x1a1b1d,
+  green: 0x1c2a22,
+  purple: 0x2a1e30,
+  brown: 0x3e3630,
+  buff: 0xc8b088,
+  bill: 0xe8c43a,
+  billBase: 0x7a8a9a,
+  leg: 0xb06a5a,
+  claw: 0x2a2220,
+  iris: 0x2a1a10,
+  glow: 0xc48cff,
+  lacquer: 0x2a1c34,
+} as const;
+
+/** A small glowing speck (a low sphere: cheaper than a bead where many are needed). */
+const speck = (k: Sculpt, at: V3, r: number, hex: number, glow: number): void => {
+  k.mesh(new SphereGeometry(r, 4, 3), { at, paint: hex, finish: { glow, gloss: 0.8 } });
+};
+
+/**
+ * Speckled plumage: rows of feathers over a surface, glossy dark at the root and pale at the tip, so each tip reads as
+ * the starling's white speck (`shingle` takes one colour, this takes a tip colour).
+ */
+function speckled(k: Sculpt, surf: Surface, o: { t: readonly [number, number]; a: readonly [number, number]; rows: number; cols: number; len: number; wid: number; root: number; tip: number; lift: number; seed: number }, d: Detail): void {
+  if (d.level >= 2) return;
+  const rows = d.keep(o.rows, 1);
+  const cols = d.keep(o.cols, 2);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const t = o.t[0] + (o.t[1] - o.t[0]) * (rows === 1 ? 0.5 : r / (rows - 1));
+      const a = o.a[0] + (o.a[1] - o.a[0]) * ((c + 0.5 + (r % 2) * 0.5) / (cols + 0.5)) + (jitter(r * cols + c, o.seed) - 0.5) * 0.06;
+      const sp = surf.at(t, a, 0.003);
+      const down = sp.t.clone().multiplyScalar(-1);
+      const dir = norm([down.x * Math.cos(o.lift) + sp.n.x * Math.sin(o.lift), down.y * Math.cos(o.lift) + sp.n.y * Math.sin(o.lift), down.z * Math.cos(o.lift) + sp.n.z * Math.sin(o.lift)]);
+      k.card({ at: [sp.p.x, sp.p.y, sp.p.z], dir, face: [sp.n.x, sp.n.y, sp.n.z], len: o.len, wid: o.wid, cell: CARD.spotted, root: o.root, tip: o.tip, curl: -o.lift * 0.8, segs: d.rows, cup: 0.06, finish: { gloss: 0.5, iri: 0.6 } });
+    }
+  }
+}
+
+/** The orbiting flock (halo bone, about the head centre): eight tiny starlings flying round, wings up in a V. */
+function starlingHalo(k: Sculpt, ringR: number, hr: number, d: Detail): void {
+  const S = STARLING;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const at: V3 = [Math.sin(a) * ringR, Math.sin(a * 3) * hr * 0.25, Math.cos(a) * ringR];
+    // Flying along the orbit (the halo bone turns about +y), banking a little into the turn.
+    const v: V3 = [Math.cos(a), 0, -Math.sin(a)];
+    const yaw = Math.atan2(v[0], v[2]);
+    // Sized to read as specks at 40 m (GDD §9.24.1), not as true-scale starlings; simpler with each level.
+    const len = 0.06;
+    ovoid(k, at, [0.032, 0.028, len], { rot: [0, yaw, 0.25], n: [4, 3, 2, 2][d.level], seg: [5, 4, 4, 3][d.level], egg: 0.25, paint: i % 2 ? S.purple : S.green, finish: { iri: 0.7, gloss: 0.6 } });
+    if (d.level >= 2) continue;
+    const head: V3 = [at[0] + v[0] * len, at[1] + 0.01, at[2] + v[2] * len];
+    if (d.level === 0) k.loft([{ c: head, w: 0.008, up: 0.006 }, { c: [head[0] + v[0] * 0.035, head[1] - 0.003, head[2] + v[2] * 0.035], w: 0, up: 0 }], { seg: 4, ref: [0, 1, 0], paint: S.bill, finish: { gloss: 0.5 } });
+    const side: V3 = [v[2], 0, -v[0]];
+    for (const x of [1, -1]) {
+      k.card({ at: [at[0] + v[0] * 0.012, at[1] + 0.016, at[2] + v[2] * 0.012], dir: norm([side[0] * x, 0.45 + 0.25 * Math.sin(a * 2 + x), side[2] * x]), face: [0, 1, 0], len: 0.11, wid: 0.05, cell: CARD.primary, root: S.black, tip: S.buff, segs: 2, finish: { iri: 0.6, gloss: 0.4 } });
+    }
+  }
+}
+
+function starling(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
+  const H = plan.height;
+  const hr = plan.head.radius;
+  const A = starlingAnchors(plan);
+  const s = A.s;
+  const S = STARLING;
+  const GLOSS = { tile: TILE.scales, size: 0.055, gloss: 0.55, iri: 0.6 } as const;
+  const field = bodyField('starling', plan);
+  const skin = skinFor('starling', plan, STARLING_SKIN, d.level, {
+    // Green-glossed body, purple-glossed head and neck; a browner, speckled mantle reads apart from the head from behind.
+    back: { paint: S.green, finish: GLOSS },
+    mantle: { paint: mix(S.brown, S.green, 0.3), finish: { ...GLOSS, iri: 0.3 } },
+    scapular: { paint: mix(S.brown, S.green, 0.5), finish: GLOSS },
+    shoulder: { paint: S.green, finish: GLOSS },
+    coverts: { paint: S.green, finish: GLOSS },
+    breast: { paint: (p) => mix(S.purple, S.green, clamp01((1.12 * s - p.y) / (0.08 * s))), finish: GLOSS },
+    belly: { paint: S.green, finish: GLOSS },
+    thigh: { paint: S.black, finish: GLOSS },
+    neck: { paint: S.purple, finish: GLOSS },
+    crown: { paint: S.purple, finish: { ...GLOSS, size: 0.04 } },
+    crest: { paint: S.purple, finish: { ...GLOSS, size: 0.04 } },
+    nape: { paint: S.purple, finish: { ...GLOSS, size: 0.04 } },
+    face: { paint: S.black, finish: { gloss: 0.5, iri: 0.6 } },
+    cheek: { paint: S.black, finish: { gloss: 0.5, iri: 0.6 } },
+    brow: { paint: S.purple, finish: { gloss: 0.5, iri: 0.6 } },
+    throat: { paint: S.purple, finish: GLOSS },
+    bill: { paint: S.billBase, finish: { gloss: 0.5 } },
+    socket: { paint: S.black, finish: { gloss: 0.4 } },
+  });
+  const leg: LegStyle = {
+    skin: S.leg, claw: S.claw, thick: A.legThick, thigh: S.black, fringe: 0.5, skinned: { r: 0.045 * s, at: 0.3 },
+    toes: [{ yaw: -0.5, len: 0.065 * s }, { yaw: 0, len: 0.08 * s }, { yaw: 0.5, len: 0.065 * s }, { yaw: Math.PI, len: 0.045 * s }],
+    clawLen: 0.022 * s,
+  };
+  const wing: WingStyle = {
+    covert: S.green, secondary: S.black, primary: S.black, primaryTip: S.buff, trim: team.primary,
+    thick: 0.026 * s, chord: 0.17 * s, primaries: 6, secondaries: 4, primaryLen: 0.5, secondaryLen: 0.8, cell: CARD.spotted, secondaryCell: CARD.spottedTail,
+  };
+  const SPECKLE = { gloss: 0.5, iri: 0.6 } as const;
+
+  const body = (k: Sculpt): void => {
+    const torso = field.only(...TRUNK).surface([0, 0.4 * s, -0.22 * s], [0, 1.06 * s, 0.04 * s], [0, 0, 1]);
+    const collar = field.only(...TRUNK, 'neck').surface([0, 0.92 * s, 0.0], [0, A.head[1] - 0.06 * s, 0.02 * s], [0, 0, 1]);
+    // The player-camera standard: purple-glossed hackles down the back of the neck onto the speckled mantle.
+    hackles(k, collar, { t: [0.3, 0.75], rows: 2, cols: 4, len: 0.07 * s, wid: 0.05 * s, lift: 0.25, cell: CARD.spotted, paint: S.purple, finish: SPECKLE }, d);
+    // Lanceolate throat hackles, pointed and lifted.
+    shingle(k, collar, { t: [0.4, 0.85], a: [Math.PI * 0.2, Math.PI * 0.8], rows: 2, cols: 4, len: 0.07 * s, wid: 0.035 * s, cell: CARD.sickle, lift: 0.3, flow: -1, seed: 71, paint: S.purple, finish: SPECKLE }, d);
+    // The speckled mantle and flanks: pale-tipped feathers in rows (the mantle reads lighter than the glossy head).
+    speckled(k, torso, { t: [0.45, 0.9], a: [-Math.PI * 0.88, -Math.PI * 0.12], rows: 3, cols: 5, len: 0.085 * s, wid: 0.07 * s, root: mix(S.brown, S.green, 0.4), tip: S.buff, lift: 0.1, seed: 73 }, d);
+    speckled(k, torso, { t: [0.3, 0.62], a: [Math.PI * 0.25, Math.PI * 0.75], rows: 2, cols: 4, len: 0.08 * s, wid: 0.06 * s, root: S.green, tip: mix(S.buff, 0xffffff, 0.3), lift: 0.12, seed: 79 }, d);
+    // The ruff: spiky shoulder feathers sticking out over the wing roots, bristling on a cast.
+    for (const side of [1, -1] as const) {
+      shingle(k, torso, {
+        t: [0.8, 0.94], a: side > 0 ? [-0.5, 0.45] : [Math.PI - 0.45, Math.PI + 0.5], rows: 2, cols: 3, len: 0.14 * s, wid: 0.05 * s, cell: CARD.sickle, lift: 0.7,
+        toward: [side * 0.6, 0.4, -0.7], seed: side > 0 ? 83 : 89, paint: S.green, finish: SPECKLE,
+        morph: (_t, _a, at, dir, n) => flare(at, dir, n, 0.6),
+      }, d);
+    }
+    // Gear: a flock cravat with two tails, a bandolier of seed pellets, a satchel.
+    band(k, collar, 0.45, { width: 0.055 * s, thick: 0.014 * s, hex: team.primary, stitch: team.light, off: 0.006 * s, finish: WEAVE }, d);
+    if (d.level < 3) {
+      const knot = collar.at(0.45, -Math.PI / 2, 0.02 * s);
+      for (const x of [1, -1]) k.card({ at: [knot.p.x, knot.p.y, knot.p.z], dir: norm([x * 0.3, -1, -0.3]), face: [0, 0.2, -1], len: 0.22 * s, wid: 0.06 * s, cell: CARD.cloth, root: team.primary, tip: team.dark, curl: 0.3, sweep: x * 0.2, segs: d.level === 0 ? 4 : 2 });
+    }
+    if (d.level < 3) sash(k, torso, 0.55, 0.2, Math.PI * 0.35, { width: 0.04 * s, thick: 0.01 * s, hex: GEAR.leather, stitch: team.light, off: 0.01 * s, finish: LEATHER }, d);
+    if (d.level < 1) {
+      // Brass seed pellets along the bandolier.
+      for (let i = 0; i < 5; i++) {
+        const u = 0.18 + i * 0.07;
+        const p = torso.at(0.55 + 0.2 * Math.cos(u * Math.PI * 2), Math.PI * 0.35 + u * Math.PI * 2, 0.022 * s);
+        stud(k, [p.p.x, p.p.y, p.p.z], 0.011 * s);
+      }
+    }
+    pouch(k, torso.at(0.35, Math.PI * 1.1, 0.006 * s), [0.08 * s, 0.08 * s, 0.05 * s], GEAR.leather, d);
+  };
+
+  const head = (k: Sculpt): void => {
+    hackles(k, inBone(field.only('crown', 'nape', 'neck', 'crest').surface([A.head[0], A.head[1] - hr * 1.5, A.head[2] - hr * 0.1], [A.head[0], A.head[1] + hr * 0.9, A.head[2] - hr * 0.1], [0, 0, 1]), A.head), {
+      t: [0.2, 0.5], rows: 2, cols: 4, len: 0.06 * s, wid: 0.045 * s, lift: 0.3, cell: CARD.contour, paint: S.purple, finish: SPECKLE, seed: 97,
+    }, d);
+    // The crest tuft: spiky feathers raised along the crown, standing up on a cast.
+    if (d.level < 3) {
+      const n = d.keep(5, 2);
+      for (let i = 0; i < n; i++) {
+        const u = n === 1 ? 0.5 : i / (n - 1);
+        const at: V3 = [(u - 0.5) * hr * 0.3, hr * (0.92 - 0.12 * u), hr * (0.1 - 0.6 * u)];
+        k.card({ at, dir: norm([(u - 0.5) * 0.6, 0.7, -1]), face: [0, 1, 0.3], len: hr * (1.05 - 0.25 * u), wid: hr * 0.26, cell: CARD.sickle, root: S.purple, tip: S.black, curl: -0.2, segs: d.rows, finish: SPECKLE, morph: { display: hinge(at, [1, 0, 0], -0.5) } });
+      }
+    }
+    const E = STARLING_HEAD.eye;
+    for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.78, 0.05, 0.62], { r: hr * 0.21, iris: S.iris, ring: S.black, lid: S.purple, ringW: hr * 0.035 }, d);
+    // A long, sharp yellow bill, blue-grey at the base.
+    const B = STARLING_HEAD.bill;
+    beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.04)], len: hr * 1.45, w: hr * 0.2, up: hr * 0.16, dn: hr * 0.12, curve: hr * 0.04, hook: 0, base: S.billBase, tip: S.bill, bands: [[0, S.billBase], [0.18, S.bill]], open: 0.4 }, d);
+  };
+
+  const tail = (k: Sculpt): void => {
+    // Short and square.
+    tailFan(k, { count: 8, len: 0.17 * s, wid: 0.05 * s, spread: 0.55, droop: 0.65, root: S.black, tip: S.buff, cell: CARD.spottedTail, finish: SPECKLE }, d);
+  };
+
+  return {
+    body, head, tail, skin,
+    halo: (k) => starlingHalo(k, Math.max(plan.radius * 1.7, hr * 3.2), hr, d),
+    wing: wingsOf(wing, d),
+    leg: legsOf(leg, d),
+    gun: starlingGun(s, d),
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
+    legLen: A.legLen, legThick: leg.thick, wingLen: H * 0.36,
+    // Murmuration, Mob, Scatter, Black Sun.
+    casts: ['throw', 'throw', 'leap', 'raise'],
+    sway: 0, castTail: -0.5,
+  };
+}
+
+/** Chatter Pistol: twin brass barrels, a glass jar of glowing specks in a brass cage, a music-box key, a lacquered grip. */
+function starlingGun(s: number, d: Detail): SculptedSpec['gun'] {
+  const S = STARLING;
+  const L = 0.5 * s;
+  const r = 0.009 * s;
+  return {
+    main: [0, -0.05 * s, -L * 0.66],
+    support: [0, -0.022 * s, 0],
+    slideAt: [0, -0.006 * s, -L * 0.3],
+    travel: 0.025 * s,
+    build(k, part) {
+      if (part === 'slide') {
+        if (d.level >= 3) return;
+        lathe(k, [[r * 2.4, 0.04 * s], [r * 3, 0.03 * s], [r * 3, -0.03 * s], [r * 2.4, -0.04 * s]], { seg: d.n(10, 4), paint: S.lacquer, finish: { ...WOOD, iri: 0.5 }, flat: 0.8 });
+        return;
+      }
+      if (part !== 'gun') return;
+      if (d.level >= 3) {
+        lathe(k, [[0.02 * s, 0], [0.02 * s, -L * 0.5], [0.03 * s, -L * 0.62], [0.02 * s, -L]], { seg: 4, paint: S.lacquer });
+        return;
+      }
+      // Twin barrels side by side, each with a violet glow at the mouth.
+      for (const x of [1, -1]) {
+        lathe(k, [[r * 1.4, 0], [r * 1.1, -0.015 * s], [r, -L * 0.45], [r * 1.2, -L * 0.5]], { at: [x * r * 1.3, 0, 0], seg: d.n(10, 4), paint: (t) => (t < 0.06 || Math.abs(t - 0.5) < 0.05 ? GEAR.brass : GEAR.brassDark), finish: BRASS });
+        bead(k, [x * r * 1.3, 0, -0.002 * s], r * 0.85, S.glow, 0.9, d);
+      }
+      // The jar: dark glass in a brass cage, specks of the swarm glowing round it (the signature chamber).
+      const jz = -L * 0.56;
+      bead(k, [0, 0.012 * s, jz], 0.03 * s, 0x241830, 0.15, d);
+      ring(k, [0, 0.012 * s, jz], 0.031 * s, 0.003 * s, d, GEAR.brass, undefined, [0, Math.PI / 2, 0]);
+      ring(k, [0, 0.012 * s, jz], 0.031 * s, 0.003 * s, d, GEAR.brass, undefined, [Math.PI / 2, 0, 0]);
+      if (d.level < 1) for (let i = 0; i < 6; i++) speck(k, [Math.sin(i * 2.4) * 0.032 * s, 0.012 * s + Math.cos(i * 1.7) * 0.026 * s, jz + Math.cos(i * 2.4) * 0.03 * s], 0.005 * s, S.glow, 0.95);
+      // The music-box key on the left: wind it and it chatters.
+      if (d.level < 2) {
+        block(k, [0.03 * s, 0.006 * s, 0.006 * s], [0.03 * s, 0.012 * s, jz], GEAR.brass, BRASS, d);
+        ring(k, [0.05 * s, 0.012 * s, jz], 0.012 * s, 0.0035 * s, d, GEAR.brass, undefined, [0, Math.PI / 2, 0]);
+      }
+      block(k, [0.03 * s, 0.04 * s, 0.09 * s], [0, -0.006 * s, -L * 0.66], S.lacquer, { ...WOOD, iri: 0.5 }, d);
+      carve(k, [[-L * 0.62, -0.02 * s], [-L * 0.69, -0.02 * s], [-L * 0.77, -0.1 * s], [-L * 0.69, -0.104 * s]], 0.024 * s, S.lacquer, { ...WOOD, iri: 0.5 }, d);
+      // A short scrolled stock with a feather fan at the butt.
+      carve(k, [[-L * 0.72, 0.012 * s], [-L * 0.94, 0.02 * s], [-L, -0.02 * s], [-L * 0.96, -0.05 * s], [-L * 0.76, -0.03 * s]], 0.022 * s, S.lacquer, { ...WOOD, iri: 0.5 }, d);
+      if (d.level < 2) for (const u of [-1, 0, 1]) plume(k, [0, 0.0, -L], [u * 0.5, 0.4, -1], 0.06 * s, 0.022 * s, S.black, CARD.spotted, [0, 1, 0], S.buff);
+    },
+  };
+}
+
+export const C_BUILDS: Readonly<Record<string, SculptedBird>> = { owl, pelican, penguin, puffin, secretarybird, starling };

@@ -3434,5 +3434,95 @@ and `mode=player`):
   Secretarybird next) need the bare thigh down to the knee; with `skinned`, nothing is drawn between the skin's short
   thigh and the knee.
 - Consider a shorter default thigh fringe. It reads as trousers from the front.
+### W7 · Technical Artist · bird batch F · 21/11/2026
+**Done:**
+- Puffin, Secretarybird and Starling are converted to the v2.1 sculpt pipeline (D-ART-010 to 013).
+- The Penguin got its player-camera touch-up.
+- The Owl keeps its ear tufts at 80 m.
+- Branch `worktree-agent-ae09d85e4edc2662b`, from `integrate/w5` 0040e7b, one commit per bird.
+- Builders are in `birds-c.ts` (`C_BUILDS`, registered through `sculpted-birds.ts`, so `SCULPTED_IDS` and the model
+  tests cover them). The old builders are gone from `heroes-b.ts`, which now holds only Hornbill and Flamingo (Batch E).
+- `bodies.ts` has only new functions and `BODIES` lines, and no shared pipeline file was touched.
+
+**Per bird:**
+- **Penguin (touch-up):**
+  - The flipper blade now stands out along the wing's outer axis instead of lying in the bone's plane, so it reads
+    as a paddle held out from the side, from the front and from behind.
+  - The front face and outer edge are white and the back is black; the elbow end is rounded.
+  - The shoulders move to the body's edge (re-baked).
+- **Puffin:**
+  - A squat body; white belly and face masks under a charcoal cap; a black collar; dark eye streaks and grey horn
+    plates.
+  - The hero shape: a tall, laterally flat triangle bill banded blue-grey, yellow and orange with pale grooves and
+    yellow rosettes. Three silver sand eels are draped crosswise in it.
+  - Orange webbed feet.
+  - Gear: a flock bandana knotted behind the head (the crown shape from behind), a flock satchel strap, and a belt of
+    spare eels.
+  - Gun: the Eel Sling. A driftwood yoke with a glowing glass float, kelp bands to a leather cup on the slide,
+    fishbone barbs and a net bag of eels.
+- **Secretarybird:**
+  - A small pale-grey body on pink stilts, with long black feathered breeches.
+  - An eagle's head: a heavy brow, bare orange skin, lashes and a hooked bill.
+  - The hero shape: a quill crown that fans up and back from a nape ridge, set broadside to the player camera. It
+    rises on a cast, and four quills stay at 80 m.
+  - A long two-streamer tail.
+  - Gear: a flock sash, a holster belt, and a quiver of spare quills on the back.
+  - Gun: the Quill Pair, two quill pistols with brass nib muzzles. The second rides the slide bone, so each wing
+    holds one.
+- **Starling:**
+  - Plump, with a high breast and a short neck; a purple-glossed head over a green-glossed body.
+  - A speckled mantle and flanks of pale-tipped feathers.
+  - A ruff of spiky shoulder feathers that bristles on a cast, lanceolate throat hackles, a crest tuft, and a long
+    yellow bill.
+  - The orbiting flock is eight tiny starlings on the halo bone, sized to read as specks at 40 m and simpler at each
+    level.
+  - Gear: a flock cravat.
+  - Gun: the Chatter Pistol, with twin barrels, a jar of glowing specks and a music-box key.
+- **Owl:** two tuft feathers a side now stay at the far level. The skin's simplified horns had lost the "round head
+  plus tufts" read at 80 m.
+
+**Evidence** (git-ignored, `out/art/f/`):
+- triptychs `<bird>.png` and player-camera views `<bird>-player.png`;
+- golden-hour game shots `game-front.png`, `game-back.png` and `game-starling-{front,back}.png`;
+- line-ups of all six batch C/F birds: `lineup-10.png`, `lineup-40-zoom.png` and `lineup-80-zoom.png`.
+
+At 40 and 80 m each bird keeps its primary shape: tufts, pouch, skittle, striped triangle, stilts and crown, and the
+flock specks.
+
+Note: in the sandbox `modelYaw=0` shows the line-up's backs and `180` their fronts, the reverse of D-ART-011's wording.
+
+| Bird | Level 0 / 1 / 2 / 3 triangles | Player camera: bird / gun | Score, front and three-quarter | Score, player camera |
+|---|---|---|---|---|
+| Penguin (touch-up) | 7,848 / 2,904 / 1,102 / 364 | 5.8 % / 0.61 % | 3 | 3 (was 2.5) |
+| Puffin | 8,742 / 3,332 / 1,070 / 350 | 5.6 % / 0.64 % | 3 | 3 |
+| Secretarybird | 8,004 / 3,180 / 1,138 / 400 | 2.1 % / 0.36 % | 3 | 3 |
+| Starling | 8,928 / 3,248 / 1,192 / 394 | 3.7 % / 0.49 % | 3 | 3 |
+| Owl (80 m fix) | 8,916 / 3,398 / 1,192 / 398 | 5.8 % / 0.67 % | 3 | 3 |
+
+All are within 9,000 / 3,500 / 1,200 / 400, with at most three draw calls.
+
+**Verified:**
+- `npx vitest run src/client/render/models tests/anim` passes 119 of 119. It covers budgets, heads on hitboxes, the
+  muzzle point, grips held in every state (D-EP-035), feet planted, the skins byte-identical, the display, jaw and
+  blink morphs, the gun cap, and the Starling's spinning halo.
+- `tsc -b` and eslint are clean.
+- `npm run check -- --release`, run once:
+  - typecheck, lint, test (1,445/1,445), perf and sim pass (hash 7e4573f109a34daf).
+  - e2e: 108 pass and 1 fails. The failure is `audio.spec` "each new cue is non-silent above the wind bed", a 30 s
+    `page.evaluate` timeout on an audio device clock under load (no audio code changed here). The 3 serial tests after
+    it did not run.
+  - A rerun was cut short when the EP paused the visual upgrade.
+
+**Still short (honest):**
+- Puffin: from behind it is a dark egg. The flock bandana, strap and orange feet carry it.
+- Secretarybird: the orange eye skin is large, so the head leans owlish from the front.
+- Starling: from the front the head is a plain glossy dome. Up close the tiny flock read as beetles.
+- Penguin: the support flipper crosses the body to the gun, so only one flipper clears the outline from behind.
+
+**Requests (Batch D, shared files):**
+- A `tip` colour option on `anatomy.shingle`. `birds-c.ts` has a local `speckled` helper for pale-tipped feathers
+  until then.
+- `gear.bead` costs about 96 triangles a bead at level 0. A cheap glow-speck helper would save budget wherever many
+  are needed; `birds-c.ts` has a local `speck`.
 
 **Blocked:** nothing.
