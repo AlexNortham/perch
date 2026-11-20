@@ -2443,3 +2443,30 @@ done with stage 4, push to main when all functionality is added and push the art
 **Why:** "get all functionality in before you start dedicating resources to the higher quality models and map
 resources as long as it works and i can test it i want it in main, the visual upgrade comes after, but any work already
 done on that should be included in the next push to main."
+### D-HEROB-010 · 21/11/2026 — A tier lengthens a channel through the `channelExtraS` value
+**Decision:** `resolveAbility` returns `channelS` = `def.channelS` plus the ability's `channelExtraS` value after upgrades
+(`CHANNEL_EXTRA_VALUE` in abilities/kit.ts), and casting reads it. Sulphur Shriek T2 (+0.5 s, a fifth pulse) and Burrow T1
+(+1 s) use it. **Why:** `AbilityUpgrade` has no `channelS` and contracts are frozen this wave. **Request:** a typed
+`AbilityUpgrade.channelS` in the next contract round, then delete the value-name convention (as for `surface` and `steerDeg`).
+
+### D-HEROB-011 · 21/11/2026 — A Burrow lasts as long as the channel of the ability that dug it
+**Decision:** physics ends a `burrow` movement mode (running its `onEnd`) when the `ability` event with the mode's ability
+id reports `end` or `interrupted`. Kiwi's Burrow is a 4 s channel plus a `burrow` mode with `allowGun` and `allowAbilities`
+false (D-ARCH-016 meant exactly this), so a second press surfaces it and the eruption is the mode's `onEnd`. Underground is
+a status of `invisible` and `intangible` (heroes never collide with each other, so that covers "no collision"); Ambush Pit is
+a target dash under the same status. **Not built:** the dirt trail enemies within 10 m see (a Rendering and VFX cue).
+
+### D-HEROB-012 · 21/11/2026 — Readings of the B3 text that the data cannot say exactly
+**Decision:** (1) Harpoon Line's pull is the standard displacement arc, about 0.65 s for 15 m, not 0.5 s. (2) Plunder Shot
+and Swan Song use a hook only for what a Magnitude cannot say: the shield goes to the caster when the bolt lands, and the
+25% max-HP heal runs when undying expires. (3) Sulphur Shriek's stun counts pulses per channel in a hook (the third pulse stuns once).
+(4) Probe is a 3 m, 30 degree cone (0.8 m wide at the tip). (5) Night Sense's reveal is an area tick that reveals enemy
+heroes below 50% HP, refreshed every 0.5 s. (6) Lake Glide removes slows every 0.5 s for its duration and gives allies
+within 6 m the speed as a refreshed 0.55 s statMod; T3's "full +40%" is a second +20% statMod. (7) Grace Link's break
+distance is the fixed 35 m; its T3 is a second charge, so each link ticks on its own. (8) Crest Flare's T2 +10 SP is a second statMod.
+**Why:** each is the nearest data to the GDD sentence; tests assert the stated numbers.
+
+### D-HEROB-013 · 21/11/2026 — Bots play the four birds with no change to data/ai.ts
+**Decision:** bots classify each ability from its kit data (`useOf`), and `AP_PRIORITY` and the starter item scores already
+held entries for all four, so no block was added to `src/sim/data/ai.ts`. `herob-bots.test.ts` runs a 6v6 bot match with all
+four and checks each casts. **Why:** a per-hero block would only repeat what `useOf` derives.

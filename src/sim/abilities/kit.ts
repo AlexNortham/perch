@@ -6,6 +6,12 @@ import { EFFECT_OWNERS } from '../core/contracts';
 import type { AbilityDef, AreaEffect, Effect, EffectKind, HeroModule, Magnitude } from '../core/contracts';
 import { ROOT } from '../data/combat';
 
+/**
+ * A named value a tier can raise to lengthen a channel (Sulphur Shriek T2, Burrow T1): seconds added to `channelS`.
+ * Stands in for a typed `AbilityUpgrade.channelS` until the next contract round (D-HEROB-010).
+ */
+export const CHANNEL_EXTRA_VALUE = 'channelExtraS';
+
 /** An ability with its first `tier` upgrades folded in. */
 export interface ResolvedAbility {
   readonly def: AbilityDef;
@@ -15,6 +21,8 @@ export interface ResolvedAbility {
   readonly cooldownS: number;
   readonly charges: number;
   readonly range: number;
+  /** The channel length: `channelS` plus the `channelExtraS` value the tiers added. */
+  readonly channelS: number;
   /** Base effects, then each bought tier's extra effects. */
   readonly effects: readonly Effect[];
   /** Base selfEffects, then each bought tier's (applied to the caster after `effects`). */
@@ -56,6 +64,7 @@ export function resolveAbility(def: AbilityDef, tier: number): ResolvedAbility {
     cooldownS: Math.max(0, f.cooldownS),
     charges: Math.max(1, f.charges),
     range: Math.max(0, f.range),
+    channelS: Math.max(0, def.channelS + (f.values[CHANNEL_EXTRA_VALUE] ?? 0)),
     effects: f.effects,
     selfEffects: f.selfEffects,
     movement: [...f.effects, ...f.selfEffects].some((e) => MOVEMENT_KINDS.has(e.kind)),
