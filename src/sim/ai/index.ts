@@ -153,7 +153,9 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
     const theirs = heroes.filter((h) => h.team !== team && !h.health.dead).length;
     const s = ctx.clock.seconds;
     // The Roc awake comes first in the late game (GDD §15.3): no all-in push while it can be taken.
-    const rocUp = ctx.store.list('unit').some((u) => u.unit.type === 'roc' && !u.removed && !u.health.dead && !u.unit.asleep);
+    // An open enemy Patron overrides that: finish the match.
+    const patronOpen = towers.some((t) => t.team !== team && t.structure.type === 'patron' && !t.stats.conditions.has('invulnerable'));
+    const rocUp = !patronOpen && ctx.store.list('unit').some((u) => u.unit.type === 'roc' && !u.removed && !u.health.dead && !u.unit.asleep);
     const start = mine >= OBJECTIVE.commitMinAllies && (theirs <= OBJECTIVE.wipeAlive ||
       now - rocKilledAt[team] <= ticks(OBJECTIVE.rocPushS) || (ctx.teams[team].rekindle?.until ?? 0) > now ||
       (s >= OBJECTIVE.pushFromS && mine - theirs >= OBJECTIVE.commitEdge) || (s >= OBJECTIVE.allInFromS && !rocUp && theirs - mine < OBJECTIVE.commitEdge));

@@ -133,6 +133,9 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
   /** Tower anchors on the nav graph: a waypoint there counts as reached at the tower's edge. */
   const anchors = ctx.map.structures.map((s) => ({ pos: s.pos, r: STRUCTURE_RADIUS[s.type] + NAV.structureClearM }));
   const ripeTicks = ticks(ECONOMY.pod.ripeS);
+  /** The Brood Ward is up and still cuts damage (GDD §7.6; the 35:00 lever's multiplier may lift it, §15.2). */
+  const warded = (s: StructureEntity): boolean =>
+    !!s.structure.broodWard && (clock.seconds < DEFENCE.ward.lateAtS ? DEFENCE.ward.early : DEFENCE.ward.late) < 1;
 
   const aim = createAim(h.yaw);
   const cmd: Mutable<PlayerCommand> = { ...IDLE_COMMAND, yaw: h.yaw };
@@ -315,7 +318,7 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
         continue;
       }
       if (s.stats.conditions.has('invulnerable') && !s.structure.weakPoint) continue;
-      if (s.structure.broodWard && foes.length > 0) continue;
+      if (warded(s) && foes.length > 0) continue;
       const t = s.structure.target === null ? undefined : ctx.store.get(s.structure.target);
       const onWave = !!t && t.kind === 'unit' && t.team === team;
       // A tower busy with our wave is the siege moment: it outranks pokes and the enemy wave.
@@ -549,13 +552,13 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
    */
   function siegeOn(t: StructureEntity, foes: readonly HeroEntity[]): void {
     rideOk = true;
-    if (t.structure.lane === null && t.structure.broodWard) {
+    if (t.structure.lane === null && warded(t)) {
       goal = laneStand();
       target = laneTarget(foes, true)?.id ?? null;
       return;
     }
     goal = siegeStand(t);
-    const shootable = reach(t) <= gunRange && !(t.structure.broodWard && foes.length > 0);
+    const shootable = reach(t) <= gunRange && !(warded(t) && foes.length > 0);
     target = shootable ? t.id : (laneTarget(foes, true)?.id ?? null);
   }
 

@@ -50,6 +50,8 @@ export const WAVES = {
 
 /** GDD §7.1 marching and targeting. */
 export const FLEDGLING_AI = {
+  /** D-AI-010: a fledgling fallen below the map's killY is put back on the ground found from this height. */
+  recoverFromY: 2,
   marchSpeed: 5.0,
   /** Sideways speed while changing file or stepping round a structure (assumed). */
   lateralSpeed: 2.5,
@@ -137,7 +139,8 @@ export const DEFENCE = {
   rain: { range: 35, radius: 3, targets: 4, damage: 180, warning: 1, interval: 6 },
   gale: { range: 30, cosHalf: Math.SQRT1_2, damage: 60, push: 10, interval: 12 },
   transition: { duration: 3, range: 20, push: 8, hp: 20_000, heartHeight: 6, heartRadius: 1 },
-  ward: { range: 30, early: 0.35, late: 0.6, lateAtS: 35 * 60, lateFledglingMult: 1.25 },
+  // D-AI-010 (for Objectives): the 35:00 lever lifts the Ward entirely and siege fledglings hit structures 50% harder.
+  ward: { range: 30, early: 0.35, late: 1, lateAtS: 35 * 60, lateFledglingMult: 1.5 },
   roost: { interval: 1, healFraction: 0.2, damage: 300 },
 } as const;
 

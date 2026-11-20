@@ -440,6 +440,15 @@ export function createFledglings(ctx: SimContext): Fledglings {
     delta.y = e.vel.y * TICK_SECONDS;
     delta.z = mz;
     const r = ctx.physics.moveCharacter(e.id, delta, movement);
+    // A displaced fledgling that ends up under a floor finds no ground below and falls forever, keeping its target and
+    // hold slot (D-AI-010). Below the map's killY it is put back on the ground under it.
+    if (r.pos.y < ctx.map.killY) {
+      const g = ctx.physics.groundHeight(r.pos.x, r.pos.z, AI.recoverFromY);
+      if (g !== null) {
+        r.pos.y = g;
+        r.grounded = true;
+      }
+    }
     if (r.grounded) e.vel.y = 0;
     e.pos.x = r.pos.x;
     e.pos.y = r.pos.y;
