@@ -204,7 +204,7 @@ export function createKit(
       seed,
       map: 'arena',
       roster: [],
-      options: { waves: false, neutrals: false, unlockAbilities: false, startSeeds: null },
+      options: { waves: false, neutrals: false, unlockAbilities: false, startSeeds: null, laneStart: false },
     },
     map: ARENA,
     heroes: { ...HEROES, ...FIXTURES, ...opts.heroes },

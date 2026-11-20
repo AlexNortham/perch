@@ -189,7 +189,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
       seed: 1,
       map: 'arena',
       roster,
-      options: { waves: false, neutrals: false, unlockAbilities: opts.unlockAbilities ?? false, startSeeds: null },
+      options: { waves: false, neutrals: false, unlockAbilities: opts.unlockAbilities ?? false, startSeeds: null, laneStart: false },
     },
     map: loadMap('arena'),
     heroes,

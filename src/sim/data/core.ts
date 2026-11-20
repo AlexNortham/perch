@@ -3,6 +3,7 @@
  * Units: metres, seconds and radians unless the name says otherwise. Gameplay numbers that belong to one system
  * live in that system's own data file (movement.ts, combat.ts, abilities.ts, economy.ts, items.ts, world.ts, ai.ts).
  */
+import type { Archetype } from '../core/contracts';
 
 /** Menu Practice Hub target placement, wound fraction and spendable practice points. */
 export const TRAINING_TARGET = { ahead: 9, side: 3, alliedHpFraction: 0.4, practiceAp: 32 } as const;
@@ -15,6 +16,11 @@ export const TICK_SECONDS = 1 / TICK_RATE;
 
 /** Heroes per team in a full match. */
 export const TEAM_SIZE = 6;
+
+/** Lane assignment (core/lanes.ts, D-ARCH-034): frontline archetypes pair with backline ones (GDD §11.3). */
+export const LANE_FRONTLINE: readonly Archetype[] = ['tank', 'skirmisher', 'assassin'];
+/** What a pair of birds in one lane costs: two of one archetype, or two of one line (both frontline or both backline). */
+export const LANE_PAIR_COST = { sameArchetype: 10, sameLine: 3 } as const;
 
 /** Cell edge of the XZ spatial hash. About two fledgling aggro radii; queries touch few cells. */
 export const SPATIAL_CELL_SIZE = 8;

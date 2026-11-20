@@ -3,7 +3,7 @@
  * references, so the client can keep the previous and current views and interpolate between them by entity id.
  * Built by core from the components (each flag's source is noted on ViewFlag).
  */
-import type { Controller, EntityId, HeroId, ItemId, PlayerTeam, StatusId, Team, Tick, Vec3 } from './base';
+import type { Controller, EntityId, HeroId, ItemId, LaneId, PlayerTeam, StatusId, Team, Tick, Vec3 } from './base';
 import type { MovementModeKind } from './effects';
 import type { WeaponState, AbilitySlotState, AreaInfo, EntityKind, Keepsakes, ObjectiveState, OwnedItem, ProjectileInfo, StructureInfo } from './entity';
 import type { MapId } from './map';
@@ -120,6 +120,8 @@ export interface HeroView {
   readonly team: PlayerTeam;
   readonly slot: number;
   readonly controller: Controller;
+  /** `HeroInfo.lane`: the lane assigned at match start (D-ARCH-034); absent on maps without lanes. */
+  readonly lane?: LaneId;
   readonly level: number;
   readonly seeds: number;
   readonly netWorth: number;

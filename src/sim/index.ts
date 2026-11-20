@@ -20,6 +20,7 @@ import type {
   EntityId,
   HeroEntity,
   HeroId,
+  LaneId,
   Phase,
   PlayerCommand,
   PlayerTeam,
@@ -37,6 +38,7 @@ import { clampPitch } from './core/aim';
 import { createEffectRouter } from './core/effects';
 import { createBus } from './core/events';
 import { createHasher } from './core/hash';
+import { assignLanes } from './core/lanes';
 import { clamp, copy, ticks, vec3 } from './core/math';
 import { createRng, createRngStreams } from './core/rng';
 import { createSpatialHash } from './core/spatial';
@@ -120,6 +122,7 @@ function resolveConfig(c: SimConfig): ResolvedSimConfig {
     throw new Error('createSim: practiceStart needs practiceHub and a finite position and yaw');
   }
   const waves = c.options?.waves ?? map === 'main';
+  const structures = c.options?.structures ?? (map === 'main' && c.options?.waves === undefined && c.roster.length > 0);
   return {
     seed: c.seed,
     map,
@@ -128,7 +131,8 @@ function resolveConfig(c: SimConfig): ResolvedSimConfig {
       waves,
       practiceHub: c.options?.practiceHub ?? false,
       ...(start && { practiceStart: { pos: copy(start.pos), yaw: wrapYaw(start.yaw) } }),
-      structures: c.options?.structures ?? (map === 'main' && c.options?.waves === undefined && c.roster.length > 0),
+      structures,
+      laneStart: c.options?.laneStart ?? structures,
       neutrals: c.options?.neutrals ?? waves,
       unlockAbilities: c.options?.unlockAbilities ?? false,
       startSeeds: c.options?.startSeeds ?? null,
@@ -142,7 +146,7 @@ function slotState(a: AbilityDef): AbilitySlotState {
 }
 
 /** Spawn a roster slot's hero with every component at its neutral starting value (owners adjust on spawn). */
-function spawnHero(ctx: SimContext, slot: number, r: RosterSlot, indexInTeam: number): HeroEntity {
+function spawnHero(ctx: SimContext, slot: number, r: RosterSlot, indexInTeam: number, lane: LaneId | null): HeroEntity {
   const def = ctx.heroes[r.hero].def;
   const spawns = ctx.map.spawns.filter((s) => s.team === r.team);
   const anchor = spawns[indexInTeam % spawns.length];
@@ -163,7 +167,7 @@ function spawnHero(ctx: SimContext, slot: number, r: RosterSlot, indexInTeam: nu
     vel: vec3(),
     yaw,
     radius: def.body.radius,
-    hero: { heroId: r.hero, slot, controller: r.controller, ...(training && { training }) },
+    hero: { heroId: r.hero, slot, controller: r.controller, ...(training && { training }), ...(lane && { lane }) },
     pitch: 0,
     shoulder: 1,
     command: { ...IDLE_COMMAND, yaw },
@@ -244,7 +248,8 @@ export async function createSim(config: SimConfig): Promise<Sim> {
 
   const heroes: HeroEntity[] = [];
   const perTeam: Record<PlayerTeam, number> = { dawn: 0, dusk: 0 };
-  cfg.roster.forEach((r, slot) => heroes.push(spawnHero(ctx, slot, r, perTeam[r.team]++)));
+  const lanes = assignLanes(cfg.seed, cfg.roster, ctx.map.lanes.map((l) => l.id), (id) => HEROES[id].def.archetype);
+  cfg.roster.forEach((r, slot) => heroes.push(spawnHero(ctx, slot, r, perTeam[r.team]++, lanes[slot] ?? null)));
   const heroIds = heroes.map((h) => h.id);
   const localHero = heroes.find((h) => h.hero.controller === 'human')?.id ?? null;
 
