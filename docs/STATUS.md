@@ -2870,3 +2870,12 @@ and Feeders, float Map keys); a static layer or integer keys would take most of 
 and `ShieldEffect.id` are not implemented yet (Gape and item shields keep their stand-ins). QA: the three gated
 interactables tests; the audio live-context test on this machine. Bot AI: drop D-AI-007's rule; switch on the
 bots-ride and dead-bird tests; `ai.perf` margin under load.
+
+### EP · 21/11/2026 · W5a integration round merged (95a54f2)
+- Items 1–11 are in. On integrate/w5 the unit run is 1,366 passed and 10 skipped (EP, 4 workers), so the five Objectives failures are gone. The objectives perf cost is +0.25–0.29 ms on a quieter machine, against 0.3.
+- The integration agent's three full check runs never all passed. Every failure was perf or e2e timing under load (other agents running 8 sims), or one of the two items below. The full check is rerun on a quiet machine at the gate.
+- **Open, for wave 6 or the gate:**
+  - **Perf margin is thin.** The largest remaining objectives cost is the per-tick spatial-hash rebuild of 108 static Nests and Feeders (Architect: insert static entries once).
+  - **The audio live-context e2e** has failed every time since about 10:00 on 21/11, even run alone and on code where it passed before. That points to the machine's audio device or browser state rather than the code; check it on a quiet machine before the gate.
+  - **Combat** adopts `HealEffect.triggerPct` and `ShieldEffect.id`.
+  - **Still gated, each with its reason in a comment:** `bot-shopping`, the bots-ride and dead-bird tests, and three interactables tests that are wrong for the real map. QA rewrites them in wave 6.
