@@ -2734,3 +2734,12 @@ Bristle, Fruit Barrage, Gape.
 **Next (Phase B, on the EP's word):** full-length matches once they end; 1,000+ training matches in rounds of ~200 to
 convergence; duels; then the one-line switch of `src/sim/data/builds.ts` to `LEARNED_BUILDS`.
 **Blocked:** nothing.
+
+### EP · 21/11/2026 · Build Lab Phase A merged (5bef3c1)
+- The lab runs seeded parallel matches, learns item scores in rounds and writes `src/sim/data/learned/builds.ts` and `docs/balance/report.md`.
+- Pilot of 108 matches with no crashes:
+  - every hero's core was stable between rounds;
+  - item ranks were not yet stable (half-to-half ρ 0.71), and no pick was settled by its confidence intervals.
+- Phase B plan: D-EP-049.
+- EP added `tools/**/*.test.ts` to the unit run, as the lab asked.
+- Routed: hard bots never cast Mended Song, Poise or Tide Turn (Bot AI); an ability id on heals, shields and statuses (Architect, wave 6).

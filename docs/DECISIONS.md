@@ -2305,3 +2305,11 @@ reruns diff clean. Learning rewrites `round-R/learned.json`, the generated `src/
 `npx vitest run --root tools/buildlab` until Build & Tooling adds `tools/**/*.test.ts` to the unit run.
 **Why:** a crash or a leak stays in one process, a usage stop loses at most the matches in flight, and the outputs are
 regenerable from the records alone.
+
+### D-EP-049 · 21/11/2026 — Build Lab Phase B: faster matches and a lower-variance measure before the long run
+**Decision:** Phase B (the long run of D-EP-036/037) starts once the match-ending fix and the W5a integration round are merged. Before it runs:
+1. **Speed.** Profile the headless 12-bot match and speed it up. The pilot took about 100 s of wall clock per 20-minute match per process, so aim for 5× or better, with no change to rules or determinism.
+2. **Measure.** Use decided matches, plus a lower-variance per-hero contribution measure. Judge whole archetype cores and builds against a practical margin (about 2 percentage points of win rate), rather than separating single items 0.5 score units apart.
+3. **Size.** Run as many matches as the convergence tests need. The pilot estimates up to about 8,000 at the old measure, which is within the 10× the user allowed. Run them in overnight batches at most 6 processes wide, on the separate simulation track (D-EP-044), so no stage waits for them.
+
+**Why:** the 108-match pilot settled every hero's core between rounds, but item ranks agreed only at ρ 0.71 between halves, and no pick was settled by its confidence intervals.
