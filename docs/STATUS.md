@@ -2682,3 +2682,61 @@ shared, and a bake takes seconds.
   - wings that wrap the grip instead of reading as arms;
   - a check under golden-hour lighting.
 - Then the other 21 birds convert in parallel batches, with a per-bird checklist.
+
+### W5c · Technical Artist · sculpt pipeline v2.1 · 20/11/2026
+**Done:** the EP's v2.1 round on the pipeline, so every batch inherits it, and the three birds re-dressed. Branch
+`worktree-agent-ab2171eba079ed25b`, with `integrate/w5` b09218c merged. D-ART-011 records the round and the batch checklist.
+- **Feather surface (1):**
+  - Skins bake a feather flow per vertex (skin format v2). By default it runs down and back; neck capsules point it
+    down the neck and thighs point it down.
+  - The bird material lays overlapping feathers (scales tile) or hair strands (wood tile) along it. Each edge
+    steps down to the feather beneath, with a value break and shading, in both albedo and normal.
+  - Detail is strongest close to the camera and fades out before it can alias. Faces and bare skin stay smooth (the
+    Cassowary's bare skin is pebbled).
+  - Patterns now fade across region borders instead of switching tiles inside a triangle, which removed the speckle at
+    face and throat borders.
+- **Player-camera standard (2):**
+  - Shared `hackles` and `inBone` helpers, and a checklist row that is a hard requirement.
+  - Peacock: hackles down the back of the upper neck, a bronze cape where the neck meets the mantle, and a teal head
+    over the blue neck.
+  - Swift: a pale-edged ruff and a crown tuft under the goggle strap, and a warm brown crown and nape over the sooty
+    body.
+  - Cassowary: the casque's keel runs down the back of the skull, red skin folds run down the nape, and the red climbs
+    the back of the head.
+- **Wings (3):** the shared builder now gives a broad forearm panel and primaries that wrap the grip. `foldedWings` folds
+  secondaries down the flank (Peacock), and the arm's hanging secondaries are shorter. The five other sculpted birds
+  inherit the new forearm and grip.
+- **Rim and sheen (4):** checked in the real renderer (golden hour, grade, rim) from the front and behind
+  (`out/art/after21/game-front.png`, `game-back.png`). Rendering's identity layer keeps the birds' own rim material.
+
+**Evidence** (git-ignored, in `out/art/after21/`; v2 is in `out/art/after/`, before v2 in `out/art/before/`):
+- triptychs `<bird>.png` and player-camera views `<bird>-player.png`;
+- line-ups `lineup-10.png`, `lineup-40-zoom.png` and `lineup-80-zoom.png`;
+- the game renderer, front and back.
+
+| Bird | Level 0 / 1 / 2 / 3 triangles | Player camera: bird / gun | Score, front and three-quarter | Score, player camera |
+|---|---|---|---|---|
+| Peacock | 8,842 / 3,334 / 1,162 / 376 | 3.8 % / 0.24 % | 3 | 3 |
+| Swift | 8,952 / 3,304 / 1,182 / 394 | 4.9 % / 0.39 % | 3 | 3 |
+| Cassowary | 8,904 / 3,410 / 1,142 / 374 | 5.3 % / 0.39 % | 3 | 3 |
+
+**Load and memory:**
+- A bird builds in 24–26 ms (Node, median of 7) and a skin decodes in 2–3 ms; nothing is generated at load.
+- Geometry per bird and team is 2.07–2.17 MB, about +1 % for the flow attribute (3 bytes a vertex).
+- Skins are 48–62 KB of binary each.
+- The feather surface costs one 27-cell search per skin fragment within a few metres of the camera, and fades out
+  beyond. It has not yet been measured on the reference iGPU.
+
+**Verified:** the model, skin and attachment tests pass (111), with budgets, hitbox, grips, muzzle, feet and weights.
+`npm run check`, each step run on b09218c plus this branch:
+- **typecheck, lint, perf (14/14) and sim:** pass. The sim hash is 41b6ba755b99c3c1, unchanged.
+- **test:** 1,117 pass and 6 fail. Five are the known Objectives sim tests. Wiki coverage timed out under load and passes alone (10/10).
+- **e2e:** 57 pass and 5 fail in parallel under load. Run serially, all pass except `match.spec` "Seeds levelled the hero up", Bot AI's open interface request.
+
+**Still short:**
+- Feather edges can show a little stair-stepping at 1–3 m without MSAA.
+- The Cassowary's coat is still mostly hair blades over the sculpted shag.
+- The Peacock's folded wing blades are pale under neutral light.
+
+**Next:** the EP's review, then the 21 batch conversions with D-ART-010 and D-ART-011.
+**Blocked:** nothing.
