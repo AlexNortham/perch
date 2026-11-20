@@ -349,7 +349,9 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   };
   let last = performance.now();
   const frame = (now: number): void => {
-    const dt = (now - last) / MS_PER_SECOND;
+    // A frame's rAF timestamp is when the frame began, which can come before `last` was taken after a long start-up
+    // task: never hand a negative dt to the camera, rigs, VFX or audio (it once opened scenes at a 135° FOV, D-RENDER-018).
+    const dt = Math.max(0, (now - last) / MS_PER_SECOND);
     last = now;
     if (loading > 0) {
       requestAnimationFrame(frame);

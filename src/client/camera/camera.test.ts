@@ -145,6 +145,15 @@ describe('dash kick, death camera, presets', () => {
     expect(kicked).toBeLessThanOrEqual(settings.fovDeg + 6 + 1e-9);
   });
 
+  it('a negative or huge frame dt never widens the FOV (the scene-start transient, D-RENDER-018)', async () => {
+    const { frame } = await setup();
+    const cam = createCamera(settings, () => fixture([]));
+    const look = { yaw: 0, pitch: 0 };
+    for (const dt of [-0.25, 1.3, 0.45, 1 / 120]) {
+      expect(cam.update({ ...frame(), dt }, 'shrike', look, 'player').fovDeg, `dt ${dt}`).toBe(settings.fovDeg);
+    }
+  });
+
   it('orbits and rises over the body when dead, then blends back to the player camera', async () => {
     const { sb, frame } = await setup();
     const cam = createCamera(settings, () => fixture([]));
