@@ -1882,6 +1882,29 @@ other agents loaded the machine; it passed on the re-run. No `src/` change.
 - Level Designer: collision for landing boards and perch beams deeper than 0.5 m (§2.6), and no lines or poles across
   lanes or within 3 m of an Updraft (§1.1).
 
+### W5b · Rendering & VFX · 19/11/2026
+**Material library API (stable, for the Technical Artists and the Environment Artist):** import from
+`src/client/render/materials` (all of it is in use by the map layer today).
+- `getMaterialLibrary(quality)` → `{ opaque, cutout, cutoutDepth, layer(id), tick(s), setEnvironment(t), textureBytes }`.
+  Two shared materials draw everything painted with the library, so mixed materials in one 64 m cell are one draw
+  call. Cards (leaves, needles, feathers) use `cutout` and set `mesh.customDepthMaterial = lib.cutoutDepth`.
+- `paint(geometry, id, { tint, uv: 'planar' | 'cylinder' | 'keep', yaw, scale, offset, seed, turn })` writes `uv`
+  (tiles), `matLayer` and `color` (multiplied into any existing colours). Paint after placing the piece. `planar` keeps
+  courses level on walls and along the eaves on roofs; `cylinder` wraps posts and trunks; `keep` takes uv in metres
+  (or 0..1 on cards). `seed` adds the §4.4 per-piece hue/value variation; `turn` runs planks and grain up the piece.
+- `bakeAO(geometry, { occluders, ground, reach, voxel, rays, underside, strength })` darkens vertex colours: ray
+  occlusion through a voxel grid (concave edges, overhangs), the 0.3 m contact band and 0.8 m damp gradient on walls
+  (`ground`), and downward faces. `rays: false` gives the cheap gradient terms only.
+- 37 materials (`MATERIAL_IDS`): brick, brickBurnt, ashlar, granite, sandstone, flagstone, cobble, plaster,
+  plasterOchre, timber, timberDark, timberRed, boards, roofClay, roofSlate, roofShingle, thatch, iron, brass, pewter,
+  verdigris, glass, windowLit and lantern (emissive), canvas, rope, twig, bark, hedge, grass, moss, earth, gravel,
+  water (flows), leafCard, pineCard, featherCard. Colours, tiles and roughness follow §7.2 (`RECIPES[id]`).
+- Tiers (§11.6): Low is Lambert with 128² albedo; Medium is PBR with 256² albedo + 128² ORM; High adds 512² albedo
+  and normal maps. `retarget(root, lib)` moves a built scene to another tier.
+- Framework (`src/client/render/batch.ts`, `shapes.ts`): `CellBatch` (`add(painted, { kind, band, cast, rays })`,
+  `build(lib, name)`, then `updateBands(root, eye)` each frame), `LodInstances` (levels by distance, per-instance
+  frustum culling, one draw call per level), and shapes `chamferBox`, `wedge`, `stairs`, `column`, `trunk`, `leafClump`,
+  `tube`.
 ### 2026-11-19 · Docs & Wiki engineer (W5b) · WIKI
 Done: the wiki coverage test already generated into a temp folder; it now also compares that output with the committed `wiki/` (ignoring the date) and only warns when stale (D-WIKI-001). `npm run wiki` unchanged. Proved: dropping a hero page from the generator fails 3 tests; reverted. About 2 s of generation, no screenshots.
 Decision D-WIKI-001: a stale committed wiki is a console warning, never a failure; the gate regenerates it (D-EP-031).
@@ -2118,3 +2141,7 @@ in. Decisions D-ARCH-025 to D-ARCH-028; owner follow-ups in `docs/briefs/W5-cont
 frames (the camera pose it gets is not finite yet); seen in the e2e server log, no test fails on it (Audio, Camera).
 The no-Interact suite's last red test waits on bots riding Updrafts (Bot AI).
 **Interface requests:** none. **Blocked:** nothing.
+
+### EP · 20/11/2026 · open items for the Stage 4 gate
+- **Camera pose can go non-finite.** Audio now ignores a NaN/Infinity camera pose (ed8373a), but the source of the bad pose (camera rig before its first target, or a zero-length look vector) is not found. Owner: Rendering/camera. Check it in wave 6 or the integration round after 5b.
+- **`e2e/audio.spec.ts` is flaky under machine load** (22/23, the failing case moves, one 30 s timeout). Rerun serially on a quiet machine at the gate before calling it a real failure.

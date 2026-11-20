@@ -26,6 +26,8 @@ export const MATERIAL_TIERS: Readonly<Record<Quality, MaterialTier>> = {
 
 /** §7.1 anti-tiling: world-space value variation, two octaves (wavelengths in metres), ± strength. */
 export const MACRO_VARIATION = { strength: 0.07, far: 7, near: 2.3 } as const;
+/** Emissive layers (art values 0.6–1.0, §5.2) scale by this in scene-linear light, so they clear the bloom threshold. */
+export const EMISSIVE_HDR = 8;
 /** §7.3: the sky environment map's strength on metal and glass. */
 export const ENV_INTENSITY = 0.4;
 /** Water scrolls this many tiles per second along u and v. */
@@ -42,14 +44,22 @@ export const PIECE_VARIATION = { value: 0.05, hueDeg: 3, fullTurnDeg: 360, hueTi
 export const AO = {
   voxel: 0.25,
   reach: 1.5,
-  rays: 10,
+  rays: 6,
   /** π(3 − √5): spreads the ray directions evenly. */
   goldenAngle: 2.399963229728653,
   /** Start rays this many voxels off the surface so a face doesn't occlude itself. */
   lift: 1.2,
-  maxVoxels: 6_000_000,
+  /** Bits in the voxel grid before the voxel grows (64 M bits = 8 MB). */
+  maxVoxels: 64_000_000,
   voxelGrowth: 1.25,
-  maxSamplesPerEdge: 2000,
+  /** Voxelising stops splitting a triangle once its edges are this many voxels long. */
+  leafVoxels: 2,
+  /** The mask of space near baked vertices is this many voxels per cell (and never finer than the reach). */
+  coarseVoxels: 4,
+  /** Sample points that agree to 1 cm share one trace; keys pack x, y, z (±200 m) into one safe integer. */
+  keyScale: 100,
+  keyOffset: 20_000,
+  keySpan: 40_000,
   concave: 0.75,
   downFacing: -0.5,
   underside: 0.3,

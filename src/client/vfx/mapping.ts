@@ -14,6 +14,8 @@ export interface Lookup {
   hitscan(shooter: EntityId): boolean;
   /** The local hero's flock (Dawn when there is none). */
   readonly localTeam: PlayerTeam;
+  /** The local hero, whose own ride effects are drawn in screen space by the renderer (G16). */
+  readonly localHero?: EntityId | null;
 }
 
 export interface FxSink {
@@ -157,7 +159,7 @@ export function mapEvents(events: readonly SimEvent[], lk: Lookup, sink: FxSink)
             sink.burst('jump', feet, UP, WHITE);
             break;
           case 'updraftBoost':
-            sink.burst('updraftBoost', feet, UP, WHITE);
+            if (e.hero !== lk.localHero) sink.burst('updraftBoost', feet, UP, WHITE);
             break;
           case 'teleport':
             sink.burst('teleport', chestOf(h), UP, WHITE);

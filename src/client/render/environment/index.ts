@@ -92,6 +92,8 @@ export function buildEnvironment(map: MapData, quality: Quality): Environment {
   let reach = BAND_REACH[quality];
   const root = new Group();
   root.name = 'environment';
+  // Its own §11.3 category: the batch geometry holds every cell and band, so mesh-level counts are capacity, not drawn.
+  root.userData['budget'] = 'environment';
   const triangles: [number, number, number] = [0, 0, 0];
   const meshes: BatchedMesh[] = [];
   for (const pass of PASSES) {
