@@ -70,7 +70,10 @@ export const TALON_ITEMS: readonly ItemDef[] = [
         { kind: 'statMod', id: 'tempest', name: 'Tempest', durationS: 5, stats: [stat('fireRate', 0.6)] }],
     }),
   item('kestrel-eye', 'Kestrel’s Eye', '+25% gun damage, +60% falloff range, +15% projectile speed. Gun hits from 25 m or farther deal +20% damage and reveal the target for 3 s.',
-    'talon', 4, [stat('gunDamage', 0.25), stat('falloffRange', 0.6), stat('bulletSpeed', 0.15)], 'long-fletching'),
+    'talon', 4, [stat('gunDamage', 0.25), stat('falloffRange', 0.6), stat('bulletSpeed', 0.15)], 'long-fletching', null,
+    // The +20% is a repeat of the hit, resisted once (D-SYS-014, D-ARCH-027).
+    [{ on: 'weaponHit', beyondM: 25, chance: 1, cooldownS: 0, target: 'other',
+      effects: [{ kind: 'damage', amount: 0, triggerPct: 0.2, type: 'talon' }, { kind: 'applyStatus', status: REVEAL, durationS: 3 }] }]),
 ];
 
 export const TALON_RIDERS: Readonly<Record<string, readonly Rider[]>> = {
@@ -79,6 +82,5 @@ export const TALON_RIDERS: Readonly<Record<string, readonly Rider[]>> = {
   // 30% to non-heroes less the 8% the passive already gives.
   'foragers-talon': [{ on: 'gunHit', vs: 'nonHero', extra: 0.22 }],
   'skipping-stone': [{ on: 'gunHit', bounce: { radius: 8, fraction: 0.45 } }],
-  'kestrel-eye': [{ on: 'gunHit', minM: 25, extra: 0.2, effects: [{ kind: 'applyStatus', status: REVEAL, durationS: 3 }] }],
   'carrion-feast': [{ on: 'killAssist', healMaxPct: 0.15 }],
 };
