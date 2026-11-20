@@ -441,6 +441,8 @@ function mossRing(g: Mesher, r: number, y: number, seed: number): void {
 
 /** A tiered fountain (§1.2): a moulded basin, a column, a bowl and a carved bird spouting into it. */
 const fountain: Builder = (c) => {
+  // The Egg perches stand in the Old Square fountains: objectives.ts builds the perch there.
+  if (c.w.map.eggPerches.some((e) => Math.hypot(e.pos.x - c.p.pos.x, e.pos.z - c.p.pos.z) < 1)) return;
   const { x: sx, y: sy } = c.p.size;
   const r = sx / 2;
   const g = c.M(2, 'cast');
