@@ -3362,3 +3362,77 @@ settle issue QA's spec now waits out.
 **Verified:** `npm run check -- --release` (Git Bash): `PASS typecheck 17s · lint 9s · test 138s · perf 76s · sim 10s ·
 e2e 667s · check 919s`. `e2e/draw-budget.spec.ts` 3/3 alone (35 s); camera, render and app unit tests 86/86.
 **Interface requests:** none (the two one-line fixes outside my paths are in this commit, for the owners to review).
+### W7 · Technical Artist (bird batch E) · 21/11/2026
+**Done:** Albatross, Lyrebird, Flamingo and Hornbill are converted to the sculpt pipeline v2.1 (D-ART-010 to 013), and
+the Shrike's front view is touched up. Branch `worktree-agent-a6c1176ee04a5cc9d`, from `integrate/w5` 0040e7b. One commit
+per bird. D-ART-014 records how the lyre keeps the player's view open.
+- **Shrike (front touch-up):** a broader breast over a pinched belly, grey washing down the flanks and under the belt,
+  and three rows of scalloped grey flank feathers each side. The front now reads as a white bib framed by the black wings,
+  not a tall white egg.
+- **Hornbill:** an upright, heavy-chested body, black above with a white belly. A cream neck ruff with hackles runs up the
+  back of the head, over a black face with red, lashed eyes. A tall yellow helmet casque is sculpted into the skin over a
+  deep, down-curved, serrated bill (red at the base to yellow at the tip). A long white tail, barred black, fans on a
+  cast. Gear: a flock bandolier of brass rounds, a crossing leather strap, and a belt with pouches. The Casque Rifle has
+  a horn casque shroud, a slotted brake, and a six-chamber brass cylinder on the `spin` bone that turns as it fires.
+- **Albatross:** a big white body and thick neck. The white head has a dark brow and a long, deep, pale-pink hooked bill;
+  the feet are pink and webbed. The folded wings are worn as a cloak: long grey-brown flight feathers from the shoulders
+  to the ground close over the back and splay at the hem into the wide triangle. Coverts over the yoke carry the flock
+  bar, and the cloak swings open on a cast. Gear: a flock bandana knotted behind the head, a bandolier of red shells, a
+  belt with a rope coil and a pouch. The Gale Blunderbuss has a wide brass bell, a pleated leather bellows, and shells
+  along the stock.
+- **Flamingo:** a small, level body on very long bare coral legs, with knee knobs and webbed feet; it idles on one leg.
+  A question-mark neck with fluffed hackles leads to a pale head with a yellow eye. The custom bill is deep, bent sharply
+  down at the middle, and black-tipped, with a keeled lower jaw. Coral coverts and black flight feathers fold down the
+  flanks and flare in a wing salute on a cast. Gear: a flock ribbon bow at the throat, coral plumes in a brass clip at
+  the back of the crown, a flock sash, and a shell pouch. The Wader Repeater has a reed barrel, a conch magazine and a
+  coral bell with a glowing bead.
+- **Lyrebird:** a slim olive-brown body on long legs, a rufous throat, and a small, dark, crested head. The lyre rises
+  to 2.6 m and has its own budget share (§8.2). It has two S-curved ribbon plumes, banded chestnut and silver-buff,
+  silver filaments fanned out toward them, two crossing wiry medians, and root coverts. It is thrown forward over the
+  head on a cast. Gear: a flock sash with brass bells, reed pipes on the hip, and a pouch. The Echo Lute is strung, with
+  a lute-body stock, a brass horn, and a glowing rose.
+- `heroes-b.ts` exports `SCULPTED_B` (Hornbill, Flamingo). `heroes.ts` wraps it and lists it in `SCULPTED_IDS`
+  (D-ART-013), so the display, jaw, blink and gun-cap tests cover all six batch B/E birds. No old-model builder is left
+  in `heroes.ts`.
+
+| Bird | Level 0 / 1 / 2 / 3 triangles (skin) | Player camera: bird / gun | Score: front | Score: player camera |
+|---|---|---|---|---|
+| Shrike | 8,804 / 3,462 / 1,146 / 360 (2,600 / 950 / 300 / 120) | 3.3 % / 0.39 % | 3 (was 2.5) | 3 |
+| Hornbill | 8,984 / 3,182 / 1,106 / 386 (2,150 / 820 / 250 / 110) | 3.5 % / 0.44 % | 3 | 3 |
+| Albatross | 8,956 / 3,380 / 1,170 / 398 (2,100 / 800 / 260 / 96) | 6.5 % / 0.57 % | 3 | 3 |
+| Flamingo | 8,074 / 3,130 / 1,166 / 398 (2,298 / 850 / 270 / 110) | 1.4 % / 0.26 % | 3 | 3 |
+| Lyrebird | 8,356 / 3,408 / 1,190 / 386 (2,100 / 800 / 224 / 90) | 5.0 % / 0.38 % | 3 | 3 |
+
+All are within 9,000 / 3,500 / 1,200 / 400, with at most three draw calls.
+
+**Evidence** (git-ignored; reproduce with `npx tsx tests/anim/posesheets.ts --out out/art/e --frame="name=<bird>&mode=triptych&hero=<bird>"`
+and `mode=player`):
+- Triptychs: `out/art/e/<bird>.png`, and `shrike-before.png` for the Shrike before the touch-up.
+- Player camera: `out/art/e/<bird>-player.png`.
+- Golden hour in the game renderer (`npm run shots -- --scene sandbox --param modelLineup=…`): `out/art/e/game-front.png`
+  and `game-back.png`.
+- Line-ups of the six batch B/E birds at 10, 40 and 80 m (40 and 80 m with a narrowed field of view, mixed flocks):
+  `out/art/e/lineup-10.png`, `lineup-40.png`, `lineup-80.png`. Each keeps its §9.24.1 shape at 80 m: the Albatross's
+  triangle, the lyre, the pink stick with its neck, and the helmet bill.
+
+**Verified:**
+- `npx vitest run src/client/render/models tests/anim` passes (120 tests): budgets, the head on its hitbox, both grips
+  held in every state, the muzzle on the sim's muzzle point, planted feet (D-EP-035), the Flamingo's one-leg idle, gun
+  caps, morphs, and byte-identical skins.
+- Typecheck and lint pass. `npm run check -- --release` was started, then stopped on the EP's pause instruction: not run.
+
+**Still short:**
+- The Hornbill's casque is a little lumpy at the skin's triangle budget. A rigid lofted casque would be crisper.
+- Feathered thigh fringes read as trousers on the Hornbill, Lyrebird and Albatross.
+- The Flamingo's body is small under its arm-wings from the front. The Albatross's pale bill reads grey in shadow under
+  golden light.
+
+**Requests for Batch D (shared pipeline):**
+- Export a `web()` toe-webbing helper from `anatomy.ts`. There are now copies in `birds-c.ts` (Pelican, Penguin),
+  `heroes.ts` (Albatross) and `heroes-b.ts` (Flamingo).
+- Add a `LegStyle` option for a skinned feathered top over a bare lofted thigh. Long-legged birds (Flamingo, and
+  Secretarybird next) need the bare thigh down to the knee; with `skinned`, nothing is drawn between the skin's short
+  thigh and the knee.
+- Consider a shorter default thigh fringe. It reads as trousers from the front.
+
+**Blocked:** nothing.
