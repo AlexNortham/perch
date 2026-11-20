@@ -18,13 +18,14 @@ import type { BufferGeometry, Camera, Color, Material, Object3D } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { bakeAOAll } from './materials';
 import type { MaterialKind, MaterialLibrary } from './materials';
-import { CELL, LOD } from './constants';
+import { CELL, LOD, SHADOW_LAYER } from './constants';
 
 export type Band = 'near' | 'mid' | 'far';
 export const BAND_DISTANCE: Readonly<Record<Band, number>> = { near: LOD.near, mid: LOD.mid, far: Infinity };
 
 export interface PieceOptions {
-  readonly kind?: MaterialKind;
+  /** 'shadow': a plain shadow-casting proxy, drawn only in the sun's shadow pass (layer SHADOW_LAYER). */
+  readonly kind?: MaterialKind | 'shadow';
   readonly band?: Band;
   /** Casts shadows (§11.4: only geometry ≥ 0.5 m; cards at High only). Default: opaque yes, cutout no. */
   readonly cast?: boolean;
@@ -36,7 +37,7 @@ export interface PieceOptions {
 interface Bucket {
   readonly baked: BufferGeometry[];
   readonly plain: BufferGeometry[];
-  readonly kind: MaterialKind;
+  readonly kind: MaterialKind | 'shadow';
   readonly band: Band;
   cast: boolean;
   readonly cell: string;
@@ -60,7 +61,11 @@ function normalise(g: BufferGeometry): BufferGeometry {
 export class CellBatch {
   private readonly buckets = new Map<string, Bucket>();
   private readonly centre = new Vector3();
-  constructor(private readonly cellSize: number = CELL.size) {}
+  /**
+   * With `shadowProxies`, painted meshes cast no shadows; pieces added with kind 'shadow' (plain collision-sized
+   * shapes) cast instead, a fraction of the triangles in the shadow pass (§11.3: at most half the main pass).
+   */
+  constructor(private readonly cellSize: number = CELL.size, private readonly opts: { readonly shadowProxies?: boolean } = {}) {}
 
   /** Queue a painted geometry (world space). The batch owns it from here. */
   add(geometry: BufferGeometry, opts: PieceOptions = {}): void {
@@ -79,6 +84,12 @@ export class CellBatch {
     }
     // A mesh casts if any of its pieces does (pieces that shouldn't, such as small trims, go in their own band).
     b.cast ||= cast;
+    if (kind === 'shadow') {
+      const g = geometry.index ? geometry.toNonIndexed() : geometry;
+      for (const name of Object.keys(g.attributes)) if (name !== 'position') g.deleteAttribute(name);
+      b.plain.push(g);
+      return;
+    }
     (rays ? b.baked : b.plain).push(normalise(geometry));
   }
 
@@ -109,9 +120,16 @@ export class CellBatch {
       if (!g) continue;
       g.computeBoundingBox();
       g.computeBoundingSphere();
-      const mesh = new Mesh(g, b.kind === 'opaque' ? lib.opaque : lib.cutout);
+      const mesh = new Mesh(g, b.kind === 'cutout' ? lib.cutout : lib.opaque);
       mesh.name = `${name}:${b.cell}:${b.kind}:${b.band}`;
-      mesh.castShadow = b.cast;
+      if (b.kind === 'shadow') {
+        mesh.layers.set(SHADOW_LAYER);
+        mesh.castShadow = true;
+        mesh.userData['budget'] = 'shadow';
+        root.add(mesh);
+        continue;
+      }
+      mesh.castShadow = b.cast && !this.opts.shadowProxies;
       mesh.receiveShadow = true;
       if (b.kind === 'cutout') mesh.customDepthMaterial = lib.cutoutDepth;
       mesh.userData['band'] = BAND_DISTANCE[b.band];

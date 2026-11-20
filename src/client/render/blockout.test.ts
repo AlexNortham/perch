@@ -28,9 +28,14 @@ describe('map layer', () => {
       const b = buildBlockout(m, lib);
       const all = meshes(b.root);
       const cells = new Set(all.filter((x) => x.name.startsWith('map:')).map((x) => x.name.split(':')[1]));
-      // At most opaque, trims and cards per cell, plus the shimmer, the floor and three instanced forest meshes.
-      expect(all.length).toBeLessThanOrEqual(cells.size * 3 + 5);
-      for (const x of all.filter((x) => !(x instanceof InstancedMesh) && x.name.startsWith('map:'))) {
+      // At most opaque, trims, cards and the shadow proxy per cell, plus the shimmer, the floor and the forest.
+      expect(all.length).toBeLessThanOrEqual(cells.size * 4 + 5);
+      // Painted meshes cast nothing; plain proxies cast, seen only by the sun's shadow camera (layer 1).
+      const proxies = all.filter((x) => x.name.endsWith(':shadow:far'));
+      if (m.prims.length > 0) expect(proxies.length).toBeGreaterThan(0);
+      for (const x of proxies) expect([x.castShadow, x.layers.mask]).toEqual([true, 2]);
+      for (const x of all.filter((x) => x.name.endsWith(':opaque:far'))) expect(x.castShadow).toBe(false);
+      for (const x of all.filter((x) => !(x instanceof InstancedMesh) && x.name.startsWith('map:') && !x.name.endsWith(':shadow:far'))) {
         for (const name of ['position', 'normal', 'uv', 'color']) {
           expect(Array.from(x.geometry.getAttribute(name).array).every(Number.isFinite), `${x.name}.${name}`).toBe(true);
         }

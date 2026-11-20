@@ -90,6 +90,12 @@ export const SHADOW_MIN_HALF = 45;
 export const SHADOW_MAX_HALF = 240;
 /** How far up the sun direction the shadow camera sits, and its depth range. */
 export const SHADOW_DISTANCE = 400;
+/** Shadow-only proxies live on this layer: the sun's shadow camera sees it, the main camera doesn't. */
+export const SHADOW_LAYER = 1;
+/** Proxy cylinders (trunks, columns) are this many sided. */
+export const SHADOW_PROXY_SIDES = 8;
+/** How far up-sun of the shadow box casters still matter: a 40 m wall at 24° throws its shadow about 100 m along the light. */
+export const SHADOW_UPSUN = 100;
 
 /**
  * Fog thins with camera height, like aerial haze: density × min(1, FOG_HEIGHT_REF / camera height). The player camera

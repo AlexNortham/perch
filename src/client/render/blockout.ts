@@ -7,6 +7,7 @@
  */
 import {
   AdditiveBlending,
+  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   Color,
@@ -28,7 +29,7 @@ import { CellBatch, LodInstances, updateBands } from './batch';
 import { bakeAO, paint, retarget } from './materials';
 import type { MaterialId, MaterialLibrary, PaintOptions } from './materials';
 import { chamferBox, column, leafClump, stairs, trunk, tube, wedge } from './shapes';
-import { ART, BACKDROP, CHIMNEY_RADIUS, LANE_ART, SHOP_ART, STATION_ART, SUN, UPDRAFT_HEIGHT, VINE_ART } from './constants';
+import { ART, BACKDROP, CELL, SHADOW_PROXY_SIDES, CHIMNEY_RADIUS, LANE_ART, SHOP_ART, STATION_ART, SUN, UPDRAFT_HEIGHT, VINE_ART } from './constants';
 import { SHIMMER_FRAGMENT, SHIMMER_VERTEX } from './shimmer';
 
 export interface Blockout {
@@ -334,7 +335,23 @@ function canopy(ctx: Ctx, p: BlockoutPrim & { shape: 'cylinder' }, i: number): v
     const at = (g: BufferGeometry): BufferGeometry => g.translate(p.centre.x + Math.cos(a) * d, y, p.centre.z + Math.sin(a) * d);
     const tint = hash(s + ART.canopyTintSalt) < 1 / 2 ? ART.canopyTint : ART.canopyTintAlt;
     ctx.batch.add(paint(at(cards), 'leafCard', { uv: 'keep', tint }), { kind: 'cutout', cast: false });
-    put(ctx, at(core), 'hedge', { tint: ART.coreTint, rays: false, cast: true });
+    const placed = at(core);
+    ctx.batch.add(placed.clone(), { kind: 'shadow' });
+    put(ctx, placed, 'hedge', { tint: ART.coreTint, rays: false });
+  }
+}
+
+/** The prim's plain shape for the shadow pass (floors, water and canopies cast nothing or cast through their cores). */
+function shadowProxy(ctx: Ctx, p: BlockoutPrim): void {
+  if (p.material === 'grass' || p.material === 'ground' || p.material === 'road' || p.material === 'water') return;
+  if (p.shape === 'box') {
+    ctx.batch.add(place(new BoxGeometry(p.size.x, p.size.y, p.size.z), p.centre, p.yaw), { kind: 'shadow' });
+  } else if (p.shape === 'ramp') {
+    const slope = Math.atan2(p.size.y, p.size.z);
+    const steps = p.material !== 'roof' && slope > ART.stairMin && slope < ART.stairMax;
+    for (const g of steps ? stairs(p.size.x, p.size.y, p.size.z) : [wedge(p.size.x, p.size.y, p.size.z)]) ctx.batch.add(place(g, p.centre, p.yaw), { kind: 'shadow' });
+  } else if (p.material !== 'foliage') {
+    ctx.batch.add(new CylinderGeometry(p.radius, p.radius, p.height, SHADOW_PROXY_SIDES).translate(p.centre.x, p.centre.y, p.centre.z), { kind: 'shadow' });
   }
 }
 
@@ -606,7 +623,8 @@ export function buildBlockout(map: MapData, lib: MaterialLibrary): Blockout {
   const root = new Group();
   root.name = 'blockout';
   const toSun = new Vector3(SUN.azimuth.x * Math.cos(SUN.elevationDeg * ART.deg), Math.sin(SUN.elevationDeg * ART.deg), SUN.azimuth.z * Math.cos(SUN.elevationDeg * ART.deg)).normalize();
-  const ctx: Ctx = { batch: new CellBatch(), foliage: map.prims.filter((p) => p.material === 'foliage' && p.shape === 'cylinder'), district: districts(map), toSun, low: lib.quality === 'low' };
+  const ctx: Ctx = { batch: new CellBatch(CELL.size, { shadowProxies: true }), foliage: map.prims.filter((p) => p.material === 'foliage' && p.shape === 'cylinder'), district: districts(map), toSun, low: lib.quality === 'low' };
+  map.prims.forEach((p) => shadowProxy(ctx, p));
   map.prims.forEach((p, i) => {
     if (p.shape === 'box') boxPrim(ctx, p, i);
     else if (p.shape === 'ramp') rampPrim(ctx, p, i);

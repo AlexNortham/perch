@@ -59,6 +59,8 @@ import {
   QUALITY_PRESETS,
   SHADOW_BIAS,
   SHADOW_DISTANCE,
+  SHADOW_LAYER,
+  SHADOW_UPSUN,
   SHADOW_FIT,
   SHADOW_INTENSITY,
   SHADOW_MAX_HALF,
@@ -245,6 +247,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   sun.shadow.intensity = SHADOW_INTENSITY;
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = SHADOW_DISTANCE * 2;
+  sun.shadow.camera.layers.enable(SHADOW_LAYER);
   scene.add(sun, sun.target);
 
   let env: Texture | null = null;
@@ -356,6 +359,9 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       shadowHalf = half;
       const cam = sun.shadow.camera;
       [cam.left, cam.right, cam.top, cam.bottom] = [-half, half, half, -half];
+      // Depth: from the up-sun reach of tall casters to the far side of the box; nothing beyond casts into view.
+      cam.near = Math.max(1, SHADOW_DISTANCE - half - SHADOW_UPSUN);
+      cam.far = SHADOW_DISTANCE + half;
       cam.updateProjectionMatrix();
     }
     const texel = (2 * half) / preset.shadowMapSize;
