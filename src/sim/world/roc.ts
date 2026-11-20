@@ -232,7 +232,7 @@ export function createRoc(ctx: SimContext, keepsakes: Keepsakes): Roc {
     for (const spot of EMBERS.spots) {
       const x = home.x + spot.x;
       const z = home.z + spot.z;
-      const y = ctx.physics.groundHeight(x, z, home.y + spot.y + EMBERS.fallFromM) ?? home.y + spot.y;
+      const y = ctx.physics.groundHeight(x, z, home.y + spot.y + EMBERS.landAboveM) ?? home.y + spot.y;
       const e = spawnPickup(ctx, 'ember', { x, y: y + EMBERS.radius, z }, EMBERS.radius,
         { melee: 'heavy', claimableAt: now + ticks(EMBERS.fallS), expiresAt: now + ticks(EMBERS.fallS + EMBERS.burnS) });
       embers.push({ e, landAt: now + ticks(EMBERS.fallS), landed: false });

@@ -369,6 +369,8 @@ export const EMBERS = {
   fallS: 6,
   /** Presentation: the client drops each from this high until claimableAt (the sim keeps it on its spot). */
   fallFromM: 9,
+  /** It lands on the highest surface up to this far above the floor at its spot (the east ramp covers (10, −10, 0)). */
+  landAboveM: 3,
   burnS: 60,
   radius: 0.5,
   /** Economy: the claimer's Seeds. */
