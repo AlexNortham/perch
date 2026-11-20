@@ -394,6 +394,38 @@ export const IDENTITY = {
   bodyOrder: 2,
 } as const;
 
+/** Scoreboard portraits (D-EP-041): framing, light and size. */
+export const PORTRAIT = {
+  size: 128,
+  samples: 4,
+  rgba: 4,
+  entityId: -100,
+  settleFrames: 12,
+  settleDt: 0.1,
+  fovDeg: 24,
+  near: 0.05,
+  far: 50,
+  halfTurnDeg: 180,
+  /** Three-quarter view from the bird's right, a little above the eyes. */
+  yawDeg: 28,
+  rise: 0.12,
+  /** Aim this many head radii below the head centre; frame this many head radii plus body radii. */
+  aimDrop: 0.8,
+  frameRadii: 2.2,
+  frameBody: 0.35,
+  sky: 0xc8d4ea,
+  ground: 0x5a5040,
+  hemi: 1.6,
+  ambientColour: 0xffffff,
+  ambient: 0.35,
+  key: 0xffe2b8,
+  keyIntensity: 3.2,
+  keyDir: { x: 1.5, y: 2, z: 2.5 },
+  rim: 0xffe6c0,
+  rimIntensity: 2.6,
+  rimDir: { x: -2, y: 1.5, z: -2.5 },
+} as const;
+
 /** Allied invisible heroes (ghosts) draw at this opacity; the local hero fades out as the camera comes within LOCAL_FADE_M of its head. */
 export const GHOST_OPACITY = 0.35;
 export const LOCAL_FADE_M = 1;

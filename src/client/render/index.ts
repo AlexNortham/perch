@@ -38,7 +38,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ViewFlag } from '../../sim/core/contracts';
-import type { EntityView, MapData } from '../../sim/core/contracts';
+import type { EntityView, HeroId, MapData, PlayerTeam } from '../../sim/core/contracts';
 import { STRUCTURE_BODY, STRUCTURE_RADIUS } from '../../sim/data/world';
 import type { CameraPose, Frame, ModelKit, Quality, Renderer } from '../app/contracts';
 import { buildBlockout } from './blockout';
@@ -76,6 +76,7 @@ import { createModelKit } from './models';
 import { GRADE_FRAGMENT, GRADE_VERTEX } from './grade';
 import { RideOverlay } from './ride';
 import { identityResolution, rimStrength } from './identity';
+import { portraits, registerPortraitSource } from './portraits';
 
 export { DAWN_COLOURS, DUSK_COLOURS, TEAM_COLOURS } from '../app/palette';
 
@@ -90,7 +91,7 @@ export interface BudgetReport {
 declare global {
   interface Window {
     /** Dev builds only, for measurement: the last frame's draw calls and triangles (all passes), a live quality switch and a §11.3 budget breakdown. */
-    __perchRender?: { info(): { calls: number; triangles: number }; setQuality(q: Quality): void; budget(): BudgetReport };
+    __perchRender?: { info(): { calls: number; triangles: number }; setQuality(q: Quality): void; budget(): BudgetReport; portrait(hero: HeroId, team: PlayerTeam): string | null };
   }
 }
 
@@ -302,6 +303,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   const devTeams = dev?.has('renderTeams') ?? false;
   const kit: ModelKit = createModelKit();
   const entities = createEntityLayer(scene, kit);
+  registerPortraitSource({ gl: () => gl, kit });
   /** The real structure models at the map's anchors, shown until a match spawns structures. */
   const anchors = new Group();
   anchors.name = 'structure-anchors';
@@ -422,6 +424,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       camera.updateProjectionMatrix();
     },
     dispose() {
+      registerPortraitSource(null);
       blockout?.dispose();
       ride.dispose();
       composer?.dispose();
@@ -434,6 +437,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     window.__perchRender = {
       info: () => ({ calls: gl.info.render.calls, triangles: gl.info.render.triangles }),
       setQuality: renderer.setQuality,
+      portrait: (hero, team) => portraits.get(hero, team),
       budget: () => budgetOf(scene, camera, gl.info.render.calls, gl.info.render.triangles, Math.round((lib.textureBytes / MB) * MB_STEPS) / MB_STEPS),
     };
   }
