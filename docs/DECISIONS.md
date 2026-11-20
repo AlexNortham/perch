@@ -1958,3 +1958,46 @@ loader to keep in step. Optional, so the arena and test maps need nothing.
 ### D-AUDIO-004 · 19/11/2026 — Occlusion and room tone
 **Decision:** a positional voice whose room differs from the local hero's, or an enemy hero outside `seenBy`, gets -6 dB and a 2 kHz low-pass. Indoors a 320 Hz low-passed noise bed fades in and the wind bed drops to 30%. `Settings.mute` zeroes master; `onScreen` sets menu and hero-select music (a 100 ms timer ticks it with no match frames); `previewHero` plays the hero call flat. Where Den and Cellar Run overlap, the Den wins (map order), so entering the Den centre plays the Den cue, not the tunnel cue.
 **Why:** INTERFACES §13 row 3 and the W5 audio follow-ups.
+
+### D-ENV-001 · 20/11/2026 — The environment layer is three batched meshes with per-cell detail bands
+**Decision:** `src/client/render/environment/` writes every model straight into the material library's geometry
+contract (world-space position, normal, uv in tiles, colour, `matLayer`), merged per 32 m cell and detail band, and
+draws it through three `BatchedMesh`es: opaque, opaque that casts shadows, and alpha-tested cards. That is three draw
+calls for the whole layer (four with the shadow pass) with WEBGL_multi_draw. The batch frustum-culls each cell entry;
+before that, the layer hides bands by the camera's distance to the cell's bounds, with 10 % hysteresis: band 0 (trims,
+small props, interiors, ground cover) to 30 m at Medium, band 1 (frames, shutters, rails, medium props) to 70 m, band 2
+(skins, roofs, trees, cover, landmarks) always. High reaches 45 and 100 m; Low draws no band 0 and band 1 to 40 m.
+**Why:** style guide §11.3 and §11.4 without per-piece meshes. Band 1 stops at 70 m, not 80, to keep street-level
+views inside the 450k map row.
+
+### D-ENV-002 · 20/11/2026 — The blockout draws the map without what the environment re-skins
+**Decision:** `buildEnvironment(map, quality)` returns `blockoutMap`: the map minus the prims the environment encloses
+or replaces (solid prop boxes, trunk and crown cylinders, clipped hedges, ivy curtains (`blocks: 'sight'`), shot-window
+fillers (`blocks: 'movement'`), yard walls and fences, outdoor steps, stone pillars and plinths), and minus Vine climbs,
+which are drawn as flowering vines in rope frames. Building shells stay in the blockout; facades are skins 3 cm proud of
+their outer faces, so interiors and reveals keep Rendering's painted prims. The renderer hands `blockoutMap` to
+`buildBlockout` (render/index.ts, the one registration point). Collision is untouched.
+**Why:** D-EP-047. A round barrel, a bark trunk or an ivy curtain cannot hide a flat box behind it, and drawing both
+doubles overdraw.
+
+### D-ENV-003 · 20/11/2026 — Model builders are authored art data
+**Decision:** the facade, roof, prop, nature, objective, interior and wall builders live in `environment/data/`, which
+the magic-number lint rule exempts (as the material recipes, D-RENDER-010); framework code outside `data/` uses named
+constants. Every model is seeded from its anchor, so screenshots are stable (§4.4; a unit test checks it).
+**Why:** a model is hundreds of authored dimensions; naming each would hide the model.
+
+### D-ENV-004 · 20/11/2026 — Where dressing goes past 0.25 m, and why it is safe
+**Decision:** dressing stays within 0.25 m of collision faces (sills, rails, copings, perch rails at 0.22 m, landing
+dressing over the collision boards) except: eaves overhang 0.5 m on steep roofs and 0.25 m on walkable gables; door
+hoods, hoist beams and awnings above 2.8 m; the Water Mill's wheel (1.2 m, on the river side); the Hollow-tree House's
+corner bark ridges near the ground; rooftop dressing, chimneys and nest crowns kept to parapet edges and ridge ends; and
+the Dovecote's open cap on four corner posts. None looks standable within jump reach.
+**Why:** §2.6 and the §5 intro, against the pieces the guide itself asks for (§5.4 eaves, §5.6 awnings, §5.7 roof
+dressing, §5.10 mill wheel) at sizes that read at 30 m.
+
+### D-ENV-005 · 20/11/2026 — Octagonal towers, Egg perches and the fountains
+**Decision:** the Dovecotes and Hollow-tree Houses are dressed on eight faces (their wall prims are octagons, not the
+square footprint): pigeonhole rows and an open cap on the Dovecote; bark corner ridges, limbs, deck boards and a rail
+on the Hollow-tree House. Where a fountain prop shares its spot with an Egg perch, the fountain is not built: the perch
+is a water ring round a stone pedestal and woven nest where the Egg rests, inside a ring of carved feathers.
+**Why:** a square skin round an octagon is a box; a fountain spout where the Egg sits would hide the Egg.
