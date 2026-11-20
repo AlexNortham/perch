@@ -3277,3 +3277,17 @@ settle issue QA's spec now waits out.
 - **Ability credit:** heal, shield and status events carry ability and item ids. `channelS` is typed (D-ARCH-030/032).
 - The Architect's `npm run check -- --release` passed all six steps on a quiet machine (1,440 unit, 112 e2e, 662 s).
 - **Release 1 checks running on integrate/w5 04c4117, with no agents on the machine:** three `--release` runs, `npm run release-matches`, then a 30-minute soak.
+
+### EP · 21/11/2026 · Release 1 checks on integrate/w5 04c4117
+- **`npm run check -- --release`, three runs in a row, all six steps PASS:**
+
+  | Run | Time | e2e |
+  |---|---|---|
+  | 1 | 656 s | 507 s |
+  | 2 | 629 s | 502 s |
+  | 3 | 639 s | 516 s |
+
+- **`npm run release-matches`:** 20 seeded 12-bot matches, all 24 birds in the pick pool.
+  - Results: 20 completed, 0 crashed, 0 without a winner (dusk 11, dawn 9).
+  - Length 34.5–53.5 min; about 2,200–2,900 ticks/s per match, 3 wide.
+- **Soak:** the first attempt died at once (`__name is not defined`: tsx compiles the evaluate callbacks with esbuild's keepNames). Fixed in 0fb0977; the 30-minute soak is rerunning.
