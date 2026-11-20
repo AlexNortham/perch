@@ -2724,8 +2724,9 @@ shared, and a bake takes seconds.
 - A bird builds in 24–26 ms (Node, median of 7) and a skin decodes in 2–3 ms; nothing is generated at load.
 - Geometry per bird and team is 2.07–2.17 MB, about +1 % for the flow attribute (3 bytes a vertex).
 - Skins are 48–62 KB of binary each.
-- The feather surface costs one 27-cell search per skin fragment within a few metres of the camera, and fades out
-  beyond. It has not yet been measured on the reference iGPU.
+- The feather surface costs one 27-cell search per feathered skin fragment, at any distance (only its strength fades
+  with distance). It has not yet been measured on the reference iGPU; skipping the search once fully faded is the
+  first saving if it shows.
 
 **Verified:** the model, skin and attachment tests pass (111), with budgets, hitbox, grips, muzzle, feet and weights.
 `npm run check`, each step run on b09218c plus this branch:
