@@ -88,8 +88,11 @@ interface ScriptedDash {
   dirX: number;
   readonly dirY: number;
   dirZ: number;
-  /** Follows the aim yaw within ±max of `base` (radians) while it runs (STEER_VALUE), or null. */
-  readonly steer: { readonly base: number; readonly max: number } | null;
+  /**
+   * Turns with the aim while it runs (DashEffect.steerDeg): by as much as the look yaw has moved from `look` (its yaw at
+   * the start), at most ±max of `base`, the start direction (radians); or null.
+   */
+  readonly steer: { readonly base: number; readonly look: number; readonly max: number } | null;
   /** Metres per tick along the direction. */
   readonly step: number;
   readonly n: number;
@@ -1047,8 +1050,9 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
   const dashTick = (h: HeroEntity, s: HeroState, d: ScriptedDash): void => {
     d.t++;
     if (d.steer) {
-      // Follow the aim yaw, at most steer.max either side of where the dash started (Rampage, D-SYS-011).
-      const yaw = d.steer.base + clamp(wrapAngle(h.yaw - d.steer.base), -d.steer.max, d.steer.max);
+      // Turn as the aim turns, at most steer.max either side of where the dash started (Rampage, D-SYS-011). Relative to
+      // the yaw at the start, so the shoulder camera's parallax doesn't bend the charge off the crosshair point.
+      const yaw = d.steer.base + clamp(wrapAngle(h.yaw - d.steer.look), -d.steer.max, d.steer.max);
       const flat = dmath.hypot(d.dirX, d.dirZ);
       d.dirX = dmath.sin(yaw) * flat;
       d.dirZ = dmath.cos(yaw) * flat;
@@ -1188,6 +1192,11 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     }
     const v = h.vel;
     const cond = h.stats.conditions;
+    // `endOn` 'stun' (D-ARCH-027): a stun ends the mode, onEnd included (Tree Cling's cleanse of its gun bonus).
+    if (cond.has('stunned') && mode.endOn?.includes('stun') === true) {
+      endMode(h);
+      return;
+    }
     const canMove = !cond.has('stunned') && !cond.has('rooted');
     const input = canMove ? wish(h) : 0;
     const held = canMove ? h.command.held : 0;

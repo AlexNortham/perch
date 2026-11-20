@@ -30,13 +30,6 @@ export const GROUND_PROBE_UP = 2;
  */
 export const POINT_PULL_BACK = 0.05;
 
-/**
- * An AbilityDef.values name the framework reads (D-SYS-012): a 'point' cast whose values hold `surface` ≥ 1 lands on
- * the surface under the crosshair (wall, tree or floor) within range, not on the floor below it; a 'target' dash from
- * such a cast flies straight to that point. Beyond range it falls back to the ordinary floor point.
- */
-export const SURFACE_VALUE = 'surface';
-
 /** GDD §6.11: a cylinder area with no height of its own (≤ 0) is this tall, so a ground area stays on its storey. */
 export const CYLINDER_DEFAULT_HEIGHT = 3;
 

@@ -5,7 +5,6 @@
 import { describe, expect, it } from 'vitest';
 import { Button, SeenBy } from '../core/contracts';
 import type { AbilityDef, Effect } from '../core/contracts';
-import { SURFACE_VALUE } from '../data/abilities';
 import { ability, createHarness, kit } from './testkit';
 import { resolveShape } from './shapes';
 
@@ -41,21 +40,24 @@ describe("'point' placement (GDD §6.11)", () => {
     expect(Math.hypot(p?.x ?? 0, p?.z ?? 0)).toBeCloseTo(10, 1);
   });
 
-  it(`a cast whose values hold ${SURFACE_VALUE} ≥ 1 takes the wall under the crosshair within range; else the floor`, () => {
-    const wall = (values: Record<string, number>, range: number) => {
-      const { t, me } = setup(ability({ targeting: 'point', range, values }));
+  it('a surface cast takes the wall under the crosshair within range; else the floor', () => {
+    const wall = (surface: boolean, range: number) => {
+      const { t, me } = setup(ability({ targeting: 'point', range, surface }));
       t.walls.push({ x: 6, z0: -10, z1: 10 });
       cast(t, me, EAST);
-      return landed(t);
+      const target = t.of('statMod')[0]?.target;
+      return target && { ...target.point, surface: target.surface === true };
     };
-    const on = wall({ [SURFACE_VALUE]: 1 }, 12);
+    const on = wall(true, 12);
     expect(on?.x).toBeCloseTo(6, 6);
     expect(on?.y, 'at crosshair height').toBeGreaterThan(1);
-    const floor = wall({}, 12);
+    expect(on?.surface, 'marked for the dash').toBe(true);
+    const floor = wall(false, 12);
     expect(floor?.y).toBe(0);
     expect(floor?.x).toBeLessThan(6);
-    const far = wall({ [SURFACE_VALUE]: 1 }, 3);
+    const far = wall(true, 3);
     expect(far?.y, 'beyond range: the ordinary floor point').toBe(0);
+    expect(far?.surface).toBe(false);
   });
 });
 

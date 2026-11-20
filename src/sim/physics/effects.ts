@@ -10,16 +10,14 @@
  * `target.point`. An 'aim' dash follows the aim pitch, at most DASH.aimMaxPitchUp upward, unless its data sets
  * `arcHeight` (0 = a flat dash), which keeps it horizontal (D-SYS-003).
  *
- * Two AbilityDef.values names change a dash (no contract field yet): an 'aim' dash whose cause values hold
- * STEER_VALUE ('steerDeg') > 0 follows the caster's aim within that many degrees of its start (Rampage, D-SYS-011);
- * a 'target' dash to a point whose cause values hold SURFACE_VALUE ('surface') ≥ 1 flies straight to it, rising
- * and falling, and stops just short of the surface (Tree Cling, Branch Swing, D-SYS-012).
+ * An 'aim' dash with `steerDeg` > 0 follows the caster's aim within that many degrees of its start (Rampage,
+ * D-SYS-011); a 'target' dash to a point marked `surface` flies straight to it, rising and falling, and stops just
+ * short of the surface (Tree Cling, Branch Swing, D-SYS-012; both fields D-ARCH-027).
  */
 import type { CoreContext, DisplaceEffect, EffectCause, EffectTarget, EntityId, HeroEntity, PhysicsService, UnitEntity, Vec3 } from '../core/contracts';
 import { lookDir } from '../core/aim';
 import { ticks } from '../core/math';
-import { SURFACE_VALUE } from '../data/abilities';
-import { AIR, CONTROLLER, DASH, DEGREES_PER_HALF_TURN, DISPLACE, STEER_VALUE } from '../data/movement';
+import { AIR, CONTROLLER, DASH, DEGREES_PER_HALF_TURN, DISPLACE } from '../data/movement';
 import type { Controller, Slam } from './controller';
 import type { UnitMover } from './units';
 import * as dmath from '../core/dmath';
@@ -125,7 +123,7 @@ export function registerEffects(ctx: CoreContext, ctrl: Controller, service: Phy
       const gap = dmath.hypot(goal.x - mover.pos.x, goal.z - mover.pos.z) - (t ? t.radius + mover.radius : 0);
       distance = Math.min(distance, Math.max(0, gap));
       dir = flat(mover.yaw, goal.x - mover.pos.x, goal.z - mover.pos.z);
-      if (!t && (cause.values?.[SURFACE_VALUE] ?? 0) >= 1) {
+      if (!t && target.surface === true) {
         // A surface point (a wall or tree under the crosshair, D-SYS-012): fly straight at it, stopping with the body
         // just short of the surface.
         const back = mover.radius + CONTROLLER.skin;
@@ -144,12 +142,12 @@ export function registerEffects(ctx: CoreContext, ctrl: Controller, service: Phy
       return;
     }
     if (!h) return;
-    const steerDeg = e.dir === 'aim' ? (cause.values?.[STEER_VALUE] ?? 0) : 0;
+    const steerDeg = e.dir === 'aim' && e.steerDeg !== undefined ? effects.magnitude(e.steerDeg, cause) : 0;
     ctrl.startAbilityDash(h, {
       dirX: dir.x,
       dirY: dir.y,
       dirZ: dir.z,
-      steer: steerDeg > 0 ? { base: dmath.atan2(dir.x, dir.z), max: (steerDeg * Math.PI) / DEGREES_PER_HALF_TURN } : null,
+      steer: steerDeg > 0 ? { base: dmath.atan2(dir.x, dir.z), look: h.yaw, max: (steerDeg * Math.PI) / DEGREES_PER_HALF_TURN } : null,
       step,
       n,
       arc: e.arcHeight ?? 0,

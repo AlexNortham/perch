@@ -103,12 +103,13 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     id: CLING_ABILITY,
     name: 'Tree Cling',
     description:
-      'Dash to a point within 12 m and cling there for up to 6 s: you can shoot, and your gun does +15% damage. Jump or a stun ends it.',
+      'Dash to a wall, tree or other surface within 12 m and cling there for up to 6 s: you can shoot, and your gun does +15% damage. Jump or a stun ends it.',
     targeting: 'point',
+    surface: true,
     range: 12,
     cooldownS: 14,
     charges: 1,
-    hook: false, // Jump, stuns and the T3 heal are the hero module's (ticks while clinging)
+    hook: false, // the T3 heal is the hero module's (ticks while clinging)
     values: { reach: 12, cling: 6 },
     effects: [
       {
@@ -118,7 +119,8 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
         dir: 'target',
         arcHeight: 0,
         onArrive: [
-          { kind: 'movementMode', mode: 'cling', durationS: 'cling', speed: 0, verticalSpeed: 0, allowGun: true, allowAbilities: true },
+          { kind: 'movementMode', mode: 'cling', durationS: 'cling', speed: 0, verticalSpeed: 0, allowGun: true, allowAbilities: true,
+            endOn: ['jump', 'stun'], onEnd: [{ kind: 'cleanse', remove: [CLING_BUFF_ID] }] },
           { kind: 'statMod', id: CLING_BUFF_ID, name: 'Tree Cling', stats: [{ stat: 'gunDamage', op: 'add', value: 0.15 }], durationS: 'cling' },
         ],
       },

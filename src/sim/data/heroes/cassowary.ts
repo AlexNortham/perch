@@ -21,7 +21,7 @@ const base = { castS: 0, channelS: 0, hook: false } as const;
 /** Hook names and constants shared with the hero module. */
 export const RAMPAGE_HIT_HOOK = 'rampageHit';
 /** Rampage: 20 m in 1.0 s; the knock-up is 0.75 s in the air (1.758 m at 25 m/s² gravity). */
-export const RAMPAGE = { distanceM: 20, durationS: 1, knockUpM: 1.758 } as const;
+export const RAMPAGE = { distanceM: 20, durationS: 1, knockUpM: 1.758, steerDeg: 30 } as const;
 /** What Rampage does to a hero it runs into: the hook applies it to heroes only and stops the charge unless T3. */
 export const RAMPAGE_HIT: readonly Effect[] = [song('damage', 0.8), { kind: 'displace', mode: 'up', distance: RAMPAGE.knockUpM }];
 /** Bristle: enemy heroes within 15 m who damage you take this fraction back as Song damage (the hook). */
@@ -35,7 +35,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     id: 'cassowary.rampage',
     name: 'Rampage',
     description:
-      'Charge 20 m in 1.0 s along your aim, unstoppable. The first enemy hero you hit takes 90 + 0.8 x SP Song damage and is knocked up 0.75 s, and the charge stops there.',
+      'Charge 20 m in 1.0 s along your aim, steering up to 30° either way, unstoppable. The first enemy hero you hit takes 90 + 0.8 x SP Song damage and is knocked up 0.75 s, and the charge stops there.',
     targeting: 'direction',
     range: RAMPAGE.distanceM,
     cooldownS: 18,
@@ -50,6 +50,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
         dir: 'aim',
         arcHeight: 0,
         maxPitchUpDeg: 0,
+        steerDeg: RAMPAGE.steerDeg,
         onHit: [{ kind: 'hook', name: RAMPAGE_HIT_HOOK }],
       },
     ],
