@@ -12,7 +12,7 @@ import { ROOT } from './facts';
 import { plan } from './imageplan';
 import type { Cam, ImageSpec } from './imageplan';
 
-const READY_MS = 60_000;
+const READY_MS = 240_000;
 const QUALITY = 72;
 const CONCURRENCY = 3;
 const SETTLE_MS = 700;
@@ -67,7 +67,7 @@ const key = (slot: number): string => [DEFAULT_BINDINGS.ability1, DEFAULT_BINDIN
 
 async function run(page: Page, base: string, s: ImageSpec): Promise<Buffer> {
   const j = s.job;
-  const clip = s.key === 'ui:minimap' ? { x: 10, y: 10, width: 220, height: 252 } : undefined;
+  const clip = s.key === 'ui:minimap' ? { x: 10, y: 10, width: 220, height: 252 } : s.key === 'ui:scoreboard' ? { x: 0, y: 0, width: 1280, height: 160 } : undefined;
   switch (j.t) {
     case 'model':
       await open(page, base, { scene: 'sandbox', modelLineup: j.lineup.join(','), modelYaw: String(j.yaw), modelState: j.states.join(','), modelTeam: j.team, renderCam: abs(j.cam) });
@@ -83,7 +83,7 @@ async function run(page: Page, base: string, s: ImageSpec): Promise<Buffer> {
       break;
     case 'scene':
       await open(page, base, j.params);
-      if (j.params.scene === 'blockout') await hideOverlays(page);
+      if (j.params.scene === 'blockout' || j.params.renderCam) await hideOverlays(page);
       break;
     case 'ability':
       await open(page, base, { scene: 'practice', hero: j.hero });
@@ -102,11 +102,11 @@ async function run(page: Page, base: string, s: ImageSpec): Promise<Buffer> {
         await page.waitForTimeout(SETTLE_MS);
         break;
       }
-      await open(page, base, { scene: j.name === 'practice' ? 'practice' : 'lane', hero: 'lyrebird', t: j.name === 'hud' || j.name === 'minimap' ? '95' : '5' });
+      await open(page, base, { scene: j.name === 'practice' ? 'practice' : 'match', hero: 'lyrebird', t: j.name === 'hud' || j.name === 'minimap' || j.name === 'scoreboard' ? '95' : '5' });
       await lock(page);
       if (j.name === 'shop') await page.keyboard.press(DEFAULT_BINDINGS.shop);
       if (j.name === 'bigmap') await page.keyboard.press(DEFAULT_BINDINGS.bigMap);
-      if (j.name === 'upgrades') await page.keyboard.press(DEFAULT_BINDINGS.upgradeModifier); // a tap opens the panel; holding is the quick-upgrade chord
+      if (j.name === 'upgrades') await page.keyboard.down(DEFAULT_BINDINGS.upgradeModifier); // held: the cursor is free over the ability row
       await page.waitForTimeout(SETTLE_MS);
       break;
   }

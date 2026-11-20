@@ -28,6 +28,7 @@ const HASH = {
   vfx: sourceHash('src/client/vfx'),
   ui: sourceHash('src/client/ui', 'src/client/app'),
   map: sourceHash('src/sim/world/map'),
+  sim: sourceHash('src/sim/world', 'src/sim/ai', 'src/sim/economy', 'src/sim/data'),
 };
 
 /** Camera relative to the human's spawn: position and look-at, in metres. */
@@ -105,16 +106,30 @@ add('map:top', 'map', 'top', 'In-game top-down view of Old Mossmarket', 960, 720
 for (const lane of ['hedgerow', 'riverbank', 'pinewood'] as const) {
   add(`map:${lane}`, 'map', lane, `Street-level view down the ${lane[0]?.toUpperCase()}${lane.slice(1)} lane`, 960, 540, { t: 'ui', name: `lane-${lane}` }, [HASH.render, HASH.map]);
 }
+// Stage 4 map and objective shots: the real map (and, from a fast-forwarded 1 + 11 bots match, its neutral objectives)
+// from a fixed camera (x, y, z, then the point it looks at). `t` is match seconds fast-forwarded before the picture.
+const stage4 = (key: string, name: string, alt: string, cam: readonly number[], t = 0): void =>
+  add(key, 'map', name, alt, 960, 540, { t: 'scene', params: { scene: t > 0 ? 'match' : 'blockout', ...(t > 0 ? { t: String(t) } : { cam: 'overview' }), renderCam: cam.join(',') } },
+    [HASH.render, HASH.map, ...(t > 0 ? [HASH.sim, t] : [])]);
+stage4('map:tavern', 'tavern', 'The Tavern in the Lantern Row quarter, a two-storey building with doors, windows and a balcony', [-46, 7, -86, -46, 4, -64]);
+stage4('map:interior', 'interior', 'Inside the Tavern on the ground floor, looking towards the stairs', [-46, 1.8, -59, -46, 1.6, -70]);
+stage4('map:belltower', 'belltower', 'The Bell Tower, four storeys tall, with a Bell Feeder at the top', [-50, 9, -52, -58, 10, -38]);
+stage4('map:cellar', 'cellar', 'The Cellar Run: a long tunnel under the Riverbank lane', [24, -2.5, -64, -6, -3.2, -64]);
+stage4('map:den', 'den', 'The Magpie Den, the shop halfway along the Cellar Run', [6, -2.2, -60, -4, -3.8, -67]);
+stage4('map:hollow', 'hollow', 'The Hollow under the Old Mill Bridge, where the Roc lives once it wakes at 20:00', [-27, 7, -1, 0, -6, 0], 1230);
+stage4('map:thicket', 'thicket', 'A Beetle Thicket camp in the jungle between the lanes', [-30, 4.5, -64, -30, 0.8, -52], 150);
+stage4('map:rune', 'rune', 'A Feather rune on the rune bridge at 5:00', [-95, 8.5, -9, -95, 6.8, 0], 310);
+
 const ui = (name: string, alt: string, w = 1280, h = 720): void => add(`ui:${name}`, 'ui', name, alt, w, h, { t: 'ui', name }, [HASH.ui, HASH.render]);
 ui('hud', 'The in-match HUD: health, stamina, abilities, items, Seeds, minimap and flock scores');
 ui('shop', "The Magpie's Hoard shop open at a Magpie stall");
-ui('upgrades', 'The Ability Upgrades panel with AP and tier pips');
-ui('scoreboard', 'The scoreboard held open with Tab');
+ui('upgrades', 'Holding the upgrade key frees the cursor so you can click an ability icon or press 1 to 4 to upgrade it');
+ui('scoreboard', 'The always-on scoreboard at the top: the timer and flock Seeds in the middle, six birds a side with health, Seeds and respawn timers');
 ui('bigmap', 'The big map opened with M');
 ui('minimap', 'The minimap in the corner of the HUD', 320, 320);
 ui('options', 'The Options screen with key bindings and sliders');
 ui('practice', 'The Practice Hub with its damaging and healing dummies');
 ui('menu', 'The main menu floating over the lit map');
-ui('heroselect', 'Hero select: playable birds can be picked, the rest are marked coming soon');
+ui('heroselect', "Hero select: all 24 birds; hover a card to read the bird's kit");
 
 export const heroIds = HERO_IDS;

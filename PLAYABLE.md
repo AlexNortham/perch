@@ -8,6 +8,82 @@ at <http://localhost:4173> and opens your browser on the main menu. Stop it with
 
 ---
 
+## Stage 4 (M3 — Full 6v6) · Release 1, functionality · reached 21/11/2026
+
+**How to get in:** run `npm start` as before. The menu has **Play**, **Practice Hub** and **Options**. **Play** is now
+the full match: you, five allies and six enemies, every other bird a bot. The wiki (`wiki/index.html`) is rewritten for
+this stage and lists every bird, item, objective and building.
+
+**This is the first of two Stage 4 releases.** It is the whole game working; the visual upgrade comes in the second.
+See "Known limits" below before you judge how it looks.
+
+**Play: a 6v6 match.**
+- Pick any of the **24 birds**. You start in the Dawn base with a **600-Seed** purse, enough to shop straight away at
+  the Home Roost.
+- The other eleven birds are **bots**. They lane with the fledglings, retreat and heal, shop for builds that fit their
+  bird, farm Thickets, take the Egg, runes, Embers and the Roc, and group up to siege towers and then your Patron.
+  They only react to what their flock can see.
+- Matches now **end**: 20 seeded bot-only test matches all finished with a winner, between about 35 and 55 minutes.
+  Concede is still in the pause menu from 15:00.
+
+- **Buildings you can enter** (54 of the 110 buildings: terrace houses, taverns, granaries, warehouses, bell towers,
+  mills, hides and more; the rest are not enterable). Each one has at least two ways in on the ground. Many have
+  **stairs, upper floors, ladders and flat roofs**, reached from inside or by Chimney, Vine and ledge. Bots path
+  through them too.
+- **The Cellar Run:** a tunnel under the Riverbank lane in each half, reached from the Tavern cellars and lane stairs. Halfway along
+  is a **Magpie Den**, a shop **both flocks** can use.
+- **The jungle:** the blocks and woods between the lanes, with **24 Thicket camps** in three tiers: Beetles, then
+  Weasels, Rats and Toads, then Badgers. Camps sleep until you come within 30 m, and are worth more Seeds as the match
+  goes on.
+- **100 breakable Nests** in streets, rooms, cellars and the Hollow. Twig Nests break to anything and may drop a Seed
+  sprig or a crumb that boosts you for 60 s; **Woven Nests** are solid and need a heavy melee hit; Keepsake Nests give
+  small permanent boosts.
+- **Feather runes:** from 5:00, every 5:00, a rune appears on each rune bridge (Swift, Fierce, Sage or Stout). A heavy
+  melee hit claims one for 150 s; it gets stronger later in the match.
+- **The Golden Egg:** from 10:00, then every 5:00, an Egg is lowered onto one of two perches. **Hit it with melee to
+  pick it up**, then carry it to the other perch, the Hatching Stone. The carrier can't shoot or cast and is revealed;
+  delivery is automatic and hatches into Seed pods for the flock.
+- **The Roc and its Embers:** at 20:00 the Roc wakes in the Hollow under the Old Mill Bridge. Only a bird down in the
+  Hollow can hurt it, and it hits back hard. When it falls, three **Phoenix Embers** drop: a heavy melee hit claims
+  one for a full heal, Seeds and a Rekindle charge (a revive) for that flock.
+- **Bell Feeders** (from 8:00), **Berry bushes** that heal, **Hides** that hide you and speed stamina recovery,
+  **Lookouts** that widen your sight, and **Bough Springs** that launch you.
+
+**Controls that changed.**
+- **Hold Left Alt to upgrade abilities.** Aiming pauses and a cursor appears; click an ability icon or press 1 to 4;
+  hover for the next tier. Let go and you aim again at once. There is no separate panel.
+- **No Interact key.** To ride an **Updraft**, hold **Jump** near the cable. The Egg is picked up by melee; runes,
+  Embers and Woven Nests take a heavy melee hit.
+- **The scoreboard is always on**, as the top bar: timer and Seeds in the middle, six birds a side with health bars,
+  Seeds and respawn timers. There is no Tab scoreboard.
+- **Practice Hub: Swap bird.** Use the pause menu or the on-screen button to pick another bird without leaving; you
+  respawn as it with a fresh 32 AP.
+
+**The 64 items.** The Magpie's Hoard stocks 64 items in three families (Talon 21, Plumage 21, Song 22) across four
+tiers, 15 of them with actives.
+
+**What to try.**
+1. **Play** as any bird, check the top bar, and spend your 600 Seeds. Does the bot lane look sensible?
+2. Walk into a building, climb to the roof, and drop down into a cellar. Follow the Cellar Run to the Magpie Den.
+3. Clear a Beetle Thicket early. Break Nests as you go.
+4. At 5:00 claim a rune with a heavy melee hit (Q held). At 10:00 try the Egg.
+5. Hold Alt, upgrade an ability, then let go and keep shooting.
+6. Hold Jump under a lane cable to ride it. Use the **Practice Hub** and **Swap bird** to try the new birds.
+7. If a match reaches 20:00, take a team into the Hollow for the Roc.
+
+**Known limits.**
+- **The visual upgrade is still to come.** Release 2 covers the rest of the art.
+- **Only 8 of the 24 birds are on the new sculpted models** (Peacock, Swift, Cassowary, Shrike, Kingfisher, Owl, Pelican
+  and Penguin). 12 are on older models, and **Frigatebird, Cockatoo, Swan and Kiwi use a default bird**.
+- **Towers, Patrons, fledglings and creatures are still simple shapes.**
+- **The map art is on its second of three passes.**
+- **Matches run long**, up to about 55 minutes.
+- **Bot builds use the designer's starter scores** until the Build Lab has converged, so bots of one bird may build
+  alike.
+- **Balance has not been tuned yet:** some birds will be too strong or too weak.
+
+---
+
 ## Stage 3 (M2 — The loop) · reached 19/11/2026
 
 **How to get in:** run `npm start`. The menu now has **Play**, **Practice Hub** and **Options**. The game also has its

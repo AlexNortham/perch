@@ -22,13 +22,16 @@ Fledgling waves march along three authored lanes between the bases. Each has its
 
 ## Bases
 
-Each base is a walled square. Inside are three gates, the Nest Wardens just outside them, the two Roost Shrines, the Patron on its dais and the Home Roost behind it. See [[units/patrons|Patrons]]. An Updraft station at each gate starts that lane's Updraft.
+Each base is a walled square. Inside are three gates, the Nest Wardens just outside them, the two Roost Shrines, the Patron on its dais and the Home Roost behind it. See [[units/patrons|Patrons]]. A marker at each gate shows where that lane's Updraft begins.
 
 ## Traversal features
 
-- **Updrafts** are wind currents strung above each lane from base to base, with stations at the gates, near the towers and in the centre. See [[mechanics/movement|Movement]].
-- **Chimneys** lift you to rooftops, **Vines** let you climb walls and trees, and **ledges** let you mantle.
-- **Shops:** the Home Roost and a Magpie stall on each lane, for your own flock. See [[items/index|The Magpie's Hoard]].
-- **The Jungle:** the blocks and woods between lanes. Neutral camps, Nests and Feather runes will live here: see [[units/planned|Planned objectives]].
+- **Updrafts** are wind currents strung above each lane from base to base, with markers at the gates, near the towers and in the centre. Hold Jump within a few metres of the cable to latch on. See [[mechanics/movement|Movement]].
+- **Chimneys** lift you to rooftops, **Vines** let you climb walls and trees, **ledges** let you mantle, and **Bough Springs** fling you up and across to a landing.
+- **Shops:** the Home Roost and a Magpie stall on each lane, for your own flock, and a neutral Magpie Den in each Cellar Run that both flocks use. See [[items/index|The Magpie's Hoard]].
+- **The Jungle:** the blocks and woods between lanes, with Thicket camps, Nests, Bell Feeders and the rest: see [[units/objectives|Objectives and the jungle]].
+- **Buildings:** about half of the map's buildings can be entered, with stairs, upper floors and roofs, and a tunnel called the Cellar Run runs under the middle: see [[map/buildings|Buildings and the Cellar Run]].
+- **The Hollow:** the pit under the Old Mill Bridge in the middle of the map, where the Roc sleeps until 20:00. The two Egg Perches and the two rune bridges are on the centre line either side of it.
+
 
 {{map-counts}}

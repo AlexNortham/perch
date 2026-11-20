@@ -12,10 +12,10 @@ To skip the menus while testing, open the game with a scene in the address, for 
 
 ## Your first match
 
-1. Click **Play**, then pick a bird whose card says **Pick**. See [[heroes/index|Heroes]] for what each one does.
+1. Click **Play**, then pick any of the 24 birds. See [[heroes/index|Heroes]] for what each one does.
 2. You start in your Dawn base. Click in the game once to capture the mouse, then move with the movement keys and look with the mouse.
 3. Fledglings leave both bases in waves and march down three lanes. Shoot enemy fledglings, and shoot their seed pods to secure Seeds: see [[mechanics/economy|Economy]].
-4. Open the Hoard in your base to buy items, and open the upgrade panel to spend Ability Points: see [[items/index|The Magpie's Hoard]].
+4. Open the Hoard in your base to buy items (you start with 600 Seeds), and hold the upgrade key to spend Ability Points on abilities: see [[items/index|The Magpie's Hoard]].
 5. Push a lane, destroy the towers, and break the enemy Patron to win: see [[units/index|Units and objectives]].
 
 {{menu-shots}}
@@ -28,5 +28,5 @@ To skip the menus while testing, open the game with a scene in the address, for 
 
 - [[getting-started/controls|Controls]]: every key, and how Ctrl crouch works.
 - [[getting-started/options|Options]]: rebinding keys and tuning the game.
-- [[getting-started/modes|Game modes]]: practice match, Practice Hub and planned bot matches.
+- [[getting-started/modes|Game modes]]: the 6v6 match with bots, and the Practice Hub.
 - [[mechanics/movement|Movement]]: what a bird can do beyond walking.

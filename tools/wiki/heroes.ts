@@ -3,6 +3,7 @@
 import { HERO_IDS } from '../../src/sim/core/contracts';
 import type { AbilityDef, Archetype, HeroId, StatModifier } from '../../src/sim/core/contracts';
 import { HEROES } from '../../src/sim/heroes/registry';
+import { HERO_BUILDS } from '../../src/client/render/models/heroes';
 import { AP_COSTS, UNLOCK_LEVELS } from '../../src/sim/data/abilities';
 import { COMBAT } from '../../src/sim/data/combat';
 import { DEFAULT_AIM_ZOOM } from '../../src/sim/data/core';
@@ -14,6 +15,8 @@ import type { Ctx } from './generate';
 import { imageFor } from './imageplan';
 import { rel } from './site';
 
+/** Heroes the client draws with the default bird until their own model exists. */
+const DEFAULT_MODEL = HERO_IDS.filter((id) => !(id in HERO_BUILDS));
 export const ARCHETYPE: Record<Archetype, string> = {
   gunCarry: 'Gun carry', songBurst: 'Song burst', tank: 'Tank / initiator', support: 'Support', assassin: 'Assassin',
   areaControl: 'Area control', poke: 'Long-range poke', skirmisher: 'Mobility skirmisher',
@@ -119,7 +122,8 @@ export function registerHeroes(ctx: Ctx, extra: Map<string, string>): void {
         const ids = HERO_IDS.filter((id) => HEROES[id].def.archetype === a);
         return `<tr><td>${esc(ARCHETYPE[a])}</td><td>${ids.map((id) => ctx.link(`heroes/${id}`, HEROES[id].def.name)).join(', ')}</td><td class="num">${ids.filter(isBuilt).length} / ${ids.length}</td></tr>`;
       }).join('');
-      return `<h1>Heroes</h1><p class="lead">24 birds, three for each of eight roles. <strong>${nowCount}</strong> are playable now; the rest arrive in later stages. A match uses twelve different birds: no bird appears twice.</p>
+      return `<h1>Heroes</h1><p class="lead">24 birds, three for each of eight roles. ${nowCount === HERO_IDS.length ? `All <strong>${nowCount}</strong> are playable.` : `<strong>${nowCount}</strong> are playable now; the rest arrive in later stages.`} A match uses twelve different birds: no bird appears twice.</p>
+<div class="note">${DEFAULT_MODEL.length > 0 ? `${DEFAULT_MODEL.map((id) => HEROES[id].def.name).join(', ')} still use a default bird model in the game, so their pictures here show that stand-in. ` : ''}Bird models and animation are still being upgraded, so expect the pictures to change.</div>
 <div class="grid">${HERO_IDS.map(card).join('')}</div>
 <h2>Roles</h2><div class="table-wrap"><table><thead><tr><th>Role</th><th>Birds</th><th class="num">Playable</th></tr></thead><tbody>${byArch}</tbody></table></div>
 ${ctx.md(`Every ability is listed on the [[heroes/abilities|Abilities]] page. Numbers for guns, health and speed come straight from the game's data files, so they change when the game is rebalanced.`)}
