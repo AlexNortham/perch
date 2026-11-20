@@ -23,40 +23,6 @@ const pivots = (o: { sy: number; legLen: number; R: number; legX: number; tailY:
   tail: [0, o.tailY, o.tailZ] as V3,
 });
 
-/** Secretarybird: stilt legs (60% of height) in black breeches, small grey body, bare orange face, a quill crown. */
-const secretarybird: Build = (plan, team) => {
-  const { H, R, hr, top } = dims(plan);
-  const legLen = H * 0.6;
-  const y0 = legLen * 0.95;
-  const cy = (y0 + top) / 2;
-  const ry = (top - y0) / 2;
-  const body = new Parts()
-    .ell(C.secGrey, [R * 0.95, ry, R * 1.2], [0, cy, -R * 0.1])
-    .ell(team.primary, [hr * 1.5, H * 0.015, hr * 1.5], [0, top - H * 0.005, 0]);
-  const head = headShell(new Parts(), C.secGrey, hr)
-    .ell(C.secFace, [hr * 0.9, hr * 0.8, hr * 0.4], [0, -hr * 0.05, hr * 0.7])
-    .cone(PLUMAGE.shrikeBill, hr * 0.4, hr * 1.1, [0, -hr * 0.2, hr * 0.95], [0.3, 0, 0]);
-  eyes(head, hr, 0.2, 0.6);
-  for (const s of [1, -1]) {
-    for (let i = 0; i < 4; i++) {
-      head.rod(C.secBlack, [s * hr * 0.2, hr * 0.5, -hr * 0.7], [s * hr * (0.3 + i * 0.35), hr * (1.5 + i * 0.35), -hr * (2.4 + i * 0.5)], hr * 0.1);
-    }
-  }
-  const thin = H * 0.012;
-  const tail = new Parts().box(C.secBlack, [R * 0.5, H * 0.012, H * 0.3], [0, 0, -H * 0.15]).box(C.secGrey, [R * 0.5, H * 0.014, H * 0.04], [0, 0, -H * 0.28]);
-  return assemble(plan, {
-    body, head, tail,
-    wing: { hex: C.secGrey, len: ry * 2.2, chord: R * 1.2, thick: R * 0.1, trim: C.secBlack },
-    // Stilts in black breeches.
-    leg: { hex: C.secFace, len: legLen, thick: thin, foot: R * 0.5, thigh: C.secBlack, thighThick: thin * 4 },
-    gun: { length: 0.4, thick: 0.045, barrels: 2, main: 0.72, support: 0.3 },
-    pivot: pivots({ sy: cy + ry * 0.6, legLen, R, legX: R * 0.4, tailY: cy, tailZ: -R * 1.2 }),
-    // Stomp Kick, Long Stride, Snake Stamp, Viper Dance.
-    casts: ['stomp', 'leap', 'leap', 'stomp'],
-    sway: 0.05, castTail: -0.5,
-  });
-};
-
 /** Starling: small and spiky, ruffled shoulders, a square tail, and a halo of eight tiny starlings at head height. */
 const starling: Build = (plan, team) => {
   const { H, R, hc, hr, top } = dims(plan);
@@ -160,4 +126,4 @@ const flamingo: Build = (plan, team) => {
   });
 };
 
-export const BIRD_BUILDS_B: Readonly<Record<string, Build>> = { secretarybird, starling, hornbill, flamingo };
+export const BIRD_BUILDS_B: Readonly<Record<string, Build>> = { starling, hornbill, flamingo };

@@ -612,6 +612,55 @@ export function puffinBody(plan: BodyPlan): Body {
   };
 }
 
+// =================================================================================================================
+// Secretarybird: a small body carried nearly level on stilts, long black-breeched thighs, a slender neck into an
+// eagle's head with a heavy brow, bare orange skin round the eye and a ridge at the nape where the quill crest roots.
+
+export function secretarybirdAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 2.2;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.75, 1.68 * s, 0.02 * s], hip: [R * 0.38, plan.height * 0.6, 0.0], tail: [0, 1.46 * s, -0.36 * s],
+    legLen: plan.height * 0.6, legThick: 0.025 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export const SECRETARYBIRD_HEAD: HeadShape = {
+  skull: [1.06, 1.06, 1.18], skullAt: [0, 0.04, -0.1], face: [0.7, 0.6, 0.62], faceAt: [0, -0.1, 0.45],
+  cheek: [0.5, 0.46, 0.55], cheekAt: [0.5, -0.32, 0.3], brow: [0.48, 0.2, 0.44], browAt: [0.5, 0.42, 0.52], browTilt: 0.55,
+  nape: [0.82, 0.72, 0.66], napeAt: [0, -0.48, -0.45], throat: [0.62, 0.5, 0.6], throatAt: [0, -0.72, 0.25],
+  eye: [0.6, 0.16, 0.56], socket: 0.24, bill: [0, -0.12, 1.0], billW: 0.28, billH: 0.26,
+};
+
+export function secretarybirdBody(plan: BodyPlan): Body {
+  const a = secretarybirdAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  const hr = a.hr;
+  return {
+    tris: [2200, 800, 250, 105],
+    ops: [
+      // A small, slim body carried nearly level, sloping down to the tail.
+      ell([0, 1.55 * s, -0.06 * s], [0.19 * s, 0.19 * s, 0.32 * s], 'body', 'back', { rot: [0.25, 0, 0], k: 0.05 }),
+      ...pair(ell([0.06 * s, 1.6 * s, 0.12 * s], [0.12 * s, 0.17 * s, 0.13 * s], 'body', 'breast', { k: 0.06, rot: [-0.15, 0.25, 0] })),
+      ell([0, 1.56 * s, 0.17 * s], [0.05 * s, 0.16 * s, 0.08 * s], 'body', 'breast', { k: 0.05 }),
+      ell([0, 1.43 * s, -0.03 * s], [0.15 * s, 0.11 * s, 0.22 * s], 'body', 'belly', { k: 0.07 }),
+      ell([0, 1.7 * s, -0.08 * s], [0.15 * s, 0.07 * s, 0.22 * s], 'body', 'mantle', { k: 0.05, rot: [0.15, 0, 0] }),
+      cone([0, 1.5 * s, -0.32 * s], [0, 1.42 * s, -0.44 * s], 0.08 * s, 0.04 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.13 * s, 1.68 * s, -0.06 * s], scapularR: [0.08 * s, 0.06 * s, 0.18 * s], root: 0.055 * s, inset: 0.06 }),
+      // The black breeches: long feathered thighs from the belly most of the way down the thigh bone.
+      ...thighs(a, { r: 0.07 * s, rKnee: 0.032 * s, reach: 0.85, root: [0.1 * s, 1.46 * s, 0.0] }),
+      ...neck([[0, 1.68 * s, 0.14 * s], [0, 1.8 * s, 0.16 * s], [0, 1.9 * s, 0.08 * s], [0, hc[1] - 0.06 * s, 0.0]], [0.1 * s, 0.075 * s, 0.07 * s, 0.075 * s], 'neck', 0.5),
+      ...head(hc, hr, SECRETARYBIRD_HEAD),
+      // The crest's root: a ridge at the back of the head the quills spring from.
+      cone(at(hc, hr, [0, 0.4, -0.55]), at(hc, hr, [0, -0.1, -1.15]), 0.4 * hr, 0.22 * hr, 'head', 'crest', { k: 0.18 * hr, flow: [0, -0.4, -1] }),
+      // Bare orange skin round each eye, running forward to the bill.
+      ...pair(ell(at(hc, hr, [0.6, 0.08, 0.66]), mulS([0.4, 0.4, 0.62], hr), 'head', 'facial', { mark: true, rot: [0, 0.35, 0], soft: 0.004 })),
+    ],
+  };
+}
+
 /** The birds with implicit bodies, by hero id. */
 export const BODIES = {
   peacock: peacockBody,
@@ -623,6 +672,7 @@ export const BODIES = {
   pelican: pelicanBody,
   penguin: penguinBody,
   puffin: puffinBody,
+  secretarybird: secretarybirdBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */

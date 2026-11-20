@@ -10,11 +10,12 @@ import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
 import { beak, eye, foldedWings, hackles, inBone, legsOf, norm, shingle, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
-import { bodyField, flipX, OWL_HEAD, owlAnchors, PELICAN_HEAD, pelicanAnchors, PENGUIN_HEAD, penguinAnchors, PUFFIN_HEAD, puffinAnchors, skinFor, TRUNK } from './bodies';
+import { bodyField, flipX, OWL_HEAD, owlAnchors, PELICAN_HEAD, pelicanAnchors, PENGUIN_HEAD, penguinAnchors, PUFFIN_HEAD, puffinAnchors, SECRETARYBIRD_HEAD, secretarybirdAnchors, skinFor, TRUNK } from './bodies';
 import { SKIN as OWL_SKIN } from './data/skins/owl';
 import { SKIN as PELICAN_SKIN } from './data/skins/pelican';
 import { SKIN as PENGUIN_SKIN } from './data/skins/penguin';
 import { SKIN as PUFFIN_SKIN } from './data/skins/puffin';
+import { SKIN as SECRETARYBIRD_SKIN } from './data/skins/secretarybird';
 import { CARD, TILE } from './feathers';
 import { band, bead, block, BRASS, carve, GEAR, LEATHER, lathe, plume, pouch, ring, sash, scope, stud, WEAVE, WOOD } from './gear';
 import type { Detail, SculptedBird, SculptedSpec } from './sculpted';
@@ -929,4 +930,186 @@ function puffinGun(s: number, d: Detail): SculptedSpec['gun'] {
   };
 }
 
-export const C_BUILDS: Readonly<Record<string, SculptedBird>> = { owl, pelican, penguin, puffin };
+// =================================================================================================================
+// Secretarybird: the tallest, thinnest hero. A small pale-grey body on pink stilts in black feathered breeches, a
+// slender neck, an eagle's head with a heavy brow, bare orange skin and long lashes round the eye, and the hero
+// shape: a crown of long black-tipped quills fanned behind the head that rises on a cast. A long grey tail with two
+// streamers. Mobility skirmisher: the Quill Pair, two slim quill pistols with brass nib muzzles, one in each wing.
+
+const SECRETARY = {
+  pale: 0xd4d7da,
+  grey: 0xa7adb3,
+  mantle: 0x868d94,
+  black: 0x1c1c20,
+  orange: 0xf08a2a,
+  leg: 0xd2a492,
+  claw: 0x2a2422,
+  bill: 0x4a4c50,
+  billTip: 0x26262a,
+  iris: 0x4a2a14,
+  lash: 0x141416,
+  quill: 0xeee4cc,
+  nib: 0xd6a648,
+  ink: 0x1a2440,
+} as const;
+
+/**
+ * One quill pistol along -z, its brass nib at the origin: a cream quill-shaft barrel with brass bands, a fletching vane
+ * along its top, a dark carved grip at `grip` and a clip of spare quill darts down its side.
+ */
+function quillPistol(k: Sculpt, L: number, s: number, d: Detail, flip: 1 | -1): void {
+  const S = SECRETARY;
+  if (d.level >= 3) {
+    lathe(k, [[0.012 * s, 0], [0.014 * s, -L * 0.6], [0.02 * s, -L * 0.75], [0.016 * s, -L]], { seg: 4, paint: S.quill });
+    return;
+  }
+  // The nib: a split brass point, with a warm glow at its tip (the lit muzzle).
+  lathe(k, [[0.003 * s, 0.006 * s], [0.011 * s, -0.025 * s], [0.013 * s, -0.04 * s]], { seg: d.n(10, 4), paint: S.nib, finish: BRASS, flat: 0.6 });
+  bead(k, [0, 0, 0.004 * s], 0.006 * s, 0xffb24a, 0.9, d);
+  lathe(k, [[0.012 * s, -0.038 * s], [0.013 * s, -L * 0.35], [0.015 * s, -L * 0.55], [0.017 * s, -L * 0.58]], { seg: d.n(10, 4), paint: (t) => (Math.abs(t - 0.3) < 0.04 || Math.abs(t - 0.75) < 0.04 ? GEAR.brass : S.quill), finish: { gloss: 0.6 } });
+  if (d.level < 2) plume(k, [0, 0.014 * s, -L * 0.2], [0, 0.12, -1], L * 0.36, 0.03 * s, S.quill, CARD.quill, [flip * 0.3, 1, 0], S.black);
+  block(k, [0.03 * s, 0.042 * s, 0.09 * s], [0, -0.004 * s, -L * 0.64], GEAR.woodDark, WOOD, d);
+  carve(k, [[-L * 0.6, -0.02 * s], [-L * 0.68, -0.02 * s], [-L * 0.8, -0.1 * s], [-L * 0.72, -0.108 * s]], 0.024 * s, GEAR.woodRed, WOOD, d);
+  if (d.level < 2) {
+    stud(k, [flip * 0.016 * s, -0.004 * s, -L * 0.64], 0.006 * s);
+    for (let i = 0; i < 3; i++) lathe(k, [[0.003 * s, 0.03 * s], [0.003 * s, -0.03 * s]], { at: [flip * 0.018 * s, -0.012 * s - i * 0.008 * s, -L * 0.38], seg: 4, paint: S.ink, finish: { gloss: 0.5 } });
+  }
+}
+
+function secretarybird(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
+  const H = plan.height;
+  const hr = plan.head.radius;
+  const A = secretarybirdAnchors(plan);
+  const s = A.s;
+  const S = SECRETARY;
+  const SOFT = { tile: TILE.scales, size: 0.06, gloss: 0.15 } as const;
+  const field = bodyField('secretarybird', plan);
+  const skin = skinFor('secretarybird', plan, SECRETARYBIRD_SKIN, d.level, {
+    // A darker grey mantle and scapulars under the pale neck: the value break from the player camera.
+    back: { paint: (p) => mix(S.grey, S.mantle, clamp01((p.y - 1.5 * s) / (0.2 * s))), finish: SOFT },
+    mantle: { paint: S.mantle, finish: SOFT },
+    scapular: { paint: mix(S.mantle, S.black, 0.25), finish: SOFT },
+    shoulder: { paint: S.mantle, finish: SOFT },
+    coverts: { paint: S.grey, finish: SOFT },
+    breast: { paint: (p) => mix(S.pale, S.grey, clamp01(Math.abs(p.x) / (0.15 * s))), finish: SOFT },
+    belly: { paint: mix(S.grey, S.black, 0.35), finish: SOFT },
+    thigh: { paint: S.black, finish: { tile: TILE.scales, size: 0.045, gloss: 0.25 } },
+    neck: { paint: S.pale, finish: { ...SOFT, size: 0.045 } },
+    crown: { paint: S.grey, finish: { ...SOFT, size: 0.04 } },
+    crest: { paint: mix(S.grey, S.black, 0.6), finish: { ...SOFT, size: 0.04 } },
+    nape: { paint: mix(S.pale, S.grey, 0.5), finish: { ...SOFT, size: 0.04 } },
+    face: { paint: S.pale, finish: { gloss: 0.1 } },
+    cheek: { paint: S.pale, finish: { gloss: 0.1 } },
+    brow: { paint: S.grey, finish: { gloss: 0.15 } },
+    throat: { paint: S.pale, finish: SOFT },
+    facial: { paint: S.orange, finish: { gloss: 0.4 } },
+    bill: { paint: S.bill, finish: { gloss: 0.5 } },
+    socket: { paint: shade(S.orange, 0.85), finish: { gloss: 0.4 } },
+  });
+  const leg: LegStyle = {
+    skin: S.leg, claw: S.claw, thick: A.legThick, thigh: S.black, fringe: 0.22, fringeCell: CARD.contour, skinned: { r: 0.045 * s, at: 0.82 },
+    toes: [{ yaw: -0.5, len: 0.08 * s, r: 0.014 * s }, { yaw: 0, len: 0.1 * s, r: 0.015 * s }, { yaw: 0.5, len: 0.08 * s, r: 0.014 * s }, { yaw: Math.PI, len: 0.035 * s, r: 0.012 * s }],
+    clawLen: 0.02 * s,
+  };
+  const wing: WingStyle = {
+    covert: S.grey, secondary: S.black, primary: S.black, primaryTip: shade(S.black, 1.6), trim: team.primary,
+    thick: 0.03 * s, chord: 0.22 * s, primaries: 6, secondaries: 5, primaryLen: 0.6, secondaryLen: 0.8,
+  };
+
+  const body = (k: Sculpt): void => {
+    const torso = field.only(...TRUNK).surface([0, 1.42 * s, -0.4 * s], [0, 1.66 * s, 0.18 * s]);
+    const neckAxis: [V3, V3] = [[0, 1.62 * s, 0.12 * s], [0, A.head[1] - 0.05 * s, 0]];
+    const collar = field.only(...TRUNK, 'neck').surface(...neckAxis, [0, 0, 1]);
+    // The player-camera standard: pale grey hackles down the back of the neck onto the darker mantle.
+    hackles(k, collar, { t: [0.2, 0.6], rows: 3, cols: 4, len: 0.08 * s, wid: 0.06 * s, lift: 0.16, paint: (t) => mix(S.mantle, S.pale, t), finish: SOFT }, d);
+    foldedWings(k, torso, wing, { t: [0.35, 0.75], a: 0.45, len: 0.42 * s, wid: 0.09 * s }, d);
+    // Gear: a flock sash, a holster belt, and a quiver of spare quills across the back (it reads from behind).
+    sash(k, torso, 0.6, 0.2, Math.PI * 0.4, { width: 0.05 * s, thick: 0.012 * s, hex: team.primary, stitch: team.light, off: 0.008 * s, finish: WEAVE }, d);
+    band(k, torso, 0.5, { width: 0.035 * s, thick: 0.01 * s, hex: GEAR.leatherDark, off: 0.006 * s, finish: LEATHER }, d);
+    pouch(k, torso.at(0.5, Math.PI * 0.05, 0.006 * s), [0.06 * s, 0.08 * s, 0.04 * s], GEAR.leather, d);
+    if (d.level < 3) {
+      const q = torso.at(0.55, Math.PI * 0.62, 0.03 * s);
+      const qa: V3 = [q.p.x, q.p.y, q.p.z];
+      lathe(k, [[0.026 * s, 0.11 * s], [0.03 * s, 0.09 * s], [0.03 * s, -0.11 * s], [0.024 * s, -0.12 * s]], { at: qa, rot: [-0.7, 0, -0.5], seg: d.n(10, 5), caps: true, paint: (t) => (t < 0.12 || t > 0.9 ? GEAR.brass : GEAR.leather), finish: LEATHER });
+      if (d.level < 2) {
+        for (let i = 0; i < 5; i++) {
+          const dir = norm([-0.3 + (i - 2) * 0.08, 0.75, -0.55]);
+          k.card({ at: [qa[0] - 0.04 * s + i * 0.008 * s, qa[1] + 0.08 * s, qa[2] - 0.05 * s], dir, face: [0, 0.4, -1], len: 0.16 * s, wid: 0.025 * s, cell: CARD.quill, root: S.quill, tip: i % 2 ? S.black : team.primary, segs: 2 });
+        }
+      }
+    }
+  };
+
+  const head = (k: Sculpt): void => {
+    hackles(k, inBone(field.only('crown', 'nape', 'neck', 'crest').surface([A.head[0], A.head[1] - hr * 1.8, A.head[2] - hr * 0.1], [A.head[0], A.head[1] + hr * 0.9, A.head[2] - hr * 0.1], [0, 0, 1]), A.head), {
+      t: [0.2, 0.5], rows: 2, cols: 4, len: 0.06 * s, wid: 0.05 * s, lift: 0.2, paint: (t) => mix(S.grey, S.pale, t), finish: SOFT, seed: 61,
+    }, d);
+    const E = SECRETARYBIRD_HEAD.eye;
+    for (const x of [1, -1]) {
+      eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.78, 0.05, 0.62], { r: hr * 0.24, iris: S.iris, ring: S.orange, lid: S.orange, ringW: hr * 0.045 }, d);
+      // Long dark lashes over each eye.
+      if (d.level < 2) {
+        for (let i = 0; i < 4; i++) {
+          const u = i / 3;
+          const at: V3 = [x * hr * (E[0] + 0.05), hr * (E[1] + 0.22), hr * (E[2] - 0.12 + 0.24 * u)];
+          k.card({ at, dir: norm([x * 0.5, 0.6, 0.3 + 0.4 * u]), face: [x, 0.2, 0], len: hr * 0.32, wid: hr * 0.06, cell: CARD.hair, root: S.lash, tip: S.lash, segs: 2 });
+        }
+      }
+    }
+    // A raptor's hooked bill, grey to a dark tip.
+    const B = SECRETARYBIRD_HEAD.bill;
+    beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.05)], len: hr * 0.95, w: hr * 0.24, up: hr * 0.3, dn: hr * 0.16, curve: hr * 0.32, hook: hr * 0.18, base: S.bill, tip: S.billTip, open: 0.32 }, d);
+    // The quill crown: long black-tipped quills fanned back from the nape in two tiers, rising on a cast. It is the
+    // bird's primary shape, so four quills survive even at the far level.
+    const tiers: [number, number][] = d.level === 0 ? [[7, 1], [6, 0.78]] : d.level === 1 ? [[5, 1], [4, 0.78]] : d.level === 2 ? [[5, 1]] : [[4, 1]];
+    tiers.forEach(([n, len], tier) => {
+      for (let i = 0; i < n; i++) {
+        const u = n === 1 ? 0 : (i / (n - 1)) * 2 - 1;
+        // A fan rising up and back from the nape; each quill faces along the fan's normal, so the crown is broadside
+        // to the player camera behind and to a viewer in front.
+        const rise = tier === 0 ? 0.62 : 0.2;
+        const at: V3 = [u * hr * 0.42, hr * (0.4 - 0.28 * tier - 0.1 * Math.abs(u)), -hr * (0.6 + 0.08 * tier)];
+        const dir = norm([u * 0.75, rise - 0.25 * Math.abs(u), -0.8]);
+        k.card({
+          at, dir, face: norm([0, 0.8, rise]), len: hr * 2.7 * len * (0.92 + 0.12 * jitter(i + tier * 7, 3)), wid: hr * 0.38, cell: CARD.tail, root: shade(S.black, 2.2), tip: S.black,
+          curl: -0.25, segs: d.level === 0 ? 5 : d.level === 3 ? 2 : 3, finish: { gloss: 0.3 },
+          morph: { display: hinge(at, [1, 0, 0], -0.8 - 0.2 * tier) },
+        });
+      }
+    });
+  };
+
+  const tail = (k: Sculpt): void => {
+    // A long graduated tail, its two central streamers far beyond the rest, black-tipped.
+    tailFan(k, { count: 8, len: 0.42 * s, wid: 0.06 * s, spread: 0.5, droop: 0.75, centreLonger: 0.9, root: S.grey, tip: S.black, cell: CARD.tail, finish: { gloss: 0.2 } }, d);
+  };
+
+  return {
+    body, head, tail, skin,
+    wing: wingsOf(wing, d),
+    leg: legsOf(leg, d),
+    gun: secretarybirdGun(s, d),
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
+    legLen: A.legLen, legThick: leg.thick, wingLen: H * 0.24,
+    // Stomp Kick, Long Stride, Snake Stamp, Viper Dance.
+    casts: ['stomp', 'leap', 'leap', 'stomp'],
+    sway: 0.05, castTail: -0.5,
+  };
+}
+
+/** Quill Pair: two quill pistols side by side, one in each wing; the second rides the slide and kicks back in turn. */
+function secretarybirdGun(s: number, d: Detail): SculptedSpec['gun'] {
+  const L = 0.4 * s;
+  return {
+    main: [0, -0.06 * s, -L * 0.68],
+    support: [0, -0.06 * s, -L * 0.68],
+    slideAt: [0.075 * s, -0.004 * s, -0.03 * s],
+    travel: 0.03 * s,
+    build(k, part) {
+      if (part === 'gun') quillPistol(k, L, s, d, -1);
+      else if (part === 'slide') quillPistol(k, L, s, d, 1);
+    },
+  };
+}
+
+export const C_BUILDS: Readonly<Record<string, SculptedBird>> = { owl, pelican, penguin, puffin, secretarybird };
