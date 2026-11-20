@@ -2444,3 +2444,86 @@ All are within budget (9,000 / 3,500 / 1,200 / 400), with at most three draw cal
 - **Open, for the wave 6 integration round:**
   - Page load rose from about 0.9 s to 2.5 s. The fix is cheaper or deferred generation behind a renderer-ready hook in `__perch.ready` (Architect, then Rendering), not longer test timeouts. `preview-regressions` "binds side buttons" times out under load until then.
   - The music-state audio spec failed once under load. Recheck it on a quiet machine.
+### W5b · Bot AI · 20/11/2026
+**Branch:** `worktree-agent-ab0a222c15d139b2e` from `integrate/w5` 93de0c5, with `integrate/w5` merged in twice (51bb8d7:
+W5.5 contracts and Audio; 40fef0a: the bird second pass). Edits only `src/sim/ai/**`, `src/sim/data/ai.ts`,
+`src/sim/data/builds.ts` (Bot AI's until W6, contract follow-ups), this entry and D-AI-001..008.
+**Done** (G22 "hero bots that fight" is closed: lanes fight from 0:50):
+1. **Bots that play (GDD §11, D-AI-001).** `src/sim/ai/bot.ts`: every decision interval a bot picks Egg carrier, tower
+   escape, home retreat (§11.2 HP thresholds, healed to 90% at the Roost), tactical retreat (outnumbered by 2 or fight
+   score < 0.6), fight (enemy hero in 35 m, score ≥ 0.9, lowest effective HP with supports and carries first), ping
+   and defence orders, objectives, shop trips, push or farm, else lane. Laning (§11.3): waits by its outermost tower,
+   then 5 m behind its wave's front, short of the enemy wave and outside enemy tower reach; targets ripe pods (secure
+   and deny at the difficulty's rates with the ± pod timing error), last hits, pokes when its HP fraction is at least
+   the enemy's, a tower busy with its wave, the wave, then twig Nests. Lanes 2-2-2 with frontline paired with backline,
+   the human counted first on Riverbank (`assignLanes`). All through `PlayerCommand`, seeing only `canSee` entities.
+2. **Three difficulties (§11.2, D-AI-004).** `data/ai.ts` DIFFICULTIES: reaction 0.6/0.35/0.2 s (±25%), aim error
+   4/2.2/1° plus 0.5/0.3/0.15° per m/s, tracking 250/150/80 ms, head rate 0/25/60%, last hits, denies, pod timing,
+   decision interval, parry 0/20/60%, retreat HP, temperature, shops, movement links, last-seen chasing. Aim flicks
+   with an overshoot, tracks through a filter with a wandering error, rides up 0.25° per shot, leads projectile guns.
+   Abilities and item actives by use (enemy, nova, heal, ally-with-self-fallback, mobility, buff) from each kit's
+   effect tree; Raptor holds its ultimate for 2+ heroes or a likely kill. Parries a seen heavy wind-up (D-AI-008).
+3. **Buying and AP (§11.4, D-EP-036, D-AI-003).** `src/sim/ai/shop.ts`: softmax(score / T) over affordable, buyable
+   listed items from `ai/<heroId>/shop`, components and the four-active cap, trading up a tier when full (no churn),
+   situational picks +0.15 by enemy archetype, `options.botShopping` (scores, temperature, random). Round-0 `BUILDS`
+   (`src/sim/data/builds.ts`: STARTER_SCORES and the §11.8 rows with situational picks). AP: ultimate tier when
+   affordable, else T1s in the §11.5 priority, then T2s, then T3s.
+4. **The game around them.** Nav A* on `MapData.nav` with tower patches (D-AI-002); Updrafts by held Jump (latch
+   facing the goal, release, fresh press to drop off near it, never while an enemy is within 30 m); Egg (nearest three
+   go, the poorest takes it with a light melee, escorts, the carrier walks to the Stone, enemies focus the carrier);
+   runes and Embers by heavy melee; the Roc from its floor once 4+ allies live and the enemy is thinned or away;
+   Thickets by tier and level; defence calls (2+ enemy heroes hitting an allied structure: 3 nearest bots); pings
+   answered by the 2 nearest bots; tower reflexes and siege windows (D-AI-005); from 20:00 the flock groups on one
+   lane and then sieges the Shrines and Patron (D-AI-008). Bot picks follow §11.6 among implemented heroes (D-AI-006).
+**Verified:**
+- `PERCH_PENDING=1` QA suites on the final code: `bot-shopping` 6/6 (696 s alone; 360 s on 7afcbe9; its 900 s
+  `beforeAll` timed out once while sharing the CPU with an 8-process batch); `no-interact` all pass (bots ride Updrafts
+  on held Jump, no Interact bit).
+- `src/sim/ai/ai.test.ts` (12): exp vs Math.exp, softmax 73%, buying rules, the active cap, AP order, BUILDS, picks,
+  2-2-2 lanes, routes from both Roosts round the Patron, lane maths, aim reaction and error, and **G22: Play (1 human +
+  11 bots, seed 1) has bots hitting fledglings in all three lanes and a hero by 1:05**.
+- **AI share of the tick:** `src/sim/ai/ai.perf.test.ts`, 12 bots in a live fight (75 s in), a shadow AI on a copy of
+  the context: **0.139 ms of a 0.649 ms step (21%)**; budget 0.25 ms. Other runs: 0.164/0.735, 0.179/0.761.
+- **20 seeded headless matches** (`npm run sim -- --matches 20 --parallel 8 --bots 12`, 60-minute cap, final code):
+  **20 completed, 0 crashed**, 1,904 s. Every match reached 60:00 with no winner. Per match (seed: kills Dawn-Dusk;
+  first Hawk / Heron / Warden falls, minutes; first rune; first Egg delivered (deliveries); Roc killed):
+  1: 28-22; 9.8/23.7/24.9; 5.0; 10.5 (8); - · 2: 28-30; 6.8/25.2/29.1; 5.1; 10.4 (8); 51.1 ·
+  3: 21-12; 9.2/27.2/30.0; 5.6; 11.9 (7); - · 4: 25-27; 12.4/25.3/29.9; 5.0; 11.5 (10); 51.6 ·
+  5: 31-31; 7.3/23.7/27.0; 6.2; 17.2 (6); - · 6: 17-33; 8.3/23.2/26.9; 5.0; 10.3 (8); 47.9 ·
+  7: 38-23; 7.2/23.8/29.1; 5.3; 11.2 (9); 47.3 · 8: 20-26; 12.2/23.8/29.0; 5.4; 10.5 (10); - ·
+  9: 21-20; 11.8/36.7/59.0; 5.2; 10.9 (8); - · 10: 30-17; 6.4/23.2/24.5; 5.0; 13.8 (8); 53.6 ·
+  11: 36-24; 7.8/25.2/29.5; 5.0; 12.4 (9); 49.5 · 12: 29-32; 6.9/25.3/29.1; 5.4; 11.8 (7); 55.1 ·
+  13: 25-23; 8.8/26.3/27.8; 5.4; 10.4 (4); - · 14: 23-29; 8.8/23.8/30.5; 5.0; 13.5 (8); 47.2 ·
+  15: 27-16; 14.8/26.3/27.5; 5.4; 11.0 (7); 59.1 · 16: 30-10; 6.9/22.4/25.6; 5.1; 12.0 (9); 53.5 ·
+  17: 32-17; 11.8/43.2/54.7; 5.6; 10.6 (10); - · 18: 22-35; 6.3/25.2/30.5; 5.4; 11.2 (6); 47.6 ·
+  19: 29-33; 6.7/22.3/30.1; 5.0; 11.9 (7); - · 20: 22-34; 7.8/59.2/-; 5.4; 10.8 (7); -.
+  Totals: 1,028 hero kills (51 a match); 101 Hawks, 37 Herons, 68 Wardens, 0 Shrines; 357 of 480 runes claimed; 156
+  of 220 Eggs delivered; Roc killed in 12 of 20, 8 of 36 Embers claimed; 54 camps cleared; 4,467 Nests broken.
+  Telemetry: `out/telemetry/w5-bots/` (baseline before D-AI-008, also 20/20 and 0 crashes:
+  `out/telemetry/w5-bots-baseline/`, 1,814 s, 115 Hawks, 21 Herons, 8 Wardens, no Roc kill).
+- **Screenshot:** `out/shots/w5-bots-play-2min-hedgerow.png` (`npm run shots -- --scene match --seed 1 --t 120 --param
+  renderCam=-93,24,-34,-93,0,-9`), looked at: Hedgerow at 2:00, both waves engaged, one bird firing tracers into the
+  Dusk wave, another's spread shot landing below; the browser fast-forward matches Node (same roster, Dusk's Owl dead
+  with a 3 s respawn).
+- `npm run check` steps on the merged tip (machine shared with parallel agents): typecheck PASS, lint PASS (0 warnings), test 1,096
+  passed, 5 failed: exactly the five known Objectives cases (interactables 2, neutrals 3; pre-existing on integrate/w5,
+  the integration engineer's). Then by hand: perf 8/9, the one failure the pre-existing objectives budget (0.3017 vs
+  0.3); sim PASS (`--seed 1 --minutes 3`: 10,800 ticks, hash `41b6ba755b99c3c1`); e2e 61 passed, 1 skipped, 1 failed
+  (`match.spec.ts` expects exactly "Lv 2" at 15:00; the idle human is now Lv 3 because its flock's bots take Hawks:
+  871 passive + 300 structure Seeds; request below).
+**Known gaps:** no bot-only match ends: grouped bots break a lane each by 30:00 but don't break a Brood-Warded base
+(the Shrines take no damage; enemy heroes defending pull the group into fights in mid). Chimneys, Vines and Bough
+Springs aren't taken; interior routes, Hides, Lookouts, Bell Feeders and Berries aren't sought (§11.7); bots don't ping.
+**Interface requests:**
+- Level Designer: the nav graph threads lanes through tower anchors (nodes at Warden, Hawk and Heron centres) and
+  routes each Home Roost exit over the Patron's dais; please route round tower bodies so `NAV.extraLinks` and the
+  steering patch can go (D-AI-002). Some ground-profile links cross walls (bots stuck west of Riverbank near
+  (−61, −66) and (−46, −78) on seed 1 before the stuck-link rule).
+- QA: `e2e/match.spec.ts` asserts exactly "Lv 2" at 15:00 of Play; with bots taking structures the human earns their
+  payout, so assert Lv ≥ 2. `bot-shopping`'s 900 s `beforeAll` now runs bots that act; give it room or fewer minutes.
+- Character Controller / integration: `physics/controller.test.ts` `bench` uses an `'easy'` bot as a stationary target;
+  please use `'dummy'`, then D-AI-007 (bots idle on lane-less maps) can go.
+- Game Director / Balance: bot-only matches run to 60:00 (Herons 9,000 HP, Brood Ward); siege pacing for W6 tuning.
+**Next (W6, Bot AI):** grouping five behind a wave to drop the Brood Ward and siege the base; §11.7 interiors, Hides,
+Feeders, Berries, Springs and climbs; tuning for all 24 heroes with the Build Lab's scores.
+**Blocked:** nothing.
