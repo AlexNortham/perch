@@ -104,11 +104,11 @@ export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedS
     // The neck: rises from the chest in a gentle S into the head's own neck.
     k.loft(
       [
-        { c: [0, bodyY + 0.06 * s, 0.1 * s], w: 0.13 * s, up: 0.12 * s },
-        { c: [0, bodyY + 0.3 * s, 0.17 * s], w: 0.09 * s, up: 0.095 * s },
-        { c: [0, bodyY + 0.55 * s, 0.12 * s], w: 0.072 * s, up: 0.076 * s },
-        { c: [0, hc - 0.2 * s, 0.035 * s], w: 0.07 * s, up: 0.072 * s },
-        { c: [0, hc - 0.1 * s, 0.02 * s], w: 0.05 * s, up: 0.05 * s },
+        { c: [0, bodyY + 0.06 * s, 0.1 * s], w: 0.15 * s, up: 0.14 * s },
+        { c: [0, bodyY + 0.3 * s, 0.16 * s], w: 0.115 * s, up: 0.115 * s },
+        { c: [0, bodyY + 0.55 * s, 0.11 * s], w: 0.1 * s, up: 0.1 * s },
+        { c: [0, hc - 0.2 * s, 0.03 * s], w: 0.1 * s, up: 0.1 * s },
+        { c: [0, hc - 0.1 * s, 0.01 * s], w: 0.095 * s, up: 0.095 * s },
       ],
       { n: d.n(12, 3), seg: d.n(16, 5), ref: [0, 0, 1], paint: (t, a) => mix(P.blue, P.blueDeep, 0.15 + 0.3 * Math.cos(a) ** 2 * (1 - t)), finish: BLUE },
     );
@@ -131,7 +131,8 @@ export function peacock(plan: BodyPlan, team: TeamColours, d: Detail): SculptedS
       const z = p.z / hr;
       return ax > 0.45 && z > 0.05 && z < 0.85 && ((y > 0.3 && y < 0.5) || (y > -0.32 && y < -0.12 && z > 0.2));
     };
-    const neckR = 0.068 * s;
+    // A full nape: the neck meets the back of the head at most of its width, so it reads as one form from behind.
+    const neckR = 0.118 * s;
     headForm(k, {
       hr, width: 1.0, crown: 1.05, chin: 1.0, back: 0.95, face: 1.02, neck: { r: neckR, drop: 0.24 * s, lean: 0.03 * s },
       beak: { y: -hr * 0.12, w: hr * 0.26, up: hr * 0.25, dn: hr * 0.17 }, finish: BLUE,
@@ -512,10 +513,10 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
       [
         { c: [0, 0.3 * s, -0.27 * s], w: 0, up: 0 },
         { c: [0, 0.42 * s, -0.21 * s], w: 0.12 * s, up: 0.12 * s, dn: 0.11 * s },
-        { c: [0, 0.66 * s, -0.11 * s], w: 0.2 * s, up: 0.21 * s, dn: 0.17 * s },
-        { c: [0, 0.9 * s, -0.02 * s], w: 0.2 * s, up: 0.2 * s, dn: 0.16 * s },
-        { c: [0, 1.08 * s, 0.03 * s], w: 0.15 * s, up: 0.15 * s, dn: 0.13 * s },
-        { c: [0, hc - 0.14 * s, 0.03 * s], w: 0.1 * s, up: 0.1 * s, dn: 0.1 * s },
+        { c: [0, 0.66 * s, -0.11 * s], w: 0.19 * s, up: 0.2 * s, dn: 0.16 * s },
+        { c: [0, 0.9 * s, -0.02 * s], w: 0.215 * s, up: 0.21 * s, dn: 0.17 * s },
+        { c: [0, 1.08 * s, 0.03 * s], w: 0.185 * s, up: 0.17 * s, dn: 0.15 * s },
+        { c: [0, hc - 0.14 * s, 0.03 * s], w: 0.14 * s, up: 0.14 * s, dn: 0.13 * s },
       ],
       { n: d.n(14, 4), seg: d.n(20, 5), ref: [0, 0, 1], finish: GLOSS, paint: (t, a) => (t > 0.9 && Math.sin(a) > 0.45 ? W.pale : Math.sin(a) > 0.2 ? mix(W.brown, W.soot, 0.3) : W.soot) },
     );
@@ -551,6 +552,8 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
         }
       }
     }
+    // The mantle: broad glossy scapulars layered down the back, so the player camera sees feathers, not a bottle.
+    shingle(k, torso, { t: [0.42, 0.86], a: [-Math.PI * 0.85, -Math.PI * 0.15], rows: 3, cols: 4, len: 0.15 * s, wid: 0.12 * s, paint: (t) => mix(W.soot, W.brown, 0.2 + 0.5 * t), lift: 0.14, seed: 4, finish: GLOSS }, d);
     // Gear: a slim harness with a magazine pouch, and the flock-colour scarf with two long streamers behind.
     sash(k, torso, 0.62, 0.16, Math.PI * 0.65, { width: 0.04 * s, thick: 0.01 * s, hex: GEAR.leather, finish: LEATHER }, d);
     pouch(k, torso.at(0.58, Math.PI * 0.6, 0), [0.07 * s, 0.09 * s, 0.045 * s], GEAR.leatherDark, d);
@@ -566,7 +569,7 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
   const head = (k: Sculpt): void => {
     const pale = (p: { x: number; y: number; z: number }): boolean => p.y < -hr * 0.45 && p.z > hr * 0.05 && Math.abs(p.x) < hr * 0.75;
     headForm(k, {
-      hr, width: 1.12, crown: 1.05, chin: 1.0, back: 0.9, face: 1.02, cheek: 1.05, neck: { r: 0.1 * s, drop: 0.2 * s, lean: 0.01 * s },
+      hr, width: 1.12, crown: 1.05, chin: 1.0, back: 0.9, face: 1.02, cheek: 1.05, neck: { r: 0.13 * s, drop: 0.2 * s, lean: 0.01 * s },
       beak: { y: -hr * 0.12, w: hr * 0.3, up: hr * 0.13, dn: hr * 0.09 }, finish: { ...GLOSS, size: 0.07 },
       paint: (_t, _a, p) => (pale(p) ? W.pale : W.soot),
     }, d);
@@ -695,7 +698,7 @@ export function hummingbird(plan: BodyPlan, team: TeamColours, d: Detail): Sculp
   };
   const wing: WingStyle = {
     covert: M.green, secondary: M.greenDeep, primary: M.greenDeep, trim: team.primary,
-    thick: 0.022 * s, chord: 0.13 * s, primaries: 4, secondaries: 4, primaryLen: 0.4, finish: { iri: 1 },
+    thick: 0.022 * s, chord: 0.2 * s, primaries: 5, secondaries: 6, primaryLen: 0.45, finish: { iri: 1 },
   };
 
   const body = (k: Sculpt): void => {
@@ -703,11 +706,12 @@ export function hummingbird(plan: BodyPlan, team: TeamColours, d: Detail): Sculp
       [
         { c: [0, 0.1 * s, -0.12 * s], w: 0, up: 0 },
         { c: [0, 0.2 * s, -0.1 * s], w: 0.15 * s, up: 0.14 * s, dn: 0.15 * s },
-        { c: [0, 0.48 * s, -0.03 * s], w: 0.23 * s, up: 0.22 * s, dn: 0.21 * s },
-        { c: [0, 0.76 * s, 0], w: 0.22 * s, up: 0.21 * s, dn: 0.19 * s },
-        { c: [0, 0.96 * s, 0.02 * s], w: 0.16 * s, up: 0.16 * s, dn: 0.14 * s },
-        { c: [0, hc - 0.12 * s, 0.015 * s], w: 0.11 * s, up: 0.11 * s, dn: 0.11 * s },
-        { c: [0, hc - 0.04 * s, 0.01 * s], w: 0.07 * s, up: 0.07 * s, dn: 0.07 * s },
+        { c: [0, 0.48 * s, -0.04 * s], w: 0.22 * s, up: 0.21 * s, dn: 0.2 * s },
+        // The breast puffs forward under the gorget; the back slopes away to the tail.
+        { c: [0, 0.76 * s, 0.02 * s], w: 0.225 * s, up: 0.25 * s, dn: 0.17 * s },
+        { c: [0, 0.96 * s, 0.04 * s], w: 0.18 * s, up: 0.19 * s, dn: 0.13 * s },
+        { c: [0, hc - 0.12 * s, 0.025 * s], w: 0.13 * s, up: 0.13 * s, dn: 0.12 * s },
+        { c: [0, hc - 0.04 * s, 0.01 * s], w: 0.09 * s, up: 0.09 * s, dn: 0.09 * s },
       ],
       {
         n: d.n(14, 4), seg: d.n(20, 5), ref: [0, 0, 1], finish: IRIS,

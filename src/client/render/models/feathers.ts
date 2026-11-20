@@ -163,8 +163,9 @@ function scale(x: number, y: number, R = 16, sh = 16): number {
     const dist = Math.hypot(x - cx, y - ((own + 1) * sh + R));
     shadow = Math.max(shadow, 1 - smooth(R * 1.12, R * 1.12 + 3.5, dist));
   }
-  const body = 1 - 0.1 * smooth(0.55, 1, t) + 0.04 * (1 - t);
-  return Math.min(1, body - 0.14 * shadow);
+  // Soft: a hint of feathering under painted gradients, not fish scales.
+  const body = 1 - 0.07 * smooth(0.55, 1, t) + 0.03 * (1 - t);
+  return Math.min(1, body - 0.09 * shadow);
 }
 
 function solidTile(tile: number, x: number, y: number): number {

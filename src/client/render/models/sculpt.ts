@@ -348,12 +348,14 @@ export class Sculpt {
     const di = new Vector3();
     const nrm = new Vector3();
     const big = Math.max(...R.map((r) => r.w + (r.up + r.dn) / 2), 1e-6);
+    // Round the loft at its widest in a whole number of tiles: every ring shares it, so tapering rings compress the
+    // pattern (and fade at the ends) instead of shearing it into streaks, and the seam meets itself.
+    const uTiles = Math.max(1, Math.round((Math.PI * big) / tileSize));
     for (let i = 0; i < nR; i++) {
       const r = R[i] as FullRing;
       const row = P[i] as Vector3[];
-      const circ = Math.PI * (r.w + (r.up + r.dn) / 2);
       // Rings squeeze toward a closed end; the pattern fades there rather than pinching into concentric rings.
-      const fade = 1 - Math.min(1, (r.w + (r.up + r.dn) / 2) / (big * 0.7));
+      const fade = 1 - Math.min(1, (r.w + (r.up + r.dn) / 2) / (big * 0.85));
       for (let j = 0; j <= seg; j++) {
         const jp = j === seg ? 1 : j + 1;
         const jm = j === 0 ? seg - 1 : j - 1;
@@ -366,7 +368,7 @@ export class Sculpt {
         const t = len > 0 ? (along[i] as number) / len : 0;
         const a = (j / seg) * Math.PI * 2;
         const hex = typeof paint === 'number' ? paint : paint(t, a, p);
-        const u = f.tile === undefined || f.tile === TILE.flat ? 0.5 : ((j / seg) * Math.max(circ, 1e-3)) / tileSize;
+        const u = f.tile === undefined || f.tile === TILE.flat ? 0.5 : (j / seg) * uTiles;
         const v = f.tile === undefined || f.tile === TILE.flat ? 0.5 : (along[i] as number) / tileSize;
         if (o.uvSwap) this.put(L, p.x, p.y, p.z, nrm.x, nrm.y, nrm.z, v, u, hex, f, fade);
         else this.put(L, p.x, p.y, p.z, nrm.x, nrm.y, nrm.z, u, v, hex, f, fade);
