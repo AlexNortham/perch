@@ -3,6 +3,8 @@ import type {} from '../src/client/app/app';
 import type { Vec3 } from '../src/sim/core/contracts';
 
 export const READY_TIMEOUT_MS = 60_000;
+/** Wall-clock allowance per skipped match second when `?t=` fast-forwards (about 50 ms measured under load, D-ARCH-033). */
+const FAST_FORWARD_MS_PER_S = 100;
 export const VIEWPORT = { width: 1280, height: 720 };
 
 export interface HeroHook {
@@ -22,7 +24,10 @@ export async function pickHero(page: Page, mode: 'Play' | 'Practice Hub', name: 
   await page.getByRole('button', { name: mode, exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Choose your bird' })).toBeVisible();
   await page.getByRole('button', { name: new RegExp(`^${name}\\b`) }).click();
-  await page.waitForFunction('window.__perch?.hero != null', null, { timeout: READY_TIMEOUT_MS });
+  // Play fast-forwards the 12-bot match to `?t=` before the local hero exists (D-ARCH-033): 18–45 s at t=900 with
+  // bots fighting, so the wait scales with the seconds being skipped.
+  const skip = Number(new URL(page.url()).searchParams.get('t') ?? 0);
+  await page.waitForFunction('window.__perch?.hero != null', null, { timeout: READY_TIMEOUT_MS + skip * FAST_FORWARD_MS_PER_S });
 }
 
 export const hero = (page: Page) => page.evaluate<HeroHook>('window.__perch.hero');
