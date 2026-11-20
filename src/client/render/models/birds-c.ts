@@ -10,9 +10,10 @@ import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
 import { beak, eye, foldedWings, hackles, inBone, legsOf, norm, shingle, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
-import { bodyField, flipX, OWL_HEAD, owlAnchors, PELICAN_HEAD, pelicanAnchors, skinFor, TRUNK } from './bodies';
+import { bodyField, flipX, OWL_HEAD, owlAnchors, PELICAN_HEAD, pelicanAnchors, PENGUIN_HEAD, penguinAnchors, skinFor, TRUNK } from './bodies';
 import { SKIN as OWL_SKIN } from './data/skins/owl';
 import { SKIN as PELICAN_SKIN } from './data/skins/pelican';
+import { SKIN as PENGUIN_SKIN } from './data/skins/penguin';
 import { CARD, TILE } from './feathers';
 import { band, bead, block, BRASS, carve, GEAR, LEATHER, lathe, plume, pouch, ring, sash, scope, stud, WEAVE, WOOD } from './gear';
 import type { Detail, SculptedBird, SculptedSpec } from './sculpted';
@@ -481,4 +482,206 @@ function pelicanGun(s: number, d: Detail): SculptedSpec['gun'] {
   };
 }
 
-export const C_BUILDS: Readonly<Record<string, SculptedBird>> = { owl, pelican };
+// =================================================================================================================
+// Penguin: a black-and-white skittle, a sharp white bib under a black head with gold ear patches and throat, a slate
+// back, stiff flat flippers that grip the gun, short legs and big dark feet. Snow goggles on the brow, a knitted flock
+// scarf. Tank: a short, wide ice blunderbuss with a frosted bell and a glowing hopper of ice chips.
+
+const PENGUIN = {
+  black: 0x17181c,
+  slate: 0x3d4656,
+  white: 0xf4f4f0,
+  cream: 0xece8dc,
+  gold: 0xf2a72c,
+  yellow: 0xf6d36a,
+  bill: 0x1c1c20,
+  billStripe: 0xe8784a,
+  foot: 0x34343a,
+  claw: 0x1a1a1c,
+  iris: 0x3a2a20,
+  ice: 0xbfe6f6,
+  frost: 0x8fc8e0,
+} as const;
+
+/**
+ * A penguin's flipper segment along -y (the IK still bends it at the elbow to hold the gun): a stiff, flat paddle,
+ * black on the outer face (+x) and white beneath with a white trailing edge, tapering to a rounded tip at the grip.
+ */
+function flipper(k: Sculpt, seg: 'arm' | 'hand', upper: number, lower: number, chord: number, thick: number, d: Detail): void {
+  const P = PENGUIN;
+  const len = seg === 'arm' ? upper : lower;
+  const rings = seg === 'arm'
+    ? [
+      { c: [0, thick * 1.5, -chord * 0.1] as V3, w: 0, up: 0, dn: 0 },
+      { c: [0, thick * 0.3, -chord * 0.12] as V3, w: thick, up: chord * 0.22, dn: chord * 0.62 },
+      { c: [0, -len * 0.55, -chord * 0.1] as V3, w: thick * 0.9, up: chord * 0.24, dn: chord * 0.62 },
+      { c: [0, -len * 1.02, -chord * 0.06] as V3, w: thick * 0.85, up: chord * 0.22, dn: chord * 0.56 },
+    ]
+    : [
+      { c: [0, thick * 0.6, -chord * 0.06] as V3, w: thick * 0.85, up: chord * 0.22, dn: chord * 0.56 },
+      { c: [0, -len * 0.5, -chord * 0.04] as V3, w: thick * 0.75, up: chord * 0.18, dn: chord * 0.45 },
+      { c: [0, -len * 0.92, 0] as V3, w: thick * 0.7, up: chord * 0.14, dn: chord * 0.3 },
+      { c: [0, -len - chord * 0.2, -chord * 0.02] as V3, w: thick * 0.4, up: chord * 0.06, dn: chord * 0.12 },
+      { c: [0, -len - chord * 0.3, -chord * 0.04] as V3, w: 0, up: 0, dn: 0 },
+    ];
+  k.loft(rings, {
+    n: d.n(seg === 'arm' ? 7 : 8, 3), seg: d.n(14, 4), ref: [0, 0, 1],
+    paint: (_t, a) => (Math.cos(a) < -0.35 || Math.sin(a) < -0.9 ? P.white : Math.cos(a) < 0 ? P.slate : P.black),
+    finish: { tile: TILE.scales, size: 0.035, gloss: 0.3 },
+  });
+}
+
+function penguin(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
+  const H = plan.height;
+  const hr = plan.head.radius;
+  const A = penguinAnchors(plan);
+  const s = A.s;
+  const P = PENGUIN;
+  const SLEEK = { tile: TILE.scales, size: 0.06, gloss: 0.4 } as const;
+  const field = bodyField('penguin', plan);
+  const skin = skinFor('penguin', plan, PENGUIN_SKIN, d.level, {
+    // A slate-blue back under the black head: the value break the player camera needs.
+    back: { paint: (p) => mix(P.slate, P.black, clamp01((p.y - 0.95 * s) / (0.35 * s))), finish: SLEEK },
+    mantle: { paint: mix(P.slate, P.black, 0.45), finish: SLEEK },
+    scapular: { paint: P.slate, finish: SLEEK },
+    shoulder: { paint: P.black, finish: SLEEK },
+    coverts: { paint: P.slate, finish: SLEEK },
+    breast: { paint: P.black, finish: SLEEK },
+    belly: { paint: P.black, finish: SLEEK },
+    thigh: { paint: P.black, finish: SLEEK },
+    bib: { paint: (p) => mix(P.white, P.yellow, clamp01((p.y - 1.05 * s) / (0.25 * s))), finish: { tile: TILE.scales, size: 0.05, gloss: 0.2 } },
+    gold: { paint: P.gold, finish: SLEEK },
+    neck: { paint: P.black, finish: SLEEK },
+    crown: { paint: P.black, finish: { ...SLEEK, size: 0.04 } },
+    nape: { paint: P.black, finish: { ...SLEEK, size: 0.04 } },
+    face: { paint: P.black, finish: { gloss: 0.4 } },
+    cheek: { paint: P.black, finish: { gloss: 0.4 } },
+    brow: { paint: shade(P.black, 1.5), finish: { gloss: 0.4 } },
+    throat: { paint: mix(P.black, P.gold, 0.25), finish: SLEEK },
+    ear: { paint: (p) => mix(P.gold, P.yellow, clamp01((p.y - A.head[1] + 0.12 * s) / (0.1 * s))), finish: { gloss: 0.3 } },
+    bill: { paint: P.bill, finish: { gloss: 0.5 } },
+    socket: { paint: shade(P.black, 1.3), finish: { gloss: 0.4 } },
+  });
+  const leg: LegStyle = {
+    skin: P.foot, claw: P.claw, thick: A.legThick, thigh: P.black, fringe: 0.5, skinned: { r: 0.08 * s, at: 0.3 },
+    toes: [{ yaw: -0.55, len: 0.12 * s, r: 0.022 * s }, { yaw: -0.05, len: 0.14 * s, r: 0.024 * s }, { yaw: 0.5, len: 0.12 * s, r: 0.022 * s }],
+    clawLen: 0.035 * s,
+  };
+  const chord = 0.17 * s;
+  const fthick = 0.022 * s;
+
+  const body = (k: Sculpt): void => {
+    const torso = field.only(...TRUNK).surface([0, 0.2 * s, -0.12 * s], [0, 1.2 * s, 0.03 * s], [0, 0, 1]);
+    const neckAxis: [V3, V3] = [[0, 1.05 * s, 0.0], [0, A.head[1] - 0.06 * s, 0.0]];
+    const collar = field.only(...TRUNK, 'neck').surface(...neckAxis, [0, 0, 1]);
+    // The player-camera standard: short dense hackles down the back of the neck onto the slate mantle.
+    hackles(k, collar, { t: [0.3, 0.75], rows: 3, cols: 5, len: 0.09 * s, wid: 0.075 * s, lift: 0.12, paint: (t) => mix(P.slate, P.black, 0.4 + 0.6 * t), finish: SLEEK }, d);
+    // Gear: a knitted flock scarf with tails down the back, a leather harness with an ice pick and a pouch of chips.
+    band(k, collar, 0.3, { width: 0.08 * s, thick: 0.016 * s, hex: team.primary, stitch: team.light, off: 0.006 * s, finish: WEAVE }, d);
+    if (d.level < 3) {
+      const knot = collar.at(0.3, -Math.PI * 0.62, 0.04 * s);
+      for (const x of [1, -1]) k.card({ at: [knot.p.x, knot.p.y, knot.p.z], dir: norm([0.3 + x * 0.2, -1, -0.25]), face: [0, 0.2, -1], len: (x > 0 ? 0.36 : 0.28) * s, wid: 0.085 * s, cell: CARD.cloth, root: team.primary, tip: team.light, curl: 0.3, sweep: x * 0.15, segs: d.level === 0 ? 4 : 2 });
+    }
+    sash(k, torso, 0.6, 0.18, Math.PI * 0.7, { width: 0.05 * s, thick: 0.014 * s, hex: GEAR.leather, stitch: team.light, off: 0.008 * s, finish: LEATHER }, d);
+    band(k, torso, 0.36, { width: 0.05 * s, thick: 0.014 * s, hex: GEAR.leatherDark, off: 0.008 * s, finish: LEATHER }, d);
+    pouch(k, torso.at(0.36, Math.PI * 0.25, 0.02 * s), [0.1 * s, 0.1 * s, 0.06 * s], GEAR.leather, d);
+    // The ice pick slung on the harness across the back: a wood shaft and a brass head.
+    if (d.level < 2) {
+      const p = torso.at(0.58, -Math.PI * 0.5, 0.035 * s);
+      lathe(k, [[0.012 * s, 0.17 * s], [0.012 * s, -0.17 * s]], { at: [p.p.x, p.p.y, p.p.z], rot: [Math.PI / 2, 0.9, 0], seg: 6, paint: GEAR.wood, finish: WOOD });
+      block(k, [0.11 * s, 0.025 * s, 0.03 * s], [p.p.x - 0.13 * s, p.p.y + 0.11 * s, p.p.z], GEAR.brass, BRASS, d, [0, 0, 0.9]);
+    }
+  };
+
+  const head = (k: Sculpt): void => {
+    const headAxis: [V3, V3] = [[A.head[0], A.head[1] - hr * 1.5, A.head[2] - hr * 0.1], [A.head[0], A.head[1] + hr * 0.9, A.head[2] - hr * 0.1]];
+    hackles(k, inBone(field.only('crown', 'nape', 'neck').surface(...headAxis, [0, 0, 1]), A.head), {
+      t: [0.25, 0.55], rows: 2, cols: 4, len: 0.065 * s, wid: 0.055 * s, lift: 0.2, paint: P.black, finish: SLEEK, seed: 53,
+    }, d);
+    const E = PENGUIN_HEAD.eye;
+    for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.75, 0.05, 0.66], { r: hr * 0.21, iris: P.iris, ring: shade(P.black, 1.4), lid: P.black, ringW: hr * 0.035 }, d);
+    const B = PENGUIN_HEAD.bill;
+    beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.05)], len: hr * 1.25, w: hr * 0.2, up: hr * 0.17, dn: hr * 0.13, curve: hr * 0.16, hook: hr * 0.03, base: P.bill, tip: P.bill, lower: P.billStripe, open: 0.32 }, d);
+    // Snow goggles pushed up on the brow, on a strap round the head: the crown shape from behind.
+    if (d.level < 3) {
+      for (const x of [1, -1]) {
+        const at: V3 = [x * hr * 0.4, hr * 0.78, hr * 0.48];
+        ring(k, at, hr * 0.27, hr * 0.07, d, GEAR.brass, undefined, [-0.95, x * 0.4, 0]);
+        bead(k, at, hr * 0.24, P.frost, 0.25, d, [1, 1, 0.45]);
+      }
+      const tilt = norm([0, 1, -0.6]);
+      const c: V3 = [A.head[0], A.head[1] + hr * 0.2, A.head[2] - hr * 0.05];
+      const skull = field.only('crown', 'nape', 'brow', 'cheek').surface([c[0] - tilt[0] * hr, c[1] - tilt[1] * hr, c[2] - tilt[2] * hr], [c[0] + tilt[0] * hr, c[1] + tilt[1] * hr, c[2] + tilt[2] * hr]);
+      band(k, inBone(skull, A.head), 0.5, { width: 0.035 * s, thick: 0.01 * s, hex: team.primary, stitch: team.light, finish: LEATHER }, d);
+    }
+  };
+
+  const tail = (k: Sculpt): void => {
+    tailFan(k, { count: 7, len: 0.15 * s, wid: 0.05 * s, spread: 0.8, droop: 1.15, root: P.black, tip: P.slate, cell: CARD.tail, finish: { gloss: 0.3 } }, d);
+  };
+
+  return {
+    body, head, tail, skin,
+    // The flippers bend at the elbow to grip the gun; they flare out from the sides on a cast.
+    wing: (k, seg, _side, upper, lower) => flipper(k, seg, upper, lower, chord, fthick, d),
+    leg: (k, seg, side, upper, lower, ankle) => {
+      legsOf(leg, d)(k, seg, side, upper, lower, ankle);
+      if (seg === 'foot') web(k, ankle, leg.toes, P.foot, side, d);
+    },
+    gun: penguinGun(s, d),
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
+    legLen: A.legLen, legThick: leg.thick, wingLen: H * 0.34,
+    // Toboggan, Huddle, Ice Floe, Emperor's March.
+    casts: ['leap', 'raise', 'sweep', 'stomp'],
+    sway: 0.15, castTail: -0.3,
+  };
+}
+
+/** Ice Chipper: a short, wide blunderbuss, a frosted brass bell, a glass hopper of glowing ice chips, a heavy stock. */
+function penguinGun(s: number, d: Detail): SculptedSpec['gun'] {
+  const P = PENGUIN;
+  const L = 0.6 * s;
+  const r = 0.024 * s;
+  return {
+    main: [0, -0.07 * s, -L * 0.66],
+    support: [0, -0.034 * s, 0],
+    slideAt: [0, -0.006 * s, -L * 0.36],
+    travel: 0.035 * s,
+    build(k, part) {
+      if (part === 'slide') {
+        if (d.level >= 3) return;
+        lathe(k, [[r * 1.05, 0.05 * s], [r * 1.35, 0.04 * s], [r * 1.4, -0.04 * s], [r * 1.05, -0.05 * s]], { seg: d.n(12, 4), paint: GEAR.woodDark, finish: WOOD });
+        return;
+      }
+      if (part !== 'gun') return;
+      // The bell: a wide brass flare with a frosted rim and a pale glow deep inside.
+      lathe(k, [[0.085 * s, 0], [0.07 * s, -0.025 * s], [0.045 * s, -0.07 * s], [r * 1.1, -0.13 * s]], { seg: d.n(18, 5), paint: (t) => (t < 0.18 ? P.ice : GEAR.brass), finish: BRASS });
+      if (d.level >= 3) {
+        lathe(k, [[r * 1.15, -0.12 * s], [r, -L * 0.6], [0.045 * s, -L * 0.75], [0.04 * s, -L]], { seg: 4, paint: GEAR.woodDark });
+        return;
+      }
+      lathe(k, [[0.078 * s, -0.004 * s], [0.035 * s, -0.06 * s], [0.016 * s, -0.11 * s]], { seg: d.n(14, 5), paint: 0x1e2a33, finish: {} });
+      bead(k, [0, 0, -0.09 * s], 0.02 * s, P.ice, 0.9, d);
+      // Icicle teeth round the rim.
+      if (d.level < 2) {
+        for (let i = 0; i < 7; i++) {
+          const a = (i / 7) * Math.PI * 2 + 0.3;
+          lathe(k, [[0.008 * s, 0], [0, -0.03 * s]], { at: [Math.cos(a) * 0.08 * s, Math.sin(a) * 0.08 * s, -0.004 * s], rot: [Math.PI + Math.sin(a) * 0.3, Math.cos(a) * 0.3, 0], seg: 4, paint: P.ice, finish: { gloss: 0.9, glow: 0.2 } });
+        }
+      }
+      lathe(k, [[r * 1.15, -0.12 * s], [r * 1.05, -L * 0.42], [r * 1.3, -L * 0.54]], { seg: d.n(14, 5), paint: GEAR.iron, finish: { gloss: 0.6 } });
+      ring(k, [0, 0, -L * 0.26], r * 1.2, r * 0.25, d);
+      // The hopper: a frosted glass jar of ice chips on a brass collar (the ammo read).
+      lathe(k, [[0.02 * s, 0.075 * s], [0.04 * s, 0.065 * s], [0.045 * s, 0.0], [0.03 * s, -0.035 * s]], { at: [0, 0.07 * s, -L * 0.52], rot: [-Math.PI / 2, 0, 0], seg: d.n(12, 5), paint: P.frost, finish: { gloss: 0.9, glow: 0.35 } });
+      lathe(k, [[0.025 * s, 0.012 * s], [0.026 * s, -0.012 * s]], { at: [0, 0.145 * s, -L * 0.52], rot: [-Math.PI / 2, 0, 0], seg: d.n(10, 5), caps: true, paint: GEAR.brass, finish: BRASS });
+      if (d.level < 2) for (let i = 0; i < 4; i++) bead(k, [Math.sin(i * 2.1) * 0.018 * s, 0.075 * s + i * 0.012 * s, -L * 0.52 + Math.cos(i * 2.1) * 0.018 * s], 0.012 * s, P.ice, 0.6, d);
+      block(k, [0.06 * s, 0.07 * s, 0.14 * s], [0, -0.004 * s, -L * 0.62], GEAR.woodDark, WOOD, d);
+      carve(k, [[-L * 0.62, -0.035 * s], [-L * 0.68, -0.035 * s], [-L * 0.74, -0.13 * s], [-L * 0.66, -0.135 * s]], 0.036 * s, GEAR.wood, WOOD, d);
+      // A heavy stock with a brass butt plate.
+      carve(k, [[-L * 0.66, 0.025 * s], [-L * 0.97, 0.02 * s], [-L * 1.01, -0.1 * s], [-L * 0.95, -0.13 * s], [-L * 0.7, -0.05 * s]], 0.055 * s, GEAR.woodDark, WOOD, d);
+      if (d.level < 2) block(k, [0.058 * s, 0.13 * s, 0.012 * s], [0, -0.055 * s, -L * 1.0], GEAR.brass, BRASS, d, [0.1, 0, 0]);
+    },
+  };
+}
+
+export const C_BUILDS: Readonly<Record<string, SculptedBird>> = { owl, pelican, penguin };

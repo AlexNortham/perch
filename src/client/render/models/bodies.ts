@@ -406,6 +406,56 @@ export function pelicanBody(plan: BodyPlan): Body {
   };
 }
 
+// =================================================================================================================
+// Penguin: an upright skittle, broadest low at the belly, a deep keel, a thick neck into a smooth head, a sharp white
+// bib marked on the front, gold ear patches and throat, and stubby legs under the belly.
+
+export function penguinAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.6;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.74, 1.06 * s, 0.0], hip: [R * 0.36, plan.height * 0.08, 0.04 * s], tail: [0, 0.3 * s, -0.3 * s],
+    legLen: plan.height * 0.08, legThick: 0.035 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export const PENGUIN_HEAD: HeadShape = {
+  skull: [1.06, 1.06, 1.16], skullAt: [0, 0.02, -0.08], face: [0.68, 0.6, 0.62], faceAt: [0, -0.1, 0.45],
+  cheek: [0.5, 0.48, 0.55], cheekAt: [0.5, -0.32, 0.3], brow: [0.44, 0.17, 0.4], browAt: [0.5, 0.4, 0.5], browTilt: 0.35,
+  nape: [0.85, 0.72, 0.66], napeAt: [0, -0.5, -0.42], throat: [0.66, 0.5, 0.6], throatAt: [0, -0.72, 0.25],
+  eye: [0.6, 0.18, 0.58], socket: 0.22, bill: [0, -0.1, 1.0], billW: 0.24, billH: 0.2,
+};
+
+export function penguinBody(plan: BodyPlan): Body {
+  const a = penguinAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  const hr = a.hr;
+  return {
+    tris: [2300, 820, 260, 110],
+    ops: [
+      // The skittle: a tall egg, its belly low and full, tapering up through the shoulders into the neck.
+      ell([0, 0.78 * s, -0.04 * s], [0.35 * s, 0.56 * s, 0.31 * s], 'body', 'back', { k: 0.06 }),
+      ell([0, 0.48 * s, 0.04 * s], [0.38 * s, 0.32 * s, 0.36 * s], 'body', 'belly', { k: 0.1 }),
+      ...pair(ell([0.1 * s, 0.9 * s, 0.13 * s], [0.21 * s, 0.32 * s, 0.2 * s], 'body', 'breast', { k: 0.08, rot: [-0.08, 0.25, 0] })),
+      ell([0, 0.86 * s, 0.21 * s], [0.09 * s, 0.32 * s, 0.12 * s], 'body', 'breast', { k: 0.06 }),
+      ell([0, 1.12 * s, -0.1 * s], [0.25 * s, 0.14 * s, 0.2 * s], 'body', 'mantle', { k: 0.07, rot: [-0.15, 0, 0] }),
+      cone([0, 0.42 * s, -0.25 * s], [0, 0.26 * s, -0.33 * s], 0.12 * s, 0.06 * s, 'tail', 'coverts', { k: 0.06, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.18 * s, 1.07 * s, -0.06 * s], scapularR: [0.1 * s, 0.1 * s, 0.18 * s], root: 0.065 * s, inset: 0.08, drop: 0.05 }),
+      ...thighs(a, { r: 0.09 * s, rKnee: 0.06 * s, reach: 0.5, root: [0.14 * s, 0.3 * s, 0.03 * s] }),
+      // The head bone takes the neck from just above the shoulders, so the head owns the skin round its hitbox.
+      ...neck([[0, 1.08 * s, 0.02 * s], [0, 1.18 * s, 0.03 * s], [0, 1.27 * s, 0.03 * s], [0, hc[1] - 0.1 * s, 0.02 * s]], [0.26 * s, 0.22 * s, 0.19 * s, 0.16 * s], 'neck', 0.4),
+      ...head(hc, hr, PENGUIN_HEAD),
+      // Markings: the sharp white bib down the front, the gold throat above it, and a gold ear patch behind each eye
+      // that sweeps down the side of the neck.
+      ell([0, 0.7 * s, 0.22 * s], [0.29 * s, 0.6 * s, 0.3 * s], 'body', 'bib', { mark: true, soft: 0.006 }),
+      ell([0, 1.24 * s, 0.17 * s], [0.17 * s, 0.13 * s, 0.13 * s], 'body', 'gold', { mark: true, soft: 0.025 }),
+      ...pair(ell(at(hc, hr, [0.82, -0.55, -0.25]), mulS([0.36, 0.75, 0.42], hr), 'head', 'ear', { mark: true, rot: [0.5, 0, 0.15], soft: 0.01 })),
+    ],
+  };
+}
+
 /** The birds with implicit bodies, by hero id. */
 export const BODIES = {
   peacock: peacockBody,
@@ -413,6 +463,7 @@ export const BODIES = {
   cassowary: cassowaryBody,
   owl: owlBody,
   pelican: pelicanBody,
+  penguin: penguinBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */

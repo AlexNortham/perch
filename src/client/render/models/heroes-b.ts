@@ -160,37 +160,6 @@ const flamingo: Build = (plan, team) => {
   });
 };
 
-/** Penguin: black-and-white bowling pin with flippers held out, yellow ear patches and throat, short legs. */
-const penguin: Build = (plan, team) => {
-  const { H, R, hr, top } = dims(plan);
-  const legLen = H * 0.07;
-  const y0 = legLen * 0.9;
-  const span = top - y0;
-  const body = new Parts()
-    .ell(C.penguinBlack, [R * 1.0, span * 0.5, R * 0.95], [0, y0 + span * 0.5, 0])
-    .ell(C.penguinWhite, [R * 0.85, span * 0.45, R * 0.7], [0, y0 + span * 0.46, R * 0.32])
-    .ell(C.penguinGold, [R * 0.5, span * 0.08, R * 0.4], [0, top - span * 0.04, R * 0.55])
-    .ell(team.primary, [hr * 1.3, H * 0.025, hr * 1.3], [0, top - H * 0.005, 0]);
-  const head = headShell(new Parts(), C.penguinBlack, hr)
-    .ell(C.penguinGold, [hr * 0.25, hr * 0.4, hr * 0.5], [hr * 0.95, -hr * 0.05, -hr * 0.1])
-    .ell(C.penguinGold, [hr * 0.25, hr * 0.4, hr * 0.5], [-hr * 0.95, -hr * 0.05, -hr * 0.1])
-    .ell(C.penguinWhite, [hr * 0.7, hr * 0.5, hr * 0.5], [0, -hr * 0.35, hr * 0.5])
-    .cone(PLUMAGE.shrikeBill, hr * 0.35, hr * 1.1, [0, -hr * 0.1, hr * 0.85]);
-  eyes(head, hr, 0.2, 0.6);
-  const tail = new Parts().cone(C.penguinBlack, R * 0.3, H * 0.12, [0, 0, 0], [0.4, Math.PI, 0]);
-  return assemble(plan, {
-    body, head, tail,
-    // Flippers.
-    wing: { hex: C.penguinBlack, len: H * 0.34, chord: R * 0.9, thick: R * 0.1, trim: C.penguinWhite },
-    leg: { hex: C.penguinGold, len: legLen, thick: H * 0.04, foot: R * 0.55 },
-    gun: { length: 0.45, thick: 0.055 },
-    pivot: pivots({ sy: y0 + span * 0.62, legLen, R, legX: R * 0.4, tailY: y0 + span * 0.25, tailZ: -R * 0.9 }),
-    // Toboggan, Huddle, Ice Floe, Emperor's March.
-    casts: ['leap', 'raise', 'sweep', 'stomp'],
-    sway: 0.15, castTail: -0.3,
-  });
-};
-
 /** Puffin: squat and chunky, a huge triangular bill striped blue-grey, yellow and orange, three silver fish. */
 const puffin: Build = (plan, team) => {
   const { H, R, hc, hr, top } = dims(plan);
@@ -231,4 +200,4 @@ const puffin: Build = (plan, team) => {
   });
 };
 
-export const BIRD_BUILDS_B: Readonly<Record<string, Build>> = { secretarybird, starling, hornbill, flamingo, penguin, puffin };
+export const BIRD_BUILDS_B: Readonly<Record<string, Build>> = { secretarybird, starling, hornbill, flamingo, puffin };
