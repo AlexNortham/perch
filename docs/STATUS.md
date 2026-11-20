@@ -2411,7 +2411,7 @@ W5.5 contracts and Audio; 40fef0a: the bird second pass). Edits only `src/sim/ai
   renderCam=-93,24,-34,-93,0,-9`), looked at: Hedgerow at 2:00, both waves engaged, one bird firing tracers into the
   Dusk wave, another's spread shot landing below; the browser fast-forward matches Node (same roster, Dusk's Owl dead
   with a 3 s respawn).
-- `npm run check` steps (machine shared with parallel agents): typecheck PASS, lint PASS (0 warnings), test 1,061
+- `npm run check` steps on the merged tip (machine shared with parallel agents): typecheck PASS, lint PASS (0 warnings), test 1,096
   passed, 5 failed: exactly the five known Objectives cases (interactables 2, neutrals 3; pre-existing on integrate/w5,
   the integration engineer's). Then by hand: perf 8/9, the one failure the pre-existing objectives budget (0.3017 vs
   0.3); sim PASS (`--seed 1 --minutes 3`: 10,800 ticks, hash `41b6ba755b99c3c1`); e2e 61 passed, 1 skipped, 1 failed
