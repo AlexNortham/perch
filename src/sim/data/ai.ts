@@ -389,6 +389,10 @@ export const CAST = {
   predictRange: 0.8,
   /** Self-centred damage fires with the target this close. */
   novaM: 7,
+  /** Ally heals and shields go to the ally in combat with the lowest HP fraction under allyHp. */
+  allyHp: 0.7,
+  /** An ally cast waits this long for the crosshair to reach its ally, then gives up. */
+  assistS: 0.8,
   /** Self heals and shields fire below this HP fraction in combat. */
   healHp: 0.6,
   /** Raptor holds its ultimate for this many enemy heroes within holdRadiusM of the target, or a target this low. */

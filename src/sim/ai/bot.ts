@@ -128,6 +128,8 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
   const gunRange = Math.min(def.weapon.range, def.weapon.falloff.end + FIGHT.pastFalloffM);
   const sweet = Math.min(gunRange, Math.max(FIGHT.minSweetM, def.weapon.falloff.start || FIGHT.defaultRangeM));
   const uses = def.abilities.map((a) => useOf(a.targeting, [a.effects, a.selfEffects ?? []], a.affects?.teams === 'allies'));
+  /** Ally casts that heal or shield (else they buff): who needs them is judged by HP. */
+  const healing = def.abilities.map((a) => { const k = kindsIn([a.effects, a.selfEffects ?? []], new Set()); return k.has('heal') || k.has('shield'); });
   const apOrder = AP_PRIORITY[h.hero.heroId];
   const minCost = Math.min(...[...w.catalogue.values()].map((i) => i.cost));
   /** Tower anchors on the nav graph: a waypoint there counts as reached at the tower's edge. */
@@ -185,6 +187,8 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
   const swings = new Set<EntityId>();
   /** The stand chosen for the current base siege target (siegeStand). */
   let stand: { id: EntityId; p: Vec3 } | null = null;
+  /** An ally cast waiting for the crosshair to reach its ally (castOn). */
+  let assist: { button: number; ally: EntityId; until: Tick } | null = null;
   let lastEnemyNearAt: Tick = 0;
   /** Enemy heroes seen at the last decision (positions stay live). */
   let seen: HeroEntity[] = [];
@@ -907,8 +911,10 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       case 'nova':
         return foe !== null && gap <= CAST.novaM;
       case 'heal':
+        return hpFrac() < CAST.healHp && h.health.inCombatUntil > now;
       case 'ally':
-        return hpFrac() < CAST.healHp && h.health.inCombatUntil > now && (use === 'heal' || selfFallback);
+        // Ally casts go through `beneficiary` (cast below); this is only the self case for callers without one.
+        return selfFallback && hpFrac() < CAST.healHp && h.health.inCombatUntil > now;
       case 'mobility':
         return (mode === 'retreat' && foe !== null && gap <= RETREAT.escapeM) ||
           (mode === 'fight' && gap > sweet && gap <= range + sweet && hpFrac() > CAST.healHp);
@@ -916,8 +922,48 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
         return mode === 'fight' && foe !== null && gap <= gunRange;
     }
   }
+  /**
+   * Who an ally cast should land on (GDD §11.2 supports): for heals and shields, the ally hero (self included when the
+   * kit falls back to the caster) in combat, in range and in sight, with the lowest HP fraction under CAST.allyHp; for
+   * other buffs, the ally in combat nearest an enemy hero. Null when nobody needs it.
+   */
+  function beneficiary(range: number, canSelf: boolean, heals: boolean): HeroEntity | null {
+    const now = clock.tick;
+    let best: HeroEntity | null = null;
+    let bestV = Infinity;
+    for (const a of ctx.store.list('hero')) {
+      if (a.team !== team || !alive(a) || a.health.inCombatUntil <= now) continue;
+      if (a.id === h.id ? !canSelf : flat(a.pos, h.pos) > range || !clear(a, aimPoint(a, false))) continue;
+      let v: number;
+      if (heals) {
+        v = fraction(a);
+        if (v >= CAST.allyHp) continue;
+      } else {
+        v = Infinity;
+        for (const e of seen) if (alive(e)) v = Math.min(v, flat(e.pos, a.pos));
+        if (v > FIGHT.engageM) continue;
+      }
+      if (v < bestV || (v === bestV && best !== null && a.id < best.id)) {
+        bestV = v;
+        best = a;
+      }
+    }
+    return best;
+  }
+
+  /** Press an ability or item key now, or turn onto the ally it is for and press it once the crosshair is there. */
+  function castOn(button: number, ally: HeroEntity | null, now: Tick): void {
+    castAt = now + ticks(CAST.everyS);
+    if (ally && ally.id !== h.id) {
+      assist = { button, ally: ally.id, until: now + ticks(CAST.assistS) };
+      return;
+    }
+    cmd.held |= button;
+    cmd.pressed |= button;
+  }
+
   function cast(now: Tick, foe: HeroEntity | null): void {
-    if (now < castAt || h.abilities.casting !== null || h.stats.conditions.has('silenced') || h.motor.updraft !== null) return;
+    if (now < castAt || assist || h.abilities.casting !== null || h.stats.conditions.has('silenced') || h.motor.updraft !== null) return;
     const onTarget = foe !== null && aim.target === foe.id && now >= aim.fireFrom;
     const last = ABILITY_BUTTONS.length - 1;
     for (let i = 0; i < ABILITY_BUTTONS.length; i++) {
@@ -925,7 +971,15 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       const a = def.abilities[i]!;
       if (!s.unlocked || s.readyAt > now || s.charges <= 0) continue;
       const use = uses[i]!;
-      let go = wants(use, a.range > 0 ? a.range : CAST.defaultRangeM, foe, onTarget, a.selfFallback === true);
+      const range = a.range > 0 ? a.range : CAST.defaultRangeM;
+      if (use === 'ally') {
+        // "An ally in your sights, you if none": `selfFallback` or `affects.self` (the framework honours either).
+        const ally = beneficiary(range, a.selfFallback === true || a.affects?.self === true, healing[i]!);
+        if (!ally) continue;
+        castOn(ABILITY_BUTTONS[i]!, ally, now);
+        return;
+      }
+      let go = wants(use, range, foe, onTarget, a.selfFallback === true);
       // Raptor holds its ultimate for two or more heroes or a likely kill (GDD §11.2).
       if (go && i === last && d.abilities === 'chain' && foe && (use === 'enemy' || use === 'nova')) {
         const grouped = enemyHeroes().filter((e) => flat(e.pos, foe.pos) <= CAST.holdRadiusM).length;
@@ -944,10 +998,16 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       const active = id ? w.catalogue.get(id)?.active : null;
       if (!active || !owned || owned.readyAt > now) continue;
       const use = useOf(active.targeting, active.effects, active.affects?.teams === 'allies');
-      if (!wants(use, active.range || CAST.defaultRangeM, foe, onTarget, active.selfFallback === true)) continue;
-      cmd.held |= ITEM_BUTTONS[i]!;
-      cmd.pressed |= ITEM_BUTTONS[i]!;
-      castAt = now + ticks(CAST.everyS);
+      const range = active.range || CAST.defaultRangeM;
+      if (use === 'ally') {
+        const k = kindsIn(active.effects, new Set());
+        const ally = beneficiary(range, active.selfFallback === true || active.affects?.self === true, k.has('heal') || k.has('shield'));
+        if (!ally) continue;
+        castOn(ITEM_BUTTONS[i]!, ally, now);
+        return;
+      }
+      if (!wants(use, range, foe, onTarget, active.selfFallback === true)) continue;
+      castOn(ITEM_BUTTONS[i]!, null, now);
       return;
     }
   }
@@ -1045,7 +1105,17 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
     if (claim && !alive(c)) claim = null;
     const foe = t && t.kind === 'hero' ? t : null;
     let moveTo = goal;
-    if (claim && c) {
+    const buddy = assist === null ? undefined : ctx.store.getKind(assist.ally, 'hero');
+    if (assist && (!alive(buddy) || now > assist.until)) assist = null;
+    if (assist && buddy) {
+      // An ally cast: put the crosshair on the ally, then press (the 6° 'unit' cone picks it).
+      if (aim.target !== buddy.id) acquire(aim, buddy.id, false, now, d, rng);
+      if (track(aim, h, body, aimPoint(buddy, false), 0, buddy.radius / Math.max(1, dist3(buddy.pos, h.pos)), now, d, rng)) {
+        cmd.held |= assist.button;
+        cmd.pressed |= assist.button;
+        assist = null;
+      }
+    } else if (claim && c) {
       // Melee pickups: walk onto it, look at it, swing (tap for light, hold for heavy).
       moveTo = { ...c.pos };
       if (aim.target !== c.id) acquire(aim, c.id, false, now, d, rng);
@@ -1075,7 +1145,7 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       }
     } else {
       aim.target = null;
-      if (mode === 'retreat') cast(now, null);
+      cast(now, null);
       // Top up the magazine between fights.
       if (h.weapon.ammo < h.stats.final.magazine * FIGHT.reloadBelow && !h.weapon.reloading) cmd.pressed |= Button.Reload;
     }
