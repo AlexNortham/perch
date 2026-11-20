@@ -26,6 +26,7 @@ import { dressProps } from './data/props';
 import { dressNature } from './data/nature';
 import { dressObjectives } from './data/objectives';
 import { dressInteriors } from './data/interiors';
+import { dressWalls } from './data/walls';
 
 export interface EnvironmentStats {
   /** Triangles per band (all cells), and in total. */
@@ -61,6 +62,7 @@ export function generate(map: MapData): World {
   dressProps(world);
   dressNature(world);
   dressObjectives(world);
+  dressWalls(world);
   return world;
 }
 

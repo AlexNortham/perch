@@ -10,7 +10,7 @@ import { hash2 } from '../world';
 import { EGG_BLUE, EGG_CREAM, FEATHER, IRON, TWIG } from './styles';
 import type { Paint } from '../mesher';
 
-const NEST_SIDES = 14;
+const NEST_SIDES = 12;
 const TWIG_SIDES = 3;
 
 /**
@@ -21,7 +21,7 @@ export function nest(g: Mesher, x: number, y: number, z: number, r: number, h: n
   g.at(x, y, z, hash2(seed, 1) * Math.PI, () => {
     g.paint(TWIG, seed).lathe([
       [r * 0.35, 0], [r * 0.75, h * 0.18], [r * 0.95, h * 0.5], [r * 1.02, h * 0.82], [r * 0.95, h], [r * 0.82, h * 1.02],
-      [r * 0.7, h * 0.88], [r * 0.62, h * 0.62], [r * 0.4, h * 0.42], [0.001, h * 0.38],
+      [r * 0.66, h * 0.75], [r * 0.4, h * 0.42], [0.001, h * 0.38],
     ], NEST_SIDES);
     // Straggling twigs: leaning outward and up past the rim, thin and bent once.
     for (let i = 0; i < twigs; i++) {

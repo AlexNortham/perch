@@ -35,9 +35,9 @@ export const BANDS: readonly Band[] = [0, 1, 2];
 
 /** Show distances (m) of bands 0 and 1 per quality; band 2 is always drawn. Low draws no band 0 beyond Low's reach. */
 export const BAND_REACH: Readonly<Record<Quality, { readonly near: number; readonly mid: number }>> = {
-  low: { near: 16, mid: 50 },
-  medium: { near: 30, mid: 80 },
-  high: { near: 45, mid: 110 },
+  low: { near: 16, mid: 45 },
+  medium: { near: 30, mid: 70 },
+  high: { near: 45, mid: 100 },
 };
 /** §11.4: 10 % hysteresis on every switch. */
 export const LOD_HYSTERESIS = 0.1;

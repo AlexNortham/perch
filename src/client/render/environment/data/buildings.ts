@@ -21,7 +21,7 @@ import { hash2 } from '../world';
 import type { Pass, World } from '../world';
 import { dressArchetype } from './archetypes';
 import { nest, perchRail, wallBracket } from './nest';
-import { GLASS, IRON, IVY, LANDING, LIT, POT, ROPE, SOOT, STYLES, TWIG } from './styles';
+import { GLASS, IRON, LANDING, LIT, POT, ROPE, SOOT, STYLES, TWIG } from './styles';
 import type { StyleKit } from './styles';
 
 /** 'covered': the stretch of a face a neighbouring building stands against (never dressed). */
@@ -346,7 +346,7 @@ function cornice(c: Ctx, f: Face): void {
       g2.paint(kit.timber, c.seed + 9).span(-W - 0.12, W + 0.12, top - 0.36, top, -0.02, 0.12, 0.02, '-z');
       const g1 = c.M(1, f.frame);
       g1.paint(kit.timber, c.seed + 10);
-      const n = Math.max(2, Math.round(f.width / 0.9));
+      const n = Math.max(2, Math.round(f.width / 1.4));
       for (let k = 0; k <= n; k++) {
         const u = -W + 0.2 + ((f.width - 0.4) * k) / n;
         g1.span(u - 0.05, u + 0.05, top - 0.62, top - 0.36, 0, 0.11, 0, '-z');
@@ -372,7 +372,7 @@ function cornice(c: Ctx, f: Face): void {
   g1.paint({ mat: 'verdigris', shade: 0.85 }, c.seed + 13).tube([new Vector3(-W - go, edgeY - 0.2, ov + 0.1), new Vector3(W + go, edgeY - 0.2, ov + 0.1)], 0.07, 6);
   if (kit.eaves === 'timber') {
     g1.paint(kit.timber, c.seed + 14);
-    const n = Math.max(2, Math.round(f.width / 0.6));
+    const n = Math.max(2, Math.round(f.width / 0.9));
     for (let k = 0; k <= n; k++) {
       const u = -W + (f.width * k) / n;
       g1.within(oriented(u, d.roof.eaves - (ov / 2) * tan - 0.12, ov / 2, 0, Math.atan(tan)), () => g1.box(0, 0, 0, 0.09, 0.14, ov / Math.cos(Math.atan(tan)) + 0.1, 0, ''));
@@ -471,17 +471,20 @@ function glazing(c: Ctx, f: Face, u: number, w: number, y0: number, y1: number, 
   const z = 0.015;
   g2.poly([new Vector3(u - w / 2, y0, z), new Vector3(u + w / 2, y0, z), new Vector3(u + w / 2, y1, z), new Vector3(u - w / 2, y1, z)], new Vector3(0, 0, 1),
     lit ? [[0, 0], [1, 0], [1, 1], [0, 1]] : undefined);
+  // The middle mullion and transom reach LOD1; the finer bars are near detail.
   const g1 = c.M(1, f.frame);
+  const g0 = c.M(0, f.frame);
   g1.paint(c.kit.frame, seed + 1);
+  g0.paint(c.kit.frame, seed + 1);
   const nu = Math.max(1, Math.round(w / 0.36));
   const nv = Math.max(1, Math.round((y1 - y0) / 0.36));
   for (let k = 1; k < nu; k++) {
     const x = u - w / 2 + (w * k) / nu;
-    g1.span(x - 0.018, x + 0.018, y0, y1, z, z + 0.035, 0, '-z');
+    (k === Math.floor(nu / 2) ? g1 : g0).span(x - 0.018, x + 0.018, y0, y1, z, z + 0.035, 0, '-z');
   }
   for (let k = 1; k < nv; k++) {
     const y = y0 + ((y1 - y0) * k) / nv;
-    g1.span(u - w / 2, u + w / 2, y - 0.018, y + 0.018, z, z + 0.035, 0, '-z');
+    (k === Math.floor(nv / 2) ? g1 : g0).span(u - w / 2, u + w / 2, y - 0.018, y + 0.018, z, z + 0.035, 0, '-z');
   }
 }
 
@@ -544,7 +547,7 @@ function fanlight(c: Ctx, f: Face, u: number, w: number, y: number, seed: number
     g1.within(oriented(u - Math.cos(a) * r * 0.5, y + Math.sin(a) * r * 0.5, 0.03, 0, 0, a), () => g1.box(0, 0, 0, r, 0.03, 0.03));
   }
   const rim: Vector3[] = [];
-  for (let k = 0; k <= 10; k++) rim.push(new Vector3(u - Math.cos((k / 10) * Math.PI) * (r + 0.05), y + Math.sin((k / 10) * Math.PI) * (r + 0.05), 0.04));
+  for (let k = 0; k <= 6; k++) rim.push(new Vector3(u - Math.cos((k / 6) * Math.PI) * (r + 0.05), y + Math.sin((k / 6) * Math.PI) * (r + 0.05), 0.04));
   g1.paint(c.kit.trim, seed).tube(rim, 0.06, 5);
 }
 
@@ -761,16 +764,32 @@ function bayFiller(c: Ctx, f: Face, u: number, bw: number, fy: number, ceil: num
 
 /** Decorative ivy: thin stems with 10–15 cm leaves, climbing from the plinth or hanging from above (§6.2). */
 export function ivyPatch(c: Ctx, f: Face, u: number, bw: number, y0: number, y1: number, seed: number): void {
+  // Wandering stems climbing from one root, fanning out as they rise; leaves (10–15 cm, in clusters) along them,
+  // thinning toward the tips so the patch has a ragged, grown edge.
   const g = c.M(2, f.frame, 'cutout');
-  g.paint(IVY, seed);
-  const cols = Math.max(2, Math.round(bw / 0.7));
-  for (let k = 0; k < cols; k++) {
-    const x = u - bw * 0.4 + (bw * 0.8 * k) / Math.max(1, cols - 1);
-    const top = y0 + (y1 - y0) * (0.55 + hash2(seed, k) * 0.45);
-    for (let y = y0 + 0.2; y < top; y += 0.42) {
-      const jx = (hash2(seed, k * 31 + y) - 0.5) * 0.3;
-      g.card2(new Vector3(x + jx, y + 0.25, 0.06 + hash2(seed, y) * 0.04), new Vector3(0.3, 0, 0.02), new Vector3(0.02, 0.28, 0.05));
+  const gs = c.M(1, f.frame);
+  gs.paint({ mat: 'bark', tint: 0x8a8060 }, seed);
+  const stems = Math.max(3, Math.round(bw / 0.6));
+  const root = new Vector3(u + (hash2(seed, 1) - 0.5) * bw * 0.3, y0 + 0.1, 0.04);
+  for (let k = 0; k < stems; k++) {
+    const spread = ((k + 0.5) / stems - 0.5) * bw * 0.9;
+    const top = y0 + (y1 - y0) * (0.5 + hash2(seed, k) * 0.5);
+    const pts: Vector3[] = [];
+    for (let y = root.y; y <= top; y += 0.5) {
+      const t = (y - root.y) / Math.max(0.5, top - root.y);
+      pts.push(new Vector3(root.x + spread * Math.sqrt(t) + Math.sin(y * 2.3 + k) * 0.12, y, 0.045));
     }
+    if (pts.length > 1) gs.tube(pts, 0.012, 3);
+    pts.forEach((p, j) => {
+      const t = j / Math.max(1, pts.length - 1);
+      const n = t > 0.8 ? 1 : 2;
+      for (let q = 0; q < n; q++) {
+        const s = 0.13 + hash2(seed, k * 40 + j * 3 + q) * 0.06;
+        const a = (hash2(seed, k * 50 + j + q) - 0.5) * 2.2;
+        g.paint({ mat: 'leafCard', tint: hash2(seed, k + j * 7 + q) < 0.5 ? 0x6f8f62 : 0x82a070 }, seed + k * 13 + j);
+        g.card2(new Vector3(p.x + (q ? 0.14 : -0.12), p.y + 0.15 * q, 0.07 + q * 0.02), new Vector3(Math.cos(a) * s, Math.sin(a) * s, 0.02), new Vector3(-Math.sin(a) * s, Math.cos(a) * s, 0.04));
+      }
+    });
   }
 }
 
@@ -803,7 +822,7 @@ export function hangingFeeder(g: Mesher, u: number, y: number, z: number, seed: 
 function medallion(c: Ctx, f: Face, u: number, y: number, seed: number): void {
   const g = c.M(1, f.frame);
   g.paint(c.kit.trim, seed).within(oriented(u, y, 0, 0, Math.PI / 2), () => {
-    g.lathe([[0.001, 0.08], [0.5, 0.08], [0.55, 0.04], [0.55, 0]], 16);
+    g.lathe([[0.001, 0.08], [0.5, 0.08], [0.55, 0.04], [0.55, 0]], 10);
   });
   // Body and two swept wings in relief.
   g.within(oriented(u, y, 0.1, 0, 0, 0), () => g.box(0, 0, 0, 0.16, 0.34, 0.06, 0.02));
@@ -1036,7 +1055,7 @@ function balcony(c: Ctx, v: BoxVolume): void {
     if (style >= 0.5) {
       // Fretwork: a row of carved feather leaves between the posts.
       g1.paint(c.kit.frame, seed + 5);
-      for (let u = u0 + 0.25; u < u1 - 0.2; u += 0.3) {
+      for (let u = u0 + 0.25; u < u1 - 0.2; u += 0.5) {
         g1.within(oriented(u, floor + 0.5, zf, 0, 0, 0.5), () => g1.box(0, 0, 0, 0.08, 0.5, 0.06));
       }
     }

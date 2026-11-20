@@ -56,13 +56,13 @@ function vine(w: World, bottom: Vec3, top: Vec3, out: Vec3, seed: number): void 
     for (const s of [-1, 1]) g.span(s * 0.5 - 0.06, s * 0.5 + 0.06, -0.1, h + 0.3, 0.04, 0.16, 0.015);
     for (let y = 0.6; y < h; y += 0.8) g.span(-0.5, 0.5, y - 0.03, y + 0.03, 0.07, 0.13);
     g.paint(ROPE, seed);
-    for (let y = 0.3; y < h; y += 0.5) for (const s of [-1, 1]) g.within(placed(s * 0.5, y, 0.1, 0), () => g.lathe([[0.085, -0.04], [0.085, 0.04]], 6));
-    // Stems: three twisting tubes, 8–12 cm.
+    for (let y = 0.3; y < h; y += 0.7) for (const s of [-1, 1]) g.within(placed(s * 0.5, y, 0.1, 0), () => g.lathe([[0.085, -0.05], [0.085, 0.05]], 5));
+    // Stems: two twisting tubes, 8–12 cm.
     g.paint({ mat: 'bark', tint: 0x9aa070 }, seed + 1);
-    for (let k = 0; k < 3; k++) {
+    for (let k = 0; k < 2; k++) {
       const pts: Vector3[] = [];
-      for (let y = -0.05; y <= h + 0.25; y += 0.35) pts.push(new Vector3(Math.sin(y * 1.7 + k * 2.1) * 0.32, y, 0.22 + Math.cos(y * 1.7 + k * 2.1) * 0.06));
-      g.tube(pts, 0.05 + k * 0.006, 6);
+      for (let y = -0.05; y <= h + 0.25; y += 0.6) pts.push(new Vector3(Math.sin(y * 1.3 + k * 3.1) * 0.32, y, 0.22 + Math.cos(y * 1.3 + k * 3.1) * 0.06));
+      g.tube(pts, 0.05 + k * 0.01, 5);
     }
   });
   const gc = m(w, 2, bottom, 'cutout');
@@ -78,11 +78,18 @@ function vine(w: World, bottom: Vec3, top: Vec3, out: Vec3, seed: number): void 
   const gb = m(w, 2, bottom);
   gb.within(placed(bottom.x, bottom.y, bottom.z, yaw), () => {
     gb.paint({ mat: 'plaster', tint: 0xfff4e0, shade: 1.15 }, seed);
-    for (let k = 0; k < Math.round(h * 4); k++) {
+    for (let k = 0; k < Math.round(h * 3); k++) {
       const y = 0.3 + hash2(seed, k) * h;
       const x = (hash2(seed, k + 50) - 0.5) * 1.0;
-      const z = 0.32 + hash2(seed, k + 90) * 0.12;
-      for (let p = 0; p < 4; p++) gb.within(oriented(x + Math.cos(p * 1.57) * 0.05, y + Math.sin(p * 1.57) * 0.05, z, 0, Math.PI / 2), () => gb.lathe([[0.001, 0], [0.06, 0.01], [0.001, 0.025]], 5));
+      const z = 0.36 + hash2(seed, k + 90) * 0.1;
+      // A five-petal star facing out, with a pale centre.
+      const petals: Vector3[] = [];
+      for (let p = 0; p < 10; p++) {
+        const a = (p / 10) * Math.PI * 2 + k;
+        const r = p % 2 ? 0.05 : 0.13;
+        petals.push(new Vector3(x + Math.cos(a) * r, y + Math.sin(a) * r, z));
+      }
+      gb.poly(petals, new Vector3(0, 0, 1));
     }
   });
 }
@@ -230,7 +237,9 @@ function runeStone(w: World, p: Vec3, yaw: number, seed: number): void {
     lanternPost(g1, p.x + side.x, p.y, p.z + side.z, 1.5, seed + s);
   }
   // The rune bridge: plank deck over the prim it stands on, posts and rope rails.
-  const bridge = w.map.prims.find((q) => q.shape === 'box' && q.material === 'wood' && Math.abs(q.centre.x - p.x) < 0.5 && Math.abs(q.centre.z - p.z) < 0.5 && q.size.x > 10);
+  const bi = w.map.prims.findIndex((q) => q.shape === 'box' && q.material === 'wood' && Math.abs(q.centre.x - p.x) < 0.5 && Math.abs(q.centre.z - p.z) < 0.5 && q.size.x > 10);
+  const bridge = w.map.prims[bi];
+  w.dressed.add(bi);
   if (bridge?.shape !== 'box') return;
   const top = bridge.centre.y + bridge.size.y / 2;
   const gb = m(w, 2, p, 'cast');
@@ -333,7 +342,9 @@ function rocHollow(w: World, c: Vec3, r: number, floorY: number): void {
     for (let j = 0; j < 5; j++) ge.box(x + (hash2(seed, k * 5 + j + 100) - 0.5) * 1.6, floorY + 0.06, z + (hash2(seed, k * 5 + j + 200) - 0.5) * 1.6, 0.12, 0.05, 0.09);
   }
   // The bridge over the pit: plank deck, its rails capped.
-  const bridge = w.map.prims.find((q) => q.shape === 'box' && q.material === 'wood' && Math.abs(q.centre.x - c.x) < 0.5 && Math.abs(q.centre.z - c.z) < 0.5 && q.size.z > 2 * r - 1);
+  const bi = w.map.prims.findIndex((q) => q.shape === 'box' && q.material === 'wood' && Math.abs(q.centre.x - c.x) < 0.5 && Math.abs(q.centre.z - c.z) < 0.5 && q.size.z > 2 * r - 1);
+  const bridge = w.map.prims[bi];
+  w.dressed.add(bi);
   if (bridge?.shape === 'box') {
     const top = bridge.centre.y + bridge.size.y / 2;
     const gb = m(w, 2, c);

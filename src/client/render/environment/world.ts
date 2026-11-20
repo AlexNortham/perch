@@ -20,7 +20,9 @@ export interface Bucket {
 
 const HASH_A = 12.9898;
 /** Outside band 0 only chamfers at least this big are modelled (plinths, courses, cornices). */
-const MIN_BEVEL_FAR = 0.025;
+const MIN_BEVEL_MID = 0.025;
+/** Always-drawn geometry keeps only big chamfers (hedges, chimney caps); long trims read their edge from texture. */
+const MIN_BEVEL_FAR = 0.05;
 const HASH_B = 78.233;
 const HASH_C = 43758.5453;
 
@@ -34,6 +36,8 @@ export class World {
   readonly buckets = new Map<string, Bucket>();
   /** Indices into map.prims that the environment re-skins completely; the blockout leaves them out. */
   readonly covered = new Set<number>();
+  /** Prims another generator has already dressed (left to the blockout, skipped by walls.ts). */
+  readonly dressed = new Set<number>();
 
   constructor(readonly map: MapData, readonly dressing: MapDressing) {}
 
@@ -49,7 +53,7 @@ export class World {
     }
     b.mesher.occlusion = groundOcclusion(ground);
     b.mesher.ambient = 1;
-    b.mesher.minBevel = band === 0 ? 0 : MIN_BEVEL_FAR;
+    b.mesher.minBevel = band === 0 ? 0 : band === 1 ? MIN_BEVEL_MID : MIN_BEVEL_FAR;
     b.mesher.frame.identity();
     return b.mesher;
   }
