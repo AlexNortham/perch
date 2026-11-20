@@ -2048,6 +2048,48 @@ look yaw; snapping to the yaw bent every Rampage off the crosshair point and mad
 hitbox (a pickup included) a sweep radius ahead, and stays 3.5 m when nothing is there (GDD §5.7 "up to 3.5 m").
 **Why:** pickups have no collider, so a hero 1 m from a rune, an Ember or the Egg lunged 3.5 m past it before the hit
 landed 0.6 s after the press, and every heavy claim whiffed.
+### D-ENV-001 · 20/11/2026 — The environment layer is three batched meshes with per-cell detail bands
+**Decision:** `src/client/render/environment/` writes every model straight into the material library's geometry
+contract (world-space position, normal, uv in tiles, colour, `matLayer`), merged per 32 m cell and detail band, and
+draws it through three `BatchedMesh`es: opaque, opaque that casts shadows, and alpha-tested cards. That is three draw
+calls for the whole layer (four with the shadow pass) with WEBGL_multi_draw. The batch frustum-culls each cell entry;
+before that, the layer hides bands by the camera's distance to the cell's bounds, with 10 % hysteresis: band 0 (trims,
+small props, interiors, ground cover) to 30 m at Medium, band 1 (frames, shutters, rails, medium props) to 70 m, band 2
+(skins, roofs, trees, cover, landmarks) always. High reaches 45 and 100 m; Low draws band 2 only (§11.6 has no trims at Low).
+**Why:** style guide §11.3 and §11.4 without per-piece meshes. Band 1 stops at 70 m, not 80, to keep street-level
+views inside the 450k map row.
+
+### D-ENV-002 · 20/11/2026 — The blockout draws the map without what the environment re-skins
+**Decision:** `buildEnvironment(map, quality)` returns `blockoutMap`: the map minus the prims the environment encloses
+or replaces (solid prop boxes, trunk and crown cylinders, clipped hedges, ivy curtains (`blocks: 'sight'`), shot-window
+fillers (`blocks: 'movement'`), yard walls and fences, outdoor steps, stone pillars and plinths), and minus Vine climbs,
+which are drawn as flowering vines in rope frames. Building shells stay in the blockout; facades are skins 3 cm proud of
+their outer faces, so interiors and reveals keep Rendering's painted prims. The renderer hands `blockoutMap` to
+`buildBlockout` (render/index.ts, the one registration point). Collision is untouched.
+**Why:** D-EP-047. A round barrel, a bark trunk or an ivy curtain cannot hide a flat box behind it, and drawing both
+doubles overdraw.
+
+### D-ENV-003 · 20/11/2026 — Model builders are authored art data
+**Decision:** the facade, roof, prop, nature, objective, interior and wall builders live in `environment/data/`, which
+the magic-number lint rule exempts (as the material recipes, D-RENDER-010); framework code outside `data/` uses named
+constants. Every model is seeded from its anchor, so screenshots are stable (§4.4; a unit test checks it).
+**Why:** a model is hundreds of authored dimensions; naming each would hide the model.
+
+### D-ENV-004 · 20/11/2026 — Where dressing goes past 0.25 m, and why it is safe
+**Decision:** dressing stays within 0.25 m of collision faces (sills, rails, copings, perch rails at 0.22 m, landing
+dressing over the collision boards) except: eaves overhang 0.5 m on steep roofs and 0.25 m on walkable gables; door
+hoods, hoist beams and awnings above 2.8 m; the Water Mill's wheel (1.2 m, on the river side); the Hollow-tree House's
+corner bark ridges near the ground; rooftop dressing, chimneys and nest crowns kept to parapet edges and ridge ends; and
+the Dovecote's open cap on four corner posts. None looks standable within jump reach.
+**Why:** §2.6 and the §5 intro, against the pieces the guide itself asks for (§5.4 eaves, §5.6 awnings, §5.7 roof
+dressing, §5.10 mill wheel) at sizes that read at 30 m.
+
+### D-ENV-005 · 20/11/2026 — Octagonal towers, Egg perches and the fountains
+**Decision:** the Dovecotes and Hollow-tree Houses are dressed on eight faces (their wall prims are octagons, not the
+square footprint): pigeonhole rows and an open cap on the Dovecote; bark corner ridges, limbs, deck boards and a rail
+on the Hollow-tree House. Where a fountain prop shares its spot with an Egg perch, the fountain is not built: the perch
+is a water ring round a stone pedestal and woven nest where the Egg rests, inside a ring of carved feathers.
+**Why:** a square skin round an octagon is a box; a fountain spout where the Egg sits would hide the Egg.
 ### D-RENDER-010 · 20/11/2026 — Materials are seeded texture arrays drawn by two shared materials
 **Decision:** the style guide's §7 materials are 37 layers of three `DataArrayTexture`s (sRGB albedo with card alpha,
 packed AO/roughness/metalness, normals on High), generated at load by pure typed-array code with integer hashing
@@ -2120,3 +2162,75 @@ URL, and registers with the UI's `setPortraitProvider` (`face()` returns an imag
 renderer runs). About 20 ms a portrait.
 **Why:** D-EP-041: portraits from the in-game models at match start, with no image files, so the single-file build
 works offline.
+### D-AI-001 · 20/11/2026 — Bots decide on an interval, aim and move every tick
+**Decision:** one `ai` system holds a closure per bot (`src/sim/ai/bot.ts`). Each bot scores the GDD §11.3 states every
+decision interval (0.5 / 0.33 / 0.2 s by difficulty, staggered by roster slot), in this order: Egg carrier, a tower
+targeting it, home retreat (HP threshold, healed to 90% at the Roost), tactical retreat (outnumbered by 2, fight score
+under 0.6), fight, orders (pings, defence calls), objectives, shop trip, push, farm, lane. Every tick it aims, walks or
+rides, fires, casts, swings at pickups, buys and spends AP, all through `PlayerCommand`. It reads only `canSee`
+entities, its own flock and public timers. Randomness comes from `ai/<heroId>` (behaviour) and `ai/<heroId>/shop`
+(purchases only, INTERFACES §14.1). `botsOf(ctx)` exposes the bots to tests and tools.
+**Why:** decisions are the expensive part (target scans, routes, raycasts), and a person re-thinks a few times a second
+but tracks every frame. Separate streams keep shopping independent of everything else, as the Build Lab needs.
+
+### D-AI-002 · 20/11/2026 — Navigation on the map's graph, patched round the towers
+**Decision:** bots path with A* on `MapData.nav` over the links their difficulty allows (walk, drop, jump, mantle; Raptor
+adds dash-jump). The graph is built from prims and doesn't know tower colliders, so links across the Patron's dais are
+dropped, two walk links round the dais per Roost are added (`NAV.extraLinks`, the siege proof's route), small towers are
+steered round on the way, and a waypoint at a tower anchor counts as reached at the tower's edge. Start and goal nodes
+are the nearest a chest-height ray reaches. A bot that makes no progress for 2.4 s stops trusting that link or start
+node until it respawns. Off-route moves (strafes, backing off) probe the ground 1.5 m ahead so fighters don't fall off
+the bridge into the Hollow.
+**Why:** the Level Designer's graph threads lanes through tower anchors and routes the Home Roost exit over the
+Patron. These patches keep bots moving now; the clean fix is in the graph (Interface request, W5 Bot AI log).
+
+### D-AI-003 · 20/11/2026 — Scored buying samples the listed items and only trades up
+**Decision:** candidates are the items a hero's `ItemScores.base` lists (all 64 in round 0), affordable and buyable
+(component discount, slots, four actives). `softmax(score / T)` uses an `exp` written in plain arithmetic (D-ARCH-021).
+With every slot full a bot sells its lowest-scoring item only for a higher-tier item scoring at least 0.2 more, so it
+never churns. Situational picks get +0.15 while the enemy flock fields an archetype named by the pick's condition
+(`data/ai` CONDITIONS). Round-0 `BUILDS` live in `src/sim/data/builds.ts` (Bot AI until W6). AP follows GDD §11.4
+exactly: the ultimate's tier when affordable, else T1s in the §11.5 priority, then T2s, then T3s.
+**Why:** listing candidates through `base` lets a Build Lab table narrow the choice (QA's two-candidate test), and
+trading up a tier with a margin is the smallest rule that ends churn while builds keep varying.
+
+### D-AI-004 · 20/11/2026 — Human-like aim
+**Decision:** on a new target a bot waits its seeded reaction time (±25%, halved for non-heroes), flicks at 2.5× its
+tracking rate with an overshoot of 1.5 deviations, then tracks through a first-order filter with the GDD §11.2 time
+constant. A wandering error is redrawn every 0.45 s (std. dev. = static error + error per m/s of crossing speed;
+vertical 0.6 of horizontal) and eased toward. Each `weapon.fired` raises its pitch 0.25° for tracking to pull back.
+It leads projectile guns by 50/80/100% of flight time, aims at the head in 0/25/60% of engagements, and fires when
+its crosshair is within 3° (plus the target's angular size) of where it means to aim.
+**Why:** the GDD gives the parameters; the error, flick and kick give them a human shape without sim shortcuts.
+
+### D-AI-005 · 20/11/2026 — Tower reflexes and siege windows
+**Decision:** a bot an enemy tower targets steps out of its reach at once (it re-decides that tick). It doesn't start
+or keep a hero fight inside an idle enemy tower's reach (except an Egg carrier, or a nearly dead hero for Raptor). A
+tower busy with the bot's own fledglings drops out of its fight score and becomes its top target (above pokes and the
+enemy wave). Bots stand in a tower's reach only while it is busy with their wave.
+**Why:** the first 25-minute trace (seed 1) had towers dealing 36,000 damage to heroes and scoring 26 of 45 hero
+deaths; with these rules a 40-minute trace (seed 2) had towers scoring 6 of 35. "Never stands in enemy tower range unless..." (§11.3) needs a reflex, not a decision interval.
+
+### D-AI-006 · 20/11/2026 — Bots pick implemented heroes; the AI budget is a quarter of the tick
+**Decision:** `pickBotHero` follows §11.6 (support, tank, gun carry, area control, then any archetype the flock lacks)
+among free heroes with `implemented: true`, falling back to any free hero. The AI's budget is 0.25 ms of the 1 ms tick
+with 12 bots, measured by `src/sim/ai/ai.perf.test.ts` with a second AI system on a copy of the context (own RNG streams
+and bus), so timing doesn't change the match.
+**Why:** hero select offers only implemented heroes, and a bot playing a stub kit isn't a fair opponent. A shadow
+system times the AI alone in a live fight without instrumenting core.
+
+### D-AI-007 · 20/11/2026 — Bots stand still on maps without lanes
+**Decision:** on a map with no lanes (the `arena` test map) the AI creates no bots, so bot heroes stand idle as the
+W1 stub did. Play, Practice and the sandbox never put bots on the arena; only tests do.
+**Why:** physics' `bench` (controller.test.ts) and the ability sim tests place an `'easy'` bot as a stationary target;
+once bots acted, two dash tests failed. Those tests belong to other owners; `'dummy'` is the controller for a target
+(Interface request), after which this rule can go.
+
+### D-AI-008 · 20/11/2026 — From 20:00 the flock groups on one lane; the base is sieged from the siege proof's stands
+**Decision:** from 20:00 (or with Rekindle) every bot plays its flock's push lane: the lane with the fewest enemy lane
+towers left, then the weakest of them (ties: Riverbank, Hedgerow, Pinewood). With that lane's towers down, bots siege
+the Shrines and then the Patron from the sightlines the siege proof uses (`data/ai` SIEGE, through the Riverbank gate),
+closed in to their gun's range. Hunter and Raptor parry a seen heavy wind-up within 6.5 m in front of them, 20% and
+60% of swings, decided once per swing (GDD §11.2).
+**Why:** pairs pushing their own lanes broke every Hawk (115 of 120 over 20 matches) but rarely a Heron (21), and no
+match ended by 60:00. Grouping is GDD §11.3's sieging rule and the cheapest lever on that stall.
