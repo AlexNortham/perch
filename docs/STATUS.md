@@ -2808,3 +2808,65 @@ convergence; duels; then the one-line switch of `src/sim/data/builds.ts` to `LEA
 - EP sees Peacock, Swift and Cassowary at about 3 from the player camera. One defect remains: aliased edge speckle on the feathers at distance (Batch A fixes it first).
 - 17 birds convert in three parallel batches (`docs/briefs/W5-birds-batch.md`).
 - The four B3 birds (Frigatebird, Cockatoo, Swan, Kiwi) are built straight on v2.1 in wave 6, with their kits.
+
+### W5 · Integration · 20/11/2026
+**Branch:** `worktree-agent-af2a17c35c0541194` from `integrate/w5` 93de0c5, with `integrate/w5` merged seven times (last
+at 1c7ad07: W5.5 contracts, Audio, Art, Rendering, Bot AI, Environment, sculpt v2.1, Build Lab A). Acting for the owners
+(D-EP-018); nothing changed in `src/sim/ai`, `src/client/render`, `src/client/audio`, `src/sim/core`, `src/client/app`.
+1. **Five Objectives tests.** Systems' combat now honours `breakable.by` (only melee hurts a Feeder, GDD §7.14) and
+   `damageFrom` (a sleeping camp ignores hits from beyond 35 m, §7.8), both right, so the tests hit by melee and from
+   inside 35 m. The map: the Roc test's hero stood inside the west ramp and fell through the floor; the Nests test
+   assumed 100 surface Twigs (the map has 84 surface, 12 cellar and 4 Hollow Nests, 16 of them Woven).
+2. **`match.spec` damage number.** Clicks after the shop land with the pointer locked and tilt the view about 10° down,
+   so the crosshair met the road; level shots pass over fledglings; the clash kills an idle Kingfisher in about 12 s.
+   `levelView()`, a firing leg up the lane at the Dusk Hawk, `turn()` for the sweep: 6 of 6 in parallel.
+3. **QA helper and test errors** (Objectives' and Items' lists): `heavyMelee` presses before holding; allies on Dawn;
+   the heavy full chime pressed a beat early; deltas from the hero's own stats (magazine as a share, D-OBJ-014); spoil
+   timed from `coolsAt`; `tough()` fills HP; `world({ regen })`; Blight read against current HP; Dirge as resist less
+   shred; Nestmother keeps regeneration; Nest walk at 3 m/s; cellars out of the Hollow count; toads in their room.
+4. **Suites on:** items, no-Interact, golden-egg, roc-embers, thickets, nests, runes, interactables (rune strength now
+   one match; the Roc woken at 0:30 through `rocAt`; both suites went from 385 s and 422 s to 60 s). **Still gated:**
+   `bot-shopping` (Bot AI's `BUILDS` round); the no-Interact bots-ride test and the scoreboard dead-bird spec (bots
+   that ride and fight; Bot AI has just landed, so QA can try them at the gate); three interactables tests on the real
+   map, each with its reason in a comment (Hide exposure from the map origin, the Lookout's 50 m line, the tunnel test's
+   start over the Hollow).
+5. **Gameplay gaps.** A heavy lunge stops short of what it would strike (it carried heroes past runes and Embers,
+   D-COMBAT-010); Embers land on the surface at their spot (§7.12's (10, −10, 0) is under the east ramp); Kestrel's
+   Eye is a `beyondM` trigger with a `triggerPct` repeat (rider gone); Rookery Dirge's shred renews instead of
+   doubling. Nest solidity, ivy, Springs, the Cellar Run, the Magpie Den, Burr Coat and Heartwood Bark pass the suites.
+6. **Framework adoption:** Drumroll's statMod is `COMBAT.fullSpinStatus`; Branch Swing and Tree Cling `surface: true`
+   and Rampage `steerDeg: 30`, read by abilities and physics (the value names are deleted); a steering dash turns with
+   the aim, not to it (D-SYS-017); `endOn: 'stun'` lands and Tree Cling ends on Jump and stun in data; Bristle is a
+   'damaged' trigger; Crescendo and Echo Chamber repeat the hit with `triggerPct`.
+7. **G23:** a 600-Seed purse, spendable and not earned: no net worth, no level (D-ECON-005).
+8. **Build:** `check.sh` runs unit tests on half the cores (at most 8) and e2e on a quarter (at most 4), overridable
+   (D-BUILD-010). The concession test built a view after each of 54,000 steps; it reads `sim.tick` (0.5 s). The
+   stale-wiki check reads every page and gets the generation timeout (9 s under load against the 5 s default).
+9. **Objectives budget:** rat bites renew one status instead of an 'independent' one per bite; a biting creature needs
+   no sight ray; Nests go through combat's broad phase (D-OBJ-015). Per-phase timers put each in the objectives' own
+   cost. Check runs read +0.251 to +0.289 ms against 0.3 with the "without" match at 0.32–0.40 ms/tick (0.31 quiet);
+   the bound is absolute, so it failed at +0.343 (without 0.43) and +0.7 to +0.9 (without 1.5–2.5, heavy load).
+10. `match.spec` asks for Lv 2 or higher. 11. Test targets use the contract's `'dummy'` controller (physics bench, arena
+   gun tests, the testkits, the sandbox's other heroes); no contract change, and D-AI-007's no-lanes rule can go.
+**Verified:** not three green runs in a row. On a moderately loaded machine (19–24 node processes) three runs passed
+every step but e2e (for example `PASS typecheck 13s · lint 7s · test 119s · perf 17s · sim 8s`), each e2e failing one
+load-sensitive test (practice-swap, `preview-regressions` before D-BUILD-011, the audio hero call). Typecheck, lint, the
+1,376 unit tests and the sim step passed in every run after the last fix; the objectives perf passed at +0.25 to +0.29 ms
+and failed whenever
+the "without" match ran above about 0.43 ms/tick (another agent's 8-parallel sim jobs and the Build Lab); e2e has
+failed every run since about 10:00 on the audio live-context test (below). The last runs, on 8ad5011: `PASS
+typecheck 24s · lint 13s · test 105s · FAIL perf 70s` (+0.318, without 0.564) and `PASS typecheck 35s · lint 20s ·
+test 135s · FAIL perf 82s` (+0.412, without 0.549).
+**Load-sensitive, not hidden:** `preview-regressions` "binds side buttons" chains four page loads (about 4 s each since
+Rendering) in 30 s: it passes alone (5 of 5) and timed out in two of three full runs, so it runs in the serial project
+with its timeouts unchanged until the renderer-ready hook round (D-BUILD-011). `practice-swap`'s click met a pause
+screen once under load, and the audio spec's hero-call test (1.4 s alone) timed out once at 30 s. Bot AI's new
+`ai.perf` test read 0.256 against 0.25 once under load. The objectives perf bound is absolute, so it follows machine
+load (item 9). **Not load:** since about 10:00 the audio spec's live-context test fails every time (peak 0.00018 against
+0.005, the same value each run), alone too, on `integrate/w5`'s own sources and on 3d8c8dc, where it passed this
+morning: the machine's real-time audio output, not code (Audio and QA to confirm).
+**Interface requests:** Architect: the per-tick `spatial.rebuild` is now the largest objectives cost (108 static Nests
+and Feeders, float Map keys); a static layer or integer keys would take most of it. Combat: `HealEffect.triggerPct`
+and `ShieldEffect.id` are not implemented yet (Gape and item shields keep their stand-ins). QA: the three gated
+interactables tests; the audio live-context test on this machine. Bot AI: drop D-AI-007's rule; switch on the
+bots-ride and dead-bird tests; `ai.perf` margin under load.
