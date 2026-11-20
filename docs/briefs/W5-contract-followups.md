@@ -264,3 +264,59 @@ otherwise.
 ### Bot AI
 
 - Nothing requested this round. `motor.updraftInReach` is never `undefined` now: `!== null` is enough.
+
+---
+
+## W6 · 21/11/2026 · from the wave 6 contract round
+
+From INTERFACES §16 and D-ARCH-029 to D-ARCH-032. Already done for the owner, in this round: combat's heal, shield and
+status events carry `ability` and `item` (D-ARCH-030); abilities folds `AbilityUpgrade.channelS`, and Cockatoo and Kiwi
+use it (D-ARCH-032). The W5.5 line "`TetherEffect.breakDistance` becomes a `Magnitude`" is dropped.
+
+### Rendering & VFX (client/render, client/vfx)
+
+- Move generation onto `deferWork(label, job)` (`src/client/app/stages.ts`) so `createRenderer` itself is cheap: the
+  material library's texture generation (about 1.8 s in a dev-server load profile) and the blockout batching (about
+  1.4 s) are the two biggest parts. Split long jobs into several, or hand them to a Web Worker (inline it with
+  `?worker&inline` so `build:single` runs from file://); a job that holds the main thread also holds the menu's clicks.
+- When `createRenderer` is cheap, tell the Architect: the app creates it at boot again (one line in `app.ts`), so the
+  menu gets its 3D backdrop at once, and only the queued jobs wait for `'world'`.
+- Portraits: the menu and hero select can open before the renderer exists; they show the placeholder portraits until
+  `setPortraitProvider` runs.
+
+### Environment Artist (client/render/environment)
+
+- The layer's generation (about 2.2 s in the browser, mostly `mesher.ts`) is the largest single job: queue it with
+  `deferWork`, ideally in a worker, and add it to the scene when it resolves.
+
+### Objectives (sim/world)
+
+- **Release 1 blocker (objectives budget):** with the spatial hash incremental (D-ARCH-029 took it to about 1.5 % of
+  the objectives cost), world's vision pass is about 80 % of it: in a CPU profile of the benchmark's objectives-on and
+  -off matches, `vision.ts` (inclusive) is +1,842 ms of a +2,163 ms difference in the step. The extra work is the awake
+  camp creatures: about 26,500 more `sees` calls over the run, each giving `clear()` (a Rapier ray with the target's
+  collider filtered out, about 11 µs each here) for every enemy hero within 40 m, and the dummy heroes stand 4 m from
+  every camp. Sleeping creatures, Nests, Feeders and pickups already skip early. Options, cheapest first: let a
+  creature that is awake be seen by any enemy hero within its camp's aggro range without a ray (as the `biting` rule
+  already does for the one it attacks); keep each creature's last ray result for `neutralStaggerTicks`; or raise the
+  neutral stagger for awake creatures. Thickets (+238 ms) and the Egg (+92 ms) are the next two.
+
+### Balance & Data (tools/buildlab)
+
+- Credit healing, shielding and crowd control per ability and item: `heal.applied.ability/item`, the new
+  `shield.applied` (amount as granted, with `absorbs`) and `status.applied.ability/item`.
+
+### QA and Build & Tooling (e2e, playwright.config.ts)
+
+- `__perch.ready` still means the full world (`'world'` stage), so no spec needs changing. A spec that needs only the
+  menu can wait on `__perch.stage` being `'menu'` or `'world'`, but until Rendering's jobs are chunked or in a worker the
+  main thread is busy right after `'menu'`, so clicks wait for the world anyway.
+- `preview-regressions` "binds side buttons" can leave the serial project once the time to `'world'` drops (D-BUILD-011);
+  it hasn't yet (8.9 s median here, under load).
+- `pickHero` (e2e/game.ts) waits 60 s for `__perch.hero`, but Play with `?t=600` or `?t=900` first fast-forwards the
+  12-bot match (36,000 or 54,000 ticks; 20–45 s here before D-ARCH-033's frame pause, 26–30 s after for `t=900`). The
+  hero is null only until that session replaces the menu's (D-ARCH-033). Scale the wait with `t` (for example wait on
+  `__perch.state.screen === 'match'` with a longer timeout first), or fast-forward less.
+- A page-load check worth adding: the `perch:menu` mark (performance marks `perch:boot`, `perch:sim`, `perch:menu`,
+  `perch:world`, and a `perch:job:<label>` measure per deferred job) within a few seconds of navigation on a production
+  build.

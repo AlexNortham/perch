@@ -29,6 +29,11 @@ export interface AbilityUpgrade {
   readonly charges?: number;
   /** Added to range. */
   readonly range?: number;
+  /**
+   * Seconds added to `channelS` (Sulphur Shriek T2, Burrow T1). Replaces Hero B3's `channelExtraS` value name
+   * (D-ARCH-032).
+   */
+  readonly channelS?: number;
   /** Appended to the cast's effects. */
   readonly effects?: readonly Effect[];
   /** Appended to the cast's selfEffects. */

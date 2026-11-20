@@ -120,6 +120,8 @@ export function createStatuses(ctx: SimContext, deps: StatusDeps): Statuses {
       source: inst.cause.source,
       stacks: inst.stacks,
       expiresAt: inst.expiresAt,
+      ability: inst.cause.ability,
+      item: inst.cause.item,
     });
     if (!inst.def.negative) deps.supported(inst.cause, r.e);
   };

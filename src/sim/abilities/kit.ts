@@ -6,12 +6,6 @@ import { EFFECT_OWNERS } from '../core/contracts';
 import type { AbilityDef, AreaEffect, Effect, EffectKind, HeroModule, Magnitude } from '../core/contracts';
 import { ROOT } from '../data/combat';
 
-/**
- * A named value a tier can raise to lengthen a channel (Sulphur Shriek T2, Burrow T1): seconds added to `channelS`.
- * Stands in for a typed `AbilityUpgrade.channelS` until the next contract round (D-HEROB-010).
- */
-export const CHANNEL_EXTRA_VALUE = 'channelExtraS';
-
 /** An ability with its first `tier` upgrades folded in. */
 export interface ResolvedAbility {
   readonly def: AbilityDef;
@@ -21,7 +15,7 @@ export interface ResolvedAbility {
   readonly cooldownS: number;
   readonly charges: number;
   readonly range: number;
-  /** The channel length: `channelS` plus the `channelExtraS` value the tiers added. */
+  /** The channel length: `channelS` plus what the tiers added (`AbilityUpgrade.channelS`, D-ARCH-032). */
   readonly channelS: number;
   /** Base effects, then each bought tier's extra effects. */
   readonly effects: readonly Effect[];
@@ -41,7 +35,7 @@ const MOVEMENT_KINDS: ReadonlySet<EffectKind> = new Set(['dash', 'teleport', 'mo
 /** Sums of the base numbers and the first `tier` upgrades, before any clamping (the validator checks them). */
 function fold(def: AbilityDef, tier: number) {
   const values: Record<string, number> = { ...def.values };
-  let { cooldownS, charges, range } = def;
+  let { cooldownS, charges, range, channelS } = def;
   const effects = [...def.effects];
   const selfEffects = [...(def.selfEffects ?? [])];
   for (const u of def.upgrades.slice(0, tier)) {
@@ -49,10 +43,11 @@ function fold(def: AbilityDef, tier: number) {
     cooldownS += u.cooldownS ?? 0;
     charges += u.charges ?? 0;
     range += u.range ?? 0;
+    channelS += u.channelS ?? 0;
     if (u.effects) effects.push(...u.effects);
     if (u.selfEffects) selfEffects.push(...u.selfEffects);
   }
-  return { values, cooldownS, charges, range, effects, selfEffects };
+  return { values, cooldownS, charges, range, channelS, effects, selfEffects };
 }
 
 export function resolveAbility(def: AbilityDef, tier: number): ResolvedAbility {
@@ -64,7 +59,7 @@ export function resolveAbility(def: AbilityDef, tier: number): ResolvedAbility {
     cooldownS: Math.max(0, f.cooldownS),
     charges: Math.max(1, f.charges),
     range: Math.max(0, f.range),
-    channelS: Math.max(0, def.channelS + (f.values[CHANNEL_EXTRA_VALUE] ?? 0)),
+    channelS: Math.max(0, f.channelS),
     effects: f.effects,
     selfEffects: f.selfEffects,
     movement: [...f.effects, ...f.selfEffects].some((e) => MOVEMENT_KINDS.has(e.kind)),
@@ -188,6 +183,7 @@ export function validateKit(module: HeroModule): string[] {
       if (f.cooldownS < 0) bad(`cooldown ${f.cooldownS} s at tier ${tier}`);
       if (!Number.isInteger(f.charges) || f.charges < 1) bad(`${f.charges} charges at tier ${tier}`);
       if (f.range < 0) bad(`range ${f.range} at tier ${tier}`);
+      if (f.channelS < 0) bad(`channel ${f.channelS} s at tier ${tier}`);
     }
     a.upgrades.forEach((u, i) => {
       for (const k of Object.keys(u.values ?? {})) if (!(k in a.values)) bad(`tier ${i + 1} adds to unknown value '${k}'`);

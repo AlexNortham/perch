@@ -196,7 +196,8 @@ export function createDamage(
     if (!(applied > 0)) return 0;
     e.health.hp += applied;
     noteTrainingActivity(e);
-    ctx.bus.emit({ type: 'heal.applied', source: cause?.source ?? null, target: e.id, amount: applied });
+    ctx.bus.emit({ type: 'heal.applied', source: cause?.source ?? null, target: e.id, amount: applied,
+      ability: cause?.ability ?? null, item: cause?.item ?? null });
     if (cause) supported(cause, e);
     return applied;
   };
@@ -536,7 +537,7 @@ export function createDamage(
     if (h.health.dead || !(amount > 0)) return;
     h.health.hp += amount;
     s.levelHeal -= amount;
-    ctx.bus.emit({ type: 'heal.applied', source: h.id, target: h.id, amount });
+    ctx.bus.emit({ type: 'heal.applied', source: h.id, target: h.id, amount, ability: null, item: null });
   };
 
   const request = (target: EntityId, cause: EffectCause, type: DamageType, base: number, point: Vec3): Req => {
@@ -643,6 +644,8 @@ export function createDamage(
         lastHit: ctx.clock.tick,
       });
       shieldTotals(e);
+      ctx.bus.emit({ type: 'shield.applied', source: cause.source, target: e.id, amount, absorbs: fx.absorbs,
+        ability: cause.ability, item: cause.item });
       supported(cause, e);
     },
     supported,

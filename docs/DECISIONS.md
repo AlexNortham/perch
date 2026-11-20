@@ -2407,6 +2407,78 @@ regenerable from the records alone.
 
 **Why:** the 108-match pilot settled every hero's core between rounds, but item ranks agreed only at ρ 0.71 between halves, and no pick was settled by its confidence intervals.
 
+### D-ARCH-029 · 21/11/2026 — An incremental spatial hash: an entity touches the cells only when it changes cells
+**Decision:** every entity keeps a stable slot in the spatial hash. The rebuild walks the store's entities beside the
+last rebuild's slots, both in ascending id order, and touches the cells only for an entity that spawned, despawned or
+now covers other cells; one that stayed in its cells (every tower, Nest and Feeder, sleeping camps, lying pickups,
+and most movers from one tick to the next, with 8 m cells) just has its centre and radius updated. Comparisons are by
+value, so nothing has to announce a change; input in another order is still right, only slower. Cell coordinates are
+clamped to ±16,383 so a packed key stays a small integer (V8 hashes it without boxing a double; an entity past the
+clamp lands in the edge cell and the exact sphere test still filters), and queries dedup with a per-slot stamp instead
+of a `Set`. No contract change. Query results are identical, so hashes are unchanged (`npm run sim -- --seed 1
+--minutes 3 --bots 12`: `c076003e96ac8a88` with the old hash and the new). A first version kept only structures as
+still entries; this replaces it.
+**Why:** the integration round measured the per-tick rebuild of 108 static Nests and Feeders as the largest objectives
+cost. On a quiet machine (the only agent running, integrate/w5 4600955 merged), the objectives budget test itself, old
+and new hash alternated three times: +0.200, +0.200, +0.211 ms → +0.142, +0.137, +0.142 ms against the 0.3 bound
+("without" 0.34–0.43 → 0.30–0.36 ms/tick). Measured three other ways: (1) the spatial work alone on a recorded
+objectives tick, old and new interleaved in one process: 86 → 18 µs with every objective live, 28 → 8 µs without (the
+rebuild alone 65.5 → 8.1 µs); (2) the benchmark's own setup with four matches (old and new hash, objectives on and
+off) stepped in interleaved 1 s chunks in one process: +0.161 → +0.102 and +0.161 → +0.108 ms a tick on the quiet
+machine (medians of 49 chunks); (3) a CPU profile of the objectives-on and -off matches: the spatial hash is now about 1.5 % of the
+objectives cost and world's vision pass about 80 % (follow-up). The budget test itself swings with machine load (its
+"without" match read 0.33 to 3.7 ms/tick during this round), so its absolute bound is only meaningful on a quiet run.
+
+### D-ARCH-030 · 21/11/2026 — Heals, shields and statuses carry the ability and item that caused them
+**Decision:** `heal.applied` and `status.applied` gain required `ability` and `item` (as `damage.applied` has), and a new
+`shield.applied` event reports each shield granted (source, target, full amount, absorbs, ability, item). Combat fills
+them from the effect's cause; level-up heals carry nulls. The three emit sites and the one new emit are in combat's
+files (mechanical, forced by the required fields), with a combat test that checks all three events.
+**Why:** the Build Lab (D-BAL-003, D-EP-043) credits each ability's value; healing, shielding and crowd control could
+only be credited to the source hero. The shield's value is reported as granted, not as absorbed: absorption by source
+would need the damage pipeline to split `absorbed` per shield, which no one has asked for yet.
+
+### D-ARCH-031 · 21/11/2026 — Staged start-up: the first screen before the world
+**Decision:** `window.__perch.stage` goes `'boot'` → `'menu'` → `'world'`. `'menu'`: the sim, UI, input and audio are up
+and the first screen (the menu, or a `?scene=` match's HUD) has drawn 3 frames over a sky-coloured page. Then the
+deferred work queue (`app/stages.ts`, `deferWork(label, job)`) runs: jobs in order, one per browser task, each awaited
+so a job can hand its work to a Web Worker (inlined with Vite's `?worker&inline` for `build:single`); each job's time is
+a `perch:job:<label>` performance measure beside the `perch:boot`, `perch:sim`, `perch:menu` and `perch:world` marks.
+`'world'`: the queue is empty and the full scene has drawn 3 frames. `__perch.ready` is true from `'world'`, so every
+spec and the shots harness wait for what they waited for before. `startApp` resolves at `'world'` and rejects if a job
+fails, so main.ts reports a renderer failure as before. Until Rendering and the Environment Artist queue their own
+generation, the app makes the whole renderer (and VFX) the first job; once `createRenderer` is cheap, it moves back to
+boot so the menu has its 3D backdrop at once.
+**Why:** all of the page load came before the first paint. Production build, headless Edge, median of 5 loads, with the
+old and the new `app.ts` on the same tree: on a quiet machine, first contentful paint 3.36 → 1.18 s, `'menu'` at 1.26 s,
+`'world'` 3.71 s against the old ready at 3.60 s (three more frames and a task yield); on a loaded machine, first paint
+10.7 → 1.5 s, `'menu'` 1.8 s, `'world'` 8.9 s against 11.7 s. The renderer job takes about 4.9 s (dev-server profile: environment layer 2.2 s, material generation 1.8 s,
+blockout batching 1.4 s); it still holds the main thread, so a click on the menu waits for it until that work is
+chunked or moved to a worker (follow-ups).
+
+### D-ARCH-032 · 21/11/2026 — Wave 6 contract requests
+**Decision:** INTERFACES §16. Accepted `AbilityUpgrade.channelS` (seconds added to the channel, replacing Hero B3's
+`channelExtraS` value name). B3 was merged during the round, so on the EP's word the Architect made the switch:
+abilities' `fold` adds it, the kit validator checks it at every tier, Cockatoo's Sulphur Shriek T2 and Kiwi's Burrow T1
+use it, and `CHANNEL_EXTRA_VALUE` is deleted (behaviour unchanged; both suites pass). Dropped
+`TetherEffect.breakDistance` as a Magnitude: Swan's Grace Link doesn't need it (Hero B3) and Hummingbird's hook covers
+Nectar Sip.
+**Why:** a typed field over a value name the framework reads (D-ARCH-027); a contract widening with no user is churn.
+
+### D-ARCH-033 · 21/11/2026 — `__perch.hero` waits on the match fast-forward; frames pause while a session loads
+**Decision:** the EP's stability blocker (`match.spec` and one `scoreboard-bar` case timing out on `__perch.hero`) is
+not a view bug. The local hero is in `view.entities` on every tick: in Node over a 900 s idle Kingfisher match (seed 1,
+11 bots, the e2e setup) and in the browser, polled every 100 ms through the switch and on each of the next 600 frames.
+`__perch.hero` is null while the previous session (the menu) is still current, and Play's 12-bot match is fast-forwarded
+before it replaces it: `?t=900` (match.spec) is 54,000 ticks and `?t=600` (scoreboard-bar) 36,000, which took 36–45 s
+and 20–27 s here with the screen still on hero select, so a busier machine passes pickHero's 60 s wait. The failure
+snapshot is taken after the switch, which is why it shows a live match. The app now draws nothing (no render, UI, audio
+or VFX update) while a session is being created or fast-forwarded, so the sim gets the main thread: `?t=900` went to
+26–30 s on the same loaded machine, and from 19.9–20.7 s to 18.4–18.8 s on a quiet one (old and new `app.ts`, two
+runs each, no frame without the hero after the switch in either). `src/sim/index.test.ts` pins the invariant: the local hero stays in its own view every
+tick through death and respawn.
+**Why:** a fix at the root has to fix the cause that was measured. The fast-forward length and the wait are QA's
+(follow-up); the sim's tick cost with 12 bots is Bot AI's and Systems'.
 ### D-AI-009 · 20/11/2026 — The flock commits to sieges, defends its base, and walks straight in
 **Decision:** sim/ai decides sieges per flock (`siege` in src/sim/ai/index.ts). The flock commits every bot to its push lane after a team wipe (enemy down to 2), for 90 s after its Roc kill, with Rekindle, from 20:00 with two more heroes up, or from 25:00 (the late lever, D-AI-010) when not outnumbered by two. A first version waited while the Roc was awake; the Roc died in 0 of 20 matches, so that gate only delayed sieges and was dropped. It falls back at two heroes up, or when outnumbered by two. The target runs from the push lane's outermost enemy tower to the open Shrine nearest its gate, then the open Patron. While a target is Warded the bots escort their wave in behind its front (GDD §7.6); once it isn't, they stand where a ray reaches it, outside the Shrine pulse, and shoot it. Committed to an open base, a bot fights only heroes within 15 m, shoots others in range on the way, ignores fledglings, pods and Nests, and goes home only below 15% HP. Defence at home: when a seen enemy hero is within 40 m of an open Shrine or Patron, or 3 enemy fledglings are within its 30 m, the 3 nearest bots answer, or one more than the heroes inside (§11.3 Defend). Structures are known targets (map knowledge); a shot still needs a clear line.
 **Why:** before this, 20 of 20 matches ran to 60:00. Bots reached the base rarely and left again, and they dropped any Shrine their flock couldn't currently see (most sit behind the base wall). Measured (4-seed runs): six bots with a 6v2 edge stood 115–150 m from the open target fighting in mid.

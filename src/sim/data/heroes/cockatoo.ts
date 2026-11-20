@@ -1,7 +1,7 @@
 /**
  * Cockatoo (GDD §9.22): spirit burst. Every number is the GDD's; "k×SP" scaling is the `song` part of a Magnitude.
  * Tiers only add (D-ABIL-006): a number a tier raises is a named value, an extra effect is appended by the tier,
- * and a channel a tier lengthens does it through the `channelExtraS` value (D-HEROB-010).
+ * and a channel a tier lengthens does it with `AbilityUpgrade.channelS` (D-HEROB-010, D-ARCH-032).
  */
 import type { AbilityDef, Effect, HeroDef, Magnitude, StatusDef, TargetFilter } from '../../core/contracts';
 import { SILENCE } from '../combat';
@@ -153,7 +153,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     channelS: 2,
     channelIntervalS: 0.5,
     hook: true, // resets the pulse count; the penalty ends with the channel
-    values: { radius: 15, duration: 2, channelExtraS: 0, shred: 0 },
+    values: { radius: 15, duration: 2, shred: 0 },
     effects: [apply(SHRIEKING, 'duration')],
     channelEffects: [
       {
@@ -168,7 +168,7 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ],
     upgrades: [
       { description: '+3 m radius (18 m)', values: { radius: 3 } },
-      { description: '+1 pulse (2.5 s channel)', values: { channelExtraS: 0.5, duration: 0.5 } },
+      { description: '+1 pulse (2.5 s channel)', channelS: 0.5, values: { duration: 0.5 } },
       { description: 'Enemies hit lose 20% Song resist for 6 s', values: { shred: 6 } },
     ],
   },

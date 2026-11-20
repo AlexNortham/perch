@@ -12,21 +12,25 @@ import { createInput } from '../input';
 import { createRenderer } from '../render';
 import { createUi } from '../ui';
 import { createVfx } from '../vfx';
-import type { AppActions, CameraPose, CameraPreset, Frame, HudIntent, Screen, Settings, UiAction } from './contracts';
+import type { AppActions, CameraPose, CameraPreset, Frame, HudIntent, Renderer, Screen, Settings, UiAction, Vfx } from './contracts';
 import { createFixedStep, entityById } from './loop';
 import { matchConfig, practiceConfig, sceneConfig } from './router';
 import type { SceneName, SceneRequest } from './router';
 import { loadSettings, saveSettings } from './settings';
+import { deferWork, runDeferred } from './stages';
+import type { LoadStage } from './stages';
 import { projectPoint, targetPing } from './targeting';
 
 declare global {
   interface Window {
     /**
-     * Set once the requested scene has rendered READY_FRAMES frames; the screenshot harness waits on it. `hero` is a
-     * read-only test hook for e2e: the local hero's position and how many shots it has fired (null with no hero).
-     * `state` is the read-only match state (D-ARCH-020): the screen, the clock, the result and every structure's health.
+     * `stage` (D-ARCH-031): 'boot', then 'menu' once the first screen has drawn READY_FRAMES frames and answers input,
+     * then 'world' once the deferred work (stages.ts) is done and the full scene has drawn READY_FRAMES frames. `ready`
+     * is true from 'world'; the screenshot harness waits on it. `hero` is a read-only test hook for e2e: the local
+     * hero's position and how many shots it has fired (null with no hero). `state` is the read-only match state
+     * (D-ARCH-020): the screen, the clock, the result and every structure's health.
      */
-    __perch?: { ready: boolean; scene: SceneName; hero: { pos: Vec3; tick: number; flags: number; shotsFired: number; meleePose: NonNullable<WeaponState['meleePose']> | null; lastMelee: EventOf<'melee'> | null; lastParry: EventOf<'parry'> | null } | null; state: PerchState };
+    __perch?: { ready: boolean; stage: LoadStage; scene: SceneName; hero: { pos: Vec3; tick: number; flags: number; shotsFired: number; meleePose: NonNullable<WeaponState['meleePose']> | null; lastMelee: EventOf<'melee'> | null; lastParry: EventOf<'parry'> | null } | null; state: PerchState };
   }
 }
 
@@ -42,6 +46,8 @@ export interface PerchState {
 }
 
 const READY_FRAMES = 3;
+/** The page behind the first screen until the renderer's canvas covers it: the sky's horizon haze. */
+const LOADING_SKY = 'linear-gradient(#8fb3c9, #d9c7a1)';
 const MS_PER_SECOND = 1000;
 /** Wall-clock time per frame the replay spends stepping the sim (about 20 frames a second while it fast-forwards). */
 const REPLAY_FRAME_MS = 45;
@@ -64,19 +70,24 @@ interface Session {
 /**
  * The app: boots the modules, runs the state machine (menu → heroSelect → match ⇄ pause → end → menu) and the
  * fixed-step loop (input → command → sim.step → drained events → vfx, ui, audio → render).
+ *
+ * Start-up is staged (D-ARCH-031): the sim, UI, input and audio come up first and the first screen draws over the
+ * page background; the renderer (scenery, models, portraits) is the first deferred job, so the menu shows before the
+ * world is generated. Resolves at 'world' and rejects if a deferred job fails, so main.ts reports either.
  */
 export async function startApp(root: HTMLElement, req: SceneRequest): Promise<void> {
+  performance.mark('perch:boot');
   let settings: Settings = loadSettings();
-  const quality = req.quality ?? settings.quality;
+  let quality = req.quality ?? settings.quality;
   const stage = document.createElement('div');
-  stage.style.cssText = 'position:absolute;inset:0';
+  stage.style.cssText = `position:absolute;inset:0;background:${LOADING_SKY}`;
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:absolute;inset:0;pointer-events:none';
   root.append(stage, overlay);
 
   const firstConfig = sceneConfig(req);
-  const renderer = createRenderer(stage, loadMap(firstConfig.map ?? 'main'), quality);
-  const vfx = createVfx(renderer);
+  let renderer: Renderer | null = null;
+  let vfx: Vfx | null = null;
   const audio = createAudio(settings);
   const camera = createCamera(settings);
   const step = createFixedStep();
@@ -91,6 +102,8 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   let pointerReleased = false;
   let openPanel: UiAction | null = null;
   let sessionRequest = 0;
+  /** Sessions being created or fast-forwarded. While any is, frames draw nothing so the sim gets the main thread. */
+  let loading = 0;
   const intents: HudIntent[] = [];
   /** Input drives the local hero: there is one and no replay agent drives it. */
   const playable = (): boolean => session.hero !== null && !session.drive;
@@ -137,7 +150,8 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
       input.setSettings(next);
       camera.setSettings(next);
       audio.setSettings(next);
-      renderer.setQuality(next.quality);
+      quality = next.quality;
+      renderer?.setQuality(next.quality);
     },
     previewHero: (hero) => audio.previewHero?.(hero),
   };
@@ -196,6 +210,14 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   document.addEventListener('mousedown', (e) => panelKey('Mouse' + e.button, true, e), true);
   document.addEventListener('mouseup', (e) => panelKey('Mouse' + e.button, false, e), true);
   session = await startSession(firstConfig, req.cam, req.t, req.scene === 'replay');
+  performance.mark('perch:sim');
+  // ponytail: the whole renderer is one deferred job until Rendering and the Environment Artist queue their own
+  // generation (deferWork); then createRenderer is cheap and moves back here, so the menu gets its 3D backdrop at once.
+  deferWork('renderer', () => {
+    renderer = createRenderer(stage, loadMap(session.curr.map), quality);
+    vfx = createVfx(renderer);
+    resize();
+  });
 
   function show(next: Screen, swap = false): void {
     swapping = swap;
@@ -234,7 +256,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   }
 
   function activateSession(): void {
-    renderer.setMap(loadMap(session.curr.map));
+    renderer?.setMap(loadMap(session.curr.map));
     step.reset();
     intents.length = 0;
     shotsFired = 0;
@@ -242,7 +264,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
     pose = null;
     sight = undefined;
     concedeNext = false;
-    vfx.reset?.();
+    vfx?.reset?.();
     audio.reset?.();
     const me = session.hero === null ? undefined : entityById(session.curr, session.hero);
     if (me) input.setLook({ yaw: me.yaw, pitch: me.pitch });
@@ -251,34 +273,64 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   }
 
   async function startSession(config: SimConfig, cam: CameraPreset, fastForwardS: number, replay = false): Promise<Session> {
-    const sim = await createSim(config);
-    const hero = sim.view.localHero;
-    const drive = replay && hero !== null ? siegeAgent(sim, hero) : null;
-    // A long fast-forward yields to the browser every few frames, so the page keeps answering clicks while it runs.
-    let sliceStart = performance.now();
-    for (let i = 0, n = Math.round(fastForwardS * TICK_RATE); i < n && !sim.isOver; i++) {
-      sim.step(drive && hero !== null ? [{ hero, command: drive() }] : undefined);
-      if (performance.now() - sliceStart > FAST_FORWARD_SLICE_MS) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        sliceStart = performance.now();
+    loading++;
+    try {
+      const sim = await createSim(config);
+      const hero = sim.view.localHero;
+      const drive = replay && hero !== null ? siegeAgent(sim, hero) : null;
+      // A long fast-forward yields to the browser every slice, so the page keeps answering clicks while it runs.
+      let sliceStart = performance.now();
+      for (let i = 0, n = Math.round(fastForwardS * TICK_RATE); i < n && !sim.isOver; i++) {
+        sim.step(drive && hero !== null ? [{ hero, command: drive() }] : undefined);
+        if (performance.now() - sliceStart > FAST_FORWARD_SLICE_MS) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          sliceStart = performance.now();
+        }
       }
+      sim.drainEvents();
+      const heroId = sim.view.heroes.find((h) => h.id === hero)?.heroId ?? null;
+      return { sim, seed: config.seed, hero, heroId, cam, drive, prev: sim.view, curr: sim.view };
+    } finally {
+      loading--;
     }
-    sim.drainEvents();
-    const heroId = sim.view.heroes.find((h) => h.id === hero)?.heroId ?? null;
-    return { sim, seed: config.seed, hero, heroId, cam, drive, prev: sim.view, curr: sim.view };
   }
 
-  const resize = (): void => renderer.resize(root.clientWidth, root.clientHeight);
+  function resize(): void {
+    renderer?.resize(root.clientWidth, root.clientHeight);
+  }
   window.addEventListener('resize', resize);
-  resize();
   activateSession();
   show(req.scene === 'menu' ? 'menu' : 'match');
 
   let frames = 0;
+  let loadStage: LoadStage = 'boot';
+  /** The frame count when the deferred queue emptied, or null while it runs. */
+  let deferredDoneAt: number | null = null;
+  let failed: (err: unknown) => void = () => {};
+  let worldReached: () => void = () => {};
+  const world = new Promise<void>((resolve, reject) => {
+    worldReached = resolve;
+    failed = reject;
+  });
+  /** Called once per frame after drawing: moves the stage on and starts the deferred work at 'menu'. */
+  const advanceStage = (): void => {
+    if (loadStage === 'boot' && frames >= READY_FRAMES) {
+      loadStage = 'menu';
+      performance.mark('perch:menu');
+      runDeferred().then(() => (deferredDoneAt = frames), failed);
+    } else if (loadStage === 'menu' && deferredDoneAt !== null && frames - deferredDoneAt >= READY_FRAMES) {
+      loadStage = 'world';
+      performance.mark('perch:world');
+      worldReached();
+    }
+  };
   window.__perch = {
     scene: req.scene,
+    get stage() {
+      return loadStage;
+    },
     get ready() {
-      return frames >= READY_FRAMES;
+      return loadStage === 'world';
     },
     get hero() {
       const local = session.hero === null ? undefined : entityById(session.curr, session.hero);
@@ -299,6 +351,10 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
   const frame = (now: number): void => {
     const dt = (now - last) / MS_PER_SECOND;
     last = now;
+    if (loading > 0) {
+      requestAnimationFrame(frame);
+      return;
+    }
     const s = session;
     const running = (screen === 'match' || screen === 'menu') && !s.sim.isOver;
     // A replay fast-forwards: as many ticks as fit in the frame budget, each with the agent's command.
@@ -324,7 +380,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
         if (e.type === 'parry' && e.hero === s.hero) lastParry = e;
         if (e.type === 'weapon.fired' && e.shooter === s.hero) shotsFired++;
       }
-      vfx.onEvents(events, s.curr);
+      vfx?.onEvents(events, s.curr);
       ui.onEvents(events, s.curr);
       audio.onEvents(events, s.curr);
     }
@@ -336,12 +392,14 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
       const length = Math.hypot(dx, dy, dz);
       sight = length ? { origin: { ...pose.position }, dir: { x: dx / length, y: dy / length, z: dz / length } } : undefined;
     } else sight = undefined;
-    renderer.render(f, pose);
-    vfx.update(f);
+    renderer?.render(f, pose);
+    vfx?.update(f);
     ui.update(f);
     audio.update(f, pose);
     frames++;
+    advanceStage();
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
+  await world;
 }

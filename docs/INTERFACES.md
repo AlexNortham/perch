@@ -12,7 +12,8 @@ Contents: [1 Contract files](#1-contract-files) · [2 Context services](#2-conte
 [9 Responsibility matrix](#9-responsibility-matrix) · [10 Change process](#10-change-process) ·
 [11 Wave 2 requests](#11-wave-2-requests) · [12 Wave 3 requests](#12-wave-3-requests-and-the-m2-contract-freeze-19112026) ·
 [13 Wave 4 requests](#13-wave-4-requests-w45-19112026) · [14 Stage 4 contracts](#14-stage-4-contracts-w45) ·
-[15 Wave 5a requests](#15-wave-5a-requests-w55-20112026)
+[15 Wave 5a requests](#15-wave-5a-requests-w55-20112026) ·
+[16 Wave 6 requests](#16-wave-6-requests-w6-21112026)
 
 ---
 
@@ -153,8 +154,9 @@ Facts only; one emitter each. The client may read any event from `sim.drainEvent
 | `melee` | attacker, heavy, target, parried | combat | economy (pods), world (Ember claim), items (meleeHit), client |
 | `parry` | hero, outcome (start, success, whiff), attacker | combat | client, ai |
 | `damage.applied` | source, sourceTeam, target, targetKind, amount, absorbed, damageType, via, ability, item, beakShot, weakPoint, proc, lethal, pos | combat (damage phase) | combat (assists), items (triggers), world (Hawk and fledgling aggro), ai, telemetry, client (numbers, hit markers) |
-| `heal.applied` | source, target, amount | combat | combat (assists), telemetry, client |
-| `status.applied` / `status.ended` | target, status, source, stacks, expiresAt / reason | combat | ai, client |
+| `heal.applied` | source, target, amount, ability, item (D-ARCH-030) | combat | combat (assists), telemetry, Build Lab, client |
+| `shield.applied` | source, target, amount (full size when granted), absorbs, ability, item (D-ARCH-030) | combat | Build Lab, client |
+| `status.applied` / `status.ended` | target, status, source, stacks, expiresAt, ability, item (D-ARCH-030) / reason | combat | ai, Build Lab, client |
 | `entity.died` | victim, victimKind, victimTeam, victimType, killer, creditHero, assisters (damage, or heal/shield/buff of one who did, 12 s), via, pos | combat (damage phase) | economy (bounties, comeback, last-hit share, pods, objective payouts), world (structures, gates, flex-slot sources, Roc, Ember drop), items and abilities (kill/assist triggers), ai, telemetry, client (kill feed) |
 | `hero.respawned` | hero, pos | combat | physics (re-seat controller), ai, client |
 | `movement` | hero, action (jump, dashJump, dash, land, slide, mantle, updraftOn/Off/Boost, climbOn/Off, displaced, wallSlam, teleport), yaw when the move turned the hero | physics | client (FOV kick, sounds, dust; app adopts `yaw`), abilities (`displaced` ends channels), ai (adopts `yaw`) |
@@ -235,6 +237,7 @@ Defined in [`src/client/app/contracts.ts`](../src/client/app/contracts.ts); src/
 | `Ui` (`createUi(root, actions)`) | client/ui (UI/HUD) | `show(screen, context)`, `onEvents`, `update(frame)`, `onUiAction`; calls back `AppActions` (play, startMatch, toMenu, resume, concede, saveSettings) |
 | `AudioOut` (`createAudio(settings)`) | client/audio (Audio) | `onEvents(events, view)`, `update(frame, listenerPose)`, `resume()` on first gesture |
 | `Settings` store | client/app (Architect) | `loadSettings`/`saveSettings` (localStorage wrapped in try/catch); default bindings come from client/input |
+| `deferWork(label, job)` ([stages.ts](../src/client/app/stages.ts)) | client/app (Architect); any client module may call it | Work that can wait for the first screen (scenery, model and portrait bakes, Web Worker jobs): runs after `__perch.stage` reaches `'menu'`, in order, one per browser task, each awaited; `'world'` (and `__perch.ready`) follows when the queue is empty and the scene has drawn (D-ARCH-031) |
 
 `Frame` = `{ prev, curr: SimView, alpha, dt }`; interpolate with `app/loop.ts interpolate(frame, entityView)`.
 
@@ -587,3 +590,19 @@ theirs and the integration round's. Owner follow-ups: [briefs/W5-contract-follow
 | 19 | Objectives | Economy's neutral Seed constants duplicate `data/world.ts` | A | One table per object: `CREATURES`, `FEEDERS`, `NESTS`, `ROC` and `EMBERS` in `data/world.ts` keep every number, Seeds included; economy imports them and drops its copies (owner follow-up) |
 
 Counts: 19 rows; 12 accepted, 1 modified, 5 satisfied, 1 rejected.
+
+## 16. Wave 6 requests (W6, 21/11/2026)
+
+The W6 brief's items and every request to the Architect in the newest STATUS entries (the W5 integration round, the
+Build Lab, Rendering and the EP's open items, Hero B3; Bot AI and the bird batches raised none). A = accepted, D =
+dropped. Owner follow-ups: [briefs/W5-contract-followups.md](briefs/W5-contract-followups.md) § W6.
+
+| # | From | Request | Decision | Landed as / why |
+|---|---|---|---|---|
+| 1 | Brief, integration | Insert the 108 static Nests and Feeders into the spatial hash once; integer keys | A | Core only (D-ARCH-029): an incremental hash. Every entity keeps a slot and touches the cells only when it spawns, despawns or covers other cells, so static Nests and Feeders (and anything standing still) cost a comparison a tick; cell keys pack into a small integer with clamped cells; queries dedup with a per-slot stamp instead of a Set. No contract change; identical query results and hashes |
+| 2 | Brief, Rendering, EP | A renderer-ready hook: a staged `__perch.ready`; generation later or in Web Workers | A | `__perch.stage` `'boot'` → `'menu'` → `'world'`; `__perch.ready` from `'world'`, so the suites and shots keep their meaning; `deferWork(label, job)` in `app/stages.ts` (§8). The app defers the whole renderer until Rendering queues its own generation (D-ARCH-031) |
+| 3 | Brief, Build Lab (D-BAL-003) | An ability id on heals, shields and statuses | A | Required `ability` and `item` on `heal.applied` and `status.applied` (as on `damage.applied`), and a new `shield.applied` event (source, target, full amount, absorbs, ability, item). Combat fills them from the cause (D-ARCH-030) |
+| 4 | Brief, Hero A (§15 row 11) | `TetherEffect.breakDistance` as a tiered value | D | Hero B3: Swan's Grace Link doesn't need it, and Hummingbird's hook covers Nectar Sip. It stays a number (D-ARCH-032) |
+| 5 | Hero B3 (D-HEROB-010) | `AbilityUpgrade.channelS` instead of the `channelExtraS` value name | A | `AbilityUpgrade.channelS?: number`, seconds added to `channelS`. After the B3 merge (EP's request): abilities' `fold` adds it, the validator checks it per tier, Sulphur Shriek T2 and Burrow T1 use it, and `CHANNEL_EXTRA_VALUE` is gone (D-ARCH-032) |
+
+Counts: 5 rows; 4 accepted, 1 dropped.

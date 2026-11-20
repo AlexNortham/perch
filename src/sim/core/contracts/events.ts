@@ -159,15 +159,32 @@ export interface DamageAppliedEvent {
   readonly pos: Vec3;
 }
 
-/** Emitter: sim/combat. Consumers: telemetry, client (heal numbers). */
+/** Emitter: sim/combat. Consumers: telemetry, the Build Lab (per-ability healing), client (heal numbers). */
 export interface HealAppliedEvent {
   readonly type: 'heal.applied';
   readonly source: EntityId | null;
   readonly target: EntityId;
   readonly amount: number;
+  /** The heal's cause, as on `damage.applied` (D-ARCH-030); both null for level-up heals and other uncaused ones. */
+  readonly ability: AbilityId | null;
+  readonly item: ItemId | null;
 }
 
-/** Emitter: sim/combat. Consumers: client (status icons, VFX), sim/ai. */
+/**
+ * A shield was put on an entity (GDD §5.10): `amount` is its full size when granted, before anything drains it.
+ * Emitter: sim/combat. Consumers: the Build Lab (per-ability shielding, D-ARCH-030), client.
+ */
+export interface ShieldAppliedEvent {
+  readonly type: 'shield.applied';
+  readonly source: EntityId | null;
+  readonly target: EntityId;
+  readonly amount: number;
+  readonly absorbs: 'talon' | 'song' | 'barrier';
+  readonly ability: AbilityId | null;
+  readonly item: ItemId | null;
+}
+
+/** Emitter: sim/combat. Consumers: client (status icons, VFX), sim/ai, the Build Lab (crowd control by ability). */
 export interface StatusAppliedEvent {
   readonly type: 'status.applied';
   readonly target: EntityId;
@@ -175,6 +192,9 @@ export interface StatusAppliedEvent {
   readonly source: EntityId | null;
   readonly stacks: number;
   readonly expiresAt: Tick;
+  /** From the status's cause (D-ARCH-030). */
+  readonly ability: AbilityId | null;
+  readonly item: ItemId | null;
 }
 
 /** Emitter: sim/combat. Consumers: client. */
@@ -499,6 +519,7 @@ export type SimEvent =
   | ParryEvent
   | DamageAppliedEvent
   | HealAppliedEvent
+  | ShieldAppliedEvent
   | StatusAppliedEvent
   | StatusEndedEvent
   | EntityDiedEvent
