@@ -47,7 +47,8 @@ export function cassowary(plan: BodyPlan, team: TeamColours, d: Detail): Sculpte
   const C = CASSO;
   const legLen = A.legLen;
   const HAIR = { tile: TILE.wood, size: 0.22, iri: 0.3, gloss: 0.12 } as const;
-  const BARE = { gloss: 0.35 } as const;
+  // Bare skin: pebbled (the leather tile, world-aligned), so the neck and head read as skin up close.
+  const BARE = { gloss: 0.35, tile: TILE.leather, size: 0.05 } as const;
   const field = bodyField('cassowary', plan);
   const skin = skinFor('cassowary', plan, CASSOWARY_SKIN, d.level, {
     back: { paint: C.black, finish: HAIR },
@@ -67,7 +68,9 @@ export function cassowary(plan: BodyPlan, team: TeamColours, d: Detail): Sculpte
     face: { paint: (p) => mix(C.blue, C.teal, Math.min(1, Math.abs(p.x) / (0.12 * s))), finish: BARE },
     cheek: { paint: C.teal, finish: BARE },
     brow: { paint: shade(C.blue, 0.85), finish: BARE },
-    nape: { paint: (p) => mix(C.blue, C.nape, Math.min(0.85, Math.max(0, (A.head[1] - 0.04 * s - p.y) / (0.2 * s)))), finish: BARE },
+    // The red-purple nape climbs the back of the skull: from behind the head is blue over red, not a blue ball.
+    nape: { paint: (p) => mix(C.blue, C.nape, Math.min(0.9, Math.max(0, (A.head[1] + 0.06 * s - p.y) / (0.16 * s) - p.z / (0.3 * s)))), finish: BARE },
+    folds: { paint: shade(C.nape, 0.9), finish: { gloss: 0.4 } },
     throat: { paint: C.blue, finish: BARE },
     bill: { paint: C.bill, finish: { gloss: 0.5 } },
     socket: { paint: shade(C.blue, 0.7), finish: BARE },

@@ -43,6 +43,8 @@ export interface Op {
   readonly soft?: number;
   /** How wide its skin weight blends into its neighbours (m). */
   readonly boneSoft?: number;
+  /** Which way its feathers point, root to tip (model frame); default SDF.flow, down and back. */
+  readonly flow?: V3;
 }
 
 export interface Body {
@@ -60,6 +62,8 @@ export const SDF = {
   boneSoft: 0.035,
   /** A marking's weight inside its volume against an ordinary surface's 1. */
   mark: 24,
+  /** Feathers lie down and back unless a mass says otherwise (normalised in use). */
+  flow: [0, -0.55, -1] as V3,
 } as const;
 
 /** One op, compiled for fast evaluation. */
@@ -129,6 +133,8 @@ function shapeDist(c: Compiled, px: number, py: number, pz: number): number {
 export interface Owners {
   readonly bones: readonly (readonly [BoneName, number])[];
   readonly regions: readonly (readonly [string, number])[];
+  /** Which way the feathers point here: the masses' flows blended by nearness (not yet laid on the surface). */
+  readonly flow: V3;
 }
 
 /** A body's field: distance, gradient and owners, plus probes that find the surface for gear and feathers. */
@@ -207,10 +213,11 @@ export class Field {
     return [x, y, z];
   }
 
-  /** Bone and region weights at a point on (or near) the surface. */
+  /** Bone and region weights at a point on (or near) the surface, and the way its feathers point (unnormalised). */
   owners(px: number, py: number, pz: number, keep = 4): Owners {
     const bones = new Map<BoneName, number>();
     const regions = new Map<string, number>();
+    const flow: [number, number, number] = [0, 0, 0];
     for (const c of this.ops) {
       const di = shapeDist(c, px, py, pz);
       const soft = c.op.soft ?? SDF.soft;
@@ -225,8 +232,11 @@ export class Field {
       if (c.op.sub) continue;
       const wb = Math.exp(-a / (c.op.boneSoft ?? SDF.boneSoft));
       if (wb > 1e-4) bones.set(c.op.bone, (bones.get(c.op.bone) ?? 0) + wb);
+      const f = c.op.flow ?? SDF.flow;
+      const l = Math.hypot(f[0], f[1], f[2]) || 1;
+      for (let i = 0; i < 3; i++) flow[i]! += (wb * f[i]!) / l;
     }
-    return { bones: top(bones, keep), regions: top(regions, keep) };
+    return { bones: top(bones, keep), regions: top(regions, keep), flow };
   }
 
   /**

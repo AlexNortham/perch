@@ -1805,6 +1805,34 @@ skins stay byte-identical to the generator.
 Triangle targets per level go in the body (`tris`); the rest of the bird must fit the §11.3 budget around them.
 **Why:** the other 21 birds convert in parallel batches; one recipe keeps them consistent and reviewable.
 
+### D-ART-011 · 20/11/2026 — Pipeline v2.1: a feather surface along a baked flow, the player-camera standard, and the batch checklist
+**Decision:** (after the EP's v2 review: large forms read as smooth plastic; the player camera sees bare eggs.)
+- **Feather surface:** each skin vertex bakes a feather flow (skin format v2). By default the flow runs down and back;
+  a mass can override it (`Op.flow`), as neck capsules point down the neck and thighs point down. The bird material
+  lays overlapping feathers along it wherever a region uses the scales tile, or hair strands where it uses the wood
+  tile. These are in the albedo and in the normal (a bump from the height, with no tangents needed).
+  - Each feather is rooted in a cell of a jittered 3D grid at the region's tile size and runs downstream as an oval.
+    The most upstream feather lies on top. Its edge steps down to the one beneath over about two pixels, with a value
+    break and shading.
+  - Feathers stay within 1.15 spacings of their root, so the 3 × 3 × 3 search finds every feather that covers a point.
+  - Detail is strongest within 2.5 m, settles to 65 % by 10 m, and fades out as a feather shrinks below about 3 px.
+  - Flat regions (faces, bare skin without a tile) stay smooth. A plain region next to a patterned one carries that
+    pattern at low strength, so a pattern never switches tiles inside a triangle.
+- **Shared builders:** `hackles` (rows of feathers down the back of the neck and nape), `foldedWings` (secondaries and
+  tertials folded down the flank on the body bone) and `inBone` (a skin surface seen from a bone). The shared wing
+  builder broadens the forearm into a panel and wraps the primaries round the grip.
+- **Checklist for every converted bird** (the review fails a bird that misses a hard item):
+
+| View | Must have |
+|---|---|
+| Front | Brow ridges over the eyes and cheeks under them; eyes set in sockets; the bill growing from a bill base; a breast with a keel, not a ball; feathered thighs; a smooth face against a scaled crown; two gear pieces with flock trim (§8.4). |
+| Three-quarter | The neck flowing into the head (no step at the nape), the wing panel and the folded wing on the flank, the tail coverts lifting into the tail; at least three colour regions blending softly (§8.1 blocking). |
+| Player camera (hard) | **Nape and hackle feathers** (`hackles`) or, for bare-necked birds, sculpted skin folds; **a crest or crown shape** that breaks the round of the skull (crest blades, a tuft, a casque keel, a strap); **a value change** between head, neck and mantle (at least 15 %); **gear that reads from behind** (sash, strap, harness or scarf in the flock colour); a feathered surface on the head, neck and back (scales or hair tile, never flat). |
+| All | In-game check under the golden-hour renderer (`npm run shots -- --scene sandbox --param modelLineup=<bird> --param modelYaw=0` and `=180`); budgets 9,000 / 3,500 / 1,200 / 400; tests green. |
+
+**Why:** the EP scored v2 at 2.5 for its plastic surfaces and bare backs of heads. What the player sees most is the
+back of the head, the nape and the shoulders, so the standard is written down for the 21 birds that follow.
+
 ### D-SYS-006 · 19/11/2026 — The Updraft latch, read exactly (GDD §3.7, D-EP-039)
 **Decision:** `updraftInReach` is the nearer of two tests per segment: the column (feet within 2.5 m of the cable's
 ground line, the cable 0.5–14 m above them, at the point straight above the feet's nearest spot) and a 1.5 m sphere

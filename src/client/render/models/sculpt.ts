@@ -8,7 +8,7 @@
  *
  * Axes are the model's: +z forward, +y up, +x the bird's left.
  */
-import { BufferGeometry, Color, Euler, Float32BufferAttribute, Matrix3, Matrix4, Quaternion, Uint16BufferAttribute, Uint32BufferAttribute, Vector3 } from 'three';
+import { BufferGeometry, Color, Euler, Float32BufferAttribute, Int8BufferAttribute, Matrix3, Matrix4, Quaternion, Uint16BufferAttribute, Uint32BufferAttribute, Vector3 } from 'three';
 import type { BufferAttribute } from 'three';
 import { cardUv, outline, rachisTip, SHAPE, TILE } from './feathers';
 import type { Feather } from './feathers';
@@ -577,6 +577,8 @@ export function bake(parts: readonly (Sculpt | undefined)[], layer: 'solid' | 'c
   const idx: number[] = [];
   const si: number[] = [];
   const sw: number[] = [];
+  // Feather flow (D-ART-008 v2.1): the skin's, unit length; zero on rigid parts, which keep their own patterns.
+  const fl: number[] = [];
   const ranges: [number, number][] = [];
   const append = (dst: number[], src: ArrayLike<number>): void => {
     for (let i = 0; i < src.length; i++) dst.push(src[i] as number);
@@ -599,6 +601,7 @@ export function bake(parts: readonly (Sculpt | undefined)[], layer: 'solid' | 'c
       });
       for (let k = 0; k < count; k++) {
         si.push(bone, 0, 0, 0);
+        fl.push(0, 0, 0);
         sw.push(1, 0, 0, 0);
       }
     }
@@ -620,6 +623,7 @@ export function bake(parts: readonly (Sculpt | undefined)[], layer: 'solid' | 'c
         }
       });
       append(si, sk.level.bones);
+      append(fl, sk.level.flow);
       append(sw, sk.level.boneW);
     }
     ranges.push([first, p.length / 3 - first]);
@@ -635,6 +639,7 @@ export function bake(parts: readonly (Sculpt | undefined)[], layer: 'solid' | 'c
   geo.morphTargetsRelative = true;
   geo.setAttribute('skinIndex', new Uint16BufferAttribute(si, 4));
   geo.setAttribute('skinWeight', new Float32BufferAttribute(sw, 4));
+  if (layer === 'solid') geo.setAttribute('flow', new Int8BufferAttribute(Int8Array.from(fl, (x) => Math.round(x * 127)), 3, true));
   geo.setIndex(new Uint32BufferAttribute(idx, 1));
   geo.computeBoundingSphere();
   return { geo, ranges };
