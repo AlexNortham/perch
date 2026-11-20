@@ -60,9 +60,10 @@ export function loadMap(id: MapId): MapData {
   return main.map;
 }
 
-/** The dressing descriptor (D-EP-047): `buildings` is parallel to loadMap(id).buildings. */
+/**
+ * The dressing descriptor (D-EP-047): `buildings` is parallel to loadMap(id).buildings.
+ * @deprecated D-ARCH-028: read `loadMap(id).dressing`. Kept until the Environment Artist has switched (W6).
+ */
 export function loadDressing(id: MapId): MapDressing {
-  if (id === 'arena') return EMPTY_DRESSING;
-  main ??= buildWorld(MAIN_SPEC);
-  return main.dressing;
+  return loadMap(id).dressing ?? EMPTY_DRESSING;
 }

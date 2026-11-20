@@ -1,7 +1,7 @@
 // No Interact key (D-EP-039, GDD §3.7, INTERFACES §14.4). Written test-first (D-EP-006, W4.5 QA): gated until Physics,
 // Input and sim/ai land held-Jump latching in wave 5. Run with PERCH_PENDING=1 npx vitest run tests/rules/no-interact.test.ts
 import { describe, expect, it } from 'vitest';
-import { Button, type EntityId, type HeroEntity, type Vec3 } from '../../src/sim/core/contracts';
+import { Button, RETIRED_BUTTONS, type EntityId, type HeroEntity, type Vec3 } from '../../src/sim/core/contracts';
 import { allBotRoster, createSim } from '../../src/sim/index';
 import { TICK_RATE } from '../../src/sim/data/core';
 import { createSandbox, type Sandbox } from '../helpers/sandbox';
@@ -37,7 +37,7 @@ const riding = (sb: Sandbox, id: EntityId) => h(sb, id).motor.updraft !== null;
 
 /** Positive control for the negative tests: the same spot does latch on a plain held Jump, so they cannot pass vacuously. */
 function expectLatchHere(sb: Sandbox, hero: EntityId, at: Vec3): void {
-  sb.release(hero, Button.Interact | Button.Jump);
+  sb.release(hero, RETIRED_BUTTONS.Interact | Button.Jump);
   sb.place(hero, at);
   sb.step(t(DAMAGE_LOCKOUT_S + 0.2));
   sb.hold(hero, Button.Jump);
@@ -76,12 +76,12 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 no Interact: Updraft latch
     const { sb, hero, under } = await line();
     sb.place(hero, under(0.5));
     sb.step(3);
-    sb.press(hero, Button.Interact);
+    sb.press(hero, RETIRED_BUTTONS.Interact);
     sb.step(t(0.5));
-    sb.hold(hero, Button.Interact);
+    sb.hold(hero, RETIRED_BUTTONS.Interact);
     sb.step(t(1));
     expect(riding(sb, hero)).toBe(false);
-    sb.release(hero, Button.Interact);
+    sb.release(hero, RETIRED_BUTTONS.Interact);
     expectLatchHere(sb, hero, under(0.5));
   });
 
@@ -193,7 +193,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 no Interact: nothing in th
     for (let i = 0; i < BOT_MATCH_S * TICK_RATE; i++) {
       sim.step([]);
       for (const hero of sim.ctx.store.list('hero')) {
-        if (((hero.command.held | hero.command.pressed) & Button.Interact) !== 0) interactTicks++;
+        if (((hero.command.held | hero.command.pressed) & RETIRED_BUTTONS.Interact) !== 0) interactTicks++;
         const on = hero.motor.updraft !== null;
         if (on && !wasRiding.has(hero.id)) mounted++;
         if (on) wasRiding.add(hero.id);

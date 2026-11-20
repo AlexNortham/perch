@@ -11,7 +11,8 @@ Contents: [1 Contract files](#1-contract-files) · [2 Context services](#2-conte
 [6 Damage pipeline](#6-the-damage-pipeline) · [7 Data shapes](#7-data-shapes) · [8 Client](#8-client-contracts) ·
 [9 Responsibility matrix](#9-responsibility-matrix) · [10 Change process](#10-change-process) ·
 [11 Wave 2 requests](#11-wave-2-requests) · [12 Wave 3 requests](#12-wave-3-requests-and-the-m2-contract-freeze-19112026) ·
-[13 Wave 4 requests](#13-wave-4-requests-w45-19112026) · [14 Stage 4 contracts](#14-stage-4-contracts-w45)
+[13 Wave 4 requests](#13-wave-4-requests-w45-19112026) · [14 Stage 4 contracts](#14-stage-4-contracts-w45) ·
+[15 Wave 5a requests](#15-wave-5a-requests-w55-20112026)
 
 ---
 
@@ -22,7 +23,7 @@ Import everything from `src/sim/core/contracts` (the barrel).
 | File | Defines | Owner of the rules behind it | Main consumers |
 |---|---|---|---|
 | [base.ts](../src/sim/core/contracts/base.ts) | `Vec3`, `LocalOffset`, `EntityId`, `Tick`, `Team`/`PlayerTeam`, the 24 `HERO_IDS`, `Controller`, `BotDifficulty`, `LaneId`, data id aliases; the world frame convention | Architect | everyone |
-| [command.ts](../src/sim/core/contracts/command.ts) | `PlayerCommand` (axes, look, `held`/`pressed` `Button` bits, upgrade, buy, sell, ping, concede), `HeroCommand`, `Ping`, `IDLE_COMMAND`; how core latches and sanitises commands | Architect | input, ai (write); physics, combat, abilities, items, world (read) |
+| [command.ts](../src/sim/core/contracts/command.ts) | `PlayerCommand` (axes, look, `held`/`pressed` `Button` bits, upgrade, buy, sell, ping, concede), `HeroCommand`, `Ping`, `IDLE_COMMAND`, `RETIRED_BUTTONS`; how core latches and sanitises commands | Architect | input, ai (write); physics, combat, abilities, items, world (read) |
 | [stats.ts](../src/sim/core/contracts/stats.ts) | `STAT_DEFAULTS` (every stat), `CONDITIONS`, `StatModifier`/`ModifierSet`, `StatBlock`, `StatService` | core implements | every sim system |
 | [statuses.ts](../src/sim/core/contracts/statuses.ts) | `StatusDef` (stacking per GDD §5.9, modifiers, periodic, onExpire, onLethal, endsOnAttack), `StatusInstance` | combat | abilities, items, world (apply); ai, ui (read) |
 | [effects.ts](../src/sim/core/contracts/effects.ts) | the `Effect` union (19 GDD primitives + `hook`), `EFFECT_OWNERS`, `Magnitude`, `TargetFilter`, `EffectCause`, `EffectTarget`, `EffectRouter`, `TriggerDef` | each kind's owner (§4) | abilities, items, world, combat, hero data |
@@ -30,8 +31,8 @@ Import everything from `src/sim/core/contracts` (the barrel).
 | [items.ts](../src/sim/core/contracts/items.ts) | `ItemDef` (category, tier, cost, component, passive, procs, active), `ItemActive` | items | economy data, ai, ui |
 | [heroes.ts](../src/sim/core/contracts/heroes.ts) | `HeroDef`, `BodyPlan`, `WeaponDef`, `Archetype`, `HeroModule` (with the `implemented` flag hero select reads), `HeroHooks`, `AbilityCast` | hero engineers (data), abilities (hooks) | physics, combat, render/models, camera, ai |
 | [entity.ts](../src/sim/core/contracts/entity.ts) | entity kinds and records, every component (§3), `TeamState`, `ObjectiveState`, `SeenBy` | per component (§3) | everyone |
-| [map.ts](../src/sim/core/contracts/map.ts) | `MapData` (prims, lanes, nav graph, Updrafts, climbs, ledges, every anchor, the Hollow, bot spots), the mirror rule | Level Designer | physics, world, ai, render, camera, ui |
-| [physics.ts](../src/sim/core/contracts/physics.ts) | `PhysicsService`, `Physics`, `Layer`, `Shape`, `RayHit`, `CharacterMove` | physics | combat, abilities, world, ai |
+| [map.ts](../src/sim/core/contracts/map.ts) | `MapData` (prims, lanes, nav graph, Updrafts, climbs, ledges, every anchor, the Hollow, bot spots, Stage 4 buildings, rooms and openings, the `dressing` descriptor), the mirror rule | Level Designer | physics, world, ai, render, camera, ui |
+| [physics.ts](../src/sim/core/contracts/physics.ts) | `PhysicsService`, `Physics`, `Layer` (with the Stage 4 sight, movement and Egg-carrier bits), `Shape`, `RayHit`, `CharacterMove` | physics | combat, abilities, world, ai |
 | [events.ts](../src/sim/core/contracts/events.ts) | the `SimEvent` union (§5) | each event's emitter | systems, telemetry, client |
 | [view.ts](../src/sim/core/contracts/view.ts) | `SimView`, `EntityView`, `HeroView`, `TeamView`, `ViewFlag` | core builds it | client |
 | [telemetry.ts](../src/sim/core/contracts/telemetry.ts) | `MatchTelemetry`, `HeroTelemetry`, `ObjectiveTelemetry` | core collects it | tools/sim.ts, Balance, end screen |
@@ -521,12 +522,13 @@ and walk links; no stair record is needed.
 
 ### 14.4 No Interact key (D-EP-039, D-ARCH-022)
 
-- `Button.Interact` and the `'interact'` binding are **deprecated, not deleted**: Physics, Input, the UI labels and two
-  tests still read them, and deleting now breaks the build. `RETIRED_BIND_ACTIONS` (app/bindings) lists `'interact'`
-  so Input maps no key to it and Options hides it in wave 5. The W5.5 round deletes the bit, the action and its
-  default. Bit 0x20000 is never reused.
-- **Updrafts:** `PhysicsService.updraftInReach(pos)` (optional until Physics lands it) gives the nearest cable point
-  in reach anywhere along the cable; physics writes `Motor.updraftInReach` each tick and mounts on held Jump;
+- **Deleted in W5.5 (D-ARCH-025).** `Button.Interact` is gone; its bit 0x20000 is `RETIRED_BUTTONS.Interact`, never
+  reused, and core clears it (and any bit outside `Button`) when it latches a command, so no system can read it.
+  The `'interact'` action, its default and its Options label left with the UI's wave 5a work, as did
+  `RETIRED_BIND_ACTIONS`. Proof: the build has no reader (deleting the member compiles), `index.test.ts` shows the bit
+  never reaches `HeroEntity.command`, and the no-Interact suite holds the old bit beside a cable without mounting.
+- **Updrafts:** `PhysicsService.updraftInReach(pos)` (required since W5.5) gives the nearest cable point in reach
+  anywhere along the cable; physics writes `Motor.updraftInReach` (required) each tick and mounts on held Jump;
   `HeroView.updraftInReach` drives the HUD prompt.
 - **Updraft latch and dismount (GDD §3.7):** no new input. Physics reads `held & Button.Jump` for the 0.2 s latch and
   a fresh `pressed` Jump (released since latching) to jump off; Crouch drops off. Hold time, reach and lockouts are
@@ -534,9 +536,9 @@ and walk links; no stair record is needed.
 - **Egg, runes, Embers:** `PickupInfo.melee` ('any' for the Egg, 'heavy' for runes and Embers); combat reports the
   pickup as `melee.target`; world claims it. The carrier's own Melee sets the Egg down 1 m ahead; delivery happens
   the moment the carrier enters the Stone's circle.
-- **Saved settings:** until W5.5 a saved `interact` code is kept but inert. Once `'interact'` leaves `BindAction`,
-  `sanitizeSettings` keeps only known actions, so the saved code is dropped on the next load and every other binding
-  is untouched; no storage-key bump. `app.test.ts` covers the drop.
+- **Saved settings:** `'interact'` is out of `BindAction`, and `sanitizeSettings` keeps only known actions, so a
+  Stage 3 profile's saved code (and its `'scoreboard'` one) is dropped on the next load and every other binding is
+  untouched; no storage-key bump. `app.test.ts` and `e2e/no-interact.spec.ts` cover the migration.
 
 ### 14.5 The Director's W4.5 requests (GDD §§3, 6, 7, 10)
 
@@ -553,3 +555,35 @@ and walk links; no stair record is needed.
 | 9 | The hidden state | A | Condition `'hidden'`: world sets it and folds it into `seenBy` (§7.15) |
 | 10 | Remove the Interact command; a held-Jump latch input | M | Interact deprecated now, deleted in W5.5 (§14.4); the latch needs no new input: `held`/`pressed` Jump already carry it |
 | 11 | (from §10, not listed) item auras | A | `ItemDef.aura` (Nestmother's Mantle, Rookery Dirge) |
+
+## 15. Wave 5a requests (W5.5, 20/11/2026)
+
+Every "Interface requests" item addressed to the Architect (or to a contract) in the wave 5a STATUS entries, plus the
+W5.5 brief's own items. A = accepted, M = accepted with a different shape, S = already satisfied by landed work, R =
+rejected. Requests between other owners (QA's helpers, Rendering's portraits, Docs' wording, the e2e counts) are
+theirs and the integration round's. Owner follow-ups: [briefs/W5-contract-followups.md](briefs/W5-contract-followups.md)
+(§ W5.5 at the end). Bot AI (working in parallel) had raised none by the time this round closed.
+
+| # | From | Request | Decision | Landed as / why |
+|---|---|---|---|---|
+| 1 | Brief, D-ARCH-022 | Delete the deprecated Interact bit; prove nothing reads it; migrate saved bindings | A | `Button.Interact` deleted; `RETIRED_BUTTONS.Interact` names 0x20000 forever; core's latch clears every bit outside `Button`. The binding, default and label went with UI's W5a work; saved codes drop in `sanitizeSettings` (§14.4, D-ARCH-025) |
+| 2 | UI & controls (D-UI-007) | `SimOptions.practiceStart` for Swap bird | A | `{ pos, yaw }`, Practice Hub only, validated by createSim, honoured by core's spawn; `practiceConfig(seed, hero, start)`; the app's `sim.ctx` respawn emit is gone (D-ARCH-026) |
+| 3 | Level Designer | Fold `MapDressing` into `MapData`, or bless `loadDressing` | A | `MapData.dressing` (optional; absent on the arena), the dressing types in `contracts/map.ts`, re-exported from `world/map/dressing.ts`; `loadDressing(id)` is a deprecated alias of `loadMap(id).dressing` until the Environment Artist switches (D-ARCH-028) |
+| 4 | Systems (D-SYS-016) | `HealEffect.triggerPct` (Gape) | A | A share of the triggering hit's damage dealt (what `damage.applied` reports), like `DamageEffect.triggerPct`. Gape: an `'abilityHit'` trigger on the caster for the bite's moment (as its 0.1 s lifesteal status lasts now) with `heal { amount: 0, triggerPct: 0.3 }` (D-ARCH-027) |
+| 5 | Systems (D-SYS-016) | `endOn: 'stun'` (Tree Cling) | A | `MovementModeEffect.endOn` takes `'stun'` (the `'stunned'` condition); `onEnd` still runs, so the gun bonus leaves through a cleanse in data. Physics' type follows the contract; the rule is Physics' |
+| 6 | Systems, Hero B | `AbilityDef.surface`; point targeting that returns a surface | A | `AbilityDef.surface` (targeting) and `EffectTarget.surface` (the point is a wall or tree; a 'target' dash flies straight to it). Replaces the `surface` value name |
+| 7 | Systems | A dash steer field | A | `DashEffect.steerDeg` (a Magnitude, so tiers can raise it). Replaces the `steerDeg` value name |
+| 8 | Systems | `Layer` bits for sight and movement prims | A | `Layer.Sight` 0x10, `Movement` 0x20, `EggCarrier` 0x40: the values `PHYSICS_LAYERS` already uses (a test pins them equal until Physics points at `Layer`) |
+| 9 | Systems, W5 follow-ups | Make `updraftInReach` required | A | `PhysicsService.updraftInReach` and `Motor.updraftInReach` required; the two test fakes return null; rapier's partial service is typed without it |
+| 10 | Hero A | An upgrade tier that adds to a dash's `onHit` | S | Write the hit in the base with a value at 0 that the tier raises: damage that resolves to 0 deals nothing (combat drops it before shields and events) and a status of ≤ 0 s applies nothing. TSDoc on `DashEffect.onHit` |
+| 11 | Hero A | An upgrade tier that changes a tether's `breakDistance` | M | W6: `TetherEffect.breakDistance` becomes a `Magnitude` together with its two readers in sim/abilities (widening it now breaks them mid-wave). Hummingbird's hook covers Nectar Sip meanwhile |
+| 12 | Hero A | A hook for any landed cast, not only `hook: true` | S | The `ability` event with stage `'land'` (caster, slot, ability, point) on `ctx.bus`, which `hooks(ctx)` can subscribe to; damage from the cast resolves later, in the damage phase. Strut needn't mark Dazzle and Full Display `hook: true` |
+| 13 | Hero A, Hero B | `applyStatus` of 0 s lasts a tick | S | Systems W5a: a resolved duration ≤ 0 applies nothing (§13 row 9) |
+| 14 | Hero B | A `weaponMod` that holds full spin; a 0.5 s spin-down | S | Systems W5a: a statMod with id `COMBAT.fullSpinStatus`; the spin-down |
+| 15 | Items B | A combat-side outgoing multiplier for Crescendo | S | D-SYS-014: `triggerPct` on the hit's own target repeats the hit, resisted once |
+| 16 | Items B | A per-slot cooldown-reduction stat for Boundless Song | R | The items helper's refund (a fifth of what remains at `'land'`) is exactly −20 % on that cooldown, applied after the CDR stat; a new stat for one item moves every hash (D-ARCH-024) |
+| 17 | Items A | A per-hit gun bonus by distance (Kestrel's Eye) | A | `TriggerDef.beyondM`: a `'weaponHit'` trigger with `beyondM: 25` holding `damage { amount: 0, triggerPct: 0.2 }` (a repeat, resisted once) and the reveal |
+| 18 | Items A | Take an item's shield back on sale | A | `ShieldEffect.id`: the same id replaces the holder's earlier one, and a `cleanse` listing the id removes it |
+| 19 | Objectives | Economy's neutral Seed constants duplicate `data/world.ts` | A | One table per object: `CREATURES`, `FEEDERS`, `NESTS`, `ROC` and `EMBERS` in `data/world.ts` keep every number, Seeds included; economy imports them and drops its copies (owner follow-up) |
+
+Counts: 19 rows; 12 accepted, 1 modified, 5 satisfied, 1 rejected.

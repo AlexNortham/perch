@@ -151,7 +151,8 @@ every tick's hash must match (D-ARCH-021). The rules:
 
 - The client imports from `src/sim` only: `createSim` and the roster helpers (src/sim/index.ts), contract types,
   the pure helpers `core/aim.ts`, `core/math.ts`, `core/vision.ts`, `core/dmath.ts`, the hero registry (for body
-  plans and names), `world/map` (map data for the blockout) and, from Stage 4, `data/builds.ts` (recommended builds
+  plans and names), `world/map` (`loadMap`: collision, anchors and, from Stage 4, `MapData.dressing` for the
+  environment art, D-ARCH-028) and, from Stage 4, `data/builds.ts` (recommended builds
   for the shop, INTERFACES §14.1). Never `sim.ctx`, never a system module.
 - The sim never imports `src/client` (lint-enforced).
 - Each tick the client reads `sim.view` (a snapshot: plain copies, built lazily once per tick) and drains
@@ -232,7 +233,7 @@ The headless CLI prints ticks per second; QA tracks it in the soak test.
   unless a new effect kind is needed.
 - **A status**: a `StatusDef` in data (shared ones in `src/sim/data/combat.ts`), applied with `applyStatus`.
 - **An effect kind, event, component field, stat or condition**: an interface request (INTERFACES.md §10).
-- **A map**: `MapData` from `src/sim/world/map` (`loadMap(id)`); 'arena' stays a flat test map.
+- **A map**: `MapData` from `src/sim/world/map` (`loadMap(id)`), its look in `MapData.dressing`; 'arena' stays a flat test map.
 - **A client module**: implement its interface in `src/client/app/contracts.ts`; the app already calls it.
 
 ## 10. Test strategy
@@ -262,7 +263,7 @@ Per D-EP-006 and D-EP-010:
 
 ## 12. Stage 3 match and presentation ownership
 
-Play and the lane router share matchConfig. The Practice Hub builds a separate arena roster and fresh sim; the test sandbox remains available. Training targets are real heroes with dummy controllers. Core establishes initial identity, placement and practice health/AP. Combat owns subsequent health, target resets and ordinary respawn behaviour.
+Play and the lane router share matchConfig. The Practice Hub builds a separate arena roster and fresh sim; the test sandbox remains available. Training targets are real heroes with dummy controllers. Core establishes initial identity, placement and practice health/AP; Swap bird starts the new bird where the old one stood through `SimOptions.practiceStart` (D-ARCH-026). Combat owns subsequent health, target resets and ordinary respawn behaviour.
 
 Client modules read detached snapshots. UI queues one buy/sell/upgrade/ping through AppActions.submit for the next sim tick. Shop, upgrades and the ping wheel release the cursor while the clock continues. Renderer, VFX, input and UI consume shared app bindings/palette/host/drawing policy. Core projects a per-team map visibility mask, actual resolved area dimensions, structure phase/body/weak point, item refund window and zone from the owners' components. Item definitions are static and delivered once per screen via the catalogue. See INTERFACES §12 and W4-contract-followups.md for the producers.
 

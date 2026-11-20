@@ -77,7 +77,8 @@ interface HeroColliders {
 }
 
 export interface Space {
-  readonly service: PhysicsService;
+  /** Everything but updraftInReach, which index.ts adds from the Updrafts module. */
+  readonly service: Omit<PhysicsService, 'updraftInReach'>;
   /** A hero's controller proxy and query body, from its body plan. */
   addHero(id: EntityId, radius: number, height: number): void;
   addStructure(id: EntityId, pos: Vec3, radius: number, height: number): void;
