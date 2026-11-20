@@ -2674,7 +2674,8 @@ Build Lab and the soak all have it). When physics adds a hero at tick 0 with a l
 (so the Level Designer's lane rework flows through), heading for the far end, with no mount ticks and the ordinary ride
 rules from the first tick. Respawns (`reseat`) are on foot. Off: `?scene=lane` and the replay (router, the browser
 suites and the siege-proof Owl start from the base), the test sandboxes, the siege-proof test and one on-foot physics
-fixture. The HUD shows "You're on <lane>" for 5 s on entering a match, with how to drop off while riding, and the
+fixture; `?zipline=0` keeps Play on foot for the browser suites that walk or shop from the spawn (`play.spec`,
+`match.spec`). The HUD shows "You're on <lane>" for 5 s on entering a match, with how to drop off while riding, and the
 minimap draws the lane opaque over a white glow for the first 30 s (pure helpers `startLane`, `laneBanner`).
 **Why:** the user's words, "put on the zipline". A default that follows `structures` gives every real match the new
 start without touching Build's tools, and the fixtures that place heroes themselves opt out in one line each. Dummies
