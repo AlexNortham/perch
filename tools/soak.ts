@@ -49,6 +49,8 @@ try {
   const browser = await chromium.launch({ channel, args: [...args, '--enable-precise-memory-info', '--js-flags=--expose-gc'] });
   const page = await (await browser.newContext({ viewport: { width: 1280, height: 720 } })).newPage();
   page.on('pageerror', (e) => errors.push(e.message));
+  // tsx (esbuild keepNames) wraps the named helpers inside page.evaluate callbacks in `__name(...)`, which the page lacks.
+  await page.addInitScript({ content: 'globalThis.__name = (f) => f;' });
   await page.goto(`http://127.0.0.1:${port}/?seed=${values.seed}`);
   await page.waitForFunction('window.__perch?.ready === true', null, { timeout: 60_000 });
   await page.getByRole('button', { name: 'Play', exact: true }).click();
