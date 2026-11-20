@@ -2015,3 +2015,19 @@ with 12 bots, measured by `src/sim/ai/ai.perf.test.ts` with a second AI system o
 and bus), so timing doesn't change the match.
 **Why:** hero select offers only implemented heroes, and a bot playing a stub kit isn't a fair opponent. A shadow
 system times the AI alone in a live fight without instrumenting core.
+
+### D-AI-007 · 20/11/2026 — Bots stand still on maps without lanes
+**Decision:** on a map with no lanes (the `arena` test map) the AI creates no bots, so bot heroes stand idle as the
+W1 stub did. Play, Practice and the sandbox never put bots on the arena; only tests do.
+**Why:** physics' `bench` (controller.test.ts) and the ability sim tests place an `'easy'` bot as a stationary target;
+once bots acted, two dash tests failed. Those tests belong to other owners; `'dummy'` is the controller for a target
+(Interface request), after which this rule can go.
+
+### D-AI-008 · 20/11/2026 — From 20:00 the flock groups on one lane; the base is sieged from the siege proof's stands
+**Decision:** from 20:00 (or with Rekindle) every bot plays its flock's push lane: the lane with the fewest enemy lane
+towers left, then the weakest of them (ties: Riverbank, Hedgerow, Pinewood). With that lane's towers down, bots siege
+the Shrines and then the Patron from the sightlines the siege proof uses (`data/ai` SIEGE, through the Riverbank gate),
+closed in to their gun's range. Hunter and Raptor parry a seen heavy wind-up within 6.5 m in front of them, 20% and
+60% of swings, decided once per swing (GDD §11.2).
+**Why:** pairs pushing their own lanes broke every Hawk (115 of 120 over 20 matches) but rarely a Heron (21), and no
+match ended by 60:00. Grouping is GDD §11.3's sieging rule and the cheapest lever on that stall.
