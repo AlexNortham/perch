@@ -30,7 +30,8 @@ test('Play from the menu as Kingfisher: earn, level, buy and sell in the shop zo
 
   const start = await seedsOf(page);
   expect(start, 'passive income earned Seeds by minute 15').toBeGreaterThanOrEqual(800);
-  await expect(page.getByText('Lv 2', { exact: true }), 'Seeds levelled the hero up').toBeVisible();
+  // Lv 2 or higher: bots now take Hawks and share Seeds, so an idle human can reach Lv 3 by 15:00.
+  await expect(page.getByText(/^Lv ([2-9]|[1-9][0-9])$/), 'Seeds levelled the hero up').toBeVisible();
   await shot(page, 'match-earned');
 
   const shop = page.getByRole('dialog', { name: "Magpie's Hoard" });
