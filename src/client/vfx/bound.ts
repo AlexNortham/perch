@@ -145,7 +145,7 @@ export class Bound {
         if (e.meleePose) this.melee(e);
         if (e.kind === 'hero') {
           if (slide && (e.flags & ViewFlag.Sliding) !== 0) this.fx.burst('slideSpark', { x: this.x - e.vel.x * SLIDE_SPARK.trail, y: this.y + SLIDE_SPARK.lift, z: this.z - e.vel.z * SLIDE_SPARK.trail }, UP, WHITE);
-          if (wind && (e.flags & ViewFlag.OnUpdraft) !== 0) this.fx.burst('wind', { x: this.x, y: this.y, z: this.z }, UP, WHITE);
+          if (wind && (e.flags & ViewFlag.OnUpdraft) !== 0 && e.id !== frame.curr.localHero) this.fx.burst('wind', { x: this.x, y: this.y, z: this.z }, UP, WHITE);
         }
       }
     }
