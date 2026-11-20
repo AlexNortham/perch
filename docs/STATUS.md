@@ -2886,3 +2886,24 @@ bots-ride and dead-bird tests; `ai.perf` margin under load.
   - after Bot AI merges: Level polish with bot nav through interiors, and bot tuning for all 24 birds;
   - after the art lands: QA's gated-test rewrites, the 20-match run and the soak.
 - Then the Stage 4 gate.
+
+### W6 · Technical Artist · B3 birds (ART-B3) · 21/11/2026
+**Stopped by the EP's change of priority (D-EP-050: functionality first, art second) before any model was started.**
+Branch `worktree-agent-ae2834bbf29365e8d`, from `integrate/w5` 50a964c. No code changed.
+- **Done:** none of the four birds. Frigatebird, Cockatoo, Swan and Kiwi stay on the default bird (`genericBuild`
+  in `models/index.ts`, used for any hero id missing from `HERO_BUILDS`). No scores: nothing was built.
+- **Verified on 50a964c:** `npx vitest run src/client/render/models tests/anim` 111/111 pass (skins, budgets,
+  attachments, D-EP-035 grips); typecheck and lint pass. Full `npm run check` skipped on the EP's word.
+- **Left for the art round (brief `docs/briefs/W6-art-world.md`, Job 1):** all four birds on the v2.1 sculpt pipeline
+  (D-ART-010/011), each to an honest 3 from the player camera:
+  - Frigatebird: black W wings held half-open (3.6 m span), scissor tail, hooked bill, red throat balloon; Kite Rifle
+    (long, slim, scoped).
+  - Cockatoo: stocky white body, thick hooked grey bill, sulphur crest that lies flat and fans up on cast;
+    Screech Horn (ornate, glowing chamber).
+  - Swan: low white teardrop, long S-neck, wings arched behind like a heart, orange bill with a black knob; Lake
+    Lance (flowing, lance tip that glows on heal).
+  - Kiwi: round hairy brown ball on strong legs, no visible wings or tail, long down-curved bill with whiskers;
+    Burrow Blunderbuss (compact, one hand, a bladed detail).
+  - Builder file `birds-b3.ts`; bodies and `BODIES` lines in `bodies.ts`; one-line registration in
+    `sculpted-birds.ts`. Estimate about 2 hours a bird with renders, once the three conversion batches have merged.
+**Blocked:** nothing.
