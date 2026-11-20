@@ -1881,3 +1881,240 @@ other agents loaded the machine; it passed on the re-run. No `src/` change.
   map, baked vertex AO, decals, the bird rim term) and the §10 lighting values.
 - Level Designer: collision for landing boards and perch beams deeper than 0.5 m (§2.6), and no lines or poles across
   lanes or within 3 m of an Updraft (§1.1).
+
+### 2026-11-19 · Docs & Wiki engineer (W5b) · WIKI
+Done: the wiki coverage test already generated into a temp folder; it now also compares that output with the committed `wiki/` (ignoring the date) and only warns when stale (D-WIKI-001). `npm run wiki` unchanged. Proved: dropping a hero page from the generator fails 3 tests; reverted. About 2 s of generation, no screenshots.
+Decision D-WIKI-001: a stale committed wiki is a console warning, never a failure; the gate regenerates it (D-EP-031).
+### W5a · Systems (Controller, Combat, Ability Systems) · 19/11/2026
+**Done:** branch `worktree-agent-a110c2bfcbfc8aefb` from `integrate/w5` 926bd47. Every W5 follow-up for the three owners,
+plus interiors and the EP's framework gaps. Decisions D-SYS-006 to D-SYS-016.
+- **Physics:** Updrafts latch on Jump held 0.2 s anywhere along the cable (`PhysicsService.updraftInReach`,
+  `Motor.updraftInReach`), 30 m/s pull-up or 0.15 s air attach, 3 s damage and 1 s leave lockouts, fresh-press jump-off,
+  Crouch drop; `Button.Interact` is never read. Ladders climb as Vines. `blocks: 'movement'` prims stop heroes and
+  units only; `'sight'` prims stop only queries that ask for `PHYSICS_LAYERS.sight`. `solid: false` structures get no
+  collider. `blocksEggCarrier` openings stop the carrier only. Tunnel rooms ×1.3 run speed. Bough Springs (arc, 1 s
+  limit, 30% control after the apex, clip and slow). `MovementModeEffect.endOn`. Interiors tested on a kit building:
+  door, 26.6° stairs, upper floor, shot window, ivy arch, ladder to the roof.
+- **Combat:** melee hits `PickupInfo.melee` pickups (reported, no damage, the swing carries on); `breakable` (by, fixed
+  light/heavy); `damageFrom`; `meleeDamageTaken` in step 5; `currentHpPct`, `maxHpPct`, `triggerPct` with repeats
+  (D-SYS-014); duration ≤ 0 applies nothing; Rekindle revives (`revives`, `revived`); spin-down 0.5 s and full spin.
+- **Abilities:** the floor under the crosshair (never through a ceiling); `selfFallback`; ivy blocks `unit` targeting
+  beyond 3 m; 3 m cylinders; areas never reach through a floor.
+- **Framework gaps landed (data shapes):** Drumroll: give its statMod `id: COMBAT.fullSpinStatus`. Wall and tree
+  targeting: `values.surface: 1` (`SURFACE_VALUE`) on Branch Swing and Tree Cling; cling `endOn: ['jump']`. Rampage:
+  `values.steerDeg: 30` (`STEER_VALUE`). Bristle: a `trigger` (`on: 'damaged'`, `heroesOnly`, `withinM: 15`, `target:
+  'other'`) of `{ damage, amount: 0, type: 'song', triggerPct: 0.2 }`. Crescendo: that damage with `triggerPct: 0.2` on
+  the hit's target; Echo Chamber: a 1 s status whose `onExpire` holds it with `triggerPct: 0.25`. **Not landed:** Gape's
+  heal and Tree Cling's stun end need contract fields (D-SYS-016); their stand-ins stay.
+**Verified:** `VITEST_MAX_WORKERS=1 npm run check`: `PASS typecheck 11s · lint 5s · FAIL test 61s` (987 passed, 3 failed:
+the three `siege.test.ts` rides that press Interact, expected under D-EP-039; the check stops there). Run separately:
+`npm run perf` 7/7 (physics 0.237 ms/tick with 12 heroes + 0.048 ms for 150 units; abilities 0.048 ms at 96 areas;
+combat 0.034 ms firing); `npm run sim -- --seed 1 --minutes 3 --bots 12` 10,800 ticks in 2.0 s, hash `c87c7cfe2e2bea0a`;
+`npm run e2e` 35 passed, 28 skipped, 1 failed (`play.spec.ts` mounts with E). `PERCH_PENDING=1`: no-interact 13/15
+(the two left are the bots and the default bindings); items 100/105 (Blight's reading below, and four Economy/QA
+cases); the world suites fail at setup on missing Egg, Roc, camps and rooms, none in these systems. Tests: the
+physics suite is now 72, plus combat `stage4` 15, abilities `stage4` 8 and `framework-gaps` 3 (end to end).
+**Interface requests:**
+- Architect (W5.5): `Layer` bits for sight and movement prims (now `PHYSICS_LAYERS`); `AbilityDef.surface` and a dash
+  steer field for the two value names; `endOn: 'stun'`; `HealEffect.triggerPct` (Gape); make `updraftInReach` required.
+- QA: `tests/rules/siege.test.ts:83` and `e2e/play.spec.ts:81` still mount with Interact / E; hold Jump instead. The
+  Blight test takes HP at application, while the contract reads current HP at each tick (8.3 below over 4 s, ±5).
+- Objectives: add `PHYSICS_LAYERS.sight` to the vision ray (with the 3 m rule); spend Rekindle on `entity.died.revives`.
+  Units walking through `moveCharacter` still pass walls (fledgling steering relies on it); keep indoor camps in.
+- Docs & Wiki: `tools/wiki/mechanics.ts` prints `UPDRAFT.stationRadius` / `airMountRadius` and "press the interact
+  key" (both kept as deprecated for it). Bot AI: hold Jump while `motor.updraftInReach` (no-interact bot test).
+**Next:** hero and item owners switch to the shapes above; QA flips the no-interact suite on once bots ride.
+
+### Stage 4 · EP note · 20/11/2026 · integrate/w5 after Systems
+Systems (W5a) is merged. The EP switched two QA tests from the retired Interact/E mount to a held Jump (D-EP-039): the
+siege rides now boost once the mount animation completes, and `e2e/play.spec.ts` holds Space. Under heavy load (33
+node processes) the world perf test read 0.849 ms against 0.5, while physics, combat and abilities read faster than
+before. Objectives is asked to measure on a quiet machine. To re-check at the gate: the world perf test, and the audio
+e2e's 30 s timeout under load.
+### W5a · UI & controls engineer (UI/HUD, Camera & Input, app shell) · 19/11/2026
+**Done:** `worktree-agent-ac95e8513ee97dc43` from `integrate/w5` (926bd47), `src/client/ui/**`, `src/client/input/**` and the named `app/**` changes.
+- **Hold to upgrade (D-EP-038):** holding the upgrade key frees the real cursor (`exitPointerLock`; Input keeps keys and
+  movement, ignores look and mouse buttons). The HUD ability row is four round buttons named `Upgrade <ability>[: reason]`
+  (`aria-disabled` when blocked) with one shared hover card: description, every tier, the next tier's AP cost and the
+  unspent AP, or why not ("Fully upgraded", "Unlocks at level 6"). Releasing locks again in the key's own event. 1-4 held
+  with the key upgrade through the ordinary `upgrade` command. The tap-to-open panel is deleted. Pointer route per browser
+  (probe `tools/pointer-lock-probe.mjs`, 300 ms and 7 s holds): **Edge 156 real cursor, re-locks on release; Firefox 159 real cursor,
+  re-locks on release**. Chrome is not installed here and shares Edge's engine, so it takes the real-cursor route too
+  (D-UI-006). No game-drawn cursor was needed.
+- **Always-on scoreboard (D-EP-041, G01):** `topbar.ts` is the bar (region `Scoreboard`; `[data-portrait]` with `data-side`,
+  `data-hero`, `data-dead`; health `progressbar`; `[data-field=seeds|respawn|clock|flock-seeds]`): clock over two team
+  pills with the lead % and the next Egg or Roc window, 12 round portraits from a `PortraitProvider` (`ui/portraits.ts`,
+  `setPortraitProvider` for Rendering in 5b; placeholder = team colour and initial), eye mark, critical and streak tags,
+  a dead bird dark with a red countdown, unseen enemies dimmed, a compact Patron and lane-tower strip, a Rekindle chip with
+  the 30 s warning. The Tab scoreboard and its binding are gone. The kill feed is on the left under the bar with
+  portraits, structures and neutrals named ("Dusk Heron") and callouts (First Blood, Twin Strike, Hat Trick, Talon Storm,
+  Apex Predator, `streaks.ts`); Brood Ward lines left the feed (WARD chip on the bar, G30).
+- **Feel gaps:** G02 contextual objective bars (within 40 m or hit in the last 5 s, at most 2, 380 px, 600 px for the Patron
+  and Roc); G03 health gauge 160 x 265 at 22 %, 62 % with a red chunk (holds 0.5 s, drains 0.4 s), shield caps, stamina
+  pips; G04 72 px round ability row bottom centre, 56 px actives; G06 round 360 px minimap bottom right with the zone name and
+  rune and camp timers; G07 ammo 80 px under the crosshair; G08 kill badge (1.2 s) with the bounty; G09 melee hint only near
+  a claimable target or in a player's first 2 minutes ever (`localStorage`); G10 "+N Seeds" pop, status word, level-up and
+  tower banners; G13 `CAMERA.shoulderUp` 0.35 to 0.15 (the one Architect-owned constant touched); G15 held gun capped at
+  0.45 x bird height and 0.08 m (`GUN_CAP`, one line in the Technical Artist's `render/models`).
+- **Swap bird (D-EP-040):** `AppActions.swapBird`, `ScreenContext.swap`; an on-screen button in the hub's dummy panel and in
+  the pause menu (never in Play); the same 24-card picker; picking builds a fresh practice session (32 AP, dummies reset)
+  and puts the new bird on the old spot (D-UI-007).
+- **No Interact (D-EP-039):** `'interact'` and `'scoreboard'` are out of `BindAction`, the defaults, Input and Options;
+  saved profiles drop them in `sanitizeSettings` (tests). Tab is no binding (refused in capture, swallowed in play).
+- **Hero select:** the detail panel has a fixed 320 x 372 size; no card moves (the QA spec had reproduced 3.55 px).
+- **Follow-ups done:** Mute toggle, `previewHero` on hover and focus, the hold-Jump updraft prompt, keepsake count with a
+  tooltip, the Rekindle chip, rune and camp timers on the minimap. **Not done:** the Recommended strip (there is no `BUILDS`
+  module yet), the neutral Den shop wording, minimap building outlines and up and down marks, Egg and Roc timers on the minimap.
+**Also changed:** Play now starts the player and 11 bots (`FULL_MATCH_BOTS`, `ui/screens.ts`), because the bar shows 12
+birds; `lock()` makes no request without a user gesture (it raced the click and paused the match); the sim fast-forward
+yields every 30 ms. The Stage 3 e2e for the old panel and the Tab scoreboard (`m2`, `keys`) now test hold to upgrade and the
+always-on bar; the Stage 4 specs for these items are always on (the dead-bird test in `scoreboard-bar` stays pending until
+bots fight, G22). Spec adjustments: `no-interact` leaves `crouch` out of its comparison (a saved `KeyC` is a choice; a fresh
+profile gets Left Ctrl); `practice-swap` clicks the on-screen button with the upgrade key held (a locked pointer sends
+every click to the game); `hold-upgrade` waits 150 ms after the re-lock before it moves the mouse.
+**Verified:** typecheck, lint (0 warnings), unit tests; Playwright: hold-upgrade 7/7, hero-select-layout, no-interact,
+practice-swap 6/6, scoreboard-bar 5 of 6 (+1 pending), keys, m2, match. 1080p screenshots looked at: Play 6v6 HUD, Practice
+Hub HUD, hold to upgrade with the hover card, hero select, and a built bar with a dead, critical, seen and streaking bird
+(`out/shots/`, git-ignored).
+**Blocked / expected red:** `play.spec` "Riverbank Updraft" still presses E and fails until Physics lands the Jump latch (QA
+moves it to held Space). The bots idle in Play, so nobody dies in the 6v6 yet.
+**Interface requests:** Architect: `SimOptions.practiceStart` (position and yaw), so Swap bird needs no `sim.ctx`
+(D-UI-007). Rendering (5b): call `setPortraitProvider` from `ui/portraits.ts`. Docs: `tools/wiki/mechanics.ts` still says
+"press the interact key" and `imageplan.ts` still lists a Tab scoreboard shot.
+### W5a · Objectives · 19/11/2026
+**Done:** branch `worktree-agent-a3ffde07e21cb8d42` from `integrate/w5` 8891822. Everything reads `MapData`; no
+positions are hard-coded (the Ember spots are the GDD's offsets from the Hollow). New in `src/sim/world/`:
+`thickets.ts` (24-camp-ready: five families, dormant and woken at 30 m, `damageFrom` 35 m while asleep, top-damager
+aggro with sight, bites, dash-bite, toad lash and spit puddles, rat heal reduction, badger Slam with a 0.6 s
+telegraph, leash and walk home, indoor camps held in their room, respawn), `nests.ts` (Twig/Woven/Keepsake Nests with
+`variant`, `breakable`, `solid`; 3:00, 5:00 below ground, 10:00 in the Hollow; run-through at 8.5 m/s; crumb and
+keepsake drops; respawn after the break or the last drop's collection; Bell Feeders with swing-back, seeded chime and
+`lit`, full-chime keepsakes; the Granary pairing), `pickups.ts` (crumbs, keepsakes, Berries), `keepsakes.ts` (weighted
+draw with halving, buckets, caps, one `world:keepsakes` source), `runes.ts`, `egg.ts` (spawn and marks, melee pickup,
+carrier status +1.5 m/s and +1 pip with slows cleansed, trailing-flock bonus, five drop causes, unattended roll along
+the nav graph, cooling, automatic delivery with the ×1.25, keepsakes to courier and escorts), `roc.ts` (sleep, wake,
+Hollow-only aggro, Rake, Gale Flap, enrage and Sky Shriek, reset, per-minute HP, three Embers, claims, Rekindle charges,
+expiry and spending, 7/6/5 respawns), `hides.ts`; vision gains Lookouts, ivy curtains and the hidden rule; fledglings
+gain the siege flight (+40% HP, +30% vs structures while Rekindle holds). Numbers in `data/world.ts`, including the
+Seed values economy pays. Springs, the Cellar Run speed and carrier block are Physics' and the Magpie Den Items'
+(follow-ups). D-OBJ-009…014.
+**Verified:** `bash scripts/check.sh` on 1ceb7fc: typecheck, lint, test (820), perf and sim PASS; e2e failed once on
+`preview-regressions` (`page.goto` timeout) and once before on `match.spec` (damage-number sweep), each passing alone,
+then `npm run e2e` 57 passed, with 11 to 28 node, 85 browser and 25 Claude processes running. **World budget (EP
+request):** `world.perf.test.ts` "~150 fledglings" (neutrals off, the 0.5 ms test) measures 0.161 to 0.214 ms/tick on
+this branch and 0.250 to 0.279 on a trial merge with `integrate/w5` db86998 (Systems' interiors), same machine and load:
+no world regression, and nothing near 0.849; that test has no heroes, so Stage 4 vision does no raycasts in it. New `neutrals.test.ts` (10, real map) and `interactables.test.ts` (8, fixture maps for
+Feeders, Granary, Berries, Hides, Lookouts, ivy, indoor camps, Nest classes) drive claims with `melee` events as combat
+reports them. `npm run sim -- --seed 1 --minutes 35 --bots 12` twice: `56e1571ac513c9e4` both times. **Budget (GDD
+§6.12, 0.1 ms):** a whole 35-minute 12-bot match costs +0.028 and +0.032 ms/tick with neutrals on (two pairs of runs
+in one process). The synthetic worst case in `world.perf.test.ts` (all 16 camps and the Roc fighting a dummy hero each
+at once, re-aggroed every 2 s; both matches stepped in alternating 1 s chunks): +0.14 ms median, quartiles +0.08…+0.19,
+loose bound 0.3. World's own share of that, instrumented, is about 0.04 ms (neutrals update 0.015, steer 0.005, extra
+vision 0.017); the rest is combat, statuses, hero knockback physics and the spatial hash serving 49 fighting
+creatures, which a real match never has at once. **PERCH_PENDING=1** on this branch alone: thickets 10/25, nests 4/13, runes 4/23,
+golden-egg 4/18, roc-embers 11/18, interactables 5/31. With temporary local patches (combat's melee hit test taking
+`PickupInfo.melee` pickups, `heavyMelee` pressing Melee) the Egg and rune suites pass everything world owns except the
+disputed assertions below. No remaining failure is a world bug I know of; they wait on these:
+- **Level Designer:** 24 camps with families and indoor buildings, 100 Nests, 8 Feeders (Granary `camp`), 22 Berries,
+  14 Lookouts, 8 Hides, 32 curtains, the Cellar Run and Dens.
+- **Combat:** the melee hit test on `melee` pickups (Egg 'any', runes and Embers 'heavy'); a heavy lunge must not carry
+  the hero past a pickup 1 m ahead (observed: 3.5 m lunge, hero ends 7 m on and off the rune bridge, swing whiffs);
+  `damageFrom` (dormant camps, the Roc); `breakable`; Rekindle revives; the Egg carrier's own Melee should not swing.
+- **Physics:** `solid: false` (Twig and Keepsake Nests and Feeders still get colliders: a sprinting hero stops at a
+  Twig Nest); `blocks: 'sight'` prims out of `LAYERS_SOLID` raycasts; an Updraft-speed stat for the Swift feather.
+**Disputed assertions (QA, not edited):** (1) `tests/helpers/world.ts` `heavyMelee` holds Melee without the press edge,
+so combat never swings (every heavy claim); add `sb.press(hero, Button.Melee)` before the hold, also in the Feeder test's
+inline heavy. (2) `world()` puts every hero after the first on Dusk, so golden-egg's "escort", roc-embers' `b` and the
+Thicket payout "ally" are enemies (the ×1.25 then applies correctly, escorts get nothing, payouts don't split): pass
+`{ hero, team: 'dawn' }`. (3) Absolute stats assume a zero base: carrier `moveSpeed − 0 ≈ 1.5` and `free.moveSpeed = 0`
+(Shrike's base is 7), trailing `sprintSpeed ≈ 2` (base 2), the Nest "walk" (+4 m/s on 7 m/s is 11 m/s), Fierce
+`magazine ≈ +0.3` (+30% of 24 rounds is +7.2). (4) `qa-hp` raises max HP only; current HP stays at base and the badger
+test's hero dies before the second Slam. (5) The enrage test deals 76% of max Talon, which the Roc's 15% Talon resist
+makes 64.6%. (6) The spoil test times from `carried()`'s return, 0.35 s after the pickup (542 vs 550 ± 5). (7) The heavy
+full-chime presses on the first lit tick; a heavy hit lands 0.6 s later, after either lit window (D-OBJ-013).
+**Interface requests:** Combat and Physics as above. Render/VFX: the Egg's descent and the Embers' fall animate from
+`claimableAt` (D-OBJ-010); `spit` events carry the puddle point, `slam` the ring centre. Economy: its neutral Seed
+constants duplicate `data/world.ts` (`CREATURES[].seeds`, `FEEDERS.seeds`, `NESTS[].sprig`, `ROC.reward`,
+`EMBERS.claim`); one source would stop them drifting. Bot AI: creatures and the Roc are team 'neutral'.
+**Next:** flip the suites on as the map and combat land; rerun the budget on the full map (100 Nests and 24 camps add
+spatial-hash entries every tick).
+
+### W5a · Level Designer · 19/11/2026
+**Done:** Old Mossmarket rebuilt to D-EP-033 on `worktree-agent-acf352408673877f6` (from `integrate/w5` 926bd47), all in `src/sim/world/map/**`.
+- **Buildings:** one GDD §6.8 kit (D-LEVEL-005). Each quarter has 8 enterable jungle buildings: Granary, Warehouse, Tavern, Hollow-tree House, Bell Tower, Market Hall (east: Water Mill) and two Hides. Hedgerow has 7 enterable terrace houses and the Seed Exchange; Pinewood has 2 Stilt Houses; the centre has 2 Dovecotes. That makes 54 enterable buildings and 110 building records (fills included), 100 rooms, 368 openings and 40 ladders.
+- **Below ground:** the Cellar Run with the Magpie Den (a neutral 5 m shop), its lane stairs, two Tavern cellars, and two undercrofts with grate ladders, all carved out of the ground.
+- **Anchors (GDD §6.10):** 100 Nests (72 Twig, 16 Woven, 12 Keepsake), 24 Thickets with families (8 indoors), 8 Feeders (the Granary ones tied to their Rats), 22 Berries, 14 Lookouts, 8 Hides, 8 Springs, 32 ivy curtains, 2 tunnels, 12 jungle zones with their paths.
+- **Nav:** 1,861 nodes and 8,334 links through every storey, cellar and roof: doors, stairs, ladders (vine), hatches (drop), leap windows, Springs and `nodeRoom` (D-LEVEL-008).
+- **G19 and G20:** façades on Hedgerow's and Pinewood's first legs with a 4.5 m walkway, stilted roost stands, extra balconies and stairs, cover along lane edges, rope walkways between roofs (D-LEVEL-009).
+- **Dressing descriptor:** `loadDressing('main')` for the Environment Artist, covering D-EP-047, D-EP-048 and the style guide's §1: facade styles, roofs, nest crowns, facade marks, balconies, landing boards that collide, stairs, and 461 props.
+- **Map SVG:** `mapSvg` draws building outlines, rooms below ground, Hides, openings by kind, Springs and interactables.
+- **Deviations from the GDD:** D-LEVEL-007.
+**Verified:**
+- `bash scripts/check.sh`: PASS typecheck, lint, test (976 passed), perf and sim. The e2e step fails only on `match.spec.ts`, at "a shot landed and showed a damage number". The same spec also fails with the `integrate/w5` map files checked out, so the failure predates this work. The other 57 e2e specs pass, including draw-budget and determinism.
+- Map tests: 37 in `main.test.ts` (symmetry of every new record, prim budgets, every §6.3 and §6.10 anchor) and 25 in `interiors.test.ts` (every floor reachable, every door connects, indoor anchors inside their building and storey, counts, the Egg-carrier stair, jungle zones, G19/G20, dressing integrity).
+- `PERCH_PENDING=1`: the 9 map assertions in the thickets, nests, interactables and runes suites pass. The 2 that fail need Objectives' systems (Berry spawning, the hidden condition).
+- Budgets: `buildWorld` 21 ms and first nav 62 ms (cold); 2,178 solid prims (of 3,000); at most 584 prims in a quarter (of 600). Draw calls: lane/low 18 (of 32), lane/medium 26 (of 48), match/medium 36 (of 248); peak 107k triangles in the match scene. Sim seed 1, 12 bots, 3 min: 7,899 ticks/s (0.127 ms/tick).
+- Looked at: `npm run shots` overview and top-down, street level on Hedgerow, Riverbank and Pinewood, the Warehouse and Market Hall interiors, the terrace-roof walkway to the Bell Tower, and Lantern Row; SVGs of the whole map and the west Dawn quarter (`out/shots/l-*.png`, `out/map/*.png`).
+**Blocked:** nothing.
+**Interface requests:**
+- Architect: fold `MapDressing` into `MapData`, or bless `loadDressing`. It carries what `Building` lacks: facade style; roof style, pitch, ridge and nest crown; balconies, landing boards, stairs and props.
+- Systems (Physics, Combat): until physics and combat honour `PrimBase.blocks`, the 32 ivy curtains (`'sight'`) stop heroes in doorways and the shot-window fillers (`'movement'`) stop bullets.
+- Rendering: draw `'movement'` fillers as open windows (style guide §5.2) and `'sight'` prims as ivy.
+- UI: minimap outlines from `MapData.buildings`, and ▲/▼ from `rooms`.
+- Bot AI: `nodeRoom`, `spring` links, ladder vine links and hatch drop links are live.
+- QA: the `match.spec.ts` damage-number step fails on `integrate/w5` whatever the map.
+- Docs & Wiki: the map page's counts changed.
+**Next:** W6 detail polish (collision for any bay or perch the artist dresses deep), bot routing checks through interiors once Bot AI lands, and prim trimming if W6 additions need quarter budget (584 of 600 now).
+
+### EP · 19/11/2026 · wave 5b part 2, W5.5 and the W5a integration round launched
+- Running in parallel: Rendering and the Technical Artist (wave 5b part 1), the Environment Artist (#22, Opus), Bot AI (Opus), Audio (Sonnet), the Architect's W5.5 contract round (Opus) and the W5a integration round (Opus). Briefs: `docs/briefs/W5-env.md`, `W5-bots.md`, `W5-audio.md`, `W5-arch2.md`, `W5-integ.md`.
+- The Build Lab (D-EP-036/037/044) starts as soon as Bot AI merges: mock games with bots that stand at spawn and never shop would measure nothing.
+### W5b · Audio Engineer · 19/11/2026
+**Done:** Stage 4 sound on this branch (from `integrate/w5`), all in `src/client/audio/**` plus `e2e/audio.spec.ts`.
+- **New cues (41):** Egg (carry pulse, drop, spoil; spawn, pickup and delivery jingles reused), Roc (wake, rake, flap, shriek, enrage, death), Embers (drop; claim reused), Rekindle, Thickets (wake, five attacks, death, camp cleared), Nests (twig, woven, keepsake break), Feeders (break, chime, full chime, lamp blink), Keepsakes, Berries, Hides in/out, Bough Springs, Lookouts, ivy curtains, Cellar Run, Magpie Den, Updraft latch and dismount, indoor room tone.
+- **Engine:** per-voice range (Feeder 70 m, Bell Tower 120 m), occlusion (-6 dB, 2 kHz) across rooms and for unseen enemy heroes, `Settings.mute`, `onScreen` and `previewHero`, menu music ticks itself, the Roc fight and the Egg carry hold the objective music (D-AUDIO-003, -004).
+- **Tests:** `e2e/audio.spec.ts` renders each new cue offline: finite, above the wind bed, and a distinct signature (41 cues), plus indoor tone, occlusion, mute, a 150-shot flood against the 48-voice cap, and music states.
+**Verified:** see the run line below.
+**Interface requests:** none blocking. Rendering/VFX: nothing. UI: call `audio.onScreen` and `previewHero` (already wired in app.ts). Level: Lookouts have no radius, audio uses 2.5 m. Systems: Bough Spring launches and Lookout use emit no event, so audio infers them from position; a `movement` action for springs would be cleaner.
+
+### W5.5 · Technical Architect · 20/11/2026
+**Branch:** `worktree-agent-a9824254322cf5310` from `integrate/w5` f25766d, with `integrate/w5` fdc85f8 (Audio) merged
+in. Decisions D-ARCH-025 to D-ARCH-028; owner follow-ups in `docs/briefs/W5-contract-followups.md` § W5.5.
+1. **Interact deleted (D-ARCH-025).** `Button.Interact` is gone; `RETIRED_BUTTONS.Interact` keeps 0x20000 from reuse,
+   and core's latch now clears every bit outside `Button`. Proof: deleting the member compiles (no reader), a new
+   `index.test.ts` case shows the bit never reaches `HeroEntity.command`, and the no-Interact suite holds it beside a
+   cable without mounting. Bindings were already done by the UI's W5a work (`'interact'` and `'scoreboard'` out of
+   `BindAction`); `sanitizeSettings` drops a Stage 3 profile's saved codes with no storage bump (`app.test.ts`,
+   `e2e/no-interact.spec.ts`).
+2. **`SimOptions.practiceStart` (D-ARCH-026).** `{ pos, yaw }`, Practice Hub only, validated and yaw-wrapped by
+   createSim, honoured by core's spawn; the training targets stay put. `practiceConfig(seed, hero, start)`; Swap bird
+   no longer emits on `sim.ctx.bus` (`e2e/practice-swap.spec.ts` 6/6, "same spot" included).
+3. **Dressing in `MapData` (D-ARCH-028).** `MapData.dressing` (optional, absent on the arena); the types moved into
+   `contracts/map.ts` and `world/map/dressing.ts` re-exports them; `loadDressing` is a deprecated alias of
+   `loadMap(id).dressing` until the Environment Artist switches (W6).
+4. **Wave 5a requests (INTERFACES §15, D-ARCH-027):** 19 rows: 12 accepted, 1 modified, 5 satisfied, 1 rejected. New
+   optional fields: `AbilityDef.surface`, `EffectTarget.surface`, `DashEffect.steerDeg` (replacing two value names),
+   `HealEffect.triggerPct` (Gape), `endOn: 'stun'` (Tree Cling), `TriggerDef.beyondM` (Kestrel's Eye),
+   `ShieldEffect.id` (shields taken back on sale), `Layer.Sight`/`Movement`/`EggCarrier`. `PhysicsService.updraftInReach`
+   and `Motor.updraftInReach` are now required. Rejected: a cooldown stat for Boundless Song (the refund is exact).
+   Deferred to W6: tether `breakDistance` as a Magnitude. Bot AI raised no request; its WIP commit c77a55c reads
+   `motor.updraftInReach` in a way the required field keeps valid.
+5. **Outside my paths, type-only or mechanical, each forced by the contract change:** `physics/controller.ts` (its
+   `Mode.endOn` type follows the contract), `physics/rapier.ts` (its partial service type), the abilities and combat
+   test kits (`updraftInReach`), `world/map/dressing.ts`, `build.ts` (one field) and `index.ts` (the alias), and the
+   two tests that named `Button.Interact`. No other owner's behaviour changed; the `'stun'` rule, the value-name
+   switch and each new field's behaviour are follow-ups (W5 for the integration round where it acts for the owner).
+**Verified** (machine loaded by parallel agents: 20–28 node, ~150 browser processes):
+- `bash scripts/check.sh` with the integration round's two world-test fixes (3ff5f5f, overlaid, not committed):
+  `PASS typecheck 11s · lint 5s · test 51s`, then `FAIL perf`: the Stage 4 objectives budget test (+0.31 to +0.43 ms
+  against 0.3). It fails the same way on a clean `integrate/w5` fdc85f8 checkout (+0.424 ms), so it predates this
+  round; it is the full-map rerun Objectives asked for (100 Nests, 24 camps), for the integration round and QA.
+- Without the overlay, `npm test`: 1,048 passed, 5 failed, all five the known Objectives cases (W5-integ item 1).
+- `npm run sim -- --seed 1 --minutes 3 --bots 12`: 10,800 ticks, 7,145 ticks/s, hash `0e2f8fafa4067d33`.
+- `npm run e2e`: 61 passed, 1 skipped, 1 failed (`preview-regressions` side buttons: `page.reload` timeout, a known
+  load flake); rerun alone with `practice-swap` and `no-interact`: all pass (one Play-scene timeout in the batch passed
+  alone too).
+**Notes for owners:** the new Audio listener throws "non-finite AudioParam value" from `audio/index.ts:146` on some
+frames (the camera pose it gets is not finite yet); seen in the e2e server log, no test fails on it (Audio, Camera).
+The no-Interact suite's last red test waits on bots riding Updrafts (Bot AI).
+**Interface requests:** none. **Blocked:** nothing.

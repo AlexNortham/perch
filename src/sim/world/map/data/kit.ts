@@ -3,15 +3,18 @@
  * (D-BUILD-009); src/sim/world/map/build.ts turns a MapSpec into MapData (mirroring, ledges, nav graph).
  */
 import type {
-  Anchor, BlockoutPrim, BoxPrim, BotSpot, CylinderPrim, LaneId, MapId, MaterialTag, RampPrim, ShopAnchor,
-  StructureAnchor, ThicketAnchor, Vec3,
+  Anchor, BlockoutPrim, BoxPrim, BotSpot, BoxVolume, Building, CylinderPrim, InteractableAnchor, JungleZone, LaneId,
+  MapId, MaterialTag, NavLinkKind, NestAnchor, Opening, RampPrim, Room, ShopAnchor, Spring, StructureAnchor, Team,
+  ThicketAnchor, Vec3,
 } from '../../../core/contracts';
+import type { BuildingDress, PropAnchor } from '../dressing';
 import * as dmath from '../../../core/dmath';
 
 /** A climb as authored: the point on the wall face, and the horizontal unit direction from the climb into the
- * building it serves. `roof` is the height of the surface the climb tops out on. */
+ * building it serves. `roof` is the height of the surface the climb tops out on. A ladder's "wall face" is the edge
+ * of the hatch it climbs through; `in` points from the hatch onto the floor it lands on. */
 export interface ClimbSpec {
-  readonly kind: 'chimney' | 'vine';
+  readonly kind: 'chimney' | 'vine' | 'ladder';
   readonly x: number;
   readonly z: number;
   readonly floor: number;
@@ -20,18 +23,148 @@ export interface ClimbSpec {
   readonly inZ: number;
 }
 
+/** An explicit nav link (hatch drops, Bough Springs); each end attaches to the nearest node. */
+export interface LinkSpec {
+  readonly from: Vec3;
+  readonly to: Vec3;
+  readonly kind: NavLinkKind;
+  /** Index into the part's `springs`. */
+  readonly spring?: number;
+}
+
 /** Content that is authored once. In `half` it is the Dawn half (z < 0) and is mirrored for Dusk; in `centre` it sits
- * on z = 0 and must be its own mirror image. Team-owned anchors in `half` belong to Dawn. */
+ * on z = 0 and must be its own mirror image. Team-owned anchors in `half` belong to Dawn. Indices (`building`,
+ * `rooms`, `camp`, `spring`) point into the part's own arrays; joinParts offsets them. */
 export interface SpecPart {
+  /** Geometry that also seeds the generated nav graph (corners, roofs, ramp ends). */
   readonly prims: readonly BlockoutPrim[];
+  /** Building shells: geometry only; their nav comes from `nav` and `links`. */
+  readonly fabric?: readonly BlockoutPrim[];
   readonly climbs: readonly ClimbSpec[];
   /** Extra nav waypoints; y is a height hint (the node snaps to the highest standable surface up to y + 0.5). */
   readonly nav: readonly Vec3[];
-  readonly nests: readonly Anchor[];
+  readonly links?: readonly LinkSpec[];
+  readonly nests: readonly NestAnchor[];
   readonly thickets: readonly ThicketAnchor[];
   /** Safe spots are Dawn's in `half`; ambush spots are neutral. */
   readonly botSpots: readonly Omit<BotSpot, 'team'>[];
+  readonly buildings?: readonly Building[];
+  readonly rooms?: readonly Room[];
+  readonly openings?: readonly Opening[];
+  readonly interactables?: readonly InteractableAnchor[];
+  readonly springs?: readonly Spring[];
+  readonly jungle?: readonly JungleZone[];
+  /** Dressing descriptors (D-EP-047), parallel to `buildings`. */
+  readonly dress?: readonly BuildingDress[];
+  readonly props?: readonly PropAnchor[];
 }
+
+export const part = (p: Partial<SpecPart>): SpecPart => ({ prims: [], climbs: [], nav: [], nests: [], thickets: [], botSpots: [], ...p });
+
+const shift = (i: number | undefined, by: number): number | undefined => (i === undefined || i < 0 ? i : i + by);
+
+/** Concatenate parts, offsetting the indices of each part by the lengths of the ones before it. */
+export function joinParts(...parts: readonly SpecPart[]): SpecPart {
+  let out = part({});
+  for (const p of parts) {
+    const nb = out.buildings?.length ?? 0;
+    const nr = out.rooms?.length ?? 0;
+    const nt = out.thickets.length;
+    const ns = out.springs?.length ?? 0;
+    const inB = <T extends { building?: number }>(a: T): T => (a.building === undefined ? a : { ...a, building: shift(a.building, nb) });
+    out = {
+      prims: [...out.prims, ...p.prims],
+      fabric: [...(out.fabric ?? []), ...(p.fabric ?? [])],
+      climbs: [...out.climbs, ...p.climbs],
+      nav: [...out.nav, ...p.nav],
+      links: [...(out.links ?? []), ...(p.links ?? []).map((l) => (l.spring === undefined ? l : { ...l, spring: l.spring + ns }))],
+      nests: [...out.nests, ...p.nests.map(inB)],
+      thickets: [...out.thickets, ...p.thickets.map(inB)],
+      botSpots: [...out.botSpots, ...p.botSpots],
+      buildings: [...(out.buildings ?? []), ...(p.buildings ?? [])],
+      rooms: [...(out.rooms ?? []), ...(p.rooms ?? []).map((r) => ({ ...r, building: shift(r.building, nb) ?? -1 }))],
+      openings: [...(out.openings ?? []), ...(p.openings ?? []).map((o) => ({
+        ...o, rooms: [shift(o.rooms[0], nr) ?? -1, shift(o.rooms[1], nr) ?? -1] as const,
+      }))],
+      interactables: [...(out.interactables ?? []), ...(p.interactables ?? []).map((a) => {
+        const b = inB(a);
+        return a.camp === undefined ? b : { ...b, camp: a.camp + nt };
+      })],
+      springs: [...(out.springs ?? []), ...(p.springs ?? [])],
+      jungle: [...(out.jungle ?? []), ...(p.jungle ?? [])],
+      dress: [...(out.dress ?? []), ...(p.dress ?? [])],
+      props: [...(out.props ?? []), ...(p.props ?? [])],
+    };
+  }
+  return out;
+}
+
+/** Add to a part in its own index space (`extra`'s indices already point into `base`): extras for a building. */
+export function extend(base: SpecPart, extra: Partial<SpecPart>): SpecPart {
+  const out: Record<string, unknown> = { ...base };
+  for (const [k, list] of Object.entries(extra)) out[k] = [...((base as unknown as Record<string, readonly unknown[]>)[k] ?? []), ...(list as readonly unknown[])];
+  return out as unknown as SpecPart;
+}
+
+/** Edit the dressing of the part's first building. */
+export function patchDress(p: SpecPart, f: (d: BuildingDress) => BuildingDress): SpecPart {
+  const [first, ...rest] = p.dress ?? [];
+  return first ? { ...p, dress: [f(first), ...rest] } : p;
+}
+
+/** How a mirror moves things. `flips` is true for reflections (they reverse polygon winding). */
+export interface PartMirror {
+  readonly v: (p: Vec3) => Vec3;
+  readonly yaw: (yaw: number) => number;
+  /** Yaw of a box volume (boxes repeat every half turn); defaults to `yaw`. */
+  readonly boxYaw?: (yaw: number) => number;
+  readonly prim: (p: BlockoutPrim) => BlockoutPrim;
+  readonly climb: (c: ClimbSpec) => ClimbSpec;
+  /** Renames building, room-owner and jungle ids (lane ids and 'base' are kept). */
+  readonly name: (id: string) => string;
+  readonly team?: (t: Team) => Team;
+  /** False for a pure rename: polygon winding is kept. Default true. */
+  readonly flips?: boolean;
+}
+
+const LANE_ZONES: readonly string[] = ['hedgerow', 'riverbank', 'pinewood', 'base'];
+
+/** A part's mirror image: geometry, anchors and records, indices unchanged. */
+export function mirrorPart(p: SpecPart, m: PartMirror): SpecPart {
+  const anchor = <T extends Anchor>(a: T): T => ({ ...a, pos: m.v(a.pos), yaw: m.yaw(a.yaw) });
+  const box = (b: BoxVolume): BoxVolume => ({ ...b, centre: m.v(b.centre), yaw: (m.boxYaw ?? m.yaw)(b.yaw) });
+  const zone = (z: string) => (LANE_ZONES.includes(z) ? z : m.name(z));
+  return {
+    prims: p.prims.map(m.prim),
+    fabric: (p.fabric ?? []).map(m.prim),
+    climbs: p.climbs.map(m.climb),
+    nav: p.nav.map(m.v),
+    links: (p.links ?? []).map((l) => ({ ...l, from: m.v(l.from), to: m.v(l.to) })),
+    nests: p.nests.map(anchor),
+    thickets: p.thickets.map(anchor),
+    botSpots: p.botSpots.map((b) => ({ ...b, pos: m.v(b.pos) })),
+    buildings: (p.buildings ?? []).map((b) => ({ ...b, id: m.name(b.id), zone: zone(b.zone), footprint: box(b.footprint) })),
+    rooms: (p.rooms ?? []).map((r) => ({ ...r, volume: box(r.volume) })),
+    openings: (p.openings ?? []).map((o) => ({ ...o, centre: m.v(o.centre), yaw: m.yaw(o.yaw) })),
+    interactables: (p.interactables ?? []).map(anchor),
+    springs: (p.springs ?? []).map((s) => ({ ...s, pad: m.v(s.pad), land: m.v(s.land) })),
+    jungle: (p.jungle ?? []).map((j) => ({
+      ...j, id: zone(j.id), half: m.team ? m.team(j.half) : j.half,
+      outline: (m.flips ?? true) ? j.outline.map(m.v).reverse() : j.outline.map(m.v), paths: j.paths.map((path) => path.map(m.v)),
+    })),
+    dress: (p.dress ?? []).map((d) => ({
+      ...d,
+      marks: d.marks.map((k) => ({ ...k, centre: m.v(k.centre), yaw: m.yaw(k.yaw) })),
+      balconies: d.balconies.map(box),
+      landings: d.landings.map(box),
+      stairs: d.stairs.map((st) => ({ ...st, from: m.v(st.from), to: m.v(st.to) })),
+    })),
+    props: (p.props ?? []).map((q) => ({ ...q, pos: m.v(q.pos), yaw: m.yaw(q.yaw), zone: zone(q.zone) })),
+  };
+}
+
+/** −a without producing −0, so mirrored records compare equal to authored ones. */
+export const neg = (a: number): number => (a === 0 ? 0 : -a);
 
 export interface MapSpec {
   readonly id: MapId;
@@ -163,11 +296,19 @@ export const chimney = (x: number, z: number, roof: number, inX: number, inZ: nu
 
 /** x → −x copies (yaw → −yaw), for the east jungle, which reuses the west jungle's block plan. */
 export function flipX(p: BlockoutPrim, material: (m: MaterialTag) => MaterialTag = (m) => m): BlockoutPrim {
-  const centre = v(-p.centre.x, p.centre.y, p.centre.z);
+  const centre = v(neg(p.centre.x), p.centre.y, p.centre.z);
   return p.shape === 'cylinder'
     ? { ...p, centre, material: material(p.material) }
-    : { ...p, centre, yaw: p.yaw === 0 ? 0 : -p.yaw, material: material(p.material) };
+    : { ...p, centre, yaw: neg(p.yaw), material: material(p.material) };
 }
 
-export const flipClimb = (c: ClimbSpec): ClimbSpec => ({ ...c, x: -c.x, inX: -c.inX });
-export const flipV = (p: Vec3): Vec3 => v(-p.x, p.y, p.z);
+export const flipClimb = (c: ClimbSpec): ClimbSpec => ({ ...c, x: neg(c.x), inX: neg(c.inX) });
+export const flipV = (p: Vec3): Vec3 => v(neg(p.x), p.y, p.z);
+
+/** The same part with its building, room-owner and jungle ids renamed. */
+export const renamePart = (p: SpecPart, name: (id: string) => string): SpecPart =>
+  mirrorPart(p, { v: (q) => q, yaw: (y) => y, prim: (q) => q, climb: (c) => c, name, flips: false });
+
+/** The east quarter: the west quarter mirrored in x, its brick and stone rebuilt in `material`. */
+export const flipPart = (p: SpecPart, material: (m: MaterialTag) => MaterialTag, name: (id: string) => string): SpecPart =>
+  mirrorPart(p, { v: flipV, yaw: neg, prim: (q) => flipX(q, material), climb: flipClimb, name });

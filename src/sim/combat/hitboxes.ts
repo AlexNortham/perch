@@ -34,6 +34,11 @@ export interface CastFilter {
   pods: boolean;
   /** The Phoenix Ember. */
   ember: boolean;
+  /**
+   * A melee swing: 'light' or 'heavy' also hits claimable pickups with PickupInfo.melee ('any' for both, 'heavy' for a
+   * heavy swing only; not carried, not before claimableAt). null for everything else.
+   */
+  melee: 'light' | 'heavy' | null;
 }
 
 export interface Hitboxes {
@@ -104,8 +109,14 @@ export function createHitboxes(ctx: SimContext): Hitboxes {
         if (e.kind === 'hero' ? !f.heroes : e.kind === 'unit' ? !f.units : !f.structures) return false;
         if (f.team !== null && (e.team === f.team) !== f.allies) return false;
         return !e.health.dead && !e.stats.conditions.has('intangible');
-      case 'pickup':
-        return e.pickup.type === 'pod' ? f.pods : e.pickup.type === 'ember' && f.ember;
+      case 'pickup': {
+        const p = e.pickup;
+        if (p.type === 'pod') return f.pods;
+        if (p.type === 'ember' && f.ember) return true;
+        if (f.melee === null || p.melee === undefined || p.carrier !== null) return false;
+        if (p.claimableAt !== undefined && ctx.clock.tick < p.claimableAt) return false;
+        return p.melee === 'any' || f.melee === 'heavy';
+      }
       default:
         return false;
     }
@@ -184,7 +195,7 @@ export function createHitboxes(ctx: SimContext): Hitboxes {
         };
         if (f.heroes) scan(ctx.store.list('hero'));
         if (f.units) scan(ctx.store.list('unit'));
-        if (f.pods || f.ember) scan(ctx.store.list('pickup'));
+        if (f.pods || f.ember || f.melee !== null) scan(ctx.store.list('pickup'));
       } else {
         mid.x = o.x + d.x * half;
         mid.y = o.y + d.y * half;

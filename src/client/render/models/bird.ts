@@ -13,7 +13,7 @@ import type { BufferGeometry } from 'three';
 import { Float32BufferAttribute, Quaternion, Euler, Uint16BufferAttribute, Vector3 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
-import { HOLD, LEG_IK, PLUMAGE } from './constants';
+import { GUN_CAP, HOLD, LEG_IK, PLUMAGE } from './constants';
 import { Parts } from './parts';
 
 type V3 = readonly [number, number, number];
@@ -235,7 +235,7 @@ const v = (a: V3): Vector3 => new Vector3(a[0], a[1], a[2]);
 export function assemble(plan: BodyPlan, s: BirdSpec): BirdBuild {
   const toe = s.toe ?? HOLD.toe;
   const cant = s.cant ?? 0;
-  const g = gun(s.gun);
+  const g = gun({ ...s.gun, length: Math.min(s.gun.length, plan.height * GUN_CAP.lengthOfHeight), thick: Math.min(s.gun.thick, GUN_CAP.thick) });
   const muzzle = new Vector3(-plan.muzzle.right, plan.muzzle.up, plan.muzzle.forward);
   const q = new Quaternion().setFromEuler(new Euler(0, toe, cant, 'YXZ'));
   const mainAt = v(g.main).applyQuaternion(q).add(muzzle);

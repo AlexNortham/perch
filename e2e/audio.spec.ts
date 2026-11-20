@@ -4,6 +4,7 @@
 import { build } from 'esbuild';
 import { expect, test, type Page } from '@playwright/test';
 import { HERO_IDS } from '../src/sim/core/contracts';
+import { loadMap } from '../src/sim/world/map';
 
 // Page-side objects are untyped by nature (they live in the browser); JSON.parse gives a loosely typed stand-in.
 type Loose = ReturnType<typeof JSON.parse>;
@@ -211,5 +212,150 @@ test.describe('live context', () => {
     expect(peak).toBeGreaterThan(0.005);
     await p.evaluate(() => (window as Loose).audio.dispose());
     await p.waitForFunction(() => (window as Loose).__ctx.state === 'closed');
+  });
+});
+
+// ---- Stage 4 (W5b): every new cue is a distinct, non-silent signal above the wind bed ----
+const MAIN = loadMap('main');
+type Pt = { x: number; y: number; z: number };
+const at = (p: Pt): string => JSON.stringify(p);
+const roomPoint = (pred: (r: NonNullable<typeof MAIN.rooms>[number]) => boolean): string => at(MAIN.rooms!.find(pred)!.volume.centre);
+const EV = {
+  obj: (action: string, extra = '') => `{ type: 'objective', action: '${action}', hero: 1, team: 'dawn', pickup: null, pickupType: null, pos: { x: 6, y: 0, z: 0 }${extra} }`,
+  died: (victim: number, kind: string, type: string) => `{ type: 'entity.died', victim: ${victim}, victimKind: '${kind}', victimTeam: 'neutral', victimType: '${type}', killer: 1, creditHero: 1, assisters: [], via: 'weapon', pos: { x: 8, y: 0, z: 0 } }`,
+  attack: (unit: number, attack: string) => `{ type: 'unit.attack', unit: ${unit}, attack: '${attack}', origin: { x: 8, y: 0, z: 0 }, point: { x: 0, y: 0, z: 0 }, impactAt: 1 }`,
+  state: (unit: number, state: string) => `{ type: 'unit.state', unit: ${unit}, state: '${state}' }`,
+  move: (action: string) => `{ type: 'movement', hero: 2, action: '${action}' }`,
+  hit: (target: number) => `{ type: 'damage.applied', source: 2, sourceTeam: 'dusk', target: ${target}, targetKind: 'structure', amount: 60, absorbed: 0, beakShot: false, weakPoint: false, pos: { x: 6, y: 0, z: 0 } }`,
+};
+/** A point whose first containing room (the engine's pick) is the Cellar Run itself, clear of the Magpie Den inside it. */
+const tunnelPoint = (): Pt => {
+  const rooms = MAIN.rooms!;
+  const t = rooms.find((r) => r.tag === 'tunnel')!.volume;
+  const first = (p: Pt) => rooms.find((r) => {
+    const v = r.volume, dx = p.x - v.centre.x, dz = p.z - v.centre.z, cs = Math.cos(v.yaw), sn = Math.sin(v.yaw);
+    return Math.abs(dx * cs - dz * sn) <= v.size.x / 2 && Math.abs(dx * sn + dz * cs) <= v.size.z / 2 && Math.abs(p.y - v.centre.y) <= v.size.y / 2;
+  });
+  for (let dx = 0; dx < t.size.x / 2; dx += 0.5) for (const s of [1, -1]) {
+    const p = { ...t.centre, x: t.centre.x + s * dx };
+    if (first(p)?.tag === 'tunnel') return p;
+  }
+  throw new Error('no tunnel point');
+};
+/** Walk the local hero to `p` (a JSON point) and update, as the app does every frame. */
+const walk = (p: string): string => `{ const p = ${p}; v.entities[0].pos = p; v.seconds += 1; a.update({ curr: v, prev: v, alpha: 1, dt: 0.016 }, { position: p, target: { x: p.x, y: p.y, z: p.z - 1 }, fovDeg: 90 }); }`;
+const LIT = 0x8000000, EGG_CARRIER = 0x200000;
+const CASES: Record<string, string> = {
+  eggTaken: `a.onEvents([${EV.obj('eggTaken')}], v);`,
+  eggDropped: `a.onEvents([${EV.obj('eggDropped')}], v);`,
+  eggSpoiled: `a.onEvents([${EV.obj('eggSpoiled')}], v);`,
+  eggDelivered: `a.onEvents([${EV.obj('eggDelivered', ', value: 90')}], v);`,
+  rocWake: `a.onEvents([${EV.obj('rocSpawned')}], v);`,
+  rocEnrage: `a.onEvents([${EV.state(10, 'enraged')}], v);`,
+  rocRake: `a.onEvents([${EV.attack(10, 'rake')}], v);`,
+  rocFlap: `a.onEvents([${EV.attack(10, 'flap')}], v);`,
+  rocShriek: `a.onEvents([${EV.attack(10, 'shriek')}], v);`,
+  rocDeath: `a.onEvents([${EV.died(10, 'unit', 'roc')}], v);`,
+  emberDrop: `a.onEvents([${EV.obj('emberDropped')}], v);`,
+  emberClaim: `a.onEvents([${EV.obj('emberClaimed')}], v);`,
+  rekindle: `a.onEvents([{ type: 'hero.respawned', hero: 2, pos: { x: 3, y: 0, z: 0 }, revived: true }], v);`,
+  creatureWake: `a.onEvents([${EV.state(11, 'awake')}], v);`,
+  creatureBite: `a.onEvents([${EV.attack(11, 'bite')}], v);`,
+  creatureSlam: `a.onEvents([${EV.attack(11, 'slam')}], v);`,
+  creatureSpit: `a.onEvents([${EV.attack(11, 'spit')}], v);`,
+  creatureLash: `a.onEvents([${EV.attack(11, 'lash')}], v);`,
+  creatureDashBite: `a.onEvents([${EV.attack(11, 'dashBite')}], v);`,
+  creatureDie: `a.onEvents([${EV.died(11, 'unit', 'beetle')}], v);`,
+  campCleared: `a.onEvents([${EV.obj('campCleared', ', camp: 0')}], v);`,
+  twigBreak: `a.onEvents([${EV.died(12, 'structure', 'nest')}], v);`,
+  wovenBreak: `a.onEvents([${EV.died(13, 'structure', 'nest')}], v);`,
+  keepsakeBreak: `a.onEvents([${EV.died(14, 'structure', 'nest')}], v);`,
+  feederBreak: `a.onEvents([${EV.died(15, 'structure', 'nest')}], v);`,
+  feederChime: `a.onEvents([${EV.hit(15)}], v);`,
+  feederFullChime: `v.entities.find((e) => e.id === 15).flags = ${LIT}; a.onEvents([${EV.hit(15)}], v);`,
+  feederBlink: `v.entities.find((e) => e.id === 15).flags = ${LIT}; ${walk('{ x: 0, y: 0, z: 0 }')}`,
+  runeSpawn: `a.onEvents([${EV.obj('runeSpawned', ", variant: 'swift'")}], v);`,
+  runeTaken: `a.onEvents([${EV.obj('runeTaken', ", variant: 'swift'")}], v);`,
+  keepsake: `a.onEvents([${EV.obj('keepsakeGained', ', value: 1')}], v);`,
+  berry: `a.onEvents([${EV.obj('berryEaten')}], v);`,
+  latch: `a.onEvents([${EV.move('updraftOn')}], v);`,
+  dismount: `a.onEvents([${EV.move('updraftOff')}], v);`,
+  eggCarryPulse: `v.entities[0].flags = ${EGG_CARRIER}; ${walk('{ x: 0, y: 0, z: 0 }')}`,
+  hideEnter: walk(roomPoint((r) => r.tag === 'hide')),
+  cellarRun: walk(at(tunnelPoint())),
+  magpieDen: walk(roomPoint((r) => r.building < 0 && !r.tag)),
+  spring: walk(at(MAIN.springs![0]!.pad)),
+  ivyCurtain: walk(at(MAIN.openings!.find((o) => o.curtain)!.centre)),
+  lookout: walk(at(MAIN.interactables!.find((i) => i.kind === 'lookout')!.pos)),
+  previewHero: `a.previewHero('owl');`,
+};
+
+test.describe('stage 4 cues', () => {
+  test('each new cue is non-silent above the wind bed and all differ', async ({ page }) => {
+    await setup(page);
+    await page.evaluate(() => {
+      const E = (window as Loose).ev;
+      (window as Loose).s4 = (v: Loose) => {
+        v.map = 'main';
+        v.entities.push(
+          E.ent(10, 'unit', 'roc', 'neutral', 8), E.ent(11, 'unit', 'beetle', 'neutral', 8),
+          { ...E.ent(12, 'structure', 'nest', 'neutral', 6), structure: { variant: 'twig' } },
+          { ...E.ent(13, 'structure', 'nest', 'neutral', 6), structure: { variant: 'woven' } },
+          { ...E.ent(14, 'structure', 'nest', 'neutral', 6), structure: { variant: 'keepsake' } },
+          { ...E.ent(15, 'structure', 'nest', 'neutral', 6), structure: { variant: 'feeder' } },
+        );
+        for (const e of v.entities) { e.flags ??= 0; e.seenBy ??= 3; }
+      };
+    });
+    const cfg = `{ prep: (v) => window.s4(v) }`;
+    const bed = await run(page, '', cfg);
+    const roomTone = await run(page, walk(roomPoint((r) => r.building >= 0 && !r.tag)), cfg); // indoors, no cue
+    const sigs = new Set<number>([bed.sig, roomTone.sig]);
+    for (const [name, go] of Object.entries(CASES)) {
+      const r = await run(page, go, cfg);
+      expect(r.nan, name).toBe(false);
+      const floor = ['hideEnter', 'cellarRun', 'magpieDen'].includes(name) ? roomTone : bed; // those rooms also bring the room tone
+      expect(Math.sqrt(Math.max(0, r.rms ** 2 - floor.rms ** 2)), name).toBeGreaterThan(1e-4);
+      expect(sigs.has(r.sig), `${name} is silent or duplicates another cue`).toBe(false);
+      sigs.add(r.sig);
+    }
+  });
+
+  test('indoors adds room tone and muffles other rooms; mute silences everything', async ({ page }) => {
+    await setup(page);
+    const room = MAIN.rooms![16]!.volume.centre; // a Warehouse cellar about 40 m from the camera pose
+    const prep = `{ prep: (v) => { v.map = 'main'; v.entities.forEach((e) => { e.flags = 0; e.seenBy = 3; }); } }`;
+    const shot = (y: number) => `a.onEvents([{ type: 'weapon.fired', shooter: 2, muzzle: ${at({ x: room.x, y, z: room.z })}, dir: { x: 0, y: 0, z: -1 } }], v);`;
+    const bed = await run(page, '', prep);
+    const outdoors = await run(page, shot(0), prep);
+    const indoors = await run(page, shot(room.y), prep); // the muzzle sits in a room; the listener is outside
+    const net = (r: Out) => Math.sqrt(Math.max(0, r.rms ** 2 - bed.rms ** 2));
+    expect(net(indoors)).toBeLessThan(net(outdoors));
+    expect((await run(page, walk(at(room)), prep)).sig).not.toBe(bed.sig);
+    const muted = await run(page, CASES.rocWake!, `{ settings: { ...E.settings(), mute: true } }`);
+    expect(muted.rms).toBeLessThan(1e-6);
+  });
+
+  test('48 voices stay capped under a flood and an alarm still gets through', async ({ page }) => {
+    await setup(page);
+    const flood = Array.from({ length: 150 }, () => fire(2, 5)).join('');
+    const base = await run(page, flood);
+    const withRoc = await run(page, flood + `a.onEvents([${EV.obj('rocSpawned')}], v);`);
+    expect(base.nan || withRoc.nan).toBe(false);
+    expect(withRoc.sig).not.toBe(base.sig);
+    expect(withRoc.rms).toBeGreaterThan(base.rms);
+  });
+
+  test('music reacts to the Roc fight and the Egg carry; hero select has its own state', async ({ page }) => {
+    await setup(page);
+    const m = (extra = '') => `{ settings: E.settings({ music: 1, sfx: 0 }), lookahead: 2.9, ${extra} }`;
+    const laning = await run(page, '', m());
+    const roc = await run(page, '', m(`prep: (v) => { v.entities.push({ ...E.ent(10, 'unit', 'roc', 'neutral', 8), flags: 0 }); }`));
+    const egg = await run(page, '', m(`prep: (v) => { v.entities[0].flags = ${EGG_CARRIER}; }`));
+    expect(roc.sig).not.toBe(laning.sig);
+    expect(egg.sig).not.toBe(laning.sig);
+    expect(egg.rms).toBeGreaterThan(laning.rms); // the objective state adds the lead and percussion stems
+    const select = await run(page, `a.onScreen('heroSelect');`, m());
+    expect(select.sig).not.toBe(laning.sig);
   });
 });

@@ -1,19 +1,23 @@
 /**
  * sim/physics: the Rapier world, the PhysicsService, the hero character controller (movement phase), units moved by
  * physics effects, and the physics-owned effects (displace, dash, teleport, movementMode, attach).
- * rapier.ts: colliders and queries · controller.ts: hero movement · units.ts: displaced units · effects.ts: handlers.
+ * rapier.ts: colliders and queries · updrafts.ts: cables and latch reach · controller.ts: hero movement ·
+ * units.ts: displaced units · effects.ts: handlers.
  */
-import type { CoreContext, Physics } from '../core/contracts';
+import type { CoreContext, Physics, PhysicsService } from '../core/contracts';
 import { createController } from './controller';
 import { registerEffects } from './effects';
 import { createSpace } from './rapier';
 import { createUnitMover } from './units';
+import { createUpdrafts } from './updrafts';
 
 export async function createPhysics(ctx: CoreContext): Promise<Physics> {
   const space = await createSpace(ctx);
-  const ctrl = createController(ctx, space, space.service);
-  const units = createUnitMover(ctx, space.service);
-  registerEffects(ctx, ctrl, space.service, units);
+  const updrafts = createUpdrafts(ctx.map);
+  const service: PhysicsService = { ...space.service, updraftInReach: updrafts.service };
+  const ctrl = createController(ctx, space, service, updrafts);
+  const units = createUnitMover(ctx, service);
+  registerEffects(ctx, ctrl, service, units);
 
   ctx.bus.on('entity.spawned', (e) => {
     if (e.kind === 'hero') {
@@ -25,7 +29,8 @@ export async function createPhysics(ctx: CoreContext): Promise<Physics> {
       ctrl.add(h);
     } else if (e.kind === 'structure') {
       const s = ctx.store.getKind(e.id, 'structure');
-      if (s) space.addStructure(s.id, s.pos, s.structure.body.radius, s.structure.body.height);
+      // Twig and Keepsake Nests have no collider: heroes pass through them (GDD §7.9).
+      if (s && s.structure.solid !== false) space.addStructure(s.id, s.pos, s.structure.body.radius, s.structure.body.height);
     }
   });
   ctx.bus.on('entity.despawned', (e) => {
@@ -39,7 +44,7 @@ export async function createPhysics(ctx: CoreContext): Promise<Physics> {
   });
 
   return {
-    service: space.service,
+    service,
     system: {
       name: 'physics',
       phases: {

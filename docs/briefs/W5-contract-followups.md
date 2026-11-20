@@ -180,5 +180,87 @@ the Director's W4.5 text on `integrate/w5`. Waves: **W5** unless marked **W6**.
 
 ## Technical Architect (W5.5)
 
-- Delete `Button.Interact`, the `'interact'` binding and its default (with UI's label line); saved codes then drop on
-  load. Make `PhysicsService.updraftInReach` required once Physics lands it.
+- Done 20/11/2026: `Button.Interact` deleted (the binding, default and label went with UI's W5a work); saved codes drop
+  on load; `PhysicsService.updraftInReach` and `Motor.updraftInReach` required. See the W5.5 section below.
+
+---
+
+## W5.5 · 20/11/2026 · from the wave 5a requests
+
+From the W5.5 contract round (INTERFACES §15, D-ARCH-025 to D-ARCH-028). Everything new is optional unless marked,
+so each side lands in any order. **W5** means the integration round may take it now, acting for the owner; **W6**
+otherwise.
+
+### Character Controller (sim/physics, data/movement)
+
+- **W5:** `MovementModeEffect.endOn` may hold `'stun'`: end the mode on the tick the hero has the `'stunned'`
+  condition, and run `onEnd` as for the other ends. Physics' own `Mode.endOn` type now follows the contract (a
+  one-line type change made by the Architect; the rule is still to write).
+- **W5:** a 'target' dash reads `target.surface` instead of `cause.values[SURFACE_VALUE]`, and an 'aim' dash reads
+  `DashEffect.steerDeg` (`effects.magnitude`) instead of `STEER_VALUE`; delete both value-name constants once the hero
+  data has moved (below).
+- **W6:** point `PHYSICS_LAYERS` at `Layer.Sight`, `Layer.Movement` and `Layer.EggCarrier` (or replace it); the test
+  in `src/sim/index.test.ts` pins them equal until then.
+- `updraftInReach` is now required on `PhysicsService` and `Motor`. Any new fake physics returns `null`; any new hero
+  literal sets `updraftInReach: null`.
+
+### Ability Systems (sim/abilities)
+
+- **W5:** 'point' targeting reads `AbilityDef.surface` instead of `values[SURFACE_VALUE]`, and sets `surface: true` on
+  the target when it took the surface under the crosshair (not on the floor fallback beyond range).
+- **W6, with the Architect:** `TetherEffect.breakDistance` becomes a `Magnitude`; `zones.ts` and `kit.ts` resolve it
+  with `ctx.effects.magnitude` in the same commit (INTERFACES §15 row 11).
+
+### Combat (sim/combat)
+
+- **W5:** `HealEffect.triggerPct`: add that share of the hit being reported (its `amount`, after the target's resists)
+  to the heal, the way `DamageEffect.triggerPct` finds the hit (D-SYS-014); nothing without a hit.
+- **W5:** `ShieldEffect.id`: a shield with an id the holder already has replaces it; a `cleanse` whose list holds the
+  id removes it. Anonymous shields behave as today.
+
+### Economy & Items (sim/items, data/items, sim/economy)
+
+- **W5 (integration item 5):** Kestrel's Eye as data: a `'weaponHit'` trigger with `beyondM: 25` holding
+  `damage { amount: 0, triggerPct: 0.2, type: 'talon' }` plus the 3 s reveal; the trigger engine honours `beyondM` as
+  it does `withinM`. Delete the rider.
+- **W5:** item shields carry `id: 'item:<itemId>'`; sale cleanses that id; an upgrade re-applies with the same id at the
+  new amount (the "difference" bookkeeping goes).
+- Boundless Song keeps its refund helper (INTERFACES §15 row 16).
+- **W6 (Economy):** read neutral Seed values from `data/world.ts` (`CREATURES`, `FEEDERS`, `NESTS`, `ROC`, `EMBERS`)
+  and delete the copies in economy data.
+
+### Heroes A and B (data/heroes, heroes)
+
+- **W5:** Branch Swing and Tree Cling: `surface: true` on the AbilityDef instead of `values.surface`; Rampage:
+  `steerDeg: 30` on its dash instead of `values.steerDeg` (switch together with the physics and abilities readers).
+- **W5:** Tree Cling `endOn: ['jump', 'stun']` with `onEnd: [{ kind: 'cleanse', remove: [CLING_BUFF_ID] }]`, then
+  delete the hook's stun and Jump handling (keep the T3 heal).
+- **W5:** Gape: replace the 0.1 s `songLifesteal` status with a 0.1 s `'abilityHit'` trigger on the caster
+  (`target: 'self'`, no `uses`, so every enemy bitten counts) holding `heal { amount: 0, triggerPct: 0.3 }`.
+- **W6:** Swift's Slipstream T3 pass-through damage and similar "a tier adds a hit" cases can be data: the hit in the
+  base `onHit` with a value at 0 that the tier raises. Peacock's Strut can listen to the `ability` event (stage
+  `'land'`) and drop `hook: true` from Dazzle and Full Display.
+
+### Environment Artist (client/render/environment)
+
+- Read the descriptor from `loadMap(id).dressing` (types from `src/sim/core/contracts`). `loadDressing` is deprecated and
+  goes in W6.
+
+### Level Designer (sim/world/map)
+
+- The dressing types now live in `contracts/map.ts`; `world/map/dressing.ts` only re-exports them. New fields are
+  interface requests. `buildWorld` sets `map.dressing`.
+
+### UI and app
+
+- Swap bird uses `practiceConfig(seed, hero, start)` (`SimOptions.practiceStart`); nothing in the client touches
+  `sim.ctx`.
+
+### QA (tests, e2e)
+
+- `RETIRED_BUTTONS.Interact` replaces `Button.Interact` in the no-Interact suite; core clears the bit, so "holding it
+  does nothing" now holds by construction. The suite's last red test waits on bots riding Updrafts (Bot AI).
+
+### Bot AI
+
+- Nothing requested this round. `motor.updraftInReach` is never `undefined` now: `!== null` is enough.

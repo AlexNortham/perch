@@ -115,6 +115,9 @@ export const RIG = {
  * Rotations in radians about the main grip in the gun's own frame (x pitches the muzzle down, y swings it to the
  * bird's left, z rolls it); translations as fractions of the hero's height in the body frame unless noted.
  */
+/** G15: the held gun is never longer than this share of the bird's height, nor thicker than this (m): it must not cover the lower-left screen. */
+export const GUN_CAP = { lengthOfHeight: 0.45, thick: 0.08 } as const;
+
 export const HOLD = {
   /** Barrel turned in toward the centre line so the stock clears the flank. */
   toe: 0.06,

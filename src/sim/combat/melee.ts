@@ -11,7 +11,7 @@ import { copy, ticks } from '../core/math';
 import { isDamageable } from './damage';
 import type { Damage } from './damage';
 import type { Guns } from './guns';
-import type { CastFilter, Hitboxes } from './hitboxes';
+import type { CastFilter, Hit, Hitboxes } from './hitboxes';
 import type { Statuses } from './statuses';
 import { Melee } from './types';
 import type { HeroState } from './types';
@@ -44,6 +44,7 @@ export function createMelee(
     structures: true,
     pods: true,
     ember: false,
+    melee: null,
   };
 
   /** Light damage: the meleeDamage stat (base plus growth), with the GDD default when hero data gives no base. */
@@ -81,12 +82,23 @@ export function createMelee(
     f.team = h.team;
     f.ignore = h.id;
     f.ember = heavy;
+    f.melee = heavy ? 'heavy' : 'light';
     const cover = ctx.physics.raycast(origin, dir, M.reachM, Layer.World);
-    const first = hb.cast(origin, dir, cover?.distance ?? M.reachM, M.radiusM, f)[0];
+    // A pickup (pod, Egg, rune, Ember) is reported and takes nothing; the swing goes on to what stands behind it.
+    let pickup: EntityId | null = null;
+    let first: Hit | undefined;
+    for (const hit of hb.cast(origin, dir, cover?.distance ?? M.reachM, M.radiusM, f)) {
+      if (ctx.store.get(hit.id)?.kind !== 'pickup') {
+        first = hit;
+        break;
+      }
+      pickup ??= hit.id;
+    }
     const target = first ? ctx.store.get(first.id) : undefined;
     s.meleeCause.origin = copy(h.pos);
+    if (pickup !== null) ctx.bus.emit({ type: 'melee', attacker: h.id, heavy, target: pickup, parried: false });
     if (!first || !target) {
-      ctx.bus.emit({ type: 'melee', attacker: h.id, heavy, target: null, parried: false });
+      if (pickup === null) ctx.bus.emit({ type: 'melee', attacker: h.id, heavy, target: null, parried: false });
       return;
     }
     const ps = target.kind === 'hero' ? heroes.get(target.id) : undefined;
@@ -110,7 +122,7 @@ export function createMelee(
     if (!isDamageable(target)) return;
     const light = lightDamage(s);
     const point = { x: origin.x + dir.x * first.t, y: origin.y + dir.y * first.t, z: origin.z + dir.z * first.t };
-    damage.request(target.id, s.meleeCause, 'talon', heavy ? light * M.heavyMult + M.heavyFlat : light, point);
+    damage.request(target.id, s.meleeCause, 'talon', heavy ? light * M.heavyMult + M.heavyFlat : light, point).heavy = heavy;
     if (heavy) ctx.effects.apply(KNOCKBACK, { entity: target.id, point: copy(target.pos), dir }, s.meleeCause);
   };
 

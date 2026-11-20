@@ -12,8 +12,12 @@ const flat = (a: Vec3, b: Vec3) => Math.hypot(a.x - b.x, a.z - b.z);
 const ground = (x: number, z: number, maxY = 0.5) => standAt(index, x, z, maxY);
 
 describe("loadMap('main')", () => {
-  it('is cheap: few prims', () => {
-    expect(map.prims.length).toBeLessThanOrEqual(1500);
+  it('stays inside the GDD §6.12 prim budget: 3,000 solid prims, 600 per quarter', () => {
+    expect(map.prims.filter((p) => p.solid).length).toBeLessThanOrEqual(3000);
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+      const quarter = map.prims.filter((p) => Math.sign(p.centre.x) === sx && Math.sign(p.centre.z) === sz);
+      expect(quarter.length, `quarter ${sx},${sz}`).toBeLessThanOrEqual(600);
+    }
   });
 
   it('builds once and keeps the arena', () => {
@@ -82,7 +86,7 @@ describe('mirror symmetry (z → −z)', () => {
 
   it('every anchor has its mirror, with the flock swapped', () => {
     const lists: (readonly (Anchor & { team?: string })[])[] = [
-      map.spawns, map.shops, map.structures, map.thickets, map.nests, map.runeSpots, map.eggPerches,
+      map.spawns, map.shops, map.structures, map.thickets, map.nests, map.runeSpots, map.eggPerches, map.interactables ?? [],
     ];
     for (const list of lists) expect(sorted(list.map(anchorMirrorKey))).toEqual(sorted(list.map((a) => anchorKey(a))));
     const spots = map.botSpots.map((b) => `${b.kind} ${b.team} ${vk(b.pos)}`);
@@ -105,6 +109,18 @@ describe('mirror symmetry (z → −z)', () => {
     const link = (from: Vec3 | undefined, to: Vec3 | undefined, kind: string) => `${from && vk(from)} ${to && vk(to)} ${kind}`;
     expect(sorted(links.map((l) => link(nodes[l.from] && mz(nodes[l.from] as Vec3), nodes[l.to] && mz(nodes[l.to] as Vec3), l.kind))))
       .toEqual(sorted(links.map((l) => link(nodes[l.from], nodes[l.to], l.kind))));
+  });
+
+  it('rooms, openings, Springs and building footprints have their Dusk mirror', () => {
+    const box = (b: { centre: Vec3; size: Vec3 }, m: (p: Vec3) => Vec3) => `${vk(m(b.centre))} ${vk(b.size)}`;
+    const id = (p: Vec3) => p;
+    for (const list of [map.rooms ?? [], (map.buildings ?? []).map((b) => ({ volume: b.footprint }))]) {
+      expect(sorted(list.map((r) => box(r.volume, mz)))).toEqual(sorted(list.map((r) => box(r.volume, id))));
+    }
+    const opening = (o: NonNullable<MapData['openings']>[number], m: (p: Vec3) => Vec3) => `${o.kind} ${vk(m(o.centre))} ${r(o.width)} ${r(o.height)}`;
+    expect(sorted((map.openings ?? []).map((o) => opening(o, mz)))).toEqual(sorted((map.openings ?? []).map((o) => opening(o, id))));
+    const spring = (s: NonNullable<MapData['springs']>[number], m: (p: Vec3) => Vec3) => `${vk(m(s.pad))} ${vk(m(s.land))} ${r(s.apexY)}`;
+    expect(sorted((map.springs ?? []).map((s) => spring(s, mz)))).toEqual(sorted((map.springs ?? []).map((s) => spring(s, id))));
   });
 
   it('structure, camp and side-stall positions are also mirrored in x', () => {
@@ -173,7 +189,7 @@ describe('GDD §6.3 anchors', () => {
     });
 
     it(`${team}: Magpie stalls`, () => {
-      const stalls = map.shops.filter((s) => s.team === team && s.kind === 'stall');
+      const stalls = map.shops.filter((s) => s.team === team && s.kind === 'stall' && !s.neutral);
       expect(stalls).toHaveLength(3);
       for (const [x, z] of [[-105, -58], [10, -60], [105, -58]] as const) {
         const s = at(stalls, x, Z(z));
@@ -183,15 +199,20 @@ describe('GDD §6.3 anchors', () => {
       }
     });
 
-    it(`${team}: Thickets by tier`, () => {
-      const tiers: [number, number, number][] = [
-        [-65, -22, 1], [-30, -52, 1], [30, -52, 1], [65, -22, 1], [-60, -80, 2], [60, -80, 2], [-40, -12, 3], [40, -12, 3],
+    it(`${team}: Thickets by tier and family (GDD §6.10)`, () => {
+      const camps: [number, number, number, number, string][] = [
+        [-65, 0, -22, 1, 'beetles'], [-30, 0, -52, 1, 'beetles'], [-60, 0, -80, 2, 'weasels'],
+        [-21, 1.2, -103, 2, 'rats'], [-23, -4, -33, 2, 'toads'], [-40, 0, -12, 3, 'badgers'],
       ];
-      for (const [x, z, tier] of tiers) {
-        const t = map.thickets.filter((k) => Math.abs(k.pos.x - x) < 1e-6 && Math.abs(k.pos.z - Z(z)) < 1e-6);
-        expect(t).toHaveLength(1);
-        expect(t[0]?.tier).toBe(tier);
-        expect(ground(x, Z(z))).toBe(0);
+      for (const [cx, y, z, tier, family] of camps) {
+        for (const x of [cx, -cx]) {
+          const t = map.thickets.filter((k) => Math.abs(k.pos.x - x) < 1e-6 && Math.abs(k.pos.z - Z(z)) < 1e-6);
+          expect(t, `${x},${z}`).toHaveLength(1);
+          expect(t[0]?.tier).toBe(tier);
+          expect(t[0]?.family).toBe(family);
+          expect(t[0]?.pos.y).toBe(y);
+          expect(standAt(index, x, Z(z), y + 0.5), `${x},${z}`).toBe(y);
+        }
       }
     });
   }
@@ -225,8 +246,8 @@ describe('GDD §6.3 anchors', () => {
 
   it('counts per half (GDD §6.5)', () => {
     const dawn = <T extends { pos?: Vec3; bottom?: Vec3 }>(xs: readonly T[]) => xs.filter((x) => (x.pos ?? x.bottom ?? { z: 0 }).z < 0);
-    expect(dawn(map.nests)).toHaveLength(16);
-    expect(dawn(map.thickets)).toHaveLength(8);
+    expect(dawn(map.nests)).toHaveLength(50);
+    expect(dawn(map.thickets)).toHaveLength(12);
     expect(dawn(map.climbs.filter((c) => c.kind === 'chimney'))).toHaveLength(6);
     expect(dawn(map.climbs.filter((c) => c.kind === 'vine')).length).toBeGreaterThanOrEqual(10);
     expect(map.runeSpots).toHaveLength(2);
@@ -362,12 +383,13 @@ describe('traversal', () => {
         expect(rise).toBeLessThanOrEqual(14);
         expect(c.out).toEqual({ x: 0, y: 0, z: 0 });
       } else {
-        expect(rise).toBeGreaterThanOrEqual(5);
+        // Ladders climb one storey or more (GDD §6.8); Vines 5–12 m (§3.8).
+        expect(rise).toBeGreaterThanOrEqual(c.kind === 'ladder' ? 3.5 : 5);
         expect(rise).toBeLessThanOrEqual(12);
         expect(Math.hypot(c.out.x, c.out.z)).toBeCloseTo(1, 6);
       }
       expect(ground(c.bottom.x, c.bottom.z, c.bottom.y + 0.5), vk(c.bottom)).toBe(c.bottom.y);
-      expect(columnClear(index, c.bottom.x, c.bottom.z, c.bottom.y + 0.05, c.top.y, c.kind === 'chimney' ? 1 : 0.3)).toBe(true);
+      expect(columnClear(index, c.bottom.x, c.bottom.z, c.bottom.y + 0.05, c.top.y, c.kind === 'chimney' ? 1 : 0.3), `${c.kind} ${vk(c.bottom)}`).toBe(true);
     }
   });
 });
@@ -415,7 +437,9 @@ describe('nav graph', () => {
     const kinds = new Set(links.map((l) => l.kind));
     for (const k of ['walk', 'drop', 'mantle', 'jump', 'chimney', 'vine', 'updraft'] as const) expect(kinds.has(k), k).toBe(true);
     const pair = new Set(links.map((l) => `${l.from}>${l.to}>${l.kind}`));
-    for (const l of links.filter((k) => k.kind === 'walk')) expect(pair.has(`${l.to}>${l.from}>walk`)).toBe(true);
+    // Walking is two-way; a Bough Spring's launch is a one-way walk link (GDD §6.7).
+    for (const l of links.filter((k) => k.kind === 'walk' && k.spring === undefined)) expect(pair.has(`${l.to}>${l.from}>walk`)).toBe(true);
+    expect(map.nav.nodeRoom).toHaveLength(nodes.length);
   });
 
   it('every node is reachable from both spawns and back', () => {
@@ -431,8 +455,9 @@ describe('nav graph', () => {
   it('every named point has a node', () => {
     const named: Vec3[] = [
       ...map.spawns, ...map.shops, ...map.structures, ...map.thickets, ...map.nests, ...map.runeSpots, ...map.eggPerches,
-      ...map.botSpots,
+      ...map.botSpots, ...(map.interactables ?? []),
     ].map((a) => a.pos);
+    for (const s of map.springs ?? []) named.push(s.pad, s.land);
     if (map.hollow) named.push(map.hollow.centre);
     for (const p of named) expect(nodeNear(p), vk(p)).toBeGreaterThanOrEqual(0);
   });
@@ -440,7 +465,9 @@ describe('nav graph', () => {
   it('links every climb and Updraft station', () => {
     for (const c of map.climbs) {
       const bottom = nodeNear(c.bottom);
-      expect(links.some((l) => l.from === bottom && l.kind === c.kind && (nodes[l.to]?.y ?? 0) > c.bottom.y + 4), vk(c.bottom)).toBe(true);
+      // Ladders are vine links for bots (GDD §6.7).
+      const kind = c.kind === 'ladder' ? 'vine' : c.kind;
+      expect(links.some((l) => l.from === bottom && l.kind === kind && (nodes[l.to]?.y ?? 0) > c.bottom.y + 3), vk(c.bottom)).toBe(true);
     }
     for (const u of map.updrafts) {
       for (const st of u.stations) {

@@ -2,14 +2,15 @@
  * Area shapes (AreaEffect.shape) resolved to numbers, and the membership test. An entity is a point at its feet
  * (`pos`) with its broad-phase `radius` as horizontal slack:
  * - sphere: 3D distance from the centre.
- * - cylinder, ring, box: vertically centred on the area centre (height/2 above and below).
+ * - cylinder, ring, box: vertically centred on the area centre (height/2 above and below; a cylinder with no height
+ *   of its own is CYLINDER_DEFAULT_HEIGHT tall).
  * - cone: apex at the centre, opening along the horizontal forward; reaches CONE_HALF_HEIGHT up and down.
  * - box: width across, length along the forward, both centred on the centre.
  * - ring: the band between inner and outer; onCross fires when an entity changes side of the mid radius.
  * A shape whose main size resolves to 0 or less is empty, so an upgrade can switch an area on by raising a value
  * that is 0 at base.
  */
-import { CONE_HALF_HEIGHT, RAD_PER_DEG } from '../data/abilities';
+import { CONE_HALF_HEIGHT, CYLINDER_DEFAULT_HEIGHT, RAD_PER_DEG } from '../data/abilities';
 import type { AreaShape, Magnitude, Vec3 } from '../core/contracts';
 import * as dmath from '../core/dmath';
 
@@ -25,7 +26,8 @@ export function resolveShape(s: AreaShape, mag: (m: Magnitude) => number): Resol
     case 'sphere':
       return { kind: 'sphere', radius: mag(s.radius) };
     case 'cylinder':
-      return { kind: 'cylinder', radius: mag(s.radius), half: s.height / 2 };
+      // GDD §6.11: 3 m tall unless the ability says otherwise, so a ground area stays on its storey.
+      return { kind: 'cylinder', radius: mag(s.radius), half: (s.height > 0 ? s.height : CYLINDER_DEFAULT_HEIGHT) / 2 };
     case 'cone':
       return { kind: 'cone', length: mag(s.length), cosHalf: dmath.cos((s.angleDeg / 2) * RAD_PER_DEG) };
     case 'ring':

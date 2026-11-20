@@ -16,7 +16,7 @@
  * - Effects from areas carry the cause with via 'area' and origin at the area centre (structures ignore them).
  * Durations of areas, summons and tethers from abilities scale with the source's `abilityDuration`.
  */
-import { CROSS_MARGIN, GROUND_PROBE_UP, RAD_PER_DEG, SUMMON } from '../data/abilities';
+import { AREA_FLOOR_LIFT, AREA_STOREY_DY, CROSS_MARGIN, GROUND_PROBE_UP, RAD_PER_DEG, SUMMON } from '../data/abilities';
 import { EFFECT_TICK_SECONDS, TICK_SECONDS } from '../data/core';
 import { LAYERS_SOLID } from '../core/contracts';
 import type {
@@ -97,6 +97,15 @@ export function clearLine(ctx: SimContext, from: Vec3, to: Vec3): boolean {
   if (len === 0) return true;
   const dir = { x: d.x / len, y: d.y / len, z: d.z / len };
   return ctx.physics.raycast(from, dir, len, LAYERS_SOLID) === null;
+}
+
+/**
+ * GDD §6.11: an area never reaches through a floor. Feet within AREA_STOREY_DY of the centre's height count; beyond,
+ * only with a clear line between the two (both lifted AREA_FLOOR_LIFT off their floors).
+ */
+export function sameStorey(ctx: SimContext, c: Vec3, p: Vec3): boolean {
+  if (Math.abs(p.y - c.y) <= AREA_STOREY_DY) return true;
+  return clearLine(ctx, { x: c.x, y: c.y + AREA_FLOOR_LIFT, z: c.z }, { x: p.x, y: p.y + AREA_FLOOR_LIFT, z: p.z });
 }
 
 /** Unit horizontal direction; +z when the input has no horizontal part. */
@@ -201,7 +210,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
       const hit = near(ctx, effect.affects, centre, bound, scratch)
         .map((id) => store.get(id))
         .filter((e): e is Entity => !!e && matches(effect.affects, cause.team, cause.source, e))
-        .filter((e) => inside(shape, centre, dir.x, dir.z, e.pos, e.radius));
+        .filter((e) => inside(shape, centre, dir.x, dir.z, e.pos, e.radius) && sameStorey(ctx, centre, e.pos));
       for (const e of hit) apply(effect.effects, e, dir, burstCause);
       return;
     }
@@ -301,7 +310,7 @@ export function createZones(ctx: SimContext, hooksOf: (source: EntityId | null) 
           a.side.set(id, tick * 2 + Number(s));
         }
       }
-      if (!inside(a.shape, pos, a.dir.x, a.dir.z, t.pos, t.radius)) continue;
+      if (!inside(a.shape, pos, a.dir.x, a.dir.z, t.pos, t.radius) || !sameStorey(ctx, pos, t.pos)) continue;
       const was = a.lastIn.has(id);
       a.lastIn.set(id, tick);
       if (!was && e.onEnter && ready(id)) apply(e.onEnter, t, a.dir, cause);

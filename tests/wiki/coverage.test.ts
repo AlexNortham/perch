@@ -72,7 +72,11 @@ describe('wiki coverage', () => {
     const problems: string[] = [];
     for (const page of pages) {
       const html = read(page);
-      for (const m of html.matchAll(/<img\b[^>]*>/g)) if (!/\salt="[^"]+"/.test(m[0])) problems.push(`${page}: image without alt text`);
+      for (const m of html.matchAll(/<img\b[^>]*>/g)) {
+        if (!/\salt="[^"]+"/.test(m[0])) problems.push(`${page}: image without alt text`);
+        const src = /\ssrc="([^"]+)"/.exec(m[0])?.[1];
+        if (src && !/^(https?:|data:)/.test(src) && !existsSync(resolve(out, dirname(page), src))) problems.push(`${page}: image ${src} does not exist`);
+      }
       for (const m of html.matchAll(/\shref="([^"#]*)(?:#([^"]*))?"/g)) {
         const [, target = '', anchor] = m;
         if (/^(https?:|mailto:|data:)/.test(target)) continue;
@@ -102,5 +106,13 @@ describe('wiki coverage', () => {
     // Not a failure: a balance or model change moves an image's hash, and `npm run wiki` re-captures it.
     if (result.missingImages.length > 0) console.warn(`wiki: ${result.missingImages.length} screenshot(s) are stale or missing; run npm run wiki`);
     expect(result.pages.length).toBeGreaterThan(40);
+  });
+
+  it('warns (never fails) when the committed wiki/ is stale; npm run wiki regenerates it at each gate', () => {
+    const strip = (h: string): string => h.replace(/Last regenerated [\d-]+/, '');
+    const committed = resolve(__dirname, '../../wiki');
+    const stale = result.pages.filter((p) => !existsSync(join(committed, p)) || strip(readFileSync(join(committed, p), 'utf8')) !== strip(read(p)));
+    if (stale.length > 0) console.warn(`wiki: committed wiki/ is stale (${stale.length} page(s), e.g. ${stale[0]}); run npm run wiki`);
+    expect(Array.isArray(stale)).toBe(true);
   });
 });
