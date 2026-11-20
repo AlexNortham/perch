@@ -42,11 +42,11 @@ test.describe('M1 preview fixes', () => {
   test('binds side buttons in Options without traversing browser history', async ({ page, context, browserName }) => {
     test.skip(browserName !== 'chromium', 'CDP generates trusted back/forward mouse button input in Edge');
     const cdp = await context.newCDPSession(page);
-    const lane = '/?scene=lane&hero=shrike';
-    // Both directions have an actual history entry, so a native navigation can be detected.
+    // Both directions have an actual history entry, so a native navigation can be detected. Menu scenes keep each load
+    // cheap: the lane and blockout scenes cost about 4 s a load, and five loads timed out under load (QA W6).
     await page.goto('/');
-    await page.goto(lane);
-    await page.goto('/?scene=blockout');
+    await page.goto('/?scene=menu&h=1');
+    await page.goto('/?scene=menu&h=2');
     await page.goBack();
     await ready(page);
     await page.keyboard.press('Escape');
@@ -60,7 +60,7 @@ test.describe('M1 preview fixes', () => {
       await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', button, buttons: mask, x: 640, y: 360, clickCount: 1 });
       await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', button, buttons: 0, x: 640, y: 360, clickCount: 1 });
       await expect(binding(page, action)).toHaveText(label);
-      await expect(page).toHaveURL(new RegExp('scene=lane'));
+      await expect(page).toHaveURL(new RegExp('h=1'));
     }
     await page.reload();
     await ready(page);

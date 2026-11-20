@@ -11,8 +11,6 @@ import type { Sandbox } from '../helpers/sandbox';
 import { advanceTo, dist, earned, flat, heavyMelee, lightMelee, minutes, mmss, pickupsOf, seconds, standBeside, world } from '../helpers/world';
 
 const TIMEOUT_MS = 300_000;
-/** Tests still waiting on a fix, named where they are gated; PERCH_PENDING=1 runs them. */
-const PENDING = process.env.PERCH_PENDING === '1';
 const BIG_HP = { stats: [{ stat: 'maxHealth', op: 'add', value: 1_000_000 }] } as const;
 
 // ---- Keepsakes (§7.13) ----------------------------------------------------------------------------------------------
@@ -327,10 +325,12 @@ describe('W5 Hides (§7.15)', { timeout: TIMEOUT_MS }, () => {
     expect(sb.hero(hero).stats.final.staminaRecharge, '+100% stamina regeneration').toBeGreaterThan(0);
   });
 
-  // Pending (W5a integration): exposure lifts the Hide, but the enemy at the map origin has no 40 m sight line to the
-  // Hide on the detailed map; the fixture test in src/sim/world/interactables.test.ts covers the rule. QA to re-place it.
-  it.runIf(PENDING)('§7.15 it shows for 2 s after it deals damage or applies a status to an enemy; true sight reveals it; an enemy in the same Hide sees it', async () => {
+  it('§7.15 it shows for 2 s after it deals damage or applies a status to an enemy; true sight reveals it; an enemy in the same Hide sees it', async () => {
     const { sb, hero, foe, inside } = await hide();
+    // The Hide's door is on a short end (GDD §6.9) and faces west for the first one: stand the enemy 2 m outside it, within 3 m of its ivy curtain (which otherwise blocks sight, §6.8), in the
+    // doorway's line, so a sight line into the shed exists once the Hide is lifted (the map origin has none).
+    sb.place(foe, { x: inside.x - 5, y: inside.y, z: inside.z });
+    sb.step(2);
     sb.apply({ kind: 'damage', amount: 10, type: 'talon' }, foe, sb.cause(hero, { via: 'weapon' }));
     sb.step(2); // vision runs before the damage phase, so the exposure shows from the next tick
     expect(canSee('dusk', sb.hero(hero)), 'seen right after dealing damage').toBe(true);
@@ -411,20 +411,26 @@ describe('W5 Lookouts (§7.15)', { timeout: TIMEOUT_MS }, () => {
     expect((sb.ctx.map.interactables ?? []).filter((i) => i.kind === 'lookout')).toHaveLength(14);
   });
 
-  // Pending (W5a integration): the 50 m line from the first Lookout crosses buildings on the detailed map; the rule is
-  // covered on a fixture map in src/sim/world/interactables.test.ts. QA to pick a Lookout with a clear 50 m line.
-  it.runIf(PENDING)('§7.15 within 3 m of a Lookout the sight radius is 60 m instead of 40 m: an enemy 50 m away is seen only from the Lookout', async () => {
+  it('§7.15 within 3 m of a Lookout the sight radius is 60 m instead of 40 m: an enemy 50 m away is seen only from the Lookout', async () => {
     const sb = await world({ heroes: ['shrike', 'lyrebird'] });
     const [hero, foe] = sb.heroes as [EntityId, EntityId];
-    const lookout = (sb.ctx.map.interactables ?? []).find((i) => i.kind === 'lookout')!;
-    const far = { x: lookout.pos.x, y: lookout.pos.y, z: lookout.pos.z + (lookout.pos.z > 0 ? -50 : 50) };
-    sb.place(foe, far);
-    sb.place(hero, { x: lookout.pos.x + 20, y: 0, z: lookout.pos.z });
-    sb.step(3);
-    expect(canSee('dawn', sb.hero(foe)), 'beyond the 40 m default').toBe(false);
-    sb.place(hero, { x: lookout.pos.x + 1, y: lookout.pos.y, z: lookout.pos.z });
-    sb.step(3);
-    expect(canSee('dawn', sb.hero(foe)), 'inside 60 m from the Lookout').toBe(true);
+    // Buildings sit on most 50 m lines of the detailed map, so try each Lookout in eight compass directions. A sample
+    // counts when the foe (about 54 m from a hero standing 20 m behind the Lookout) is NOT seen from there, and IS seen
+    // from the Lookout itself, 50 m off.
+    let seenOnlyFromLookout = 0;
+    for (const lookout of (sb.ctx.map.interactables ?? []).filter((i) => i.kind === 'lookout')) {
+      for (let k = 0; k < 8; k++) {
+        const a = (k * Math.PI) / 4;
+        sb.place(foe, { x: lookout.pos.x + 50 * Math.cos(a), y: lookout.pos.y, z: lookout.pos.z + 50 * Math.sin(a) });
+        sb.place(hero, { x: lookout.pos.x - 20 * Math.cos(a), y: lookout.pos.y, z: lookout.pos.z - 20 * Math.sin(a) });
+        sb.step(3);
+        if (canSee('dawn', sb.hero(foe))) continue;
+        sb.place(hero, { x: lookout.pos.x + 1, y: lookout.pos.y, z: lookout.pos.z });
+        sb.step(3);
+        if (canSee('dawn', sb.hero(foe))) seenOnlyFromLookout++;
+      }
+    }
+    expect(seenOnlyFromLookout, 'a clear 50 m line exists from some Lookout, and only the Lookout sees along it').toBeGreaterThan(0);
   });
 });
 
@@ -484,26 +490,28 @@ describe('W5 the Cellar Run and the Magpie Den (§7.15, §8.8)', { timeout: TIME
     expect(tunnels(sb)).toHaveLength(2);
   });
 
-  // Pending (W5a integration): the 'outside' run starts at (0, 0, −20), over the Hollow, so the hero falls; and with
-  // sprint unchanged (GDD §7.15, D-SYS-008) a 1 s run gains (7 × 1.3 + 2) / 9, not 1.3. QA to rework it.
-  it.runIf(PENDING)('§7.15 inside the tunnel a hero runs 30% faster than outside', async () => {
+  it('§7.15 inside the tunnel a hero runs 30% faster than outside (the sprint bonus is unchanged, D-SYS-008)', async () => {
     const sb = await world({ heroes: ['shrike', 'lyrebird'] });
     const hero = sb.heroes[0]!;
     const room = tunnels(sb)[0]!;
+    const home = { ...sb.hero(hero).pos }; // the spawn: flat ground
+    // Speed over the second second of a run, once the sprint ramp (0.5 s) is done. Both runs sprint alike, so the gap
+    // between them is the 30% of the run speed alone.
     const run = (from: Vec3): number => {
       sb.place(hero, from);
       sb.look(hero, Math.PI / 2);
       sb.step(10);
-      const x0 = sb.hero(hero).pos.x;
       sb.move(hero, 1);
+      sb.step(TICK_RATE);
+      const x0 = sb.hero(hero).pos.x;
       sb.step(TICK_RATE);
       sb.move(hero, 0);
       return Math.abs(sb.hero(hero).pos.x - x0);
     };
     const f = floorOf(room);
-    const inside = run({ x: f.x - 10, y: f.y, z: f.z });
-    const outside = run({ x: 0, y: 0, z: -20 });
-    expect(inside / outside).toBeCloseTo(1.3, 1);
+    const inside = run({ x: f.x - 17, y: f.y, z: f.z });
+    const outside = run(home);
+    expect((inside - outside) / (0.3 * sb.hero(hero).stats.final.moveSpeed)).toBeCloseTo(1, 1);
   });
 
   it('§7.15 the Egg carrier cannot enter: the stair heads block the carrier only', async () => {

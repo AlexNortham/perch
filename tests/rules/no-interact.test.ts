@@ -1,5 +1,5 @@
 // No Interact key (D-EP-039, GDD §3.7, INTERFACES §14.4). Written test-first (D-EP-006, W4.5 QA); on since the W5a
-// integration round. The bots' held-Jump mounts wait for Bot AI (wave 5b): PERCH_PENDING=1 runs that test too.
+// integration round. The bots' held-Jump mounts (Bot AI) are asserted too.
 import { describe, expect, it } from 'vitest';
 import { Button, RETIRED_BUTTONS, type EntityId, type HeroEntity, type Vec3 } from '../../src/sim/core/contracts';
 import { allBotRoster, createSim } from '../../src/sim/index';
@@ -185,7 +185,7 @@ describe('W5 no Interact: Updraft latch and dismount (§3.7, D-EP-039)', () => {
 });
 
 describe('W5 no Interact: nothing in the sim asks for it (D-EP-039, INTERFACES §14.4)', () => {
-  it.runIf(process.env.PERCH_PENDING === '1')('no command a hero runs on, human script or bot, ever carries the Interact bit; bots mount Updrafts by holding Jump', async () => {
+  it('no command a hero runs on, human script or bot, ever carries the Interact bit; bots mount Updrafts by holding Jump', async () => {
     const sim = await createSim({ seed: 1, roster: allBotRoster(1) });
     let interactTicks = 0;
     let mounted = 0;

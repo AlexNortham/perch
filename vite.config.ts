@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => ({
   test: {
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'tools/**/*.test.ts'],
     // Timing tests run serially in `npm run perf` (D-EP-022), never in the parallel unit run.
-    exclude: [...configDefaults.exclude, '**/*.perf.test.ts'],
+    exclude: [...configDefaults.exclude, '**/*.perf.test.ts', '**/*.slow.test.ts'],
     environment: 'node',
     passWithNoTests: true,
   },

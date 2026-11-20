@@ -3128,3 +3128,35 @@ Magnitude is not needed by Swan. **Bot AI:** nothing; no `data/ai.ts` block was 
 - Serial rerun on integrate/w5 (b7fef57): `match.spec` (Kingfisher) and one `scoreboard-bar` case time out at 60 s waiting for `__perch.hero`. The other 4 scoreboard cases pass.
 - The page snapshot shows a live match (550/550 HP, Lv 2, Seeds 1,171), so this is **not load**: the local hero is missing from `view.entities` while `view.heroes` has it.
 - Routed to the Architect (owner of `src/client/app` and the view) as the first item of the W6 round. It blocks Release 1.
+
+### W6 · QA (#19) · stability round, items 1 to 5 · 21/11/2026
+- **Gated suites (item 1): none left behind `PERCH_PENDING`.**
+  - `bot-shopping` is on as the slow tier (`*.slow.test.ts`, `npm run slow`, 6/6 in 1,090 s under load; D-QA-014).
+  - The bots-ride test (`no-interact`) is on and passes.
+  - The three interactables tests are reworked for the real map and pass: Hide (enemy 2 m outside the door, inside the ivy
+    curtain's 3 m, §6.8), Lookout (searches each Lookout and 8 directions for a clear 50 m line), Cellar Run (compares the
+    gap in run speed, 0.3 × moveSpeed, so the unchanged sprint bonus cancels, D-SYS-008). The map is right against the GDD.
+  - The dead-bird scoreboard test is on and deterministic (D-QA-017).
+- **Audio live-context (item 2):** the machine's audio clock, not the code (D-QA-016). Fixed in the test.
+- **Flakes (item 3):** `draw-budget` (a settling transient; D-QA-017), `preview-regressions` side buttons (cheap history
+  loads), the dead-bird wait. Not reproduced as load flakes: `match.spec`, the wiki-coverage and reload timeouts (111 of 112
+  e2e passed in one `--release` run at 2 workers). `playwright.config.ts` is unchanged; moving `preview-regressions` out of
+  the serial project is left until the staged `__perch.ready` merges.
+- **Release mode (item 4):** `npm run check -- --release` (D-QA-015).
+- **Gate coverage (item 5):** hold-to-upgrade `e2e/hold-upgrade`, no Interact `rules/no-interact` plus `e2e/no-interact`,
+  Practice Swap `e2e/practice-swap`, the top scoreboard `e2e/scoreboard-bar`, objectives `rules/*` and
+  `src/sim/world`, and `e2e/all-heroes.spec.ts` (every `implemented` hero from the registry, 1 + 11 from the menu, 20/20
+  before Hero B3 merged; D-QA-018).
+- **Not green, owners to act (the gate cannot pass three times until these are fixed):**
+  1. **Objectives perf budget** (`src/sim/world/world.perf.test.ts`): +0.30 to +0.34 ms per tick, bound 0.3 (GDD 0.1), on
+     three runs alone on a quiet machine. A real cost, not load. Owner: Objectives / world.
+  2. **Audio: `update()` overrides the hero-select music.** `app.ts` calls `audio.update` every frame; `musicState(view)`
+     returns 'menu' (no local hero), so `setState('heroSelect')` from `onScreen` is undone. Fix in `src/client/audio/index.ts`:
+     let `update` keep `heroSelect` while the screen is hero select. `e2e/audio.spec.ts` "music reacts ..." fails on it.
+     Owner: Audio.
+  3. **Rendering:** the first 1 to 2 s of a scene draw up to 50% more triangles than the settled frame (lane/low 390k, then
+     257k). Not load. Cause not found (not resolution, not sim tick); the test waits for the settled frame.
+  4. **Architect:** `__perch.hero` can stay null in a running match (`match.spec`, a `scoreboard-bar` case); not papered over.
+- **Prepared for item 6, not run:** `npm run release-matches`, `npm run soak -- --minutes 30`.
+- **Check runs so far:** one `--release` pass of the steps by hand: typecheck, lint, unit (1,433), sim pass; perf 13/14; e2e 111/112.
+  No three-in-a-row yet.
