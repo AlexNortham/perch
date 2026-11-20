@@ -202,12 +202,19 @@ test.describe('live context', () => {
       const v = { heroes: [{ id: 1, heroId: 'owl', team: 'dawn' }], entities: [], localHero: 1, seconds: 1, over: false };
       w.audio.onEvents([{ type: 'objective', action: 'rocSpawned', hero: null, team: 'neutral', pickup: null, pickupType: null, pos: { x: 0, y: 0, z: 0 } }], v);
     });
-    await p.waitForTimeout(400);
-    const peak = await p.evaluate(() => {
+    // A live context runs on the audio device's own clock, which lags real time on a busy machine (0.08 s of audio per
+    // 0.5 s of wall clock measured under load), and a sound starts a lookahead after it is scheduled. So watch the
+    // analyser for up to 8 s of wall clock instead of reading it once after a fixed 400 ms (D-QA-0xx).
+    const peak = await p.evaluate(async () => {
       const an = (window as Loose).__an as AnalyserNode;
       const d = new Float32Array(an.fftSize);
-      an.getFloatTimeDomainData(d);
-      return Math.max(...d.map(Math.abs));
+      let best = 0;
+      for (const end = performance.now() + 8_000; performance.now() < end && best <= 0.005;) {
+        await new Promise((r) => setTimeout(r, 20));
+        an.getFloatTimeDomainData(d);
+        best = Math.max(best, ...d.map(Math.abs));
+      }
+      return best;
     });
     expect(peak).toBeGreaterThan(0.005);
     await p.evaluate(() => (window as Loose).audio.dispose());
