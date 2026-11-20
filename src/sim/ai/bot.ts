@@ -135,6 +135,11 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
   /** Tower anchors on the nav graph: a waypoint there counts as reached at the tower's edge. */
   const anchors = ctx.map.structures.map((s) => ({ pos: s.pos, r: STRUCTURE_RADIUS[s.type] + NAV.structureClearM }));
   const ripeTicks = ticks(ECONOMY.pod.ripeS);
+  /**
+   * Known to the flock: what it sees (GDD §11.1), and every structure, whose place is on the map and minimap for
+   * everyone. A shot still needs a clear line (lineOfSight).
+   */
+  const known = (e: Entity): boolean => e.kind === 'structure' || canSee(team, e);
   /** The Brood Ward is up and still cuts damage (GDD §7.6; the 35:00 lever's multiplier may lift it, §15.2). */
   const warded = (s: StructureEntity): boolean =>
     !!s.structure.broodWard && (clock.seconds < DEFENCE.ward.lateAtS ? DEFENCE.ward.early : DEFENCE.ward.late) < 1;
@@ -316,7 +321,7 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
       }
     }
     for (const s of ctx.store.list('structure')) {
-      if (s.team === team || !alive(s) || reach(s) > gunRange || !canSee(team, s)) continue;
+      if (s.team === team || !alive(s) || reach(s) > gunRange || !known(s)) continue;
       if (s.structure.type === 'nest') {
         if (s.structure.breakable?.by === 'any' && reach(s) <= OBJECTIVE.nestShootM) offer(s, TARGET.nest - reach(s) / gunRange);
         continue;
@@ -1097,7 +1102,7 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
 
     // Aim: a claim, else the target, else along the way.
     let t = target === null ? undefined : ctx.store.get(target);
-    if (target !== null && (!alive(t) || !canSee(team, t))) {
+    if (target !== null && (!alive(t) || !known(t))) {
       target = null;
       t = undefined;
     }
