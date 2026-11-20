@@ -11,7 +11,7 @@
  *   scene.add(env.root);
  *   const blockout = buildBlockout(env.blockoutMap);   // the map without the prims the environment re-skins
  */
-import { BatchedMesh, Box3, BufferAttribute, BufferGeometry, DataUtils, Group, Matrix4, Quaternion, Vector3 } from 'three';
+import { BatchedMesh, Box3, BufferAttribute, BufferGeometry, DataUtils, Group, Matrix4, Quaternion, Sphere, Vector3 } from 'three';
 import type { Camera, Material } from 'three';
 import type { MapData } from '../../../sim/core/contracts';
 import type { Quality } from '../../app/contracts';
@@ -150,8 +150,12 @@ function batch(pass: Pass,geos: readonly { g: BufferGeometry; band: Band }[], li
     g.computeBoundingBox();
     const box = g.boundingBox?.clone() ?? new Box3();
     const { geometry, matrix } = pack(g, box);
-    const id = mesh.addInstance(mesh.addGeometry(geometry));
+    const gid = mesh.addGeometry(geometry);
+    const id = mesh.addInstance(gid);
     mesh.setMatrixAt(id, matrix);
+    // Culling bounds are cached now, while the vertex data is still here (it goes after upload, below).
+    mesh.getBoundingBoxAt(gid, new Box3());
+    mesh.getBoundingSphereAt(gid, new Sphere());
     geometry.dispose();
     g.dispose();
     return { id, band, box, shown: true };
@@ -159,7 +163,16 @@ function batch(pass: Pass,geos: readonly { g: BufferGeometry; band: Band }[], li
   // The batch copies the half-float uv bits as they are; tell WebGL what they are.
   const uv = mesh.geometry.getAttribute('uv') as unknown as { isFloat16BufferAttribute?: boolean } | undefined;
   if (uv) uv.isFloat16BufferAttribute = true;
+  // Memory (W7): once WebGL holds the batch, the CPU copy goes; a lost context rebuilds it from the map (below).
+  for (const a of [...Object.values(mesh.geometry.attributes), mesh.geometry.index]) {
+    if (a instanceof BufferAttribute) a.onUpload(release);
+  }
   return { mesh, entries };
+}
+
+/** Drop an uploaded attribute's array, keeping its type (the batch reads the index's bytes per element). */
+function release(this: BufferAttribute): void {
+  this.array = this.array.slice(0, 0);
 }
 
 const INT16 = 32767;
@@ -219,39 +232,55 @@ export function buildEnvironment(map: MapData, quality: Quality): Environment {
   // Its own §11.3 category: the batch geometry holds every cell and band, so mesh-level counts are capacity, not drawn.
   root.userData['budget'] = 'environment';
   const triangles: [number, number, number] = [0, 0, 0];
-  const meshes: BatchedMesh[] = [];
-  for (const pass of PASSES) {
-    const geos: { g: BufferGeometry; band: Band }[] = [];
-    for (const b of world.buckets.values()) {
-      if (b.pass !== pass) continue;
-      triangles[b.band] += b.mesher.triangles;
-      const g = b.mesher.build();
-      if (g) geos.push({ g, band: b.band });
+  for (const b of world.buckets.values()) triangles[b.band] += b.mesher.triangles;
+  let meshes: BatchedMesh[] = [];
+  // The canvas whose lost-and-restored context needs the batches rebuilt (their CPU copies are gone).
+  let canvas: HTMLCanvasElement | null = null;
+  // The old batches' GL objects died with the old context: drop them without deleting them.
+  const restore = (): void => draw(generate(map), false);
+  const draw = (w: World, dispose = true): void => {
+    for (const m of meshes) {
+      root.remove(m);
+      if (dispose) m.dispose();
     }
-    if (geos.length === 0) continue;
-    const { mesh, entries } = batch(pass, geos, lib);
-    const cam = new Vector3();
-    const cull = mesh.onBeforeRender.bind(mesh);
-    // Per-cell LOD before the batch's own culling (the shadow pass reuses the last frame's choice).
-    mesh.onBeforeRender = (renderer, scene, camera: Camera, geometry, material: Material, group) => {
-      cam.setFromMatrixPosition(camera.matrixWorld);
-      aimFade(camera, mesh.material as Material);
-      for (const e of entries) {
-        if (e.band === 2 && (pass !== 'cutout' || reach.cards === Infinity)) continue;
-        const d = e.box.distanceToPoint(cam);
-        const r = e.band === 0 ? reach.near : e.band === 1 ? reach.mid : reach.cards;
-        const show = e.shown ? d < r * (1 + LOD_HYSTERESIS) : d < r * (1 - LOD_HYSTERESIS);
-        if (show !== e.shown) {
-          e.shown = show;
-          mesh.setVisibleAt(e.id, show);
-        }
+    meshes = [];
+    for (const pass of PASSES) {
+      const geos: { g: BufferGeometry; band: Band }[] = [];
+      for (const b of w.buckets.values()) {
+        if (b.pass !== pass) continue;
+        const g = b.mesher.build();
+        if (g) geos.push({ g, band: b.band });
       }
-      cull(renderer, scene, camera, geometry, material, group);
-    };
-    meshes.push(mesh);
-    root.add(mesh);
-  }
-  world.buckets.clear();
+      if (geos.length === 0) continue;
+      const { mesh, entries } = batch(pass, geos, lib);
+      const cam = new Vector3();
+      const cull = mesh.onBeforeRender.bind(mesh);
+      // Per-cell LOD before the batch's own culling (the shadow pass reuses the last frame's choice).
+      mesh.onBeforeRender = (renderer, scene, camera: Camera, geometry, material: Material, group) => {
+        if (!canvas) {
+          canvas = renderer.domElement;
+          canvas.addEventListener('webglcontextrestored', restore);
+        }
+        cam.setFromMatrixPosition(camera.matrixWorld);
+        aimFade(camera, mesh.material as Material);
+        for (const e of entries) {
+          if (e.band === 2 && (pass !== 'cutout' || reach.cards === Infinity)) continue;
+          const d = e.box.distanceToPoint(cam);
+          const r = e.band === 0 ? reach.near : e.band === 1 ? reach.mid : reach.cards;
+          const show = e.shown ? d < r * (1 + LOD_HYSTERESIS) : d < r * (1 - LOD_HYSTERESIS);
+          if (show !== e.shown) {
+            e.shown = show;
+            mesh.setVisibleAt(e.id, show);
+          }
+        }
+        cull(renderer, scene, camera, geometry, material, group);
+      };
+      meshes.push(mesh);
+      root.add(mesh);
+    }
+    w.buckets.clear();
+  };
+  draw(world);
 
   const covered = world.covered;
   const blockoutMap: MapData = {
@@ -276,6 +305,7 @@ export function buildEnvironment(map: MapData, quality: Quality): Environment {
       }
     },
     dispose() {
+      canvas?.removeEventListener('webglcontextrestored', restore);
       for (const m of meshes) m.dispose();
     },
   };

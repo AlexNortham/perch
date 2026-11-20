@@ -1,6 +1,8 @@
+import { BatchedMesh, PerspectiveCamera, Sphere } from 'three';
+import type { BufferAttribute } from 'three';
 import { describe, expect, it } from 'vitest';
 import { ARENA } from '../../../sim/world/map';
-import { generate } from './index';
+import { buildEnvironment, generate } from './index';
 import { Mesher } from './mesher';
 import { layerOf } from '../materials';
 
@@ -29,5 +31,23 @@ describe('environment mesher', () => {
     const w = generate(ARENA);
     expect(w.buckets.size).toBeGreaterThan(0);
     expect(w.covered.size).toBeGreaterThan(0);
+  });
+
+  it('releases the batch data once uploaded, keeps culling bounds, and rebuilds on a restored context', () => {
+    const env = buildEnvironment(ARENA, 'low');
+    const batches = (): BatchedMesh[] => env.root.children.filter((o): o is BatchedMesh => o instanceof BatchedMesh);
+    const canvas = new EventTarget();
+    for (const m of batches()) {
+      const g = m.geometry;
+      // What WebGL does on upload, and the first frame (which also starts watching the canvas).
+      for (const a of [...Object.values(g.attributes), g.index]) (a as BufferAttribute).onUploadCallback();
+      m.onBeforeRender({ domElement: canvas } as never, null as never, new PerspectiveCamera(), g, m.material as never, null);
+      expect(g.getAttribute('position').array.length).toBe(0);
+      expect(g.index?.array.BYTES_PER_ELEMENT).toBeGreaterThan(0);
+      for (let i = 0; i < m.instanceCount; i++) expect(m.getBoundingSphereAt(i, new Sphere())?.radius).toBeGreaterThan(0);
+    }
+    canvas.dispatchEvent(new Event('webglcontextrestored'));
+    expect(batches().every((m) => m.geometry.getAttribute('position').array.length > 0)).toBe(true);
+    env.dispose();
   });
 });
