@@ -147,6 +147,8 @@ export const FIGHT = {
   defaultRangeM: 25,
   /** Light melee an enemy this close while reloading. */
   meleeM: 2.5,
+  /** Parries a heavy wind-up from this close (the heavy lunge plus melee reach). */
+  parryM: 6.5,
   meleeEveryS: 0.7,
   /** Back to fighting after a tactical retreat once the fight score recovers to this. */
   regroupScore: 1.1,
@@ -337,6 +339,19 @@ export const OBJECTIVE = {
   pushDeadEnemies: 2,
   /** Rotations: free roamers leave the lane after this match time (Hunter+). */
   rotateFromS: 600,
+} as const;
+
+/**
+ * Sieging the base (GDD §11.3): where to shoot each Shrine and the Patron from, on the main map (the stands the siege
+ * proof uses, src/sim/ai/siege-proof.testkit.ts; Dawn's attacking side, mirrored for the other flock): a Shrine through
+ * the far side of the Riverbank gate, x away from it; the Patron down the Riverbank line. Bots close in along that
+ * line to their gun's range, less slackM, but no nearer than minM from the body.
+ */
+export const SIEGE = {
+  shrine: { x: 11.6, z: 100.4 },
+  patronZ: 92,
+  slackM: 4,
+  minM: 6,
 } as const;
 
 /** Ability and item-active use (GDD §11.2). */

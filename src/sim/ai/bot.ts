@@ -13,7 +13,7 @@ import { muzzlePoint, toWorld } from '../core/aim';
 import * as dmath from '../core/dmath';
 import { ticks } from '../core/math';
 import { canSee } from '../core/vision';
-import { AIM, AP_PRIORITY, CAST, DIFFICULTIES, FIGHT, LANE, NAV, OBJECTIVE, RETREAT, RIDE, SHOP, TARGET } from '../data/ai';
+import { AIM, AP_PRIORITY, CAST, DIFFICULTIES, FIGHT, LANE, NAV, OBJECTIVE, RETREAT, RIDE, SHOP, SIEGE, TARGET } from '../data/ai';
 import { BUILDS } from '../data/builds';
 import { ECONOMY } from '../data/economy';
 import { SHOP as STORE } from '../data/items';
@@ -41,6 +41,8 @@ export interface Shared {
   /** Orders from pings and defence calls, by bot hero id. */
   readonly orders: Map<EntityId, { pos: Vec3; until: Tick }>;
   readonly policy: (team: PlayerTeam, heroId: HeroId) => ShopPolicy;
+  /** The lane a flock groups on to siege: the one whose enemy defences are furthest down (GDD §11.3 Sieging). */
+  readonly pushLane: (team: PlayerTeam) => LaneId;
 }
 
 export interface Bot {
@@ -93,7 +95,7 @@ export function useOf(targeting: AbilityDef['targeting'], effects: unknown, alli
   return moves && !harms ? 'mobility' : allies && !harms ? 'ally' : 'enemy';
 }
 
-export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, roamer: boolean): Bot {
+export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | -1, roamer: boolean): Bot {
   const ctx = w.ctx;
   const clock = ctx.clock;
   const def = ctx.heroes[h.hero.heroId].def;
@@ -102,7 +104,9 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   const rng = ctx.rng.stream('ai/' + h.hero.heroId);
   const shopRng = ctx.rng.stream('ai/' + h.hero.heroId + '/shop');
   const team = h.team;
-  const geom = w.lanes.get(lane);
+  /** The lane it plays: its own, or the flock's push lane once pushing (GDD §11.3 sieging). */
+  let lane = homeLane;
+  let geom = w.lanes.get(lane);
   const roost = ctx.map.shops.find((s) => s.team === team && s.kind === 'roost');
   const home = roost?.pos ?? ctx.map.spawns.find((s) => s.team === team)?.pos ?? { ...h.pos };
   const costs = Object.fromEntries(Object.entries(NAV.cost).map(([k, c]) => [k, d.links.includes(k as NavLinkKind) ? c : Infinity])) as
@@ -161,6 +165,8 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   /** Seeded once-per-entity draws (last hits, pods, denies), and enemy last-seen points. */
   const decided = new Map<EntityId, number>();
   const lastSeen = new Map<EntityId, { pos: Vec3; at: Tick }>();
+  /** Enemy heavy swings already judged for a parry. */
+  const swings = new Set<EntityId>();
   let lastEnemyNearAt: Tick = 0;
   /** Enemy heroes seen at the last decision (positions stay live). */
   let seen: HeroEntity[] = [];
@@ -387,6 +393,15 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
 
   function decide(): void {
     const now = clock.tick;
+    // From 20:00 (or with Rekindle) the flock groups on one lane to siege it (GDD §11.3 Sieging).
+    const rekindle = (ctx.teams[team].rekindle?.until ?? 0) > now;
+    const group = clock.seconds >= OBJECTIVE.pushFromS || rekindle;
+    const played = group ? w.pushLane(team) : homeLane;
+    if (played !== lane) {
+      lane = played;
+      geom = w.lanes.get(lane);
+      route = null;
+    }
     const foes = enemyHeroes();
     seen = foes;
     const friends = allyHeroes();
@@ -474,8 +489,7 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     }
     // Push and siege after 20:00, with Rekindle, or with enemies dead (GDD §11.3).
     const deadEnemies = ctx.store.list('hero').filter((e) => e.team !== team && e.health.dead).length;
-    const rekindle = (ctx.teams[team].rekindle?.until ?? 0) > now;
-    const push = clock.seconds >= OBJECTIVE.pushFromS || rekindle || deadEnemies >= OBJECTIVE.pushDeadEnemies;
+    const push = group || deadEnemies >= OBJECTIVE.pushDeadEnemies;
     if (!push && foes.length === 0 && farm()) return;
     mode = push ? 'push' : 'lane';
     goal = siegeGoal(push) ?? laneStand();
@@ -510,16 +524,24 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     if (!push || !geom) return null;
     const open = w.towers.filter((s) => s.team !== team);
     if (open.some((s) => s.structure.lane === lane)) return null;
+    // Shrines first (the Patron stays gated until both fall), nearest first.
     let best: StructureEntity | null = null;
-    for (const s of open) if (s.structure.lane === null && (!best || flat(s.pos, h.pos) < flat(best.pos, h.pos))) best = s;
+    const rank = (s: StructureEntity): number => (s.structure.type === 'shrine' ? 0 : 1);
+    for (const s of open) {
+      if (s.structure.lane !== null) continue;
+      if (!best || rank(s) < rank(best) || (rank(s) === rank(best) && flat(s.pos, h.pos) < flat(best.pos, h.pos))) best = s;
+    }
     if (!best) return null;
-    // Stand short of it on the line from the lane's enemy gate.
-    const gate = lanePoint(geom.length);
-    const dx = gate.x - best.pos.x;
-    const dz = gate.z - best.pos.z;
+    // On the sightline the siege proof found (through the Riverbank gate), as close as the gun needs.
+    const shrine = best.structure.type === 'shrine';
+    const stand = shrine
+      ? { x: -Math.sign(best.pos.x) * SIEGE.shrine.x, z: Math.sign(best.pos.z) * SIEGE.shrine.z }
+      : { x: 0, z: Math.sign(best.pos.z) * SIEGE.patronZ };
+    const dx = stand.x - best.pos.x;
+    const dz = stand.z - best.pos.z;
     const len = dmath.hypot(dx, dz) || 1;
-    const back = best.structure.body.radius + LANE.towerStandM;
-    return { x: best.pos.x + (dx / len) * back, y: gate.y, z: best.pos.z + (dz / len) * back };
+    const back = Math.min(len, Math.max(best.structure.body.radius + SIEGE.minM, gunRange - SIEGE.slackM));
+    return { x: best.pos.x + (dx / len) * back, y: 0, z: best.pos.z + (dz / len) * back };
   }
 
   /** Is this bot among the n bots of its flock nearest to p? */
@@ -860,6 +882,29 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     plan = null;
   }
 
+  /**
+   * GDD §11.2 Parry: a seen enemy close enough to land a heavy melee, in its heavy wind-up and in front of us, is parried
+   * at the difficulty's rate, decided once per swing.
+   */
+  function parry(): void {
+    if (d.parryRate <= 0) return;
+    for (const e of seen) {
+      if (e.weapon.meleePose !== 'heavy' || !alive(e) || flat(e.pos, h.pos) > FIGHT.parryM) {
+        swings.delete(e.id);
+        continue;
+      }
+      if (swings.has(e.id)) continue;
+      const go = rng.chance(d.parryRate);
+      swings.add(e.id);
+      const ahead = (e.pos.x - h.pos.x) * dmath.sin(h.yaw) + (e.pos.z - h.pos.z) * dmath.cos(h.yaw);
+      if (go && ahead >= 0) {
+        cmd.pressed |= Button.Parry;
+        cmd.held |= Button.Parry;
+        return;
+      }
+    }
+  }
+
   function lineOfSight(t: Entity, p: Vec3, now: Tick): boolean {
     if (losFor !== t.id || now - losAt >= TARGET.losEveryTicks) {
       losFor = t.id;
@@ -946,6 +991,7 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
       if (h.weapon.ammo < h.stats.final.magazine * FIGHT.reloadBelow && !h.weapon.reloading) cmd.pressed |= Button.Reload;
     }
     if (meleeUntil > now) cmd.held |= Button.Melee;
+    parry();
     if ((cmd.pressed & Button.Melee) !== 0) cmd.held |= Button.Melee;
 
     // Movement: ride, or walk the route; strafe in fights.
@@ -1016,7 +1062,7 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   return {
     id: h.id,
     team,
-    lane,
+    lane: homeLane,
     tick,
     moved(yaw) {
       route = null;

@@ -103,6 +103,31 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
     return p;
   }
 
+  /**
+   * The flock's siege lane: fewest enemy lane towers left, then the weakest of them (summed HP fraction); ties go to
+   * LANE_ORDER. A lane with none left leads to the base, so it wins outright.
+   */
+  const pushLanes = new Map<PlayerTeam, { at: Tick; lane: LaneId }>();
+  function pushLane(team: PlayerTeam): LaneId {
+    const cached = pushLanes.get(team);
+    if (cached && cached.at === ctx.clock.tick) return cached.lane;
+    let best: LaneId = LANE_ORDER[0]!;
+    let bestScore = Infinity;
+    for (const lane of LANE_ORDER) {
+      if (!ctx.map.lanes.some((l) => l.id === lane)) continue;
+      let score = 0;
+      for (const s of towers) {
+        if (s.team !== team && s.structure.lane === lane) score += 1 + s.health.hp / Math.max(1, s.stats.final.maxHealth);
+      }
+      if (score < bestScore) {
+        bestScore = score;
+        best = lane;
+      }
+    }
+    pushLanes.set(team, { at: ctx.clock.tick, lane: best });
+    return best;
+  }
+
   /** Created on match start, once the heroes exist. */
   function start(): void {
     const heroes = ctx.store.list('hero');
@@ -118,6 +143,7 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
       towers,
       orders,
       policy,
+      pushLane,
     };
     for (const h of heroes) {
       if (!isBot(h)) continue;
