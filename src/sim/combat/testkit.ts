@@ -114,6 +114,7 @@ export interface Box {
 /** Fake physics: solid AABBs on Layer.World; every other query misses. */
 export function fakePhysics(boxes: Box[]): PhysicsService {
   return {
+    updraftInReach: () => null,
     raycast(o, d, maxDistance, mask): RayHit | null {
       if ((mask & Layer.World) === 0) return null;
       let best: RayHit | null = null;
@@ -289,6 +290,7 @@ export function createKit(
           dashing: false,
           mantling: false,
           updraft: null,
+          updraftInReach: null,
           climb: null,
           knockedUp: false,
           mode: null,

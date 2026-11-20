@@ -184,6 +184,7 @@ function spawnHero(ctx: SimContext, slot: number, r: RosterSlot, indexInTeam: nu
       dashing: false,
       mantling: false,
       updraft: null,
+      updraftInReach: null,
       climb: null,
       knockedUp: false,
       mode: null,

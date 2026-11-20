@@ -45,6 +45,12 @@ export interface AbilityDef {
   readonly affects?: TargetFilter;
   /** For 'unit' targeting of allies: with no ally in the cone, target the caster instead of failing. */
   readonly selfFallback?: boolean;
+  /**
+   * For 'point' targeting: take the surface under the crosshair (wall, tree or floor) within range instead of the floor
+   * below it, and mark the target `surface` (Branch Swing, Tree Cling). Beyond range: the ordinary floor point.
+   * Replaces the `surface` value name (D-ARCH-027).
+   */
+  readonly surface?: boolean;
   /** Metres (0 for self casts). */
   readonly range: number;
   readonly cooldownS: number;

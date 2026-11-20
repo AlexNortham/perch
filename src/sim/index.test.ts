@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Button, HERO_IDS, IDLE_COMMAND, RETIRED_BUTTONS, ViewFlag } from './core/contracts';
+import { Button, HERO_IDS, IDLE_COMMAND, Layer, RETIRED_BUTTONS, ViewFlag } from './core/contracts';
+import { PHYSICS_LAYERS } from './data/movement';
 import type { HeroCommand, RosterSlot, Sim } from './core/contracts';
 import { allBotRoster, createSim, humanRoster } from './index';
 
@@ -172,6 +173,12 @@ describe('createSim', () => {
     expect(v.heroes[0]).toMatchObject({ updraftInReach: true, keepsakes: { count: 2, totals: { maxHealth: 30 } } });
     h.keepsakes.totals.maxHealth = 45;
     expect(v.heroes[0]?.keepsakes?.totals.maxHealth).toBe(30);
+  });
+});
+
+describe('contracts', () => {
+  it('Layer owns the physics-only bits; data/movement still mirrors them until Physics points at Layer (D-ARCH-027)', () => {
+    expect(PHYSICS_LAYERS).toEqual({ sight: Layer.Sight, movement: Layer.Movement, eggCarrier: Layer.EggCarrier });
   });
 });
 

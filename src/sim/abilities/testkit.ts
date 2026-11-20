@@ -146,6 +146,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     return best;
   };
   const physics: PhysicsService = {
+    updraftInReach: () => null,
     raycast(origin, dir, max, mask) {
       let best = Infinity;
       if (dir.y < 0) best = -origin.y / dir.y;
@@ -244,6 +245,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
           dashing: false,
           mantling: false,
           updraft: null,
+          updraftInReach: null,
           climb: null,
           knockedUp: false,
           mode: null,

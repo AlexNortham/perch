@@ -123,7 +123,7 @@ export interface Motor {
    * Stage 4 (D-EP-039): the Updraft whose cable is within mounting reach (PhysicsService.updraftInReach) while not
    * riding, else null. Holding Jump mounts it. The HUD prompts from it; bots read it.
    */
-  updraftInReach?: number | null;
+  updraftInReach: number | null;
   /** Index into MapData.climbs while climbing a Chimney or Vine, else null. */
   climb: number | null;
   /** Knocked up: airborne with no control until landing (GDD §5.9). */
