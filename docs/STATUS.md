@@ -2879,3 +2879,18 @@ bots-ride and dead-bird tests; `ai.perf` margin under load.
   - **The audio live-context e2e** has failed every time since about 10:00 on 21/11, even run alone and on code where it passed before. That points to the machine's audio device or browser state rather than the code; check it on a quiet machine before the gate.
   - **Combat** adopts `HealEffect.triggerPct` and `ShieldEffect.id`.
   - **Still gated, each with its reason in a comment:** `bot-shopping`, the bots-ride and dead-bird tests, and three interactables tests that are wrong for the real map. QA rewrites them in wave 6.
+
+### W6 · Technical Artist (structures, Patrons, fledglings, creatures) · ART-W · 20/11/2026
+Stopped at the EP's priority change (functionality before more art) before any model was started. No model code
+changed, so nothing was reverted. Branch `worktree-agent-a65b479d5b1ddffce` = `integrate/w5` + this entry.
+- **Done:** none of Job 2. Read the brief, style guide §8.8, §9 and §11, D-ART-009 to 011, and the current structure, fledgling and kit code.
+- **Untouched (still on their previous models):** Sentinel Hawk, Stilt Heron, Wardens, Shrines, Brood Ward dome, Elder Raven, Great Owl, both flocks' fledglings, every Thicket creature, the Roc and its Embers.
+- **Scores today (§12.2), read from the code, not from new renders:** structures and Patrons 1 (stacked ellipsoids,
+  cylinders and boxes in one flat-shaded Lambert material; no damage states); fledglings 1 (about 150-triangle primitive
+  chicks, no down cards or catchlights); Thicket creatures, the Roc and Embers 0 (`models/index.ts` draws every unit
+  except Scrapper and Slinger, and every pickup, as a team-coloured box).
+- **Left for the art round:**
+  - Creature models for `beetle`, `weasel`, `rat`, `toad`, `badger`, `cub` and `roc` (`UnitType`), plus the Ember pickup, each instanced per type, with an aggro tell.
+  - Damage and destroyed states (§9.2: cracks at 66 % and 33 %, banner tear, topple into rubble, glow dying over 2 s). These need `rigs/structure-rig.ts`, which today only hides a dead structure. The next brief should add that rig, and a creature rig, to the ART-W paths.
+  - Structures need the stone, timber, brass and banner materials, not the shared flat-shaded Lambert.
+- **Checks on this branch:** `npx vitest run src/client/render` 53/53; typecheck and lint pass. `e2e/draw-budget.spec.ts` 3/3 run serially. In parallel under machine load, lane/low triangles came out at 393k against the 330k ceiling, the same load-sensitive miss logged in the W5b Environment second-pass entry. The full `npm run check` was skipped, as the EP asked.
