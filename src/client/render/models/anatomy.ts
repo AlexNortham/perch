@@ -292,13 +292,15 @@ export function shin(k: Sculpt, len: number, s: LegStyle, d: Detail): void {
  * A foot: ankle knuckle, jointed toes lying on the ground (sole at y = -ankle) and curved glossy claws whose tips
  * touch it.
  */
-export function foot(k: Sculpt, ankle: number, s: LegStyle, d: Detail): void {
+export function foot(k: Sculpt, ankle: number, s: LegStyle, d: Detail, side: 1 | -1 = 1): void {
   const t = s.thick;
   if (d.level < 3) ovoid(k, [0, -ankle * 0.35, 0], [t * 1.15, t * 1.25, t * 1.2], { n: d.n(5, 2), seg: d.n(8, 3), paint: s.skin, finish: SKIN });
   for (const toe of s.toes) {
     if (d.level >= 3 && Math.abs(toe.yaw) > 2) continue;
     const r = toe.r ?? t * 0.55;
-    const dir: V3 = [Math.sin(toe.yaw), 0, Math.cos(toe.yaw)];
+    // Toes are authored for the left foot; the right foot mirrors them.
+    const yaw = toe.yaw * side;
+    const dir: V3 = [Math.sin(yaw), 0, Math.cos(yaw)];
     const y0 = -ankle + r;
     const start: V3 = [dir[0] * t * 0.3, -ankle * 0.55, dir[2] * t * 0.3];
     const ring = (u: number, rad: number, lift = 0): Ring => ({ c: [dir[0] * toe.len * u, y0 + lift, dir[2] * toe.len * u], w: rad, up: rad * 0.9, dn: rad * 0.75 });
@@ -347,11 +349,18 @@ export interface WingStyle {
   /** Fan of the primaries (rad between neighbours) and their in-plane curve (sickle wings). */
   readonly fan?: number;
   readonly sweep?: number;
+  /** How far the primaries splay out from the body (share of their direction toward +x), and their pitch from the
+   * forearm toward its trailing side (rad; -0.32 trails them back along the forearm, about -1 sweeps them back). */
+  readonly splay?: number;
+  readonly primaryPitch?: number;
   readonly cell?: number;
   readonly secondaryCell?: number;
   readonly finish?: Finish;
-  /** Morph for the flight feathers on the display (wings flare). */
+  /** Morph for the flight feathers on the display (wings flare): primaries, and secondaries swinging outward. */
   readonly displayFlare?: number;
+  readonly secondaryFlare?: number;
+  /** Secondary length as a share of the chord (default 1.45). */
+  readonly secondaryLen?: number;
 }
 
 /** Is (t, a) on the flock-trim wing bar? A band across the outer face, a little past the middle of the arm. */
@@ -388,11 +397,13 @@ export function wingArm(k: Sculpt, upper: number, s: WingStyle, d: Detail, side:
   for (let i = 0; i < ns; i++) {
     const u = (i + 0.5) / ns;
     const j = jitter(i, 31 + side);
+    const at: V3 = [out * t * (0.15 + 0.07 * (i % 3)), -upper * (0.02 + 0.96 * u), -c * 0.55];
     k.card({
-      at: [out * t * (0.15 + 0.07 * (i % 3)), -upper * (0.02 + 0.96 * u), -c * 0.55],
+      at,
+      ...(s.secondaryFlare && { morph: { display: hinge(at, [0, 1, 0], -s.secondaryFlare * (0.5 + u)) } }),
       dir: norm([out * 0.08 * (i % 2), -0.18 - 0.42 * u, -1]),
       face: [out, 0, 0],
-      len: c * (1.25 - 0.25 * u) * (0.92 + 0.16 * j),
+      len: c * ((s.secondaryLen ?? 1.25) - 0.25 * u) * (0.92 + 0.16 * j),
       wid: (upper / ns) * 2.6 * Math.min(1.6, scale ** 0.6),
       cell: s.secondaryCell ?? CARD.tail,
       root: shade(s.secondary, 0.78 + 0.08 * (i % 2)),
@@ -442,8 +453,8 @@ export function wingHand(k: Sculpt, upper: number, lower: number, s: WingStyle, 
   for (let i = 0; i < np; i++) {
     const u = np === 1 ? 0.5 : i / (np - 1);
     // Outermost first: longest, rooted at the hand; inner ones rooted further up the forearm.
-    const pitch = -0.32 - fan * i;
-    const dir = norm([0, Math.cos(pitch), Math.sin(pitch)]);
+    const pitch = (s.primaryPitch ?? -0.32) - fan * i;
+    const dir = norm([(s.splay ?? 0) * (1 - 0.5 * u), Math.cos(pitch), Math.sin(pitch)]);
     const at: V3 = [out * t * (0.5 - 0.06 * i), -lower * (0.98 - 0.4 * u), -c * 0.08];
     const morph: Morphs | undefined = flare ? { display: hinge(at, [1, 0, 0], -flare * (0.3 + u)) } : undefined;
     k.card({
@@ -480,6 +491,8 @@ export interface FanStyle {
   readonly spread: number;
   readonly droop?: number;
   readonly centreLonger?: number;
+  /** Outer feathers this much longer (forked tails). */
+  readonly fork?: number;
   readonly root: number;
   readonly tip: number;
   readonly cell?: number;
@@ -497,7 +510,7 @@ export function tailFan(k: Sculpt, s: FanStyle, d: Detail): void {
   for (let i = 0; i < n; i++) {
     const u = n === 1 ? 0 : (i / (n - 1)) * 2 - 1;
     const yaw = Math.PI + u * (s.spread / 2);
-    const len = s.len * (1 + (s.centreLonger ?? 0) * (1 - Math.abs(u)));
+    const len = s.len * (1 + (s.centreLonger ?? 0) * (1 - Math.abs(u)) + (s.fork ?? 0) * u * u);
     const at: V3 = add(s.at ?? [0, 0, 0], [0, 0.004 * (n - Math.abs(i - (n - 1) / 2)), 0]);
     const dir = norm([Math.sin(yaw) * Math.cos(s.droop ?? 0), -Math.sin(s.droop ?? 0), Math.cos(yaw) * Math.cos(s.droop ?? 0)]);
     k.card({
@@ -526,7 +539,8 @@ export interface ShingleStyle {
   readonly toward?: V3;
   readonly finish?: Finish;
   readonly seed?: number;
-  readonly morph?: (t: number, a: number, at: V3) => Morphs | undefined;
+  /** A morph per feather, from its place, root, direction and the surface normal there. */
+  readonly morph?: (t: number, a: number, at: V3, dir: V3, n: V3) => Morphs | undefined;
 }
 
 /** Rows of feather cards laid over a surface like roof tiles, tips lifted to break the silhouette. */
@@ -551,7 +565,7 @@ export function shingle(k: Sculpt, surf: Surface, s: ShingleStyle, d: Detail): v
       const dir: V3 = norm([along.x * Math.cos(lift) + sp.n.x * Math.sin(lift), along.y * Math.cos(lift) + sp.n.y * Math.sin(lift), along.z * Math.cos(lift) + sp.n.z * Math.sin(lift)]);
       const hex = typeof s.paint === 'number' ? s.paint : s.paint(t, a);
       const at: V3 = [sp.p.x, sp.p.y, sp.p.z];
-      const morph = s.morph?.(t, a, at);
+      const morph = s.morph?.(t, a, at, dir, [sp.n.x, sp.n.y, sp.n.z]);
       k.card({
         at, dir, face: [sp.n.x, sp.n.y, sp.n.z],
         len: s.len * grow * (0.9 + 0.2 * jitter(j, (s.seed ?? 1) + 5)), wid: s.wid * grow, cell: s.cell ?? CARD.contour,
@@ -560,4 +574,23 @@ export function shingle(k: Sculpt, surf: Surface, s: ShingleStyle, d: Detail): v
       });
     }
   }
+}
+
+/** A feather's flare on the display: it swings its tip out along the surface normal by the angle about its root. */
+export function flare(at: V3, dir: V3, n: V3, angle: number): Morphs {
+  return { display: hinge(at, norm(cross(dir, n)), angle) };
+}
+
+/** The usual leg builder: feathered thigh, scaled shin, foot (toes mirrored on the right). */
+export function legsOf(leg: LegStyle, d: Detail): (k: Sculpt, seg: 'thigh' | 'shin' | 'foot', side: 1 | -1, upper: number, lower: number, ankle: number) => void {
+  return (k, seg, side, upper, _lower, ankle) => {
+    if (seg === 'thigh') thigh(k, upper, leg, d, side);
+    else if (seg === 'shin') shin(k, upper, leg, d);
+    else foot(k, ankle, leg, d, side);
+  };
+}
+
+/** The usual wing builder: the arm and the hand. */
+export function wingsOf(w: WingStyle, d: Detail): (k: Sculpt, seg: 'arm' | 'hand', side: 1 | -1, upper: number, lower: number) => void {
+  return (k, seg, side, upper, lower) => (seg === 'arm' ? wingArm(k, upper, w, d, side) : wingHand(k, upper, lower, w, d, side));
 }

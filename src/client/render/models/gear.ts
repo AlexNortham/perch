@@ -83,6 +83,7 @@ function strapAlong(k: Sculpt, surf: Surface, path: (u: number) => readonly [num
 
 /** A strap loop all the way round a loft at t (a collar, a belt). */
 export function band(k: Sculpt, surf: Surface, t: number, s: StrapStyle, d: Detail): void {
+  if (d.level >= 3) return;
   strap(k, surf, [t, 0], [t, Math.PI * 2], s, d);
 }
 
@@ -148,7 +149,7 @@ export function bead(k: Sculpt, at: V3, r: number, hex: number, glow: number, d:
 /** A rounded block. */
 export function block(k: Sculpt, size: V3, at: V3, hex: number, finish: Finish, d: Detail, rot: V3 = [0, 0, 0], radius = 0.25): void {
   const r = Math.min(size[0], size[1], size[2]) * radius;
-  k.mesh(d.level < 2 ? new RoundedBoxGeometry(size[0], size[1], size[2], 1, r) : new BoxGeometry(size[0], size[1], size[2]), { at, rot, paint: hex, finish, uv: [size[2] / 0.25, size[1] / 0.25] });
+  k.mesh(d.level < 1 ? new RoundedBoxGeometry(size[0], size[1], size[2], 1, r) : new BoxGeometry(size[0], size[1], size[2]), { at, rot, paint: hex, finish, uv: [size[2] / 0.25, size[1] / 0.25] });
 }
 
 /**

@@ -140,7 +140,7 @@ function solidTile(tile: number, x: number, y: number): number {
       const xx = fract((x + (band % 2) * 16) / 32);
       const seam = Math.min(yy, 1 - yy) * 16;
       const side = Math.min(xx, 1 - xx) * 32;
-      return 0.58 + 0.42 * smooth(0, 3, seam) * smooth(0, 2.5, side) * (0.85 + 0.15 * Math.sin(Math.PI * yy));
+      return 0.76 + 0.24 * smooth(0, 3, seam) * smooth(0, 2.5, side) * (0.9 + 0.1 * Math.sin(Math.PI * yy));
     }
     default:
       return 1;
@@ -295,9 +295,9 @@ function card(cell: number, x: number, y: number): RGBA {
     }
     case CARD.ragged: {
       // Vulture coat: broad and dark with a deeply ragged, uneven tip.
-      const w = 0.9 * Math.sqrt(clamp01(y * 4));
-      const tipLine = 0.78 + 0.18 * Math.sin(x * 7 + 1) * Math.sin(x * 13) + 0.06 * hash(Math.floor((x + 1) * 9), 3, 71);
-      const f = vane(x, y, w, w, 12, { notch: 4, barb: 0.1 });
+      const w = 0.94 * Math.sqrt(clamp01(y * 5));
+      const tipLine = 0.86 + 0.08 * Math.sin(x * 7 + 1) * Math.sin(x * 13) + 0.05 * hash(Math.floor((x + 1) * 9), 3, 71);
+      const f = vane(x, y, w, w, 12, { notch: 1, barb: 0.1 });
       return GREY(f[0] * (0.85 + 0.15 * (1 - y)), f[3] * edge((tipLine - y) * CH));
     }
     case CARD.ruff: {
