@@ -611,6 +611,51 @@ export const HORNBILL_HEAD: HeadShape = {
   eye: [0.74, 0.16, 0.52], socket: 0.26, bill: [0, -0.12, 0.98], billW: 0.34, billH: 0.4,
 };
 
+// =================================================================================================================
+// Albatross: the widest hero. A big upright white body with a deep keel, a thick neck, a white head with a dark brow
+// over the eye, and broad shoulders that carry the wings worn as a cloak to the ground.
+
+export function albatrossAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 2.3;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.66, 1.6 * s, -0.06 * s], hip: [R * 0.32, plan.height * 0.18, -0.02 * s], tail: [0, 0.82 * s, -0.4 * s],
+    legLen: plan.height * 0.18, legThick: 0.034 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export function albatrossBody(plan: BodyPlan): Body {
+  const a = albatrossAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2100, 800, 260, 96], cell: 0.009,
+    ops: [
+      // Big and upright: a deep keeled breast, a broad back, a full belly over short thick legs.
+      ell([0, 1.15 * s, -0.07 * s], [0.31 * s, 0.5 * s, 0.27 * s], 'body', 'back', { rot: [0.12, 0, 0], k: 0.06 }),
+      ...pair(ell([0.12 * s, 1.28 * s, 0.1 * s], [0.24 * s, 0.3 * s, 0.24 * s], 'body', 'breast', { k: 0.07, rot: [0.12, 0.22, 0] })),
+      ell([0, 1.22 * s, 0.23 * s], [0.1 * s, 0.28 * s, 0.12 * s], 'body', 'breast', { k: 0.06, rot: [0.15, 0, 0] }),
+      ell([0, 0.82 * s, 0.03 * s], [0.25 * s, 0.28 * s, 0.24 * s], 'body', 'belly', { k: 0.08, rot: [0.08, 0, 0] }),
+      ell([0, 1.42 * s, -0.17 * s], [0.26 * s, 0.26 * s, 0.1 * s], 'body', 'mantle', { k: 0.07, rot: [0.2, 0, 0] }),
+      cone([0, 0.86 * s, -0.26 * s], [0, 0.76 * s, -0.44 * s], 0.16 * s, 0.08 * s, 'tail', 'coverts', { k: 0.06, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.22 * s, 1.5 * s, -0.1 * s], scapularR: [0.13 * s, 0.2 * s, 0.11 * s], root: 0.09 * s, inset: 0.1 }),
+      ...thighs(a, { r: 0.09 * s, rKnee: 0.05 * s, reach: 0.35, root: [0.1 * s, 0.6 * s, 0.0] }),
+      // A thick neck, broad where it leaves the breast.
+      ...neck([[0, 1.55 * s, 0.04 * s], [0, 1.72 * s, 0.05 * s], [0, hc[1] - 0.1 * s, 0.0]], [0.22 * s, 0.19 * s, 0.18 * s], 'neck', 0.5),
+      ...head(hc, a.hr, ALBATROSS_HEAD),
+      // The dark brow: a smudge over and through the eye, the sea-bird's frown.
+      ...pair(ell(at(hc, a.hr, [0.82, 0.2, 0.36]), mulS([0.34, 0.17, 0.62], a.hr), 'head', 'smudge', { mark: true, rot: [0.15, 0.25, 0], soft: 0.008 })),
+    ],
+  };
+}
+
+export const ALBATROSS_HEAD: HeadShape = {
+  skull: [1.08, 1.02, 1.18], skullAt: [0, 0.0, -0.06], face: [0.74, 0.62, 0.64], faceAt: [0, -0.1, 0.44],
+  brow: [0.52, 0.2, 0.46], browAt: [0.5, 0.4, 0.5], browTilt: 0.45, nape: [0.88, 0.76, 0.68], napeAt: [0, -0.45, -0.5],
+  eye: [0.76, 0.14, 0.5], socket: 0.25, bill: [0, -0.1, 1.0], billW: 0.3, billH: 0.32,
+};
+
 /** The birds with implicit bodies, by hero id. */
 export const BODIES = {
   peacock: peacockBody,
@@ -622,6 +667,7 @@ export const BODIES = {
   pelican: pelicanBody,
   penguin: penguinBody,
   hornbill: hornbillBody,
+  albatross: albatrossBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */

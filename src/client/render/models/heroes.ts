@@ -12,8 +12,9 @@ import { beak, eye, foldedWings, hackles, inBone, legsOf, norm, shingle, tailFan
 import type { LegStyle, WingStyle } from './anatomy';
 import { assemble, dims, eyes, headShell } from './bird';
 import type { BirdBuild } from './bird';
-import { bodyField, flipX, KINGFISHER_HEAD, kingfisherAnchors, SHRIKE_HEAD, shrikeAnchors, skinFor, TRUNK } from './bodies';
+import { ALBATROSS_HEAD, albatrossAnchors, bodyField, flipX, KINGFISHER_HEAD, kingfisherAnchors, SHRIKE_HEAD, shrikeAnchors, skinFor, TRUNK } from './bodies';
 import { GENERIC, PLUMAGE } from './constants';
+import { SKIN as ALBATROSS_SKIN } from './data/skins/albatross';
 import { SKIN as KINGFISHER_SKIN } from './data/skins/kingfisher';
 import { SKIN as SHRIKE_SKIN } from './data/skins/shrike';
 import { CARD } from './feathers';
@@ -240,34 +241,228 @@ function shrikeGun(s: number, d: Detail): SculptedSpec['gun'] {
   };
 }
 
-/** Albatross: the widest hero. Wings folded like a cloak down to the ground, thick neck, long pale hooked bill. */
-const albatross: Build = (plan, team) => {
-  const { H, R, hc, hr, top } = dims(plan);
-  const legLen = H * 0.17;
-  const y0 = legLen * 0.9;
-  const cy = (y0 + top - hr * 0.5) / 2;
-  const ry = (top - hr * 0.5 - y0) / 2;
-  const sy = cy + ry * 0.7;
-  const body = new Parts()
-    .ell(PLUMAGE.white, [R * 1.0, ry, R * 1.2], [0, cy, -R * 0.05])
-    .cyl(PLUMAGE.white, hr * 0.85, hr * 1.15, hc - cy - ry * 0.3, [0, (hc + cy + ry * 0.3) / 2 - 0.05, 0.02])
-    .ell(team.primary, [hr * 1.4, H * 0.03, hr * 1.4], [0, top - hr * 0.5, 0]);
-  const head = headShell(new Parts(), PLUMAGE.white, hr)
-    .cone(PLUMAGE.albatrossBill, hr * 0.55, hr * 3.1, [0, -hr * 0.1, hr * 0.8])
-    .cone(PLUMAGE.albatrossBillTip, hr * 0.3, hr * 0.9, [0, -hr * 0.1, hr * 0.8 + hr * 2.9], [1.0, 0, 0]);
-  eyes(head, hr, 0.15, 0.6);
-  const tail = new Parts().ell(PLUMAGE.albatrossWing, [R * 0.5, H * 0.015, R * 0.9], [0, 0, -R * 0.7]);
-  return assemble(plan, {
-    body, head, tail,
-    wing: { hex: PLUMAGE.albatrossWing, len: H * 0.36, chord: R * 1.5, thick: R * 0.14, trim: team.primary },
-    leg: { hex: PLUMAGE.albatrossBill, len: legLen, thick: H * 0.02, foot: R * 0.5 },
-    gun: { length: 0.6, thick: 0.09, bell: 0.16 },
-    pivot: { wingL: [R * 1.0, sy, 0], wingR: [-R * 1.0, sy, 0], legL: [R * 0.4, legLen, 0], legR: [-R * 0.4, legLen, 0], tail: [0, cy, -R * 0.8] },
+// =================================================================================================================
+// Albatross: the widest hero. A big white body and thick neck under a white head with a dark sea-bird's brow and a long
+// pale-pink hooked bill; the huge grey-brown wings are worn folded like a cloak whose tips touch the ground, a wide
+// triangle that swings open on a cast. A sailor: a flock bandana knotted behind the head, a bandolier of shells, a
+// rope coil. Tank: the Gale Blunderbuss, a wide brass bell, a leather bellows and a heavy stock.
+
+const ALBATROSS = {
+  white: 0xf4f2ec,
+  grey: 0xc8c8cc,
+  brow: 0x5a5a62,
+  wing: 0x5e5048,
+  wingDark: 0x3c322c,
+  wingPale: 0x8a7a6c,
+  bill: 0xf0c4b6,
+  billTip: 0xd27e62,
+  foot: 0xd9b2ae,
+  claw: 0x6a5a58,
+  iris: 0x2a1a10,
+  shell: 0xb02a24,
+} as const;
+
+/** Webbing between the forward toes: a thin fan on the ground under them (left foot; mirrored on the right). */
+function web(k: Sculpt, ankle: number, toes: LegStyle['toes'], hex: number, side: 1 | -1, d: Detail): void {
+  if (d.level >= 2) return;
+  const fwd = toes.filter((t) => Math.abs(t.yaw) < 1.2);
+  const lo = Math.min(...fwd.map((t) => t.yaw));
+  const hi = Math.max(...fwd.map((t) => t.yaw));
+  const mid = ((lo + hi) / 2) * side;
+  const len = Math.min(...fwd.map((t) => t.len)) * 0.92;
+  const half = (hi - lo) / 2;
+  const y = -ankle + 0.006;
+  const rings = [0.12, 0.4, 0.7, 0.95].map((u) => ({ c: [Math.sin(mid) * len * u, y, Math.cos(mid) * len * u] as V3, w: Math.max(0.004, Math.sin(half) * len * u), up: 0.003, dn: 0.002 }));
+  k.loft(rings, { seg: 6, ref: [0, 1, 0], paint: shade(hex, 0.88), finish: { gloss: 0.3 } });
+}
+
+const albatross: SculptedBird = (plan, team, d) => {
+  const H = plan.height;
+  const hr = plan.head.radius;
+  const A = albatrossAnchors(plan);
+  const s = A.s;
+  const P = ALBATROSS;
+  const WHITE = { tile: 1, size: 0.11, gloss: 0.2 } as const;
+  const BROWN = { tile: 1, size: 0.14, gloss: 0.25 } as const;
+  const field = bodyField('albatross', plan);
+  const skin = skinFor('albatross', plan, ALBATROSS_SKIN, d.level, {
+    back: { paint: (p) => mix(P.white, P.wing, Math.min(1, Math.max(0, (p.y - 0.9 * s) / (0.25 * s)))), finish: BROWN },
+    mantle: { paint: P.wing, finish: BROWN },
+    scapular: { paint: mix(P.wing, P.wingPale, 0.3), finish: BROWN },
+    shoulder: { paint: P.wing, finish: BROWN },
+    coverts: { paint: P.wing, finish: BROWN },
+    breast: { paint: (p) => mix(P.white, P.grey, Math.min(0.5, Math.max(0, Math.abs(p.x) / (0.3 * s) - 0.4))), finish: WHITE },
+    belly: { paint: P.white, finish: WHITE },
+    thigh: { paint: P.white, finish: { ...WHITE, size: 0.08 } },
+    neck: { paint: P.white, finish: WHITE },
+    crown: { paint: P.white, finish: { ...WHITE, size: 0.07 } },
+    nape: { paint: mix(P.white, P.grey, 0.25), finish: { ...WHITE, size: 0.07 } },
+    face: { paint: P.white, finish: { gloss: 0.15 } },
+    cheek: { paint: P.white, finish: { gloss: 0.15 } },
+    brow: { paint: mix(P.white, P.brow, 0.5), finish: { gloss: 0.15 } },
+    smudge: { paint: P.brow, finish: { gloss: 0.2 } },
+    throat: { paint: P.white, finish: WHITE },
+    bill: { paint: P.bill, finish: { gloss: 0.55 } },
+    socket: { paint: P.brow, finish: { gloss: 0.3 } },
+  });
+  const leg: LegStyle = {
+    skin: P.foot, claw: P.claw, thick: A.legThick, thigh: P.white, fringe: 0.35, skinned: { r: 0.075 * s, at: 0.2 },
+    // Three long webbed toes forward, a tiny hind toe.
+    toes: [{ yaw: -0.42, len: 0.17 * s }, { yaw: 0, len: 0.19 * s }, { yaw: 0.42, len: 0.17 * s }, { yaw: Math.PI, len: 0.03 * s }],
+    clawLen: 0.03 * s,
+  };
+  const wing: WingStyle = {
+    covert: P.wing, secondary: P.wingDark, primary: P.wingDark, primaryTip: shade(P.wingDark, 0.7), trim: team.primary,
+    thick: 0.042 * s, chord: 0.3 * s, primaries: 7, secondaries: 6, primaryLen: 0.5, secondaryLen: 0.9, finish: BROWN,
+  };
+
+  const body = (k: Sculpt): void => {
+    // The body is the baked implicit skin (bodies.ts); gear and feathers sit on its surface.
+    const axis: [V3, V3] = [[0, 0.6 * s, -0.05 * s], [0, 1.62 * s, 0.03 * s]];
+    const torso = field.only(...TRUNK).surface(...axis, [0, 0, 1]);
+    // The cloak: each wing folded from the shoulder down the back and side to the ground, its long flight feathers
+    // splaying outward at the hem into a wide triangle, and swinging open on a cast. Coverts over its top carry the
+    // flock bar, so the cloak's yoke reads from behind.
+    const per = d.level === 0 ? 7 : d.level === 1 ? 4 : d.level === 2 ? 3 : 2;
+    for (const side of [1, -1] as const) {
+      for (let i = 0; i < per; i++) {
+        const u = i / (per - 1);
+        const p = torso.at(0.84 - 0.1 * u, -Math.PI / 2 - side * (0.07 + 1.15 * u), 0.03 * s);
+        const dir = norm([side * (-0.03 + 0.42 * u), -1, -0.14 - 0.06 * (1 - u)]);
+        const at: V3 = [p.p.x, p.p.y, p.p.z];
+        const len = (p.p.y - 0.05 * s) / -dir[1];
+        k.card({
+          at, dir, face: norm([p.n.x + side * 0.3, 0, p.n.z]), len, wid: 0.26 * s * Math.min(1.7, (8 / per) ** 0.5), cell: i % 2 ? CARD.tail : CARD.primary,
+          root: shade(P.wing, 0.95 + 0.1 * (i % 2)), tip: shade(P.wingDark, 0.9 + 0.1 * (i % 2)), curl: -0.08, sweep: side * 0.08, segs: d.level === 0 ? 5 : d.level === 3 ? 2 : d.rows,
+          cup: d.level < 2 ? 0.06 : 0, finish: BROWN, morph: { display: hinge(at, [0, 0, 1], side * (0.5 + 0.4 * u)) },
+        });
+      }
+      if (d.level < 3) {
+        const nc = d.keep(4, 2);
+        for (let row = 0; row < 2; row++) {
+          for (let i = 0; i < nc; i++) {
+            const u = nc === 1 ? 0.5 : i / (nc - 1);
+            const p = torso.at(0.9 - 0.08 * row - 0.06 * u, -Math.PI / 2 - side * (0.3 + 0.95 * u), 0.05 * s + 0.01 * s * row);
+            const at: V3 = [p.p.x, p.p.y, p.p.z];
+            k.card({
+              at, dir: norm([side * (0.1 + 0.25 * u), -1, -0.15]), face: [p.n.x, p.n.y, p.n.z], len: (0.36 - 0.04 * row) * s, wid: 0.17 * s * Math.min(1.7, (5 / nc) ** 0.5), cell: CARD.contour,
+              root: row === 1 ? shade(team.primary, 0.9) : shade(P.wing, 1.05), tip: row === 1 ? team.light : P.wingPale, curl: -0.15, segs: d.rows, cup: 0.06, finish: BROWN,
+              morph: { display: hinge(at, [0, 0, 1], side * (0.4 + 0.3 * u)) },
+            });
+          }
+        }
+      }
+    }
+    // Gear: a flock bandolier of red shells, a leather belt with a brass buckle, and a rope coil on the hip.
+    const off = 0.014 * s;
+    sash(k, torso, 0.62, 0.18, Math.PI * 0.3, { width: 0.075 * s, thick: 0.016 * s, hex: team.primary, stitch: team.light, off, finish: { gloss: 0.3 } }, d);
+    if (d.level === 0) {
+      for (let i = 0; i < 6; i++) {
+        const u = 0.3 + i * 0.12;
+        const p = torso.at(0.62 + 0.18 * Math.cos(u), Math.PI * 0.3 + u, off + 0.03 * s);
+        lathe(k, [[0.016 * s, 0.035 * s], [0.016 * s, -0.01 * s], [0.017 * s, -0.018 * s], [0.016 * s, -0.03 * s]], { at: [p.p.x, p.p.y, p.p.z], rot: [Math.PI / 2 - 0.3, 0, 0.3], seg: 6, paint: (t) => (t > 0.7 ? GEAR.brass : P.shell), finish: { gloss: 0.4 } });
+      }
+    }
+    band(k, torso, 0.24, { width: 0.07 * s, thick: 0.018 * s, hex: GEAR.leather, off, finish: LEATHER }, d);
+    buckle(k, torso.at(0.24, Math.PI / 2, off + 0.018 * s), 0.08 * s, d);
+    if (d.level < 2) {
+      const hip = torso.at(0.22, Math.PI * 0.05, off + 0.04 * s);
+      for (let i = 0; i < 2; i++) ring(k, [hip.p.x - i * 0.006 * s, hip.p.y - 0.05 * s + i * 0.028 * s, hip.p.z], 0.075 * s, 0.016 * s, d, GEAR.rope, undefined, [0, Math.PI / 2, 0]);
+    }
+    pouch(k, torso.at(0.22, Math.PI * 0.95, off), [0.13 * s, 0.13 * s, 0.07 * s], GEAR.leatherDark, d);
+  };
+
+  const head = (k: Sculpt): void => {
+    // Hackles: a white ruff down the back of the thick neck.
+    const neckAxis: [V3, V3] = [[0, A.head[1] - 0.42 * s, -0.02 * s], [0, A.head[1] + hr, -0.04 * s]];
+    hackles(k, inBone(field.only('neck', 'nape', 'crown').surface(...neckAxis, [0, 0, 1]), A.head), {
+      t: [0.25, 0.62], a: [-Math.PI * 0.85, -Math.PI * 0.15], rows: 2, cols: 5, len: 0.13 * s, wid: 0.1 * s, lift: 0.2,
+      paint: (t) => mix(P.grey, P.white, 0.4 + 0.6 * t), finish: WHITE, seed: 71,
+    }, d);
+    // The flock bandana: a band round the crown, knotted at the back with two tails.
+    if (d.level < 3) {
+      const tilt = norm([0, 1, -0.55]);
+      const c: V3 = [A.head[0], A.head[1] + hr * 0.25, A.head[2] - hr * 0.1];
+      const skull = field.only('crown', 'nape', 'brow', 'cheek').surface([c[0] - tilt[0] * hr, c[1] - tilt[1] * hr, c[2] - tilt[2] * hr], [c[0] + tilt[0] * hr, c[1] + tilt[1] * hr, c[2] + tilt[2] * hr]);
+      const inHead = inBone(skull, A.head);
+      band(k, inHead, 0.62, { width: 0.07 * s, thick: 0.016 * s, hex: team.primary, stitch: team.light, finish: { gloss: 0.3 } }, d);
+      const knot = inHead.at(0.62, -Math.PI / 2, 0.03 * s);
+      bead(k, [knot.p.x, knot.p.y, knot.p.z], 0.03 * s, team.primary, 0, d, [1.2, 1, 0.8]);
+      for (const x of [1, -1]) k.card({ at: [knot.p.x, knot.p.y, knot.p.z], dir: norm([x * 0.35, -1, -0.45]), face: [0, 0.3, -1], len: (x > 0 ? 0.2 : 0.16) * s, wid: 0.06 * s, cell: CARD.cloth, root: team.primary, tip: team.dark, curl: 0.2, sweep: x * 0.2, segs: d.level === 0 ? 3 : 2 });
+    }
+    const E = ALBATROSS_HEAD.eye;
+    for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.74, 0.04, 0.67], { r: hr * 0.2, iris: P.iris, ring: P.brow, lid: P.brow, ringW: hr * 0.05 }, d);
+    // The bill: long and deep, pale pink, darkening to a big hooked tip.
+    const B = ALBATROSS_HEAD.bill;
+    beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.04)], len: hr * 2.7, w: hr * 0.34, up: hr * 0.4, dn: hr * 0.3, curve: hr * 0.12, hook: hr * 0.34, base: P.bill, tip: P.billTip, lower: shade(P.bill, 0.95), open: 0.3, displayOpen: 0.4 }, d);
+  };
+
+  const tail = (k: Sculpt): void => {
+    // A short wedge of grey-brown feathers under the cloak's hem.
+    tailFan(k, { count: 8, len: 0.32 * s, wid: 0.1 * s, spread: 0.8, droop: 0.7, root: P.wing, tip: P.wingDark, cell: CARD.tail, finish: BROWN }, d);
+  };
+
+  return {
+    body, head, tail, skin,
+    wing: wingsOf(wing, d),
+    leg: (k, seg, side, upper, lower, ankle) => {
+      legsOf(leg, d)(k, seg, side, upper, lower, ankle);
+      if (seg === 'foot') web(k, ankle, leg.toes, P.foot, side, d);
+    },
+    gun: albatrossGun(s, d),
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
+    legLen: A.legLen, legThick: leg.thick, wingLen: H * 0.34,
     // Gale Shield, Wing Slam, Salt Hide, Tempest Dive.
     casts: ['sweep', 'leap', 'raise', 'leap'],
     sway: 0.12, castTail: -0.3,
-  });
+  };
 };
+
+/** Gale Blunderbuss: a wide flared brass bell, a short banded barrel, a pleated leather bellows on top, red shells along a heavy stock. */
+function albatrossGun(s: number, d: Detail): SculptedSpec['gun'] {
+  const P = ALBATROSS;
+  const L = 0.85 * s;
+  const r = 0.03 * s;
+  return {
+    main: [0, -0.085 * s, -L * 0.66],
+    support: [0, -0.04 * s, 0],
+    slideAt: [0, -0.01 * s, -L * 0.34],
+    travel: 0.04 * s,
+    build(k, part) {
+      if (part === 'slide') {
+        if (d.level >= 3) return;
+        lathe(k, [[r * 1.15, 0.06 * s], [r * 1.45, 0.05 * s], [r * 1.5, -0.05 * s], [r * 1.15, -0.06 * s]], { seg: d.n(12, 4), paint: GEAR.wood, finish: WOOD });
+        return;
+      }
+      if (part !== 'gun') return;
+      // The bell: wide, brass, dark inside with a glow deep in the throat.
+      lathe(k, [[0.12 * s, 0], [0.095 * s, -0.035 * s], [0.06 * s, -0.09 * s], [r * 1.2, -0.18 * s]], { seg: d.n(18, 5), paint: GEAR.brass, finish: BRASS });
+      if (d.level >= 3) {
+        lathe(k, [[r * 1.2, -0.16 * s], [r, -L * 0.6], [0.06 * s, -L * 0.75], [0.05 * s, -L]], { seg: 4, paint: GEAR.wood });
+        return;
+      }
+      lathe(k, [[0.11 * s, -0.004 * s], [0.05 * s, -0.07 * s], [0.025 * s, -0.14 * s]], { seg: d.n(14, 5), paint: 0x241a14, finish: {} });
+      bead(k, [0, 0, -0.12 * s], 0.025 * s, 0x9fe0ff, 0.9, d);
+      ring(k, [0, 0, -0.006 * s], 0.118 * s, 0.009 * s, d, GEAR.brassDark);
+      lathe(k, [[r * 1.2, -0.17 * s], [r * 1.05, -L * 0.42], [r * 1.25, -L * 0.54]], { seg: d.n(14, 5), paint: GEAR.iron, finish: { gloss: 0.6 } });
+      for (const z of [0.26, 0.48]) ring(k, [0, 0, -L * z], r * 1.2, r * 0.25, d);
+      // The bellows: pleated leather between two brass plates on top of the barrel (the gale).
+      if (d.level < 2) {
+        const pleats: [number, number][] = [];
+        for (let i = 0; i <= 8; i++) pleats.push([(i % 2 ? 0.05 : 0.04) * s, -L * 0.26 - i * 0.012 * s]);
+        lathe(k, pleats, { at: [0, 0.07 * s, 0], seg: d.n(10, 5), caps: true, paint: GEAR.leather, finish: LEATHER });
+        for (const z of [-L * 0.25, -L * 0.37]) lathe(k, [[0.055 * s, z + 0.004 * s], [0.055 * s, z - 0.004 * s]], { at: [0, 0.07 * s, 0], seg: d.n(10, 5), caps: true, paint: GEAR.brass, finish: BRASS });
+      }
+      block(k, [0.07 * s, 0.09 * s, 0.17 * s], [0, -0.01 * s, -L * 0.6], GEAR.woodDark, WOOD, d);
+      carve(k, [[-L * 0.62, -0.05 * s], [-L * 0.7, -0.05 * s], [-L * 0.76, -0.16 * s], [-L * 0.68, -0.165 * s]], 0.045 * s, GEAR.wood, WOOD, d);
+      carve(k, [[-L * 0.66, 0.035 * s], [-L * 0.98, 0.03 * s], [-L * 1.02, -0.11 * s], [-L * 0.95, -0.14 * s], [-L * 0.72, -0.06 * s]], 0.06 * s, GEAR.woodRed, WOOD, d);
+      if (d.level === 0) {
+        // Red shells along the stock (the ammo read).
+        for (let i = 0; i < 4; i++) lathe(k, [[0.012 * s, 0.025 * s], [0.012 * s, -0.012 * s], [0.013 * s, -0.025 * s]], { at: [0.034 * s, -0.02 * s, -L * (0.76 + i * 0.05)], rot: [Math.PI / 2, 0, 0], seg: 6, paint: (t) => (t > 0.7 ? GEAR.brass : P.shell), finish: { gloss: 0.4 } });
+      }
+    },
+  };
+}
 
 // =================================================================================================================
 // Kingfisher: a small crouched sprinter with a big long head and a dagger bill longer than the head is wide; a blue
@@ -522,11 +717,11 @@ export function genericBuild(plan: BodyPlan, team: TeamColours, index: number, c
 }
 
 /** This file's sculpted birds. */
-const SCULPTED_HERE = { shrike, kingfisher } as const satisfies Record<string, SculptedBird>;
+const SCULPTED_HERE = { shrike, kingfisher, albatross } as const satisfies Record<string, SculptedBird>;
 const sculpt = (birds: Readonly<Record<string, SculptedBird>>): Record<string, Build> =>
   Object.fromEntries(Object.entries(birds).map(([id, bird]) => [id, (plan: BodyPlan, team: TeamColours) => sculptedBuild(plan, team, bird)]));
 
 /** Hand-built heroes by id. */
-export const HERO_BUILDS: Readonly<Record<string, Build>> = { albatross, lyrebird, ...BIRD_BUILDS_B, ...sculpt(SCULPTED_B), ...sculpt(SCULPTED_HERE), ...SCULPTED_BUILDS };
+export const HERO_BUILDS: Readonly<Record<string, Build>> = { lyrebird, ...BIRD_BUILDS_B, ...sculpt(SCULPTED_B), ...sculpt(SCULPTED_HERE), ...SCULPTED_BUILDS };
 /** Every hero sculpted to the style guide (D-ART-004, D-ART-010). */
 export const SCULPTED_IDS = [...Object.keys(SCULPTED_BUILDS), ...Object.keys(SCULPTED_HERE), ...Object.keys(SCULPTED_B)] as HeroId[];
