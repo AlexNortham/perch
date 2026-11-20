@@ -60,7 +60,10 @@ export function dressInteriors(w: World): void {
     if (room.building < 0 || room.tag === 'tunnel') return;
     const b = buildings[room.building];
     if (!b) return;
-    furnish(w, room, b.archetype, 6100 + ri * 41, blockers, solids);
+    // Only what is near the room matters: keeps the per-slot checks short (load time).
+    const reach = Math.hypot(room.volume.size.x, room.volume.size.z) / 2 + 6;
+    const near = (x: number, z: number): boolean => Math.hypot(x - room.volume.centre.x, z - room.volume.centre.z) < reach;
+    furnish(w, room, b.archetype, 6100 + ri * 41, blockers.filter((k) => near(k.x, k.z)), solids.filter((q) => near(q.centre.x, q.centre.z) || (q.shape !== 'cylinder' && Math.max(q.size.x, q.size.z) > reach)));
   });
   map.climbs.forEach((c, i) => {
     if (c.kind === 'ladder') ladder(w, c.bottom, c.top, c.out, 6000 + i);

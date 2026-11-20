@@ -630,6 +630,20 @@ function groundCover(w: World): void {
   const lanes = w.map.lanes;
   const buildings = w.map.buildings ?? [];
   const solids = w.map.prims.filter((q) => q.solid && q.material !== 'grass' && q.material !== 'ground' && (q.shape !== 'box' || q.size.y < 30));
+  // A coarse grid of the solids (by bounding radius) keeps the per-sample checks short (load time).
+  const GRID = 8;
+  const cellsOf = new Map<string, typeof solids>();
+  for (const q of solids) {
+    const r = q.shape === 'cylinder' ? q.radius : Math.hypot(q.size.x, q.size.z) / 2;
+    for (let gx = Math.floor((q.centre.x - r) / GRID); gx <= Math.floor((q.centre.x + r) / GRID); gx++) {
+      for (let gz = Math.floor((q.centre.z - r) / GRID); gz <= Math.floor((q.centre.z + r) / GRID); gz++) {
+        const key = `${gx},${gz}`;
+        const list = cellsOf.get(key) ?? [];
+        list.push(q);
+        cellsOf.set(key, list);
+      }
+    }
+  }
   const { min, max } = w.map.bounds;
   const step = 2.0;
   for (let x = min.x + 2; x < max.x - 2; x += step) {
@@ -645,7 +659,7 @@ function groundCover(w: World): void {
       if (Math.abs(px) < 24 && Math.abs(pz) < 24) continue;
       if (buildings.some((b) => inVolume(b.footprint, { x: px, y: b.footprint.centre.y, z: pz }, 0.4))) continue;
       const probe = { x: px, y: 0.3, z: pz };
-      if (solids.some((q) => inPrim(q, probe, 0.25))) continue;
+      if ((cellsOf.get(`${Math.floor(px / GRID)},${Math.floor(pz / GRID)}`) ?? []).some((q) => inPrim(q, probe, 0.25))) continue;
       const pathD = Math.min(Infinity, ...zones.flatMap((j) => j.paths.map((pp) => distToPath(pp, px, pz))));
       const r = hash2(k, 3);
       const g0 = m(w, 0, px, pz, 'cutout');
