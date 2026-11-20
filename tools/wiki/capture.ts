@@ -102,7 +102,7 @@ async function run(page: Page, base: string, s: ImageSpec): Promise<Buffer> {
         await page.waitForTimeout(SETTLE_MS);
         break;
       }
-      await open(page, base, { scene: j.name === 'practice' ? 'practice' : 'match', hero: 'lyrebird', t: j.name === 'hud' || j.name === 'minimap' || j.name === 'scoreboard' ? '95' : '5' });
+      await open(page, base, { scene: j.name === 'practice' ? 'practice' : j.name === 'scoreboard' ? 'match' : 'lane', hero: 'lyrebird', ...(j.name === 'practice' ? {} : { renderCam: '0,3.4,-80,0,2.6,-45' }), t: j.name === 'hud' || j.name === 'minimap' || j.name === 'scoreboard' ? '95' : '5' });
       await lock(page);
       if (j.name === 'shop') await page.keyboard.press(DEFAULT_BINDINGS.shop);
       if (j.name === 'bigmap') await page.keyboard.press(DEFAULT_BINDINGS.bigMap);

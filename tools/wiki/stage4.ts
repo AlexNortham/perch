@@ -45,11 +45,11 @@ export function registerStage4(ctx: Ctx): void {
   };
 
   const blocks: Record<string, () => string> = {
-    'thicket-shot': () => ctx.figure('map:thicket', 'A Beetle Thicket in the jungle, shortly after the camp first appears at 2:00.'),
+    'thicket-shot': () => ctx.figure('map:thicket', 'A Beetle Thicket in its walled yard at 2:30. The creatures are still simple shapes.'),
     'rune-shot': () => ctx.figure('map:rune', 'A Feather rune waiting on a rune bridge at 5:00.'),
-    'hollow-shot': () => ctx.figure('map:hollow', 'The Hollow from its west rim, shortly after the Roc wakes at 20:00.'),
-    'tavern-shots': () => `<div class="gallery">${ctx.figure('map:tavern', 'The Tavern from the street.')}${ctx.figure('map:interior', 'Inside the Tavern.')}</div>`,
-    'belltower-shot': () => ctx.figure('map:belltower', 'A Bell Tower, with its Bell Feeder near the top.'),
+    'hollow-shot': () => ctx.figure('map:hollow', 'Inside the Hollow just after the Roc wakes at 20:00: the Roc is the pale block in the middle of its nest, still a simple shape.'),
+    'tavern-shots': () => `<div class="gallery">${ctx.figure('map:tavern', 'The Tavern, with its balcony over the street.')}${ctx.figure('map:interior', 'Inside the Tavern.')}</div>`,
+    'belltower-shot': () => ctx.figure('map:belltower', 'A Bell Tower. Its Bell Feeder is near the top.'),
     'cellar-shots': () => `<div class="gallery">${ctx.figure('map:cellar', 'Along the Cellar Run.')}${ctx.figure('map:den', 'The Magpie Den.')}</div>`,
     'object-counts': () => table(['Feature', 'Count'], [
       ['Thicket camps', map.thickets.length], ['Nests', map.nests.length], ['Bell Feeders', feeders], ['Berry bushes', berries], ['Lookouts', lookouts], ['Hides', hides],

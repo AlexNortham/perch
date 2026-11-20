@@ -37,4 +37,4 @@ Nothing in the game needs one.
 
 ## The scoreboard
 
-The scoreboard is always on, as a bar at the top of the screen, so it has no key. The timer is in the middle with each flock's total Seeds beside it, and each flock's six birds are shown with health bars, Seeds and respawn countdowns. Enemies your flock cannot currently see are dimmed. A strip beneath shows both Patrons' health and phase and the towers still standing in each lane.
+The scoreboard is always on, as a bar at the top of the screen, so it has no key. The timer is in the middle with each flock's total Seeds beside it, and each flock's six birds are shown with health bars, Seeds and respawn countdowns. Enemies your flock cannot currently see are dimmed. A strip beneath shows both Patrons' health and phase, the towers still standing in each lane and when the next Egg is due.

@@ -111,13 +111,13 @@ for (const lane of ['hedgerow', 'riverbank', 'pinewood'] as const) {
 const stage4 = (key: string, name: string, alt: string, cam: readonly number[], t = 0): void =>
   add(key, 'map', name, alt, 960, 540, { t: 'scene', params: { scene: t > 0 ? 'match' : 'blockout', ...(t > 0 ? { t: String(t) } : { cam: 'overview' }), renderCam: cam.join(',') } },
     [HASH.render, HASH.map, ...(t > 0 ? [HASH.sim, t] : [])]);
-stage4('map:tavern', 'tavern', 'The Tavern in the Lantern Row quarter, a two-storey building with doors, windows and a balcony', [-46, 7, -86, -46, 4, -64]);
+stage4('map:tavern', 'tavern', 'The Tavern in the Lantern Row quarter, a two-storey building with doors, windows and a balcony', [-60, 3.4, -78, -46, 3.6, -67]);
 stage4('map:interior', 'interior', 'Inside the Tavern on the ground floor, looking towards the stairs', [-46, 1.8, -59, -46, 1.6, -70]);
 stage4('map:belltower', 'belltower', 'The Bell Tower, four storeys tall, with a Bell Feeder at the top', [-50, 9, -52, -58, 10, -38]);
 stage4('map:cellar', 'cellar', 'The Cellar Run: a long tunnel under the Riverbank lane', [24, -2.5, -64, -6, -3.2, -64]);
 stage4('map:den', 'den', 'The Magpie Den, the shop halfway along the Cellar Run', [6, -2.2, -60, -4, -3.8, -67]);
-stage4('map:hollow', 'hollow', 'The Hollow under the Old Mill Bridge, where the Roc lives once it wakes at 20:00', [-27, 7, -1, 0, -6, 0], 1230);
-stage4('map:thicket', 'thicket', 'A Beetle Thicket camp in the jungle between the lanes', [-30, 4.5, -64, -30, 0.8, -52], 150);
+stage4('map:hollow', 'hollow', 'The Hollow under the Old Mill Bridge, where the Roc lives once it wakes at 20:00', [-15, -5.5, 5, 0, -7.5, 0], 1230);
+stage4('map:thicket', 'thicket', 'A Beetle Thicket camp in the jungle between the lanes', [-30, 12, -62, -30, 0.5, -52], 150);
 stage4('map:rune', 'rune', 'A Feather rune on the rune bridge at 5:00', [-95, 8.5, -9, -95, 6.8, 0], 310);
 
 const ui = (name: string, alt: string, w = 1280, h = 720): void => add(`ui:${name}`, 'ui', name, alt, w, h, { t: 'ui', name }, [HASH.ui, HASH.render]);
