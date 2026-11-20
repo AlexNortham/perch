@@ -10,13 +10,11 @@ import type { TeamColours } from '../palette';
 import { beak, eye, FEATHER, flare, headForm, legsOf, norm, ovoid, shingle, SKIN, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
 import { CARD } from './feathers';
-import { band, bead, block, BRASS, buckle, carve, GEAR, LEATHER, lathe, plume, pouch, ring, sash, strap, stud, WOOD } from './gear';
+import { band, bead, block, BRASS, buckle, carve, GEAR, LEATHER, lathe, plume, pouch, ring, sash, stud, WOOD } from './gear';
 import type { Detail, SculptedSpec } from './sculpted';
 import { hinge, jitter, mix, shade } from './sculpt';
 import type { Sculpt, V3 } from './sculpt';
 
-/** Peacock iridescence: blue turns toward teal and green toward gold as the surface turns away. */
-const IRI = { tile: 1, size: 0.12, iri: -1 } as const;
 
 /** A card's display pose: root, direction and face at rest mapped to the same in the display. */
 function repose(at: V3, dir: V3, face: V3, at2: V3, dir2: V3, face2: V3): Matrix4 {
@@ -567,7 +565,7 @@ export function swift(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpe
 
   const head = (k: Sculpt): void => {
     const pale = (p: { x: number; y: number; z: number }): boolean => p.y < -hr * 0.45 && p.z > hr * 0.05 && Math.abs(p.x) < hr * 0.75;
-    const skull = headForm(k, {
+    headForm(k, {
       hr, width: 1.12, crown: 1.05, chin: 1.0, back: 0.9, face: 1.02, cheek: 1.05, neck: { r: 0.1 * s, drop: 0.2 * s, lean: 0.01 * s },
       beak: { y: -hr * 0.12, w: hr * 0.3, up: hr * 0.13, dn: hr * 0.09 }, finish: { ...GLOSS, size: 0.07 },
       paint: (_t, _a, p) => (pale(p) ? W.pale : W.soot),
