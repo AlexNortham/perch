@@ -2672,3 +2672,13 @@ weights summing to 1. `npm run check`, each step run, with 373506f merged (this 
 shared, and a bake takes seconds.
 **Blocked:** nothing.
 **Next:** the EP's review, then the other 21 birds in parallel batches.
+
+### EP · 21/11/2026 · sculpt pipeline v2 merged (63b6776)
+- Implicit (SDF) bodies baked offline and cut into LODs with meshoptimizer (an exact dev dependency, D-ART-009). A byte-identical re-bake test guards the committed skins. Nothing is generated at load.
+- EP scores: Peacock 2.5, Swift 2.5, Cassowary 2.5–3 (from 2, 2 and 1).
+- Pipeline v2.1 is ordered before the batches:
+  - feather surface detail along a flow field;
+  - a standard for the player-camera view (nape, hackles, crown, value breaks);
+  - wings that wrap the grip instead of reading as arms;
+  - a check under golden-hour lighting.
+- Then the other 21 birds convert in parallel batches, with a per-bird checklist.
