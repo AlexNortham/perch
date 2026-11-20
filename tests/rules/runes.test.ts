@@ -94,33 +94,40 @@ describe('W5 Feather runes (§7.10)', { timeout: TIMEOUT_MS }, () => {
     expect(runes(sb), 'the other bridge keeps its rune').toHaveLength(1);
   });
 
-  describe.each(TYPES)('%s feather strength', (type) => {
-    for (const [label, at] of [['5:00', T_FIRST], ['22:30', mmss(22, 30)], ['40:00', T_LAST], ['45:00', mmss(45)]] as const) {
-      it(`§7.10 claimed at ${label}: strength is linear from the 5:00 value to the 40:00 value and held after`, async () => {
-        // Seeds 1–4 until the wanted type is on offer at this time.
-        for (const seed of [1, 2, 3, 4, 5, 6]) {
-          const sb = await world({ heroes: ['shrike', 'lyrebird'], seed, regen: true });
-          const hero = sb.heroes[0]!;
-          advanceTo(sb, at + 0.5);
-          const rune = runes(sb).find((r) => typeOf(r) === type);
-          if (!rune) continue;
-          const base = { ...sb.hero(hero).stats.final };
-          // Strength is set when the claim lands, which is before heavyMelee() returns.
-          let claimedAt = -1;
-          sb.ctx.bus.on('objective', (e) => { if (e.action === 'runeTaken' && claimedAt < 0) claimedAt = sb.sim.tick; });
-          standBeside(sb, hero, rune.pos);
-          heavyMelee(sb, hero);
-          const f = (claimedAt / TICK_RATE - T_FIRST) / (T_LAST - T_FIRST);
-          for (const [stat, lo, hi] of STRENGTH[type]) {
-            const now = sb.hero(hero).stats.final[stat];
-            // "+30% magazine size" is a share of the hero's own magazine (D-OBJ-014); the rest add flat.
-            const gain = stat === 'magazine' ? now / base[stat] - 1 : now - base[stat];
-            expect(gain, `${type} ${stat}`).toBeCloseTo(lerp(lo, hi, f), 1);
-          }
-          return;
+  // One match through 45:00 claims every type at each time (W5a integration: the per-type, per-seed matches took over
+  // six minutes). At each time a fresh pair is called early and the rune's type set before the claim, and each gain
+  // is read as the drop when the rune is cleansed off a tick later, so level-ups from passive income can't shift it.
+  it('§7.10 strength: each type claimed at 5:00, 22:30, 40:00 and 45:00 is linear from its 5:00 value to its 40:00 value and held after', async () => {
+    const sb = await world({ heroes: ['shrike', 'lyrebird'], regen: true });
+    const hero = sb.heroes[0]!;
+    let claimedAt = -1;
+    sb.ctx.bus.on('objective', (e) => { if (e.action === 'runeTaken') claimedAt = sb.sim.tick; });
+    const cleanse = () => {
+      sb.apply({ kind: 'cleanse', remove: ['rune'] }, hero, sb.cause(null));
+      sb.step();
+    };
+    for (const at of [T_FIRST, mmss(22, 30), T_LAST, mmss(45)]) {
+      advanceTo(sb, at + 0.5);
+      for (const type of TYPES) {
+        cleanse();
+        sb.ctx.objectives.runesAt = sb.sim.tick + 1;
+        sb.step(2);
+        const rune = runes(sb)[0]!;
+        (rune.pickup as { variant: string }).variant = type;
+        standBeside(sb, hero, rune.pos);
+        claimedAt = -1;
+        heavyMelee(sb, hero);
+        expect(claimedAt, `${type} claimed at ${at / 60} min`).toBeGreaterThan(0);
+        const on = { ...sb.hero(hero).stats.final };
+        cleanse();
+        const off = sb.hero(hero).stats.final;
+        const f = (claimedAt / TICK_RATE - T_FIRST) / (T_LAST - T_FIRST);
+        for (const [stat, lo, hi] of STRENGTH[type]) {
+          // "+30% magazine size" is a share of the hero's own magazine (D-OBJ-014); the rest add flat.
+          const gain = stat === 'magazine' ? on[stat] / off[stat] - 1 : on[stat] - off[stat];
+          expect(gain, `${type} ${stat} at ${at / 60} min`).toBeCloseTo(lerp(lo, hi, f), 1);
         }
-        throw new Error(`no ${type} rune on offer at ${label} in six seeded matches`);
-      });
+      }
     }
   });
 

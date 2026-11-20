@@ -26,8 +26,12 @@ const hit = (sb: Sandbox, source: EntityId, target: EntityId, amount: number, ty
 async function woken() {
   const sb = await world({ heroes: ['shrike', { hero: 'kingfisher', team: 'dawn' }, 'lyrebird'] });
   const [a, b, foe] = sb.heroes as [EntityId, EntityId, EntityId];
-  advanceTo(sb, WAKE_S + 1);
-  expect(roc(sb), '§7.12 the Roc is awake at 20:00').toBeDefined();
+  // Woken at 0:30 through objectives.rocAt, the same code path as 20:00 (the wake test checks 20:00 itself): eighteen
+  // tests each simulating twenty minutes first took over six minutes (W5a integration).
+  advanceTo(sb, 30);
+  sb.ctx.objectives.rocAt = sb.sim.tick + 1;
+  sb.step(2);
+  expect(roc(sb)?.unit.asleep, '§7.12 the Roc is awake').toBe(false);
   return { sb, a, b, foe, r: roc(sb) };
 }
 
