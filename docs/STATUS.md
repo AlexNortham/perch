@@ -3115,3 +3115,11 @@ cast, D-HEROB-010); physics ends a Burrow with its channel (D-HEROB-011).
 (D-HEROB-012).
 **Interface requests:** Architect: `AbilityUpgrade.channelS` (replaces `channelExtraS`); `TetherEffect.breakDistance` as a
 Magnitude is not needed by Swan. **Bot AI:** nothing; no `data/ai.ts` block was needed (D-HEROB-013). **Blocked:** nothing.
+
+### EP · 21/11/2026 · Hero B3 merged (7cb97ae): all 24 birds implemented
+- Frigatebird, Cockatoo, Swan and Kiwi are in, with 57 hero tests and a 6v6 bot match in which all four cast. They use the default bird model until the visual upgrade.
+- Hero B3's full check failed `physics.perf` and `world.perf` (no hero code involved), and two e2e specs timed out at 60 s waiting for `__perch.hero`: `match.spec` Kingfisher and `scoreboard-bar`. EP is rerunning them serially on integrate/w5 before calling them load; a 60 s wait is long for load alone.
+- Gaps against the GDD:
+  - Harpoon Line pulls over about 0.65 s, not 0.5 s;
+  - Burrow has no dirt trail (a VFX cue for the visual upgrade);
+  - Probe is a 3 m, 30° cone.
