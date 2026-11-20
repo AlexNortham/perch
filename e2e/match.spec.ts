@@ -4,7 +4,7 @@
 // action after the hero appears is a real key press or mouse click.
 import { expect, test, type Page } from '@playwright/test';
 import { HEALTH_CSS } from '../src/client/ui/constants';
-import { lockPointer, open, pickHero, shot, walkTo, VIEWPORT, READY_TIMEOUT_MS } from './game';
+import { levelView, lockPointer, open, pickHero, shot, turn, walkTo, VIEWPORT, READY_TIMEOUT_MS } from './game';
 
 test.use({ viewport: VIEWPORT });
 test.setTimeout(READY_TIMEOUT_MS * 3);
@@ -12,11 +12,15 @@ test.setTimeout(READY_TIMEOUT_MS * 3);
 const FAST_FORWARD_S = 900;
 const ITEM = 'Quill Clip';
 const WALK_LIMIT_MS = 120_000;
-const HEDGEROW_ROUTE = [{ x: -40, z: -114 }, { x: -95, z: -80 }, { x: -95, z: 15 }] as const;
+const HEDGEROW_ROUTE = [{ x: -40, z: -114 }, { x: -95, z: -80 }, { x: -95, z: -20 }] as const;
+/**
+ * The last leg runs up the lane centre at the Dusk Hawk (−95, 35; 10 m tall), firing: level shots leave the muzzle
+ * at about 1.1 m and pass over fledglings (0.8–0.9 m tall), so the tower is the target a level crosshair always meets.
+ */
+const FIRING_LEG = [{ x: -95, z: 9 }] as const;
 const SWEEP_STEPS = 24;
 const SWEEP_DEG = 15;
 const SWEEP_MS = 700;
-const COUNTS_PER_DEGREE = 1 / 0.06;
 const seedsOf = async (page: Page) => Number((await page.locator('.pu-seeds').innerText()).replace(/[^\d]/g, ''));
 
 test('Play from the menu as Kingfisher: earn, level, buy and sell in the shop zone, scoreboard, map, damage numbers', async ({ page }) => {
@@ -26,7 +30,8 @@ test('Play from the menu as Kingfisher: earn, level, buy and sell in the shop zo
 
   const start = await seedsOf(page);
   expect(start, 'passive income earned Seeds by minute 15').toBeGreaterThanOrEqual(800);
-  await expect(page.getByText('Lv 2', { exact: true }), 'Seeds levelled the hero up').toBeVisible();
+  // Lv 2 or higher: bots now take Hawks and share Seeds, so an idle human can reach Lv 3 by 15:00.
+  await expect(page.getByText(/^Lv ([2-9]|[1-9][0-9])$/), 'Seeds levelled the hero up').toBeVisible();
   await shot(page, 'match-earned');
 
   const shop = page.getByRole('dialog', { name: "Magpie's Hoard" });
@@ -54,7 +59,10 @@ test('Play from the menu as Kingfisher: earn, level, buy and sell in the shop zo
   await shot(page, 'match-map');
   await page.keyboard.press('KeyM');
 
-  // Walk the Hedgerow lane to the fledgling clash with W and mouse steering, then sweep the view while firing until a shot lands: a damage number appears.
+  // Walk the Hedgerow lane with W and mouse steering, level the view (the clicks after the shop tilt it), fire up the
+  // lane at the Dusk Hawk on the way into the fledgling clash, then sweep the view while firing until a shot lands: a
+  // damage number appears.
+  await levelView(page);
   await walkTo(page, HEDGEROW_ROUTE, WALK_LIMIT_MS);
   // Record any damage number the moment it is added (they fade), whatever the machine's load.
   await page.evaluate((heal) => {
@@ -71,8 +79,10 @@ test('Play from the menu as Kingfisher: earn, level, buy and sell in the shop zo
   await page.mouse.down();
   let seen = false;
   try {
+    await walkTo(page, FIRING_LEG, WALK_LIMIT_MS);
+    seen = await page.evaluate(() => (window as { sawDamage?: boolean }).sawDamage === true);
     for (let i = 0; i < SWEEP_STEPS && !seen; i++) {
-      await page.mouse.move(640 + (i + 1) * SWEEP_DEG * COUNTS_PER_DEGREE, 360);
+      await turn(page, SWEEP_DEG);
       seen = await page.waitForFunction('window.sawDamage === true', null, { timeout: SWEEP_MS }).then(() => true, () => false);
     }
     await shot(page, 'match-damage-numbers');

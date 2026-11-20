@@ -18,8 +18,6 @@ export interface Rider {
   readonly on: 'gunHit' | 'heavyMelee' | 'killAssist';
   /** gunHit only: restrict the target ('nonHero' covers units, Nests, structures and the Roc). */
   readonly vs?: 'hero' | 'nonHero';
-  /** gunHit only: only from this distance or farther (m). */
-  readonly minM?: number;
   /** gunHit only: extra Talon damage as a fraction of the hit's damage (after resists, so it adds that much). */
   readonly extra?: number;
   /** gunHit only: one more enemy within `radius` of the target takes `fraction` of the hit (no beak shot). */

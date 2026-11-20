@@ -154,12 +154,6 @@ export const PHYSICS_LAYERS = { sight: 0x10, movement: 0x20, eggCarrier: 0x40 } 
 /** Opening.blocksEggCarrier: the blocker is a slab this thick (m) across the gap. */
 export const EGG_BLOCKER_DEPTH = 0.2;
 
-/**
- * An AbilityDef.values name the dash effect reads (D-SYS-011): an 'aim' dash whose cause's values hold `steerDeg` > 0
- * follows the caster's aim while it runs, at most that many degrees either side of where it started (Rampage 30).
- */
-export const STEER_VALUE = 'steerDeg';
-
 /** GDD §3.8. */
 export const CHIMNEY = {
   radius: 1.5,

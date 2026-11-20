@@ -182,7 +182,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
   };
   const heroes = { ...HEROES, ...opts.heroes } as Record<HeroId, HeroModule>;
   const roster =
-    opts.roster ?? (Object.keys(opts.heroes ?? {}) as HeroId[]).map((hero) => ({ team: 'dawn' as const, hero, controller: 'easy' as const }));
+    opts.roster ?? (Object.keys(opts.heroes ?? {}) as HeroId[]).map((hero) => ({ team: 'dawn' as const, hero, controller: 'dummy' as const }));
   const stats = createStatService(store);
   const ctx: SimContext = {
     config: {
@@ -231,7 +231,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
         vel: { x: 0, y: 0, z: 0 },
         yaw,
         radius: def.body.radius,
-        hero: { heroId: id, slot: live.length, controller: 'easy' },
+        hero: { heroId: id, slot: live.length, controller: 'dummy' },
         pitch: 0,
         shoulder: 1,
         command: { ...IDLE_COMMAND, yaw },

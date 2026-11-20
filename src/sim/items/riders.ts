@@ -1,4 +1,4 @@
-// Item behaviour that triggers can't say (data/items-kit.ts Rider): Forager's Talon, Skipping Stone and Kestrel's Eye
+// Item behaviour that triggers can't say (data/items-kit.ts Rider): Forager's Talon and Skipping Stone
 // ride on gun hits, Hooked Spur and Stoop Dive on heavy melee, Carrion Feast on kills and assists.
 import type { EntityId, HeroEntity, SimContext, Vec3 } from '../core/contracts';
 import { distSq, vec3 } from '../core/math';
@@ -28,11 +28,9 @@ export function createRiders(ctx: SimContext): void {
     const h = heroOf(e.source);
     const target = ctx.store.get(e.target);
     if (!h || h.health.dead || !target || target.team === e.sourceTeam) return;
-    const dist = Math.sqrt(distSq(h.pos, target.pos));
     for (const o of owned(h)) {
       for (const r of ITEM_RIDERS[o.item]!) {
         if (r.on !== 'gunHit' || (r.vs === 'hero' && e.targetKind !== 'hero') || (r.vs === 'nonHero' && e.targetKind === 'hero')) continue;
-        if (r.minM !== undefined && dist < r.minM) continue;
         const cause = { ...itemCause(h, o.item), proc: true };
         if (r.extra) ctx.effects.apply({ kind: 'damage', amount: raw(e.target, e.amount * r.extra), type: 'talon' }, at(e.target, e.pos), cause);
         if (r.effects) ctx.effects.applyAll(r.effects, at(e.target, e.pos), cause);

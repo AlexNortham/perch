@@ -11,6 +11,7 @@ import type {
   Effect,
   EffectCause,
   HeroEntity,
+  Magnitude,
   MapData,
   MapId,
   MovementAction,
@@ -22,8 +23,7 @@ import type {
 import { createSim } from '../index';
 import { ARENA } from '../world/map';
 import { STUN } from '../data/combat';
-import { SURFACE_VALUE } from '../data/abilities';
-import { PHYSICS_LAYERS, STEER_VALUE } from '../data/movement';
+import { PHYSICS_LAYERS } from '../data/movement';
 import { MOVE_MASK } from './rapier';
 
 const fixture = vi.hoisted(() => ({ map: null as MapData | null }));
@@ -46,13 +46,13 @@ interface Bench {
   actions: MovementAction[];
   place(pos: Vec3): void;
   cause(origin?: Vec3): EffectCause;
-  apply(effect: Effect, target?: { entity?: number | null; point?: Vec3; dir?: Vec3 }, cause?: EffectCause): void;
+  apply(effect: Effect, target?: { entity?: number | null; point?: Vec3; dir?: Vec3; surface?: boolean }, cause?: EffectCause): void;
 }
 
 async function bench(map: MapData | null = null, at?: Vec3, enemy?: Vec3): Promise<Bench> {
   fixture.map = map;
   const roster = [{ team: 'dawn' as const, hero: 'owl' as const, controller: 'human' as const }];
-  if (enemy) roster.push({ team: 'dusk' as never, hero: 'swan' as never, controller: 'easy' as never });
+  if (enemy) roster.push({ team: 'dusk' as never, hero: 'swan' as never, controller: 'dummy' as never });
   const sim = await createSim({ seed: 1, map: 'arena', roster });
   fixture.map = null;
   const [h, other] = sim.ctx.store.list('hero');
@@ -88,7 +88,8 @@ async function bench(map: MapData | null = null, at?: Vec3, enemy?: Vec3): Promi
     apply(effect, target = {}, cause = b.cause()) {
       sim.ctx.effects.apply(
         effect,
-        { entity: target.entity === undefined ? h.id : target.entity, point: target.point ?? { ...h.pos }, dir: target.dir ?? { x: 0, y: 0, z: 1 } },
+        { entity: target.entity === undefined ? h.id : target.entity, point: target.point ?? { ...h.pos }, dir: target.dir ?? { x: 0, y: 0, z: 1 },
+          ...(target.surface && { surface: true }) },
         cause,
       );
     },
@@ -1430,37 +1431,34 @@ describe('wave 5: movement modes, steering and surface dashes', () => {
     expect(b.h.motor.mode).toBeNull();
   });
 
-  it('an aim dash whose cause values carry steerDeg follows the aim, at most that far from its start (Rampage)', async () => {
+  it('an aim dash with steerDeg follows the aim, at most that far from its start (Rampage, a value name works too)', async () => {
     const charge: Effect = { kind: 'dash', distance: 20, durationS: 1, dir: 'aim', arcHeight: 0 };
-    const run = async (values: Record<string, number> | null): Promise<number> => {
+    const run = async (steerDeg: Magnitude | undefined, values: Record<string, number> | null = null): Promise<number> => {
       const b = await bench(null, { x: 0, y: 0, z: -35 });
-      b.apply(charge, { dir: { x: 0, y: 0, z: 1 } }, { ...b.cause(), values });
+      b.apply({ ...charge, ...(steerDeg !== undefined && { steerDeg }) }, { dir: { x: 0, y: 0, z: 1 } }, { ...b.cause(), values });
       b.step({ yaw: 0 }, 10);
       b.step({ yaw: Math.PI / 2 }, 10);
       return Math.atan2(b.h.vel.x, b.h.vel.z);
     };
-    expect(await run(null)).toBeCloseTo(0, 6);
-    expect(await run({ [STEER_VALUE]: 30 })).toBeCloseTo(Math.PI / 6, 6);
+    expect(await run(undefined)).toBeCloseTo(0, 6);
+    expect(await run(30)).toBeCloseTo(Math.PI / 6, 6);
+    expect(await run('steer', { steer: 30 })).toBeCloseTo(Math.PI / 6, 6);
   });
 
-  it('a target dash from a surface cast flies straight to the wall point and clings there (Tree Cling)', async () => {
+  it('a target dash to a surface point flies straight to the wall point and clings there (Tree Cling)', async () => {
     const wall = withArena({ prims: [box({ x: 0, y: 4, z: -25 }, { x: 6, y: 8, z: 1 })] });
-    const run = async (values: Record<string, number> | null) => {
+    const run = async (surface: boolean) => {
       const b = await bench(wall, { x: 0, y: 0, z: -33 });
       const point = { x: 0, y: 5, z: -25.5 };
-      b.apply(
-        { kind: 'dash', distance: 12, durationS: 0.25, dir: 'target', arcHeight: 0, onArrive: [mode('cling')] },
-        { entity: b.h.id, point },
-        { ...b.cause(), values },
-      );
+      b.apply({ kind: 'dash', distance: 12, durationS: 0.25, dir: 'target', arcHeight: 0, onArrive: [mode('cling')] }, { entity: b.h.id, point, surface });
       b.step({}, 20);
       return b.h;
     };
-    const h = await run({ [SURFACE_VALUE]: 1 });
+    const h = await run(true);
     expect(h.motor.mode).toBe('cling');
     expect(h.pos.y).toBeCloseTo(5, 1);
     expect(-25.5 - h.pos.z).toBeCloseTo(h.radius, 1);
-    const flat = await run(null);
+    const flat = await run(false);
     expect(flat.pos.y, 'an ordinary target dash stays on the floor').toBeLessThan(0.5);
   });
 });

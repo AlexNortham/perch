@@ -41,7 +41,8 @@ export function createTriggers(ctx: SimContext) {
       const target = d.target === 'self' ? h : other === null ? undefined : ctx.store.get(other);
       if (!target || (d.heroesOnly && (other === null || !ctx.store.getKind(other, 'hero')))) continue;
       if (d.via !== undefined && d.via !== via) continue;
-      if (d.withinM !== undefined && (!target || distSq(target.pos, h.pos) > d.withinM * d.withinM)) continue;
+      if (d.withinM !== undefined && distSq(target.pos, h.pos) > d.withinM * d.withinM) continue;
+      if (d.beyondM !== undefined && distSq(target.pos, h.pos) < d.beyondM * d.beyondM) continue;
       if (++t.count < (d.count ?? 1)) continue;
       t.count = 0;
       if (d.chance < 1 && !rng.chance(d.chance)) continue;

@@ -20,10 +20,18 @@ step() {
   fi
 }
 
+# Parallel workers (D-BUILD-010): half the logical cores for the unit tests, at most 8, and a quarter for the browser
+# suites, at most 4, so agents sharing the machine don't push tests past their timeouts. Override with
+# PERCH_TEST_WORKERS and PERCH_E2E_WORKERS.
+cores=$(nproc 2>/dev/null || echo 4)
+clamp() { local n=$1 max=$2; ((n < 1)) && n=1; ((n > max)) && n=$max; echo "$n"; }
+test_workers=${PERCH_TEST_WORKERS:-$(clamp $((cores / 2)) 8)}
+e2e_workers=${PERCH_E2E_WORKERS:-$(clamp $((cores / 4)) 4)}
+
 step typecheck npm run typecheck
 step lint npm run lint
-step test npm test
+step test npm test -- --maxWorkers="$test_workers"
 step perf npm run perf
 step sim npm run sim -- --seed 1 --minutes 3 --bots 12 --out out/check/telemetry-seed-1.json
-step e2e npm run e2e
+step e2e npm run e2e -- --workers="$e2e_workers"
 printf 'PASS  check     %4ss\n' "$(($(date +%s) - started))"

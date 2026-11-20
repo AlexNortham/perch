@@ -15,7 +15,7 @@ const variant = (sb: Awaited<ReturnType<typeof createSandbox>>, id: EntityId, v:
 };
 
 it('a Thicket creature pays base x (1 + 0.015 x minutes), split between the killer and allies who hit it in the last 5 s', async () => {
-  const sb = await createSandbox({ heroes: [{ hero: 'shrike' }, { hero: 'kingfisher', team: 'dawn' }, { hero: 'albatross', team: 'dawn' }] });
+  const sb = await createSandbox({ heroes: [{ hero: 'shrike' }, { hero: 'kingfisher', team: 'dawn' }, { hero: 'albatross', team: 'dawn' }], options: { startSeeds: 0 } });
   const [killer, helper, bystander] = sb.heroes as [EntityId, EntityId, EntityId];
   const beetle = sb.dummy({ kind: 'unit', type: 'beetle', team: 'neutral', at: near, hp: 5000 });
   sb.apply({ kind: 'damage', type: 'talon', amount: 10 }, beetle, sb.cause(helper, { via: 'weapon' }));
@@ -27,7 +27,7 @@ it('a Thicket creature pays base x (1 + 0.015 x minutes), split between the kill
 });
 
 it('a woven Nest always drops a sprig worth 48 + 3.6 per minute; any hero within 1.5 m collects it', async () => {
-  const sb = await createSandbox({ heroes: [{ hero: 'shrike', at: { x: 30, y: 0, z: 0 } }, { hero: 'kingfisher', team: 'dusk', at: { x: -30, y: 0, z: 0 } }] });
+  const sb = await createSandbox({ heroes: [{ hero: 'shrike', at: { x: 30, y: 0, z: 0 } }, { hero: 'kingfisher', team: 'dusk', at: { x: -30, y: 0, z: 0 } }], options: { startSeeds: 0 } });
   const [a, b] = sb.heroes as [EntityId, EntityId];
   const nest = sb.dummy({ kind: 'structure', type: 'nest', team: 'neutral', at: near, hp: 100 });
   variant(sb, nest, 'woven');
@@ -39,7 +39,7 @@ it('a woven Nest always drops a sprig worth 48 + 3.6 per minute; any hero within
 });
 
 it('Bell Feeder hits pay F/16 (light) and F/8 (heavy); the break pays F/2 to recent hitters', async () => {
-  const sb = await createSandbox({ heroes: [{ hero: 'shrike' }] });
+  const sb = await createSandbox({ heroes: [{ hero: 'shrike' }], options: { startSeeds: 0 } });
   const [a] = sb.heroes as [EntityId];
   const feeder = sb.dummy({ kind: 'structure', type: 'nest', team: 'neutral', at: near, hp: 480 });
   variant(sb, feeder, 'feeder');
@@ -52,7 +52,7 @@ it('Bell Feeder hits pay F/16 (light) and F/8 (heavy); the break pays F/2 to rec
 });
 
 it('the Egg hatches into six golden pods: the courier keeps a pod they secure, splits one a mate secures, and an enemy denies for 25%', async () => {
-  const sb = await createSandbox({ heroes: [{ hero: 'shrike' }, { hero: 'kingfisher', team: 'dawn' }, { hero: 'albatross', team: 'dusk' }] });
+  const sb = await createSandbox({ heroes: [{ hero: 'shrike' }, { hero: 'kingfisher', team: 'dawn' }, { hero: 'albatross', team: 'dusk' }], options: { startSeeds: 0 } });
   const [courier, mate, foe] = sb.heroes as [EntityId, EntityId, EntityId];
   sb.ctx.bus.emit({ type: 'objective', action: 'eggDelivered', hero: courier, team: 'dawn', pickup: null, pickupType: null, pos: { ...at }, value: 1200 });
   sb.step(40);
@@ -73,7 +73,7 @@ it('the Egg hatches into six golden pods: the courier keeps a pod they secure, s
 });
 
 it('the Roc pays every hero of the killing flock; an Ember claim pays its claimer; a revive pays no bounty', async () => {
-  const sb = await createSandbox({ heroes: [{ hero: 'shrike' }, { hero: 'kingfisher', team: 'dawn' }, { hero: 'albatross', team: 'dusk' }] });
+  const sb = await createSandbox({ heroes: [{ hero: 'shrike' }, { hero: 'kingfisher', team: 'dawn' }, { hero: 'albatross', team: 'dusk' }], options: { startSeeds: 0 } });
   const [a, b, c] = sb.heroes as [EntityId, EntityId, EntityId];
   const roc = sb.dummy({ kind: 'unit', type: 'roc', team: 'neutral', at: near, hp: 100 });
   kill(sb, a, roc);

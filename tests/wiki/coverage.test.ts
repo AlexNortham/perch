@@ -24,7 +24,8 @@ beforeAll(() => {
 }, GENERATION_TIMEOUT_MS);
 afterAll(() => rmSync(out, { recursive: true, force: true }));
 
-describe('wiki coverage', () => {
+// Every test reads the generated pages (and some the committed ones): under load they need more than the 5 s default.
+describe('wiki coverage', { timeout: GENERATION_TIMEOUT_MS }, () => {
   it('builds with no broken [[links]] in the sources', () => {
     expect(result.broken).toEqual([]);
   });

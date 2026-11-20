@@ -1,6 +1,5 @@
-// The 64-item catalogue (GDD §10, D-EP-034). Written test-first (D-EP-006, W4.5 QA): gated until Items and Balance
-// land the 48 missing items and the 16 Stage 4 ones in wave 5. Run with
-//   PERCH_PENDING=1 npx vitest run tests/rules/items.test.ts
+// The 64-item catalogue (GDD §10, D-EP-034). Written test-first (D-EP-006, W4.5 QA); always on since the W5a
+// integration round, when Items landed all 64.
 // Part 1: the catalogue's shape. Part 2: one effect test per item (64), each citing its §10 row. Part 3: behaviour
 // tests for the 16 Stage 4 items and the active-item rules.
 import { describe, expect, it } from 'vitest';
@@ -17,7 +16,7 @@ const byId = (id: string) => ITEMS.find((i) => i.id === id);
 
 // ---- Part 1: the catalogue ------------------------------------------------------------------------------------------
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 the catalogue (§10)', () => {
+describe('W5 the catalogue (§10)', () => {
   it('§10 holds 64 items: 21 Talon, 21 Plumage, 22 Song; 16 per tier', () => {
     expect(ITEMS).toHaveLength(64);
     expect(ITEMS.filter((i) => i.category === 'talon')).toHaveLength(21);
@@ -156,7 +155,7 @@ const STATS: Readonly<Record<string, readonly (readonly [StatId, number])[]>> = 
   'rookery-dirge': [['songPower', 20], ['maxHealth', 300], ['songResist', 0.1]],
 };
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 one effect test per item: the stats column (§10)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 one effect test per item: the stats column (§10)', { timeout: TIMEOUT_MS }, () => {
   it('the table below covers every one of the 64 catalogue rows', () => {
     for (const row of CATALOGUE) expect(STATS[row.id], `${row.id} has a §10 stats entry`).toBeDefined();
     expect(Object.keys(STATS)).toHaveLength(64);
@@ -185,7 +184,7 @@ const ability = (sb: Sandbox, caster: EntityId, foe: EntityId, damage = 50): voi
   sb.step();
 };
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Stage 4 items, in play (§10.1–10.3 ★)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 the Stage 4 items, in play (§10.1–10.3 ★)', { timeout: TIMEOUT_MS }, () => {
   it('★ Hooked Spur §10.1: a heavy melee hit on a hero slows it 25% for 1.5 s', async () => {
     const s = await shop();
     s.buy('hooked-spur');
@@ -245,19 +244,26 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Stage 4 items, in play
   });
 
   it('★ Kestrel\'s Eye §10.1: gun hits from 25 m or farther deal +20% damage and reveal the target for 3 s', async () => {
+    // Damage per gun hit, Kestrel's Eye's share included: the +20% may land as a repeat of the hit (D-SYS-014).
+    const perHit = (s: Shop): number => {
+      s.sb.step(2);
+      const dealt = s.sb.eventsOf('damage.applied').filter((e) => e.source === s.buyer && e.target === s.foe);
+      const hits = dealt.filter((e) => e.via === 'weapon').length;
+      return dealt.filter((e) => e.via === 'weapon' || e.item === 'kestrel-eye').reduce((n, e) => n + e.amount, 0) / hits;
+    };
     const near = await shop();
     near.buy('kestrel-eye');
     near.lane(15);
     shoot(near);
-    const nearHit = near.sb.eventsOf('damage.applied').find((e) => e.target === near.foe && e.via === 'weapon')!;
+    const nearHit = perHit(near);
     const far = await shop();
     far.buy('kestrel-eye');
     far.lane(30);
     shoot(far);
-    const farHit = far.sb.eventsOf('damage.applied').find((e) => e.target === far.foe && e.via === 'weapon')!;
+    const farHit = perHit(far);
     expect(far.sb.hero(far.foe).stats.conditions.has('revealed'), 'revealed after a long-range hit').toBe(true);
     expect(near.sb.hero(near.foe).stats.conditions.has('revealed'), 'not from close range').toBe(false);
-    expect(farHit.amount / nearHit.amount, '+20% beyond 25 m (falloff aside)').toBeGreaterThan(1.1);
+    expect(farHit / nearHit, '+20% beyond 25 m (falloff aside)').toBeGreaterThan(1.1);
     far.sb.step(t(3.4));
     expect(far.sb.hero(far.foe).stats.conditions.has('revealed'), 'reveal lasts 3 s').toBe(false);
   });
@@ -407,7 +413,11 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Stage 4 items, in play
     s.sb.step(t(4.2));
     const ticks = songDamage(s.sb, s.buyer, s.foe);
     const total = ticks.reduce((n, e) => n + e.amount, 0);
-    expect(total, 'four seconds of Blight').toBeCloseTo(4 * (0.03 * hp + 0.06 * sp) * (1 - s.sb.hero(s.foe).stats.final.songResist), -1);
+    // "3% of the target's current HP": read as each tick lands, so four seconds of it lie between the totals at the
+    // starting and the ending HP.
+    const blight = (current: number) => 4 * (0.03 * current + 0.06 * sp) * (1 - s.sb.hero(s.foe).stats.final.songResist);
+    expect(total, 'four seconds of Blight').toBeLessThanOrEqual(blight(hp) + 1);
+    expect(total, 'four seconds of Blight').toBeGreaterThanOrEqual(blight(hp - total) - 1);
     s.sb.clearEvents();
     s.sb.step(t(2));
     expect(songDamage(s.sb, s.buyer, s.foe), 'Blight is over').toHaveLength(0);
@@ -429,16 +439,18 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Stage 4 items, in play
 
   it('★ Rookery Dirge §10.3: aura 12 m: enemy heroes inside take Song damage of 1.5% max HP + 0.05×SP per second and have −8% Song resist', async () => {
     const s = await shop();
+    // Effective Song resist: resist less shred (−8% may be either). Measured before the foe walks into the aura.
+    const resist = () => s.sb.hero(s.foe).stats.final.songResist - s.sb.hero(s.foe).stats.final.songShred;
+    const resist0 = resist();
     s.buy('rookery-dirge');
     s.lane(10);
     const sp = s.sb.hero(s.buyer).stats.final.songPower;
     const max = s.sb.hero(s.foe).stats.final.maxHealth;
-    const resist0 = s.sb.hero(s.foe).stats.final.songResist;
     s.sb.clearEvents();
     s.sb.step(t(3));
     const dealt = songDamage(s.sb, s.buyer, s.foe).reduce((n, e) => n + e.amount, 0);
     expect(dealt / 3, 'per second').toBeCloseTo((0.015 * max + 0.05 * sp) * (1 - (resist0 - 0.08)), -1);
-    expect(s.sb.hero(s.foe).stats.final.songResist - resist0).toBeCloseTo(-0.08, 2);
+    expect(resist() - resist0).toBeCloseTo(-0.08, 2);
     s.lane(16);
     s.sb.clearEvents();
     s.sb.step(t(3));
@@ -446,7 +458,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Stage 4 items, in play
   });
 });
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 the other actives and notable passives (§10)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 the other actives and notable passives (§10)', { timeout: TIMEOUT_MS }, () => {
   it.each(CATALOGUE.filter((r) => r.cooldownS !== null).map((r) => [r.id, r.cooldownS] as const))(
     '§10 active %s: pressing its key fires item.activated and starts its cooldown', async (id, cd) => {
       const s = await shop();
@@ -478,7 +490,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the other actives and nota
   });
 
   it('§10 Nestmother\'s Mantle: a 15 m aura gives allied heroes (you included) +10% Talon and Song resist and +4 HP/s', async () => {
-    const s = await shop();
+    const s = await shop('shrike', true); // keep regeneration: the sandbox otherwise multiplies healthRegen by 0
     s.buy('nestmother-mantle');
     s.lane(10);
     s.sb.step(t(1));
@@ -486,7 +498,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the other actives and nota
     expect(a.talonResist).toBeCloseTo(0.1, 2);
     expect(a.songResist).toBeCloseTo(0.1, 2);
     expect(a.healthRegen).toBeGreaterThanOrEqual(4);
-    expect(s.sb.hero(s.buyer).stats.final.talonResist, 'you too').toBeGreaterThanOrEqual(0.1);
+    expect(s.sb.hero(s.buyer).stats.final.talonResist, 'you too').toBeCloseTo(0.1, 6);
     expect(s.sb.hero(s.foe).stats.final.talonResist, 'not enemies').toBe(0);
   });
 });

@@ -5,7 +5,7 @@
  */
 import { COMBAT, STUN } from '../data/combat';
 import { Button, Layer } from '../core/contracts';
-import type { DashEffect, DisplaceEffect, EntityId, SimContext } from '../core/contracts';
+import type { DashEffect, DisplaceEffect, EntityId, SimContext, Vec3 } from '../core/contracts';
 import { lookDir, pivotHeight } from '../core/aim';
 import { copy, ticks } from '../core/math';
 import { isDamageable } from './damage';
@@ -54,6 +54,30 @@ export function createMelee(
   const parrying = (s: HeroState, now: number): boolean =>
     s.parryClose >= 0 && now >= s.parryOpen && now < s.parryClose && !s.hero.stats.conditions.has('stunned');
 
+  /** Aim the shared filter and return the sweep's origin (the camera pivot) and direction for `s`. */
+  const aim = (s: HeroState, heavy: boolean): { origin: Vec3; dir: Vec3 } => {
+    const h = s.hero;
+    const crouch = h.motor.crouching || h.motor.sliding;
+    f.team = h.team;
+    f.ignore = h.id;
+    f.ember = heavy;
+    f.melee = heavy ? 'heavy' : 'light';
+    return { origin: { x: h.pos.x, y: h.pos.y + pivotHeight(s.def.body, crouch), z: h.pos.z }, dir: lookDir(h.yaw, h.pitch) };
+  };
+
+  /**
+   * GDD §5.7 "lunges up to 3.5 m": the lunge stops with the first thing the sweep would strike still a sweep radius
+   * ahead. Pickups have no collider, so a full lunge carried a hero 1 m from a rune, Ember or Egg past it before the
+   * hit landed (0.6 s after the press), and the swing whiffed.
+   */
+  const lungeDistance = (s: HeroState): number => {
+    const { origin, dir } = aim(s, true);
+    const max = M.heavyLungeM + M.reachM;
+    const cover = ctx.physics.raycast(origin, dir, max, Layer.World);
+    const first = hb.cast(origin, dir, cover?.distance ?? max, M.radiusM, f)[0];
+    return first ? Math.min(M.heavyLungeM, Math.max(0, first.t - M.radiusM)) : M.heavyLungeM;
+  };
+
   const startSwing = (s: HeroState, heavy: boolean): void => {
     const now = ctx.clock.tick;
     const h = s.hero;
@@ -63,7 +87,9 @@ export function createMelee(
       s.meleeAt = s.meleeAt + ticks(M.heavyWindupS);
       s.meleeEnd = s.meleeAt + ticks(M.heavyRecoveryS);
       s.meleeCause.origin = copy(h.pos);
-      ctx.effects.apply(LUNGE, { entity: h.id, point: copy(h.pos), dir: lookDir(h.yaw, h.pitch) }, s.meleeCause);
+      const distance = lungeDistance(s);
+      ctx.effects.apply(distance < M.heavyLungeM ? { ...LUNGE, distance } : LUNGE, { entity: h.id, point: copy(h.pos), dir: lookDir(h.yaw, h.pitch) },
+        s.meleeCause);
     } else {
       s.melee = Melee.Light;
       h.weapon.meleePose = 'light';
@@ -76,13 +102,7 @@ export function createMelee(
   const swing = (s: HeroState, heavy: boolean): void => {
     const h = s.hero;
     const now = ctx.clock.tick;
-    const crouch = h.motor.crouching || h.motor.sliding;
-    const origin = { x: h.pos.x, y: h.pos.y + pivotHeight(s.def.body, crouch), z: h.pos.z };
-    const dir = lookDir(h.yaw, h.pitch);
-    f.team = h.team;
-    f.ignore = h.id;
-    f.ember = heavy;
-    f.melee = heavy ? 'heavy' : 'light';
+    const { origin, dir } = aim(s, heavy);
     const cover = ctx.physics.raycast(origin, dir, M.reachM, Layer.World);
     // A pickup (pod, Egg, rune, Ember) is reported and takes nothing; the swing goes on to what stands behind it.
     let pickup: EntityId | null = null;

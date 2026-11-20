@@ -6,7 +6,7 @@
  * - self:      entity = caster, point = caster's feet, dir = look direction.
  * - direction: entity = caster, point = aim point, dir = muzzle → aim point.
  * - point:     entity = caster, point = the floor under the crosshair within range (never through a ceiling), or with
- *              values.surface ≥ 1 the surface under it (D-SYS-012), dir = flat look.
+ *              AbilityDef.surface the surface under it, marked `surface` (D-SYS-012, D-ARCH-027), dir = flat look.
  * - unit:      entity = the chosen hero or unit (visible to the caster's flock, not behind ivy beyond 3 m; an ally cast
  *              with selfFallback takes the caster when no ally is in the cone), point = its feet, dir = muzzle → its
  *              body centre.
@@ -30,7 +30,6 @@ import {
   CURTAIN_SEE_THROUGH_M,
   POINT_PULL_BACK,
   RAD_PER_DEG,
-  SURFACE_VALUE,
   UNIT_TARGET_CONE_DEG,
   UNLOCK_LEVELS,
 } from '../data/abilities';
@@ -311,8 +310,8 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
         const max = rangeOf(hs, r);
         const dir = normalize({ x: ray.dir.x, y: 0, z: ray.dir.z });
         // A surface cast (Tree Cling, Branch Swing) takes the wall, tree or floor under the crosshair within range.
-        const onSurface = hit !== null && (r.values[SURFACE_VALUE] ?? 0) >= 1 && dmath.hypot(p.x - h.pos.x, p.y - h.pos.y, p.z - h.pos.z) <= max;
-        return { entity: h.id, point: onSurface ? copy(p) : floorPoint(h, ray, p, max), dir };
+        const onSurface = hit !== null && r.def.surface === true && dmath.hypot(p.x - h.pos.x, p.y - h.pos.y, p.z - h.pos.z) <= max;
+        return onSurface ? { entity: h.id, point: copy(p), dir, surface: true } : { entity: h.id, point: floorPoint(h, ray, p, max), dir };
       }
       case 'unit': {
         const e = pickUnit(hs, r, ray, origin);

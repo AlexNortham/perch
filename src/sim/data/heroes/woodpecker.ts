@@ -3,7 +3,7 @@
  * Tiers only add (D-ABIL-006): a number a tier raises is a named value, an extra effect is appended by the tier.
  */
 import type { AbilityDef, Effect, HeroDef, Magnitude, StatusDef, TargetFilter } from '../../core/contracts';
-import { STUN, TALON_SHRED } from '../combat';
+import { COMBAT, STUN, TALON_SHRED } from '../combat';
 
 const ENEMY_HEROES: TargetFilter = { teams: 'enemies', heroesOnly: true };
 const apply = (status: StatusDef, durationS: Magnitude, magnitude?: Magnitude): Effect => ({ kind: 'applyStatus', status, durationS, magnitude });
@@ -46,13 +46,14 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     ...base,
     id: 'woodpecker.drumroll',
     name: 'Drumroll',
-    description: 'Rev the drill: for 6 s you fire 20% faster.',
+    description: 'Rev the drill to full spin at once: for 6 s you fire 20% faster and the drill never spins down.',
     targeting: 'self',
     range: 0,
     cooldownS: 18,
     charges: 1,
     values: { duration: 6 },
-    effects: [fireRate('woodpecker.drumroll', 'Drumroll', 0.2, 'duration')],
+    // Its id is combat's full-spin status: the gun is at full spin from the cast and stays there (D-SYS-013).
+    effects: [fireRate(COMBAT.fullSpinStatus, 'Drumroll', 0.2, 'duration')],
     upgrades: [
       { description: '+2 s duration (8 s)', values: { duration: 2 } },
       { description: '+10% fire rate (30%)', effects: [fireRate('woodpecker.drumroll.t2', 'Drumroll: tempo', 0.1, 'duration')] },
@@ -102,12 +103,13 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
     id: CLING_ABILITY,
     name: 'Tree Cling',
     description:
-      'Dash to a point within 12 m and cling there for up to 6 s: you can shoot, and your gun does +15% damage. Jump or a stun ends it.',
+      'Dash to a wall, tree or other surface within 12 m and cling there for up to 6 s: you can shoot, and your gun does +15% damage. Jump or a stun ends it.',
     targeting: 'point',
+    surface: true,
     range: 12,
     cooldownS: 14,
     charges: 1,
-    hook: false, // Jump, stuns and the T3 heal are the hero module's (ticks while clinging)
+    hook: false, // the T3 heal is the hero module's (ticks while clinging)
     values: { reach: 12, cling: 6 },
     effects: [
       {
@@ -117,7 +119,8 @@ const abilities: [AbilityDef, AbilityDef, AbilityDef, AbilityDef] = [
         dir: 'target',
         arcHeight: 0,
         onArrive: [
-          { kind: 'movementMode', mode: 'cling', durationS: 'cling', speed: 0, verticalSpeed: 0, allowGun: true, allowAbilities: true },
+          { kind: 'movementMode', mode: 'cling', durationS: 'cling', speed: 0, verticalSpeed: 0, allowGun: true, allowAbilities: true,
+            endOn: ['jump', 'stun'], onEnd: [{ kind: 'cleanse', remove: [CLING_BUFF_ID] }] },
           { kind: 'statMod', id: CLING_BUFF_ID, name: 'Tree Cling', stats: [{ stat: 'gunDamage', op: 'add', value: 0.15 }], durationS: 'cling' },
         ],
       },
