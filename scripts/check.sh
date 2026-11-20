@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Merge gate: typecheck, lint, unit tests, serial timing tests (perf), a 3-minute headless sim (seed 1, 12 bots), the e2e smoke test.
 # Stops at the first failure. One PASS/FAIL line per step; each step's full output is in out/check/<step>.log.
+# `npm run check -- --release` (the Stage 4 gate, D-QA-0xx): the same serial steps with fixed workers (4 unit, 2 browser).
 set -u
+release=0
+[[ "${1:-}" == "--release" ]] && release=1
 cd "$(dirname "$0")/.."
 mkdir -p out/check
 started=$(date +%s)
@@ -25,8 +28,13 @@ step() {
 # PERCH_TEST_WORKERS and PERCH_E2E_WORKERS.
 cores=$(nproc 2>/dev/null || echo 4)
 clamp() { local n=$1 max=$2; ((n < 1)) && n=1; ((n > max)) && n=$max; echo "$n"; }
-test_workers=${PERCH_TEST_WORKERS:-$(clamp $((cores / 2)) 8)}
-e2e_workers=${PERCH_E2E_WORKERS:-$(clamp $((cores / 4)) 4)}
+if ((release)); then # D-QA-0xx: fixed workers, so the three gate runs behave alike whatever else the machine is doing
+  test_workers=${PERCH_TEST_WORKERS:-4}
+  e2e_workers=${PERCH_E2E_WORKERS:-2}
+else
+  test_workers=${PERCH_TEST_WORKERS:-$(clamp $((cores / 2)) 8)}
+  e2e_workers=${PERCH_E2E_WORKERS:-$(clamp $((cores / 4)) 4)}
+fi
 
 step typecheck npm run typecheck
 step lint npm run lint
