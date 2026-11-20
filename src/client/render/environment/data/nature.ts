@@ -248,6 +248,8 @@ function ivyCurtain(w: World, q: BlockoutPrim, i: number): void {
  * (+15 % value). Cards per clump scale with its size.
  */
 export function clump(g: Mesher, x: number, y: number, z: number, r: number, seed: number, tint?: number): void {
+  // Nothing grows into the camera space at spawns and shops (a player's first sight is not a wall of leaves).
+  if (g.blocked(x, y, z, r * 1.3)) return;
   const n = Math.max(5, Math.round(r * 2.3));
   for (let k = 0; k < n; k++) {
     const u = hash2(seed, k * 3);
@@ -311,6 +313,7 @@ function crown(w: World, q: CylinderPrim, i: number): void {
     const reach = 5 + hash2(seed, k + 41) * 4;
     const base = new Vector3(q.centre.x, y0 + q.height * 0.55, q.centre.z);
     const tip = new Vector3(q.centre.x + Math.cos(a) * reach, y1 + 1 + hash2(seed, k + 42) * 3, q.centre.z + Math.sin(a) * reach);
+    if (w.inKeepOut(tip, 4)) continue;
     const mid = base.clone().lerp(tip, 0.5).setY(tip.y - 0.5);
     gb0.tube([base, mid, tip], [0.32, 0.2, 0.06], 6);
     for (let j = 0; j < 3; j++) clump(g, tip.x + (hash2(seed, k * 9 + j) - 0.5) * 3, tip.y + (hash2(seed, k * 9 + j + 3) - 0.3) * 2, tip.z + (hash2(seed, k * 9 + j + 6) - 0.5) * 3, 2.2 + hash2(seed, j) * 1.2, seed + k * 13 + j);

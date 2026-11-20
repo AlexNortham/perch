@@ -220,6 +220,8 @@ function townWall(w: World, q: BoxPrim, seed: number): void {
   for (let t = -len / 2 + 6; t < len / 2 - 4; t += 12 + hash2(seed, t) * 4) {
     const r = 1.3 + hash2(seed, t + 1) * 1.1;
     const c = at(t, 0, -r * 0.45);
+    // No trunk stands in the camera space behind a spawn or round a shop.
+    if (w.inKeepOut(c.clone().setY(ground + 2).applyMatrix4(gt.frame), r + 1.5)) continue;
     gt.paint(BARK, seed + Math.round(t)).within(placed(c.x, 0, c.z, 0), () => {
       gt.radial([ground - 0.1, ground + 0.6, ground + 3, ground + 12, hy + 14], 14, (a, y) => {
         const h = y - ground;
