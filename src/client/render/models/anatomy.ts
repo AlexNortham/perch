@@ -569,7 +569,7 @@ export function shingle(k: Sculpt, surf: Surface, s: ShingleStyle, d: Detail): v
       k.card({
         at, dir, face: [sp.n.x, sp.n.y, sp.n.z],
         len: s.len * grow * (0.9 + 0.2 * jitter(j, (s.seed ?? 1) + 5)), wid: s.wid * grow, cell: s.cell ?? CARD.contour,
-        root: shade(hex, 0.88), tip: shade(hex, 1.06), curl: -0.35, segs: 1, finish: s.finish ?? {},
+        root: shade(hex, 0.88), tip: shade(hex, 1.06), curl: -Math.min(0.35, lift * 0.85), segs: 1, finish: s.finish ?? {},
         ...(morph && { morph }),
       });
     }
