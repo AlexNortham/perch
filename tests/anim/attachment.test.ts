@@ -21,7 +21,7 @@ const SETTLE = 1.5;
 /** Sampled every 0.05 s over 1.6 s: two melee repeats' worth, several step cycles. */
 const SAMPLE_EVERY = 3;
 const SAMPLE_FOR = 1.6;
-const GENERIC: HeroId = 'peacock';
+const GENERIC: HeroId = 'frigatebird';
 const BIRDS: readonly HeroId[] = [...PLAYABLE, GENERIC];
 const FREE_WING = new Set(['raise', 'throw', 'sweep', 'stomp']);
 const ROOT = { pos: { x: 3, y: 0.5, z: -2 }, yaw: 0.7 };

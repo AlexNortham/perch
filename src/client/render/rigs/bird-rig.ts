@@ -11,14 +11,16 @@
  *   root → squash (crouch scales heights about the feet, as the sim does; debug hitboxes and the mesh hang here)
  *        → rig (pivot at hip height: lean, roll, bob, death) → inner (undoes the pivot offset) → bones
  */
-import { Bone, Euler, Group, Matrix4, Quaternion, Skeleton, SkinnedMesh, Vector3 } from 'three';
-import type { Material } from 'three';
+import { Bone, Euler, Group, LOD, Matrix4, Quaternion, Skeleton, SkinnedMesh, Vector3 } from 'three';
+import type { BufferGeometry, Material } from 'three';
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import { ViewFlag } from '../../../sim/core/contracts';
 import type { EntityView } from '../../../sim/core/contracts';
 import { BONE_NAMES, BONE_PARENT } from '../models/bird';
 import type { BirdBuild, BoneName, CastKind } from '../models/bird';
-import { CAST_POSE, CROUCH_SQUASH, GAIT, HOLD, LEG_IK, MELEE, RIG } from '../models/constants';
+import type { BirdMaterials } from '../models/bird-material';
+import { CAST_POSE, CROUCH_SQUASH, FACE, GAIT, HOLD, LEG_IK, MELEE, RIG } from '../models/constants';
+import { BIRD_LOD } from '../models/sculpted';
 
 const PIVOT_HEIGHT = 0.45;
 const EPS = 1e-5;
@@ -103,7 +105,10 @@ export class BirdRig extends Group {
   private readonly rig = new Group();
   private readonly inner = new Group();
   readonly bones = {} as Record<BoneName, Bone>;
+  /** The full-detail opaque mesh (sculpted birds also have cut-out feather cards and lower levels in `meshes`). */
   readonly mesh: SkinnedMesh;
+  /** Every skinned mesh of the rig, all on one skeleton (their morph targets are driven together). */
+  readonly meshes: readonly SkinnedMesh[];
   readonly plan: BodyPlan;
   readonly build: BirdBuild;
   private readonly pivotY: number;
@@ -146,8 +151,11 @@ export class BirdRig extends Group {
   private meleeT = 0;
   private charge = 0;
   private parry = 0;
+  /** The gun's spinner: how much it is driven (0–1) and its angle. */
+  private spin = 0;
+  private spinAngle = 0;
 
-  constructor(build: BirdBuild, plan: BodyPlan, material: Material, fireRate: number = RIG.recoilRate) {
+  constructor(build: BirdBuild, plan: BodyPlan, material: Material | BirdMaterials, fireRate: number = RIG.recoilRate) {
     super();
     this.build = build;
     this.plan = plan;
@@ -172,13 +180,37 @@ export class BirdRig extends Group {
       (parent ? this.bones[parent] : this.inner).add(this.bones[n]);
     }
     const bones = BONE_NAMES.map((n) => this.bones[n]);
-    this.mesh = new SkinnedMesh(build.geo, material);
-    this.mesh.name = 'bird';
-    this.mesh.castShadow = true;
-    this.mesh.frustumCulled = false;
     // Geometry is authored in each bone's own frame: identity inverses and bind matrix make a vertex follow its bone.
-    this.mesh.bind(new Skeleton(bones, bones.map(() => new Matrix4())), new Matrix4());
-    this.squash.add(this.mesh);
+    const skeleton = new Skeleton(bones, bones.map(() => new Matrix4()));
+    const skinned = (geo: BufferGeometry, mat: Material, name: string): SkinnedMesh => {
+      const m = new SkinnedMesh(geo, mat);
+      m.name = name;
+      m.castShadow = true;
+      m.frustumCulled = false;
+      m.bind(skeleton, new Matrix4());
+      return m;
+    };
+    if ('solid' in material) {
+      // Sculpted (D-ART-004): per level an opaque mesh and a cut-out card mesh, switched by camera distance.
+      const levels = [{ geo: build.geo, cards: build.cards ?? null, from: 0 }, ...(build.lods ?? [])];
+      const lod = new LOD();
+      lod.name = 'birdLod';
+      const all: SkinnedMesh[] = [];
+      levels.forEach((l, i) => {
+        const g = new Group();
+        g.add(skinned(l.geo, material.solid, i === 0 ? 'bird' : `bird${i}`));
+        if (l.cards) g.add(skinned(l.cards, material.cards, `feathers${i}`));
+        g.children.forEach((c) => all.push(c as SkinnedMesh));
+        lod.addLevel(g, l.from, BIRD_LOD.hysteresis);
+      });
+      this.squash.add(lod);
+      this.meshes = all;
+      this.mesh = all[0] as SkinnedMesh;
+    } else {
+      this.mesh = skinned(build.geo, material, 'bird');
+      this.meshes = [this.mesh];
+      this.squash.add(this.mesh);
+    }
   }
 
   /**
@@ -206,7 +238,8 @@ export class BirdRig extends Group {
     const burrowed = e.mode === 'burrow';
     const airborne = !grounded && !climbing && !mantling && !updraft && !sliding && !gliding && !flying;
     const sprinting = speed > RIG.sprintSpeed;
-    const kind: CastKind | null = casting ? (castSlot !== null ? this.build.casts[castSlot] : undefined) ?? CAST_POSE.fallback : null;
+    const slot = castSlot ?? e.castSlot ?? null;
+    const kind: CastKind | null = casting ? (slot !== null ? this.build.casts[slot] : undefined) ?? CAST_POSE.fallback : null;
 
     // Melee (WeaponState.meleePose): charge hold, light and heavy swings (windup, lunge, recovery) and parry.
     const pose = dead ? null : (e.meleePose ?? null);
@@ -413,13 +446,35 @@ export class BirdRig extends Group {
 
     // Casting: head up, tail lifts. Head: looks where the hero aims, tilts at idle, circles when stunned, dips on reload.
     B.tail.rotation.x = b.castTail * this.cast + Math.sin(this.phase) * RIG.tailRun * this.run + Math.sin(t * RIG.tailIdleRate + e.id) * RIG.tailIdle;
-    B.tail.scale.x = 1 + RIG.castTailWiden * this.cast;
+    B.tail.scale.x = 1 + (b.castWiden ?? RIG.castTailWiden) * this.cast;
     B.head.rotation.x =
       -pitchA * RIG.headLook + RIG.castHeadUp * this.cast + RIG.reloadHead * r + this.charge * MELEE.charge.head + this.parry * MELEE.parry.head;
     B.head.position.z = at.head.z + (lunge - back * MELEE.headPull) * MELEE.headThrust * H;
     B.halo.rotation.y = t * MELEE.haloRate;
     B.head.rotation.y = Math.sin(t * RIG.stunRate) * RIG.stunSwing * this.stun;
     B.head.rotation.z = Math.sin(t * RIG.headTiltRate + e.id) * RIG.headTilt * idle + Math.cos(t * RIG.stunRate) * RIG.stunRoll * this.stun;
+
+    // The gun's feed turns while it fires and runs down after.
+    this.spin += ((has(f, ViewFlag.Firing) ? 1 : 0) - this.spin) * (1 - Math.exp(-FACE.spinBlend * dt));
+    this.spinAngle = (this.spinAngle + dt * (b.spinRate ?? 0) * this.spin) % TAU;
+    B.spin.rotation.z = this.spinAngle;
+
+    // Sculpted faces (style guide §8.3): the signature display opens with a cast; the lower mandible opens on each
+    // shot, a cast or call, and in death; the eyes blink every 3–6 s and close in death.
+    if (b.sculpted) {
+      const seed = (((e.id * FACE.blinkSeed) % 1) + 1) % 1;
+      const period = FACE.blinkMin + seed * (FACE.blinkMax - FACE.blinkMin);
+      const u = (t + e.id) % period;
+      const blink = Math.max(dead ? 1 : 0, u < FACE.blinkTime ? Math.sin((Math.PI * u) / FACE.blinkTime) : 0, this.stun * FACE.stunLid);
+      const jaw = Math.max(this.recoil * FACE.shotJaw, this.cast * FACE.castJaw, this.dead);
+      for (const m of this.meshes) {
+        const w = m.morphTargetInfluences;
+        if (!w) continue;
+        w[0] = this.cast;
+        w[1] = jaw;
+        w[2] = blink;
+      }
+    }
   }
 
   /** Body-frame matrices now, and M = the body frame in the root's frame. */
