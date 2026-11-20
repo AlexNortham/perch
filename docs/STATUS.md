@@ -3169,3 +3169,52 @@ Magnitude is not needed by Swan. **Bot AI:** nothing; no `data/ai.ts` block was 
   - `update()` in `src/client/audio/index.ts` overrides the hero-select music every frame (Audio).
 - **Release 2 (visual):** for 1–2 s after a scene opens, a frame draws up to 50% more triangles than it settles to (lane/low 390k, then 257k). Rendering to find the cause; the test now waits for the settled frame.
 - **Prepared for after the bot fix:** `npm run release-matches` and `npm run soak -- --minutes 30`.
+
+### W5b · Bot AI · addendum: matches end, ally casts · 21/11/2026
+**Branch:** `worktree-agent-ab0a222c15d139b2e`, integrate/w5 merged up to 1823dfa (B3 included: all 24 birds).
+**Root cause (why no match ended).** Measured, not guessed:
+1. **World bugs (fixed for Objectives, D-EP-018, D-AI-010).** (a) Siege fledglings queued 1.5 m apart behind the
+   hold line; only those within 6 m of it ever assaulted, so later arrivals froze forever (35 stuck in front of dead
+   Wardens at 40:00, seed 1). (b) Displaced fledglings landing just under a floor fell forever (y −5,500 to −10,500),
+   keeping their targets and hold slots. With both, no attacking fledgling ever came within 30 m of a Shrine, so the
+   Brood Ward never dropped.
+2. **Bot behaviour (D-AI-009).** Bots never committed to a siege, dropped Shrines they couldn't see (most sit behind
+   the base wall), and stopped for every fight on the way in. Even 6v2 windows closed while they were 115–150 m out.
+3. **Numbers (D-AI-010).** With 1 and 2 fixed, even bots still stalemated: the GDD's 35:00 lever (Ward ×0.6) didn't
+   break it. The lever is now at 25:00: Ward lifted, fledglings ×1.5 vs structures, every structure +12% damage per
+   minute after (GDD §15.2, §15.4). It weakens both bases alike, so comebacks stay possible.
+**Done:**
+- Flock-level siege commitment: wipe, Roc kill, Rekindle, a two-hero edge after 20:00, or all-in from 25:00 unless
+  outnumbered by two. Fall back at two alive or two down. Escort the wave through the Ward. Stands where a ray
+  reaches the target, outside the Shrine pulse. Committed bots walk straight in. Defend at home with the 3 nearest
+  (D-AI-009).
+- **Hard bots now cast Mended Song, Poise and Tide Turn (D-AI-011).** Root cause: those kits fall back to the caster
+  through `affects.self`, but the bots required `selfFallback`, and bots never aimed at an ally. Now either flag
+  counts. Bots pick the beneficiary (lowest-HP ally in combat, or the ally in a fight for buffs), turn onto the ally
+  and cast. Ally item actives use the same path. Test: a hard Flamingo bot casts Poise on a wounded ally.
+- D-AI-007 removed (D-AI-012): bots act on the arena too, now that the benches use `'dummy'`.
+- AI cost cut: the tower list is refreshed only when one falls, flock-level judgements every 0.25 s, Updrafts are
+  checked only in reach, arrival radii and item uses are memoised, ally-cast checks are throttled, and the aim solve
+  takes two passes.
+**Verified:**
+- `npm run sim -- --matches 20 --parallel 8 --bots 12` on the final code: **20 completed, 0 crashed, 20 decided**,
+  Dawn 9 / Dusk 11. All 24 birds picked across the batch.
+  - Length: median 46.1 min, range 34.5 to 53.5, none over 55.
+  - First Shrine 24.9–36.5 min; Patron phase 2 1–5 min before the end.
+  - Comebacks: the flock behind in net worth at 20:00 won 8 of 20.
+  - Per seed (min, winner): 1 53.5 Dusk · 2 46.7 Dusk · 3 42.6 Dusk · 4 47.8 Dusk · 5 34.5 Dawn · 6 39.5 Dusk ·
+    7 46.1 Dusk · 8 44.1 Dusk · 9 53.2 Dusk · 10 41.5 Dawn · 11 47.7 Dawn · 12 36.1 Dawn · 13 39.4 Dawn ·
+    14 51.5 Dawn · 15 51.9 Dusk · 16 39.7 Dusk · 17 49.5 Dawn · 18 46.2 Dawn · 19 47.4 Dawn · 20 38.5 Dusk.
+  - Telemetry: `out/telemetry/w5-end/`.
+- `npm run check` on db130b1: **PASS typecheck 16s · lint 15s · test 96s (1,434) · perf 42s · sim 6s · e2e 435s
+  (112) · check 610s**. AI: 0.097 ms of a 0.508 ms step (19%; budget 0.25 ms).
+- `bot-shopping` (6/6) and `no-interact` passed under `PERCH_PENDING=1` earlier in this round. Not rerun after the
+  siege changes.
+**Short of target:** the median is 46 minutes against the 30–40 aim (none over 55). The remaining time is travel: a
+flock that wins a fight in mid reaches the enemy base after the defenders respawn (44–55 s). Faster is a W6 job:
+staging near the enemy gate, Updraft use on the way in, and Shrine and Patron HP for Balance. The Roc died in 0 of
+the 20 matches before D-AI-009 dropped its gate; bots rarely start it (W6).
+**Interface requests:** Objectives: please own the D-AI-010 changes (`fledglings.ts` queued assault and fall recovery,
+`structures.ts` late growth, `data/world.ts` WARD and `recoverFromY`) and review the numbers. Game Director: §15.2's
+lever now reads 25:00 with Ward lifted and +12%/min. Physics: displaced units can end up under a floor
+(`moveCharacter` cheap path); fledglings now recover, but the cause is in physics.
