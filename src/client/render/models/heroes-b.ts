@@ -23,34 +23,6 @@ const pivots = (o: { sy: number; legLen: number; R: number; legX: number; tailY:
   tail: [0, o.tailY, o.tailZ] as V3,
 });
 
-/** Pelican: bottom-heavy pear, long bill with a sagging pouch that swings with the head, a gatling at the hip. */
-const pelican: Build = (plan, team) => {
-  const { H, R, hr, top } = dims(plan);
-  const legLen = H * 0.1;
-  const y0 = legLen * 0.9;
-  const span = top - y0;
-  const body = new Parts()
-    .ell(C.pelicanWhite, [R * 1.0, span * 0.38, R * 1.15], [0, y0 + span * 0.38, 0])
-    .ell(C.pelicanWhite, [R * 0.6, span * 0.3, R * 0.65], [0, top - span * 0.3, R * 0.05])
-    .ell(team.primary, [hr * 1.4, H * 0.03, hr * 1.4], [0, top - H * 0.01, 0]);
-  const head = headShell(new Parts(), C.pelicanWhite, hr)
-    .cone(C.pelicanBill, hr * 0.5, hr * 4.4, [0, -hr * 0.1, hr * 0.8])
-    .cone(C.pelicanBill, hr * 0.22, hr * 0.7, [0, -hr * 0.1, hr * 0.8 + hr * 4.2], [0.9, 0, 0])
-    .ell(C.pelicanPouch, [hr * 0.7, hr * 1.1, hr * 1.9], [0, -hr * 1.0, hr * 2.2], [0.12, 0, 0]);
-  eyes(head, hr, 0.2, 0.6);
-  const tail = new Parts().box(C.pelicanEdge, [R * 0.5, H * 0.02, H * 0.14], [0, 0, -H * 0.06]);
-  return assemble(plan, {
-    body, head, tail,
-    wing: { hex: C.pelicanWhite, len: H * 0.4, chord: R * 1.1, thick: R * 0.12, trim: C.pelicanEdge },
-    leg: { hex: C.pelicanPouch, len: legLen, thick: H * 0.025, foot: R * 0.4 },
-    gun: { length: 0.6, thick: 0.05, barrels: 3, bell: 0.07 },
-    pivot: pivots({ sy: top - span * 0.25, legLen, R, legX: R * 0.45, tailY: y0 + span * 0.4, tailZ: -R * 1.0 }),
-    // Gulp, Feeding Frenzy, Belly Flop, Bottomless Pouch.
-    casts: ['throw', 'raise', 'leap', 'aim'],
-    sway: 0.1, castTail: -0.3,
-  });
-};
-
 /** Secretarybird: stilt legs (60% of height) in black breeches, small grey body, bare orange face, a quill crown. */
 const secretarybird: Build = (plan, team) => {
   const { H, R, hr, top } = dims(plan);
@@ -259,4 +231,4 @@ const puffin: Build = (plan, team) => {
   });
 };
 
-export const BIRD_BUILDS_B: Readonly<Record<string, Build>> = { pelican, secretarybird, starling, hornbill, flamingo, penguin, puffin };
+export const BIRD_BUILDS_B: Readonly<Record<string, Build>> = { secretarybird, starling, hornbill, flamingo, penguin, puffin };

@@ -356,12 +356,63 @@ export function owlBody(plan: BodyPlan): Body {
   };
 }
 
+// =================================================================================================================
+// Pelican: a bottom-heavy pear carried upright, a deep keel under a thick S-neck, a broad silver mantle, a small flat
+// head with a shaggy nape crest and bare skin round the eye, and a wide bill base (the bill and pouch are lofts).
+
+export function pelicanAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 2.1;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.75, 1.2 * s, 0.0], hip: [R * 0.36, plan.height * 0.12, 0.04 * s], tail: [0, 0.72 * s, -0.58 * s],
+    legLen: plan.height * 0.12, legThick: 0.04 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export const PELICAN_HEAD: HeadShape = {
+  skull: [1.06, 1.06, 1.18], skullAt: [0, 0.02, -0.12], face: [0.72, 0.62, 0.7], faceAt: [0, -0.1, 0.45],
+  cheek: [0.5, 0.45, 0.55], cheekAt: [0.5, -0.32, 0.32], brow: [0.42, 0.16, 0.4], browAt: [0.5, 0.4, 0.42], browTilt: 0.3,
+  nape: [0.8, 0.7, 0.66], napeAt: [0, -0.5, -0.45], throat: [0.62, 0.5, 0.6], throatAt: [0, -0.7, 0.3],
+  eye: [0.62, 0.16, 0.5], socket: 0.24, bill: [0, -0.12, 1.0], billW: 0.36, billH: 0.24,
+};
+
+export function pelicanBody(plan: BodyPlan): Body {
+  const a = pelicanAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  const hr = a.hr;
+  return {
+    tris: [2300, 820, 260, 100],
+    ops: [
+      // The pear: broadest low down, a heavy round belly, narrowing up to the shoulders.
+      ell([0, 0.86 * s, -0.08 * s], [0.4 * s, 0.48 * s, 0.46 * s], 'body', 'back', { rot: [0.1, 0, 0], k: 0.06 }),
+      ell([0, 0.62 * s, 0.06 * s], [0.44 * s, 0.34 * s, 0.44 * s], 'body', 'belly', { k: 0.1 }),
+      ...pair(ell([0.12 * s, 1.0 * s, 0.22 * s], [0.24 * s, 0.3 * s, 0.22 * s], 'body', 'breast', { k: 0.08, rot: [-0.15, 0.25, 0] })),
+      ell([0, 0.98 * s, 0.32 * s], [0.1 * s, 0.3 * s, 0.14 * s], 'body', 'breast', { k: 0.06, rot: [-0.2, 0, 0] }),
+      ell([0, 1.2 * s, -0.14 * s], [0.3 * s, 0.14 * s, 0.32 * s], 'body', 'mantle', { k: 0.07, rot: [-0.2, 0, 0] }),
+      cone([0, 0.84 * s, -0.48 * s], [0, 0.7 * s, -0.62 * s], 0.16 * s, 0.08 * s, 'tail', 'coverts', { k: 0.07, boneSoft: 0.06 }),
+      ...shoulders(a, { scapular: [0.24 * s, 1.18 * s, -0.12 * s], scapularR: [0.14 * s, 0.1 * s, 0.28 * s], root: 0.1 * s, inset: 0.1 }),
+      ...thighs(a, { r: 0.12 * s, rKnee: 0.08 * s, reach: 0.6, root: [0.16 * s, 0.46 * s, 0.02 * s] }),
+      // A thick S-neck: forward off the breast, back under the head.
+      ...neck([[0, 1.2 * s, 0.18 * s], [0, 1.42 * s, 0.25 * s], [0, 1.6 * s, 0.16 * s], [0, hc[1] - 0.1 * s, 0.02 * s]], [0.2 * s, 0.13 * s, 0.11 * s, 0.115 * s], 'neck', 0.6),
+      ...head(hc, hr, PELICAN_HEAD),
+      // The shaggy crest's root: a short ridge off the back of the crown (its plumes are blades).
+      cone(at(hc, hr, [0, 0.5, -0.5]), at(hc, hr, [0, 0.1, -1.35]), 0.42 * hr, 0.18 * hr, 'head', 'crest', { k: 0.2 * hr, flow: [0, -0.3, -1] }),
+      // Markings: bare peach skin round each eye to the bill, and the buff-yellow patch at the base of the neck.
+      ...pair(ell(at(hc, hr, [0.62, 0.05, 0.68]), mulS([0.32, 0.36, 0.55], hr), 'head', 'facial', { mark: true, rot: [0, 0.4, 0], soft: 0.006 })),
+      ell([0, 1.22 * s, 0.3 * s], [0.16 * s, 0.12 * s, 0.1 * s], 'body', 'patch', { mark: true, soft: 0.03 }),
+    ],
+  };
+}
+
 /** The birds with implicit bodies, by hero id. */
 export const BODIES = {
   peacock: peacockBody,
   swift: swiftBody,
   cassowary: cassowaryBody,
   owl: owlBody,
+  pelican: pelicanBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */
