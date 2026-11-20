@@ -1958,3 +1958,60 @@ loader to keep in step. Optional, so the arena and test maps need nothing.
 ### D-AUDIO-004 · 19/11/2026 — Occlusion and room tone
 **Decision:** a positional voice whose room differs from the local hero's, or an enemy hero outside `seenBy`, gets -6 dB and a 2 kHz low-pass. Indoors a 320 Hz low-passed noise bed fades in and the wind bed drops to 30%. `Settings.mute` zeroes master; `onScreen` sets menu and hero-select music (a 100 ms timer ticks it with no match frames); `previewHero` plays the hero call flat. Where Den and Cellar Run overlap, the Den wins (map order), so entering the Den centre plays the Den cue, not the tunnel cue.
 **Why:** INTERFACES §13 row 3 and the W5 audio follow-ups.
+
+### D-AI-001 · 20/11/2026 — Bots decide on an interval, aim and move every tick
+**Decision:** one `ai` system holds a closure per bot (`src/sim/ai/bot.ts`). Each bot scores the GDD §11.3 states every
+decision interval (0.5 / 0.33 / 0.2 s by difficulty, staggered by roster slot), in this order: Egg carrier, a tower
+targeting it, home retreat (HP threshold, healed to 90% at the Roost), tactical retreat (outnumbered by 2, fight score
+under 0.6), fight, orders (pings, defence calls), objectives, shop trip, push, farm, lane. Every tick it aims, walks or
+rides, fires, casts, swings at pickups, buys and spends AP, all through `PlayerCommand`. It reads only `canSee`
+entities, its own flock and public timers. Randomness comes from `ai/<heroId>` (behaviour) and `ai/<heroId>/shop`
+(purchases only, INTERFACES §14.1). `botsOf(ctx)` exposes the bots to tests and tools.
+**Why:** decisions are the expensive part (target scans, routes, raycasts), and a person re-thinks a few times a second
+but tracks every frame. Separate streams keep shopping independent of everything else, as the Build Lab needs.
+
+### D-AI-002 · 20/11/2026 — Navigation on the map's graph, patched round the towers
+**Decision:** bots path with A* on `MapData.nav` over the links their difficulty allows (walk, drop, jump, mantle; Raptor
+adds dash-jump). The graph is built from prims and doesn't know tower colliders, so links across the Patron's dais are
+dropped, two walk links round the dais per Roost are added (`NAV.extraLinks`, the siege proof's route), small towers are
+steered round on the way, and a waypoint at a tower anchor counts as reached at the tower's edge. Start and goal nodes
+are the nearest a chest-height ray reaches. A bot that makes no progress for 2.4 s stops trusting that link or start
+node until it respawns. Off-route moves (strafes, backing off) probe the ground 1.5 m ahead so fighters don't fall off
+the bridge into the Hollow.
+**Why:** the Level Designer's graph threads lanes through tower anchors and routes the Home Roost exit over the
+Patron. These patches keep bots moving now; the clean fix is in the graph (Interface request, W5 Bot AI log).
+
+### D-AI-003 · 20/11/2026 — Scored buying samples the listed items and only trades up
+**Decision:** candidates are the items a hero's `ItemScores.base` lists (all 64 in round 0), affordable and buyable
+(component discount, slots, four actives). `softmax(score / T)` uses an `exp` written in plain arithmetic (D-ARCH-021).
+With every slot full a bot sells its lowest-scoring item only for a higher-tier item scoring at least 0.2 more, so it
+never churns. Situational picks get +0.15 while the enemy flock fields an archetype named by the pick's condition
+(`data/ai` CONDITIONS). Round-0 `BUILDS` live in `src/sim/data/builds.ts` (Bot AI until W6). AP follows GDD §11.4
+exactly: the ultimate's tier when affordable, else T1s in the §11.5 priority, then T2s, then T3s.
+**Why:** listing candidates through `base` lets a Build Lab table narrow the choice (QA's two-candidate test), and
+trading up a tier with a margin is the smallest rule that ends churn while builds keep varying.
+
+### D-AI-004 · 20/11/2026 — Human-like aim
+**Decision:** on a new target a bot waits its seeded reaction time (±25%, halved for non-heroes), flicks at 2.5× its
+tracking rate with an overshoot of 1.5 deviations, then tracks through a first-order filter with the GDD §11.2 time
+constant. A wandering error is redrawn every 0.45 s (std. dev. = static error + error per m/s of crossing speed;
+vertical 0.6 of horizontal) and eased toward. Each `weapon.fired` raises its pitch 0.25° for tracking to pull back.
+It leads projectile guns by 50/80/100% of flight time, aims at the head in 0/25/60% of engagements, and fires when
+its crosshair is within 3° (plus the target's angular size) of where it means to aim.
+**Why:** the GDD gives the parameters; the error, flick and kick give them a human shape without sim shortcuts.
+
+### D-AI-005 · 20/11/2026 — Tower reflexes and siege windows
+**Decision:** a bot an enemy tower targets steps out of its reach at once (it re-decides that tick). It doesn't start
+or keep a hero fight inside an idle enemy tower's reach (except an Egg carrier, or a nearly dead hero for Raptor). A
+tower busy with the bot's own fledglings drops out of its fight score and becomes its top target (above pokes and the
+enemy wave). Bots stand in a tower's reach only while it is busy with their wave.
+**Why:** the first 25-minute trace (seed 1) had towers dealing 36,000 damage to heroes and scoring 26 of 45 hero
+deaths; with these rules a 40-minute trace (seed 2) had towers scoring 6 of 35. "Never stands in enemy tower range unless..." (§11.3) needs a reflex, not a decision interval.
+
+### D-AI-006 · 20/11/2026 — Bots pick implemented heroes; the AI budget is a quarter of the tick
+**Decision:** `pickBotHero` follows §11.6 (support, tank, gun carry, area control, then any archetype the flock lacks)
+among free heroes with `implemented: true`, falling back to any free hero. The AI's budget is 0.25 ms of the 1 ms tick
+with 12 bots, measured by `src/sim/ai/ai.perf.test.ts` with a second AI system on a copy of the context (own RNG streams
+and bus), so timing doesn't change the match.
+**Why:** hero select offers only implemented heroes, and a bot playing a stub kit isn't a fair opponent. A shadow
+system times the AI alone in a live fight without instrumenting core.
