@@ -84,10 +84,16 @@ export function sceneConfig(req: SceneRequest): SimConfig {
     case 'sandbox':
       return { seed, map: 'arena', roster: humanRoster(seed, hero, { bots: 0 }), options: { unlockAbilities: true } };
     case 'lane':
-      return matchConfig({ seed, hero, team: 'dawn', difficulty: 'normal' });
+      return onFoot(matchConfig({ seed, hero, team: 'dawn', difficulty: 'normal' }));
     case 'match':
       return { seed, map: 'main', roster: humanRoster(seed, hero) };
     case 'replay':
-      return matchConfig({ seed, hero: SIEGE_HERO, team: 'dawn', difficulty: 'normal' });
+      return onFoot(matchConfig({ seed, hero: SIEGE_HERO, team: 'dawn', difficulty: 'normal' }));
   }
 }
+
+/**
+ * Play and `?scene=match` start on the zipline (D-ARCH-035). `?scene=lane` (the browser suites' base start) and the
+ * replay (the siege-proof Owl walks from the base) start on foot.
+ */
+const onFoot = (c: SimConfig): SimConfig => ({ ...c, options: { ...c.options, laneStart: false } });

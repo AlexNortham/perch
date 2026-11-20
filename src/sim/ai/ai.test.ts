@@ -114,15 +114,20 @@ describe('§11.6 picks and §11.3 lanes', () => {
     }
   });
 
-  it('assigns 2-2-2: the human on Riverbank, then frontline paired with backline', async () => {
+  it('lanes 2-2-2 on the lanes core assigned (D-ARCH-034): one near side and one roamer per lane', async () => {
     const sim = await createSim({ seed: 1, roster: humanRoster(1, 'owl') });
-    const lanes = assignLanes(sim.ctx.store.list('hero'));
+    const heroes = sim.ctx.store.list('hero');
+    const lanes = assignLanes(heroes);
     for (const team of ['dawn', 'dusk'] as const) {
-      const mine = sim.ctx.store.list('hero').filter((h) => h.team === team);
+      const mine = heroes.filter((h) => h.team === team);
       const count = (l: string) => mine.filter((h) => lanes.get(h.id)?.lane === l).length;
       expect([count('hedgerow'), count('riverbank'), count('pinewood')]).toEqual([2, 2, 2]);
+      for (const l of ['hedgerow', 'riverbank', 'pinewood']) {
+        expect(mine.filter((h) => lanes.get(h.id)?.lane === l).map((h) => lanes.get(h.id)?.roamer).sort()).toEqual([false, true]);
+      }
     }
-    expect(lanes.get(sim.view.localHero!)?.lane).toBe('riverbank');
+    for (const h of heroes) expect(lanes.get(h.id)?.lane, h.hero.heroId).toBe(h.hero.lane);
+    expect(lanes.get(sim.view.localHero!)?.roamer, 'the human holds its lane, its partner roams').toBe(false);
   });
 });
 
