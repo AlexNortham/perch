@@ -2474,7 +2474,8 @@ before it replaces it: `?t=900` (match.spec) is 54,000 ticks and `?t=600` (score
 and 20–27 s here with the screen still on hero select, so a busier machine passes pickHero's 60 s wait. The failure
 snapshot is taken after the switch, which is why it shows a live match. The app now draws nothing (no render, UI, audio
 or VFX update) while a session is being created or fast-forwarded, so the sim gets the main thread: `?t=900` went to
-26–30 s on the same machine. `src/sim/index.test.ts` pins the invariant: the local hero stays in its own view every
+26–30 s on the same loaded machine, and from 19.9–20.7 s to 18.4–18.8 s on a quiet one (old and new `app.ts`, two
+runs each, no frame without the hero after the switch in either). `src/sim/index.test.ts` pins the invariant: the local hero stays in its own view every
 tick through death and respawn.
 **Why:** a fix at the root has to fix the cause that was measured. The fast-forward length and the wait are QA's
 (follow-up); the sim's tick cost with 12 bots is Bot AI's and Systems'.

@@ -3229,3 +3229,40 @@ lever now reads 25:00 with Ward lifted and +12%/min. Physics: displaced units ca
 - Hard bots now cast Mended Song, Poise and Tide Turn (D-AI-011). D-AI-007 is removed. The full check passes on the agent's branch; AI uses 19% of the tick.
 - **Gate:** "matches end" is met. Bringing the median length to 30–40 min is balance (Gate M4, Stage 5), which isn't started (D-EP-050); PLAYABLE.md will give the real range.
 - **Release 1 blockers left:** `__perch.hero` null and the objectives perf margin (Architect). After those come release matches, the soak, `all-heroes` on 24, three `--release` runs, the wiki and PLAYABLE.md. The machine is kept quiet meanwhile, so the Architect's perf measurements are clean.
+
+### W6 · Technical Architect · 21/11/2026
+**Branch:** `worktree-agent-a50ff70aae49c2854` from `integrate/w5` 52f7fe5, with `integrate/w5` merged up to 4600955 (Hero
+B3, QA's stability round, Audio, Bot AI's match ending). Decisions D-ARCH-029 to D-ARCH-033; INTERFACES §16; owner
+follow-ups in `docs/briefs/W5-contract-followups.md` § W6.
+1. **`__perch.hero` blocker (D-ARCH-033): not a view bug.** The local hero is in `view.entities` on every tick: in Node
+   over 900 s of the e2e setup (Play, Kingfisher, seed 1, 11 bots, idle), and in the browser, polled every 100 ms through
+   the switch and on each of the next 600 frames (0 misses). `__perch.hero` is null while the menu's session is still
+   current, and Play's match is fast-forwarded before it replaces it: `?t=900` (match.spec) is 54,000 ticks of a 12-bot
+   match and `?t=600` (scoreboard-bar) 36,000, with the screen on hero select throughout. That took 18–45 s here
+   depending on load, so a busy machine passes pickHero's 60 s wait; the failure snapshot is taken after the switch, so
+   it shows a live match. Fix in my paths: frames draw nothing while a session is created or fast-forwarded (`?t=900`
+   quiet 19.9–20.7 s → 18.4–18.8 s; loaded 36–45 s → 26–30 s). New test in `src/sim/index.test.ts`: the local hero stays
+   in its own view every tick through death and respawn. QA follow-up: scale pickHero's wait with `t`, or fast-forward less.
+2. **Objectives perf (D-ARCH-029): an incremental spatial hash.** Every entity keeps a slot and touches the cells only
+   when it spawns, despawns or changes cells; small-integer cell keys; stamp dedup. Same results and hash
+   (`c076003e96ac8a88` with the old and the new). Quiet machine, the budget test with old and new alternated three
+   times: **+0.200, +0.200, +0.211 → +0.142, +0.137, +0.142 ms** against the 0.3 bound. The spatial hash is now about
+   1.5 % of the objectives cost; **world's vision pass is about 80 %** (awake camp creatures get a Rapier line-of-sight
+   ray per enemy hero within 40 m), then Thickets and the Egg (Objectives follow-up, with numbers and options).
+3. **Staged start-up (D-ARCH-031).** `__perch.stage` goes boot → menu → world; `__perch.ready` from 'world', so specs and
+   shots see what they did before; `deferWork(label, job)` in `app/stages.ts` (async jobs, so Web Workers fit). The app
+   defers the whole renderer until Rendering and the Environment Artist queue their own generation. Production build,
+   quiet: first paint 3.36 → 1.18 s, menu 1.26 s, world 3.71 s (ready was 3.60 s); loaded: 10.7 → 1.5 s. The renderer job
+   still holds the main thread (materials 1.8 s, environment 2.2 s, blockout 1.4 s in a dev profile), so a click on the
+   menu waits until that work is chunked or moved to a worker (Rendering and Environment follow-ups).
+4. **Ability credit (D-ARCH-030):** required `ability` and `item` on `heal.applied` and `status.applied`, and a new
+   `shield.applied` event; combat fills them (three emit sites and one new emit), with a combat test.
+5. **Requests (D-ARCH-032):** `AbilityUpgrade.channelS` accepted and, after the B3 merge, migrated on the EP's word
+   (abilities' fold and validator, Sulphur Shriek T2, Burrow T1; `CHANNEL_EXTRA_VALUE` deleted). Tether `breakDistance`
+   as a Magnitude dropped (Swan doesn't need it). Bot AI and the bird batches raised none.
+**Outside my paths, mechanical:** `combat/damage.ts`, `combat/statuses.ts`, `combat/effects.test.ts` (the event
+fields); `abilities/kit.ts`, `data/heroes/cockatoo.ts`, `data/heroes/kiwi.ts` (channelS).
+**Verified:** `npm run check -- --release` on the final tip: RELEASE_RESULT. Earlier on this branch: e2e 87 passed, 1
+skipped; one loaded run had `draw-budget` lane/low at 340k triangles against 330k, which passed alone (3/3) and is the
+settle issue QA's spec now waits out.
+**Interface requests:** none. **Blocked:** nothing.
