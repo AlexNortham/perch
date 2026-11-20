@@ -7,12 +7,13 @@
 import { Matrix4, Vector3 } from 'three';
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
-import { beak, eye, FEATHER, flare, foldedWings, hackles, headForm, inBone, legsOf, norm, shingle, tailFan, wingsOf } from './anatomy';
+import { beak, eye, flare, foldedWings, hackles, inBone, legsOf, norm, shingle, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
-import { bodyField, flipX, PEACOCK_HEAD, peacockAnchors, skinFor, SWIFT_HEAD, swiftAnchors, TRUNK, VULTURE_HEAD, vultureAnchors } from './bodies';
+import { bodyField, flipX, PEACOCK_HEAD, peacockAnchors, skinFor, SWIFT_HEAD, swiftAnchors, TRUNK, VULTURE_HEAD, vultureAnchors, HUMMINGBIRD_HEAD, hummingbirdAnchors } from './bodies';
 import { SKIN as SWIFT_SKIN } from './data/skins/swift';
 import { SKIN as PEACOCK_SKIN } from './data/skins/peacock';
 import { SKIN as VULTURE_SKIN } from './data/skins/vulture';
+import { SKIN as HUMMINGBIRD_SKIN } from './data/skins/hummingbird';
 import { CARD, TILE } from './feathers';
 import { band, bead, block, BRASS, buckle, carve, GEAR, LEATHER, lathe, plume, pouch, ring, sash, stud, WOOD } from './gear';
 import type { Detail, SculptedSpec } from './sculpted';
@@ -690,6 +691,7 @@ const HUMMER = {
   green: 0x2aa45a,
   greenDeep: 0x17703b,
   gold: 0x9ab83a,
+  bronze: 0x9a7a34,
   belly: 0xd8ddd0,
   ruby: 0xd0143c,
   rubyDeep: 0x7a0c28,
@@ -703,15 +705,40 @@ const HUMMER = {
 
 export function hummingbird(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
   const H = plan.height;
-  const R = plan.radius;
   const hr = plan.head.radius;
-  const hc = plan.head.centre.up;
-  const s = H / 1.3;
+  const A = hummingbirdAnchors(plan);
+  const s = A.s;
   const M = HUMMER;
-  const IRIS = { ...FEATHER, size: 0.08, iri: 1 } as const;
-  const legLen = H * 0.13;
+  const IRIS = { tile: TILE.scales, size: 0.036, iri: 1, gloss: 0.35 } as const;
+  const legLen = A.legLen;
+  const clamp = (v: number): number => Math.min(1, Math.max(0, v));
+  const field = bodyField('hummingbird', plan);
+  const skin = skinFor('hummingbird', plan, HUMMINGBIRD_SKIN, d.level, {
+    // Emerald above, bronzing over the mantle; pale grey-white below with green flanks.
+    back: { paint: (p) => mix(M.green, M.bronze, clamp((p.y - 0.5 * s) / (0.4 * s)) * 0.5), finish: IRIS },
+    mantle: { paint: M.bronze, finish: IRIS },
+    scapular: { paint: mix(M.bronze, M.green, 0.4), finish: IRIS },
+    shoulder: { paint: M.greenDeep, finish: IRIS },
+    coverts: { paint: M.greenDeep, finish: IRIS },
+    breast: { paint: (p) => mix(M.belly, M.green, clamp(Math.abs(p.x) / (0.16 * s) - 0.15)), finish: { ...IRIS, iri: 0.4 } },
+    belly: { paint: (p) => mix(M.belly, M.green, clamp(Math.abs(p.x) / (0.14 * s) - 0.1) * 0.7), finish: { ...IRIS, iri: 0.3 } },
+    thigh: { paint: M.belly, finish: { ...IRIS, iri: 0 } },
+    neck: { paint: M.greenDeep, finish: IRIS },
+    // The head: a bright gold-green crown and crest over a deep green nape and a bronze mantle.
+    crown: { paint: M.gold, finish: IRIS },
+    crest: { paint: mix(M.gold, M.green, 0.3), finish: IRIS },
+    nape: { paint: M.greenDeep, finish: IRIS },
+    face: { paint: M.green, finish: { ...IRIS, tile: TILE.flat } },
+    cheek: { paint: M.greenDeep, finish: { ...IRIS, tile: TILE.flat } },
+    brow: { paint: M.green, finish: { ...IRIS, tile: TILE.flat } },
+    throat: { paint: M.ruby, finish: { ...IRIS, glow: 0.08 } },
+    gorget: { paint: M.ruby, finish: { ...IRIS, glow: 0.08 } },
+    spot: { paint: 0xf2f2ea, finish: { gloss: 0.2 } },
+    bill: { paint: M.bill, finish: { gloss: 0.6 } },
+    socket: { paint: M.greenDeep, finish: { gloss: 0.3 } },
+  });
   const leg: LegStyle = {
-    skin: M.leg, claw: M.bill, thick: 0.016 * s, thigh: M.belly, fringe: 0.6, fringeCell: CARD.down,
+    skin: M.leg, claw: M.bill, thick: A.legThick, thigh: M.belly, fringe: 0.6, fringeCell: CARD.down, skinned: { r: 0.04 * s, at: 0.25 },
     toes: [{ yaw: -0.4, len: 0.05 * s }, { yaw: 0, len: 0.06 * s }, { yaw: 0.4, len: 0.05 * s }, { yaw: Math.PI, len: 0.035 * s }],
     clawLen: 0.022 * s,
   };
@@ -719,63 +746,70 @@ export function hummingbird(plan: BodyPlan, team: TeamColours, d: Detail): Sculp
     covert: M.green, secondary: M.greenDeep, primary: M.greenDeep, trim: team.primary,
     thick: 0.022 * s, chord: 0.2 * s, primaries: 5, secondaries: 6, primaryLen: 0.45, finish: { iri: 1 },
   };
+  const neckAxis: [V3, V3] = [[0, 0.86 * s, -0.02 * s], [0, A.head[1] + 0.02 * s, 0]];
 
   const body = (k: Sculpt): void => {
-    const torso = k.loft(
-      [
-        { c: [0, 0.1 * s, -0.12 * s], w: 0, up: 0 },
-        { c: [0, 0.2 * s, -0.1 * s], w: 0.15 * s, up: 0.14 * s, dn: 0.15 * s },
-        { c: [0, 0.48 * s, -0.04 * s], w: 0.22 * s, up: 0.21 * s, dn: 0.2 * s },
-        // The breast puffs forward under the gorget; the back slopes away to the tail.
-        { c: [0, 0.76 * s, 0.02 * s], w: 0.225 * s, up: 0.25 * s, dn: 0.17 * s },
-        { c: [0, 0.96 * s, 0.04 * s], w: 0.18 * s, up: 0.19 * s, dn: 0.13 * s },
-        { c: [0, hc - 0.12 * s, 0.025 * s], w: 0.13 * s, up: 0.13 * s, dn: 0.12 * s },
-        { c: [0, hc - 0.04 * s, 0.01 * s], w: 0.09 * s, up: 0.09 * s, dn: 0.09 * s },
-      ],
-      {
-        n: d.n(14, 4), seg: d.n(20, 5), ref: [0, 0, 1], finish: IRIS,
-        paint: (t, a) => (Math.sin(a) > 0.2 ? (t > 0.78 ? M.ruby : t > 0.3 ? M.belly : mix(M.belly, M.green, 0.5)) : mix(M.greenDeep, M.green, 0.5 + 0.5 * Math.cos(a) ** 2)),
-      },
-    );
-    // The gorget: ruby scale-feathers that flare out and catch the light on the display.
-    shingle(k, torso, {
-      t: [0.74, 0.9], a: [Math.PI * 0.15, Math.PI * 0.85], rows: 2, cols: 4, len: 0.09 * s, wid: 0.09 * s, paint: (t) => mix(M.rubyDeep, M.ruby, t), lift: 0.2, seed: 2,
-      finish: { iri: 1, glow: 0.12 }, morph: (_t, _a, at, dir, n) => flare(at, dir, n, 0.7),
+    // The body is the baked implicit skin (bodies.ts); feathers and gear sit on its surface. Upright: a = π/2 in front.
+    const torso = field.only(...TRUNK).surface([0, 0.2 * s, -0.08 * s], [0, 0.94 * s, -0.02 * s], [0, 0, 1]);
+    // The gorget: ruby scale-feathers over the throat that flare and catch the light on the display.
+    const throat = field.only('breast', 'neck').surface(...neckAxis, [0, 0, 1]);
+    shingle(k, throat, {
+      t: [0.2, 0.42], a: [Math.PI * 0.2, Math.PI * 0.8], rows: 2, cols: 4, len: 0.08 * s, wid: 0.08 * s, paint: (t) => mix(M.rubyDeep, M.ruby, 0.4 + t), lift: 0.18, seed: 2,
+      finish: { iri: 1, glow: 0.12, gloss: 0.4 }, morph: (_t, _a, at, dir, n) => flare(at, dir, n, 0.7),
     }, d);
-    shingle(k, torso, { t: [0.3, 0.75], a: [-Math.PI * 0.2, -Math.PI * 0.8], rows: 2, cols: 4, len: 0.11 * s, wid: 0.1 * s, paint: (_t, a) => mix(M.green, M.gold, 0.3 * Math.abs(Math.cos(a))), lift: 0.15, seed: 5, finish: { iri: 1 } }, d);
+    // Bronze-green scapulars over the shoulders, and the folded wing tips down the flanks.
+    shingle(k, torso, {
+      t: [0.62, 0.86], a: [-Math.PI * 0.85, -Math.PI * 0.15], rows: 2, cols: 4, len: 0.1 * s, wid: 0.09 * s,
+      paint: (_t, a) => mix(M.bronze, M.gold, 0.3 * Math.abs(Math.cos(a))), lift: 0.14, seed: 5, finish: { iri: 1, gloss: 0.35 },
+    }, d);
     // The wings, beating: two shimmering blur discs at each shoulder (cut-out fans, iridescent).
     for (const x of [1, -1]) {
-      const at: V3 = [x * 0.17 * s, 0.86 * s, -0.06 * s];
+      const at: V3 = [x * 0.15 * s, 0.86 * s, -0.08 * s];
       const fans = d.level >= 3 ? 1 : 2;
       for (let i = 0; i < fans; i++) {
         const up = i === 0 ? 1 : -1;
         k.card({ at, dir: norm([x * 0.25, up * 0.55, -0.8]), face: [x, 0, 0.25], len: 0.46 * s, wid: 0.46 * s, cell: CARD.blur, root: shade(M.green, 1.25), tip: 0xcfe8d8, segs: d.level === 0 ? 10 : 6, finish: { iri: 1, glow: 0.15, gloss: 0.4 } });
       }
     }
-    // Gear: a bandolier of glowing nectar vials and the flock-colour sash.
-    sash(k, torso, 0.62, 0.2, Math.PI * 0.25, { width: 0.045 * s, thick: 0.01 * s, hex: team.primary, stitch: team.light, finish: { gloss: 0.3 } }, d);
+    // Gear: the flock-colour sash across the back with a bandolier of glowing nectar vials, and a pouch on the hip.
+    sash(k, torso, 0.62, 0.2, Math.PI * 0.7, { width: 0.05 * s, thick: 0.01 * s, hex: team.primary, stitch: team.light, finish: { gloss: 0.3 } }, d);
     if (d.level < 2) {
       for (let i = 0; i < 4; i++) {
-        const u = 0.35 + i * 0.1;
-        const p = torso.at(0.62 + 0.2 * Math.cos(-u * 2), Math.PI * 0.25 - u * 2, 0.025 * s);
+        const u = 0.08 + i * 0.07;
+        const p = torso.at(0.62 + 0.2 * Math.cos(u * Math.PI * 2), Math.PI * 0.7 + u * Math.PI * 2, 0.025 * s);
         bead(k, [p.p.x, p.p.y, p.p.z], 0.016 * s, M.nectar, 0.55, d, [0.8, 1.6, 0.8]);
         stud(k, [p.p.x, p.p.y + 0.028 * s, p.p.z], 0.01 * s);
       }
     }
-    pouch(k, torso.at(0.45, Math.PI * 1.1, 0), [0.06 * s, 0.07 * s, 0.04 * s], GEAR.leather, d);
+    pouch(k, torso.at(0.4, Math.PI * 1.15, 0), [0.06 * s, 0.07 * s, 0.04 * s], GEAR.leather, d);
+    // A flock-colour scarf at the base of the neck, its two streamers flying behind (reads from the player camera).
+    const collar = field.only(...TRUNK, 'neck').surface([0, 0.2 * s, -0.08 * s], [0, A.head[1] - 0.1 * s, 0], [0, 0, 1]);
+    band(k, collar, 0.83, { width: 0.05 * s, thick: 0.016 * s, hex: team.primary, stitch: team.light, finish: { gloss: 0.35 } }, d);
+    if (d.level < 3) {
+      for (const x of [1, -1]) {
+        const knot = collar.at(0.83, -Math.PI / 2 + x * 0.3, 0.02 * s);
+        k.card({ at: [knot.p.x, knot.p.y, knot.p.z], dir: norm([x * 0.35, -0.5, -1]), face: [0, 1, 0], len: (x > 0 ? 0.36 : 0.3) * s, wid: 0.055 * s, cell: CARD.cloth, root: team.primary, tip: team.dark, curl: -0.3, sweep: x * 0.3, segs: d.level === 0 ? 4 : 2 });
+      }
+    }
   };
 
   const head = (k: Sculpt): void => {
-    // One form from the neck to the bill: green crown, a ruby throat, a white spot behind each eye.
-    const skull = headForm(k, {
-      hr, width: 1.14, crown: 1.08, chin: 1.0, back: 0.95, face: 1.02, cheek: 1.04, neck: { r: 0.105 * s, drop: 0.16 * s, lean: 0.01 * s },
-      beak: { y: -hr * 0.1, w: hr * 0.12, up: hr * 0.1, dn: hr * 0.07 }, finish: IRIS,
-      paint: (_t, _a, p) => (p.y < -hr * 0.42 && p.z > -hr * 0.4 ? M.ruby : Math.abs(p.x) > hr * 0.7 && p.z < hr * 0.1 && p.z > -hr * 0.45 && p.y > -hr * 0.05 && p.y < hr * 0.35 ? 0xf2f2ea : M.green),
+    // The head, crest, gorget and eye spots are the skin's; the eyes sit in its sockets and the needle grows from the
+    // bill base. The player-camera standard: hackles down the nape, and the crest's feathers lifting off the crown.
+    hackles(k, inBone(field.only('neck', 'nape', 'crown').surface(...neckAxis, [0, 0, 1]), A.head), {
+      t: [0.45, 0.8], rows: 2, cols: 4, len: 0.06 * s, wid: 0.05 * s, lift: 0.2,
+      paint: (t) => mix(M.greenDeep, M.green, 0.3 + 0.5 * t), finish: { iri: 1, gloss: 0.35 }, seed: 41,
     }, d);
-    for (const x of [1, -1]) eye(k, [x * hr * 0.66, hr * 0.14, hr * 0.62], [x * 0.62, 0.05, 0.78], { r: hr * 0.3, iris: M.iris, ring: M.greenDeep, lid: M.green, ringW: hr * 0.05 }, d);
+    if (d.level < 2) {
+      for (const u of [-1, -0.5, 0, 0.5, 1]) {
+        k.card({ at: [u * hr * 0.22, hr * (0.9 - 0.06 * Math.abs(u)), -hr * (0.35 + 0.1 * Math.abs(u))], dir: norm([u * 0.35, 0.75, -1]), face: [0, 1, 0.5], len: 0.14 * s, wid: 0.04 * s, cell: CARD.contour, root: M.gold, tip: shade(M.green, 0.8), curl: -0.35, segs: d.rows, finish: { iri: 1, gloss: 0.4 }, morph: { display: hinge([0, hr * 0.9, -hr * 0.4], [1, 0, 0], -0.5) } });
+      }
+    }
+    const E = HUMMINGBIRD_HEAD.eye;
+    for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.62, 0.05, 0.78], { r: hr * 0.3, iris: M.iris, ring: M.greenDeep, lid: M.green, ringW: hr * 0.05 }, d);
     // The needle bill, as long as the body, slightly down-curved.
-    beak(k, { at: [0, -hr * 0.1, hr * 1.02], len: H * 0.42, w: hr * 0.12, up: hr * 0.1, dn: hr * 0.07, curve: H * 0.025, base: M.bill, tip: M.bill, lowerLen: 0.96, open: 0.12 }, d);
-    void skull;
+    const B = HUMMINGBIRD_HEAD.bill;
+    beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.02)], len: H * 0.42, w: hr * 0.12, up: hr * 0.1, dn: hr * 0.07, curve: H * 0.025, base: M.bill, tip: M.bill, lowerLen: 0.96, open: 0.12 }, d);
   };
 
   const tail = (k: Sculpt): void => {
@@ -783,15 +817,11 @@ export function hummingbird(plan: BodyPlan, team: TeamColours, d: Detail): Sculp
   };
 
   return {
-    body, head, tail,
+    body, head, tail, skin,
     wing: wingsOf(wing, d),
     leg: legsOf(leg, d),
     gun: hummingbirdGun(s, d),
-    pivot: {
-      wingL: [R * 0.7, 0.86 * s, -0.02 * s], wingR: [-R * 0.7, 0.86 * s, -0.02 * s],
-      legL: [R * 0.32, legLen, 0], legR: [-R * 0.32, legLen, 0],
-      tail: [0, 0.2 * s, -0.12 * s],
-    },
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
     legLen, legThick: leg.thick, wingLen: H * 0.34,
     // Dart, Nectar Sip, Blur, Thousand Beats.
     casts: ['leap', 'aim', 'raise', 'raise'],

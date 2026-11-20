@@ -571,6 +571,7 @@ export const BODIES = {
   pelican: pelicanBody,
   penguin: penguinBody,
   vulture: vultureBody,
+  hummingbird: hummingbirdBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */
@@ -659,4 +660,53 @@ export const VULTURE_HEAD: HeadShape = {
   brow: [0.52, 0.22, 0.44], browAt: [0.48, 0.46, 0.5], browTilt: 0.45,
   nape: [0.7, 0.66, 0.6], napeAt: [0, -0.5, -0.46], throat: [0.55, 0.5, 0.55], throatAt: [0, -0.75, 0.15],
   eye: [0.72, 0.2, 0.56], socket: 0.26, bill: [0, -0.06, 1.08], billW: 0.34, billH: 0.3,
+};
+
+// =================================================================================================================
+// Batch D (W7). Hummingbird: the smallest hero, an iridescent drop. A deep flight-muscle breast under a ruby gorget,
+// a short neck into a big round head with large eyes and a crest at the back of the crown, the body tapering to the
+// tail; tiny feathered legs.
+
+export function hummingbirdAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.3;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.62, 0.86 * s, -0.04 * s], hip: [R * 0.32, plan.height * 0.13, -0.02 * s], tail: [0, 0.24 * s, -0.12 * s],
+    legLen: plan.height * 0.13, legThick: 0.016 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export function hummingbirdBody(plan: BodyPlan): Body {
+  const a = hummingbirdAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2300, 850, 280, 110], cell: 0.007,
+    ops: [
+      // The drop: deepest at the breast (the flight muscles), tapering down and back to the tail.
+      ell([0, 0.6 * s, -0.05 * s], [0.19 * s, 0.34 * s, 0.18 * s], 'body', 'back', { rot: [0.12, 0, 0], k: 0.05 }),
+      ...pair(ell([0.07 * s, 0.76 * s, 0.06 * s], [0.13 * s, 0.19 * s, 0.13 * s], 'body', 'breast', { k: 0.06, rot: [-0.15, 0.25, 0] })),
+      ell([0, 0.7 * s, 0.12 * s], [0.05 * s, 0.17 * s, 0.08 * s], 'body', 'breast', { k: 0.04, rot: [-0.2, 0, 0] }),
+      ell([0, 0.4 * s, -0.03 * s], [0.14 * s, 0.17 * s, 0.14 * s], 'body', 'belly', { k: 0.06 }),
+      ell([0, 0.8 * s, -0.11 * s], [0.14 * s, 0.17 * s, 0.07 * s], 'body', 'mantle', { k: 0.05, rot: [0.2, 0, 0] }),
+      cone([0, 0.32 * s, -0.1 * s], [0, 0.2 * s, -0.16 * s], 0.09 * s, 0.04 * s, 'tail', 'coverts', { k: 0.04, boneSoft: 0.04 }),
+      ...shoulders(a, { scapular: [0.1 * s, 0.84 * s, -0.08 * s], scapularR: [0.07 * s, 0.1 * s, 0.07 * s], root: 0.045 * s, inset: 0.05, drop: 0.05 }),
+      ...thighs(a, { r: 0.045 * s, rKnee: 0.03 * s, reach: 0.45, root: [0.05 * s, 0.24 * s, -0.02 * s] }),
+      ...neck([[0, 0.9 * s, 0.0], [0, 0.98 * s, 0.0], [0, hc[1] - 0.06 * s, 0]], [0.13 * s, 0.115 * s, 0.1 * s], 'neck', 0.5),
+      ...head(hc, a.hr, HUMMINGBIRD_HEAD),
+      // The crest: a short swept fan of crown feathers lifting off the back of the skull.
+      ell(at(hc, a.hr, [0, 0.82, -0.62]), mulS([0.34, 0.2, 0.48], a.hr), 'head', 'crest', { k: 0.08 * a.hr, rot: [0.55, 0, 0], flow: [0, 0.3, -1] }),
+      // Markings: the ruby gorget over the throat and upper breast, and a white spot behind each eye.
+      ell([0, 0.98 * s, 0.1 * s], [0.14 * s, 0.13 * s, 0.11 * s], 'body', 'gorget', { mark: true, soft: 0.01 }),
+      ...pair(ell(at(hc, a.hr, [0.66, 0.22, -0.12]), mulS([0.14, 0.1, 0.14], a.hr), 'head', 'spot', { mark: true, soft: 0.004 })),
+    ],
+  };
+}
+
+export const HUMMINGBIRD_HEAD: HeadShape = {
+  skull: [1.12, 1.08, 1.1], skullAt: [0, 0.02, -0.04], face: [0.62, 0.55, 0.6], faceAt: [0, -0.1, 0.48],
+  brow: [0.46, 0.16, 0.38], browAt: [0.5, 0.42, 0.52], browTilt: 0.2,
+  throat: [0.55, 0.45, 0.55], throatAt: [0, -0.7, 0.25],
+  eye: [0.66, 0.14, 0.62], socket: 0.3, bill: [0, -0.1, 1.0], billW: 0.14, billH: 0.12,
 };
