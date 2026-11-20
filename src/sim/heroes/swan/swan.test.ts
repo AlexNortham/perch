@@ -92,7 +92,7 @@ describe('Swan', () => {
       let ended = false;
       sb.ctx.bus.on('tether', (e) => e.stage === 'end' && (ended = true));
       sb.cast(me, 0, ally);
-      sb.step(TICK_RATE * 2);
+      sb.step(TICK_RATE * 2.2);
       const regen = 2 * 2; // base regeneration, 2 HP/s
       expect(sb.health(me).hp - m0).toBeGreaterThan(30);
       expect(sb.health(me).hp - m0).toBeLessThan(40 + regen + 4);
@@ -109,7 +109,7 @@ describe('Swan', () => {
     });
 
     it('lasts 8 s, and an enemy cannot be linked', async () => {
-      const { sb, me, rest } = await setup([ALLY, { hero: 'owl', at: AHEAD(12) }]);
+      const { sb, me, rest } = await setup([ALLY, { hero: 'owl', at: AHEAD(12, 6) }]);
       const events: string[] = [];
       let ticks = 0;
       sb.ctx.bus.on('tether', (e) => events.push(e.stage));
@@ -162,12 +162,12 @@ describe('Swan', () => {
         c.sb.health(ally).hp -= 300;
         const before = c.sb.health(ally).hp;
         c.sb.cast(c.me, 0, ally);
-        c.sb.step(TICK_RATE * 2);
+        c.sb.step(TICK_RATE * 2.2);
         return c.sb.health(ally).hp - before;
       };
       const [lo, hi] = [await gain(base), await gain(tier)];
-      expect(hi - lo).toBeGreaterThan(15);
-      expect(hi - lo).toBeLessThan(25);
+      expect(hi - lo).toBeGreaterThan(17);
+      expect(hi - lo).toBeLessThan(23);
     });
   });
 
