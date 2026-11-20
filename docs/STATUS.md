@@ -2951,4 +2951,44 @@ first Vulture pass, uncommitted, at the stop:
 
 **Verified:** `npx vitest run src/client/render/models tests/anim`, 111 passed (skins, models and attachment, with
 guns held). `tsc -b` and `eslint .` pass. The full `npm run check` is skipped, as the EP asked.
+### W5d · Technical Artist (bird batch B) · 21/11/2026
+**Done (stopped early on the EP's change of priority):** Shrike and Kingfisher are converted to the sculpt pipeline
+v2.1 (D-ART-010, D-ART-011). Branch `worktree-agent-a6c1176ee04a5cc9d`, from `integrate/w5` 1c7ad07. One commit per
+bird; D-ART-012 records how batch B birds register.
+- **Shrike:** a big flat-crowned head with a black mask meeting over the hooked bill, a silvery crown over a slate nape
+  and mantle, a white breast, black folded wings with a white flash, and a long black-and-white blade tail that fans on
+  a cast. Gear: a flock collar, a knotted flock belt with butcher's hooks, a thorn bandolier and a pouch. The Barb Rifle
+  has barbs along a thornwood barrel, a bone stock and a quiver of bolts.
+- **Kingfisher:** a chunky forward-leaning body with one orange curve from the breast to a low belly over short red
+  shanks, a big blue head with a shaggy crest that lifts on a cast, orange lores and ear patch, white throat and neck
+  patches, and a cyan stripe down the deep-blue mantle to the rump. Gear: a flock sash with a brass dart clip, a belt
+  and pouch, and a quiver across the back. The Dart Pistol has a steel blade under the muzzle and fletched darts.
+- `models.test.ts` now takes its sculpted list from `SCULPTED_IDS` in `heroes.ts`, so both birds get the display, jaw,
+  blink and gun-cap tests.
+
+**Untouched (still on the old D-ART-003 models):** Albatross, Lyrebird, Flamingo, Hornbill. The Lyrebird was in progress
+(body only, no builder) and was reverted, not committed.
+
+| Bird | Level 0 / 1 / 2 / 3 triangles (skin) | Player camera: bird / gun | Honest score, player camera |
+|---|---|---|---|
+| Shrike | 8,516 / 3,366 / 1,114 / 360 (2,600 / 950 / 300 / 120) | 3.3 % / 0.41 % | 3 (2.5 from the front: a tall white egg) |
+| Kingfisher | 8,366 / 3,334 / 1,084 / 360 (2,600 / 950 / 300 / 120) | 4.1 % / 0.34 % | 3 |
+
+Images (git-ignored, reproduce with `npx tsx tests/anim/posesheets.ts --out out/art/b --frame="name=<bird>&mode=triptych&hero=<bird>"`
+and `mode=player`): `out/art/b/shrike.png`, `shrike-player.png`, `kingfisher.png`, `kingfisher-player.png`.
+
+**Verified:** `npx tsc -b` and `npx eslint .` pass. `npx vitest run src/client/render/models tests/anim` passes (113),
+including the committed skins re-baking byte-identically, budgets, hitbox, both grips held in every state, the muzzle
+on the sim's muzzle point and planted feet (D-EP-035). Full `npm run check`, the in-game golden-hour shots and the
+10/40/80 m line-ups were skipped on the EP's instruction.
+
+**Left for the art round:**
+- Convert Albatross (cloak wings to the ground), Lyrebird (the lyre as a hero shape: two banded S-curved outer plumes as
+  ribbon lofts, silver filament cards, a forward-throw display morph; check it does not block the player's crosshair),
+  Flamingo (S-neck, one-leg idle) and Hornbill (casque, gun carry with a moving feed).
+- Shrike and Kingfisher: the in-game golden-hour check and the line-ups; both bodies still read a little tall and
+  tubular front-on.
+- Shared (for Batch A): the feather surface's dark edge speckle is very visible on white and orange regions (Shrike
+  breast, Kingfisher underside), and a pattern-fade band of speckle shows where flat face regions meet the throat.
+
 **Blocked:** nothing.
