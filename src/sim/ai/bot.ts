@@ -6,21 +6,23 @@
  */
 import { ABILITY_BUTTONS, Button, IDLE_COMMAND, ITEM_BUTTONS, LAYERS_SOLID } from '../core/contracts';
 import type {
-  AbilityDef, BotDifficulty, Entity, EntityId, HeroEntity, Hasher, ItemDef, ItemId, LaneId, NavLinkKind, PickupEntity,
+  AbilityDef, BotDifficulty, Entity, EntityId, HeroEntity, HeroId, Hasher, ItemDef, ItemId, LaneId, NavLinkKind, PickupEntity,
   PlayerCommand, PlayerTeam, ShopAnchor, SimContext, StructureEntity, Tick, UnitEntity, Vec3,
 } from '../core/contracts';
 import { muzzlePoint, toWorld } from '../core/aim';
 import * as dmath from '../core/dmath';
 import { ticks } from '../core/math';
 import { canSee } from '../core/vision';
-import { AIM, AP_PRIORITY, CAST, DIFFICULTIES, FIGHT, LANE, NAV, OBJECTIVE, RETREAT, RIDE, SHOP } from '../data/ai';
+import { AIM, AP_PRIORITY, CAST, DIFFICULTIES, FIGHT, LANE, NAV, OBJECTIVE, RETREAT, RIDE, SHOP, TARGET } from '../data/ai';
 import { BUILDS } from '../data/builds';
-import { DEFENCE } from '../data/world';
-import { acquire, createAim, kick, lookAlong, track, wrap } from './aim';
+import { ECONOMY } from '../data/economy';
+import { SHOP as STORE } from '../data/items';
+import { DEFENCE, STRUCTURE_RADIUS } from '../data/world';
+import { acquire, createAim, kick, lookAlong, track } from './aim';
 import type { LaneGeom } from './lanes';
 import type { Nav, Route } from './nav';
 import { choosePurchase, nextUpgrade, phaseOf } from './shop';
-import type { ShopPolicy } from './shop';
+import type { Purchase, ShopPolicy } from './shop';
 
 export type Mode = 'lane' | 'fight' | 'retreat' | 'shop' | 'farm' | 'objective' | 'push' | 'defend';
 
@@ -32,9 +34,11 @@ export interface Shared {
   /** MapData.updrafts index per lane. */
   readonly updraftOf: ReadonlyMap<LaneId, number>;
   readonly catalogue: ReadonlyMap<ItemId, ItemDef>;
+  /** Every bot's hero id. */
+  readonly bots: ReadonlySet<EntityId>;
   /** Orders from pings and defence calls, by bot hero id. */
   readonly orders: Map<EntityId, { pos: Vec3; until: Tick }>;
-  readonly policy: (team: PlayerTeam, heroId: HeroEntity['hero']['heroId']) => ShopPolicy;
+  readonly policy: (team: PlayerTeam, heroId: HeroId) => ShopPolicy;
 }
 
 export interface Bot {
@@ -45,17 +49,25 @@ export interface Bot {
   tick(): void;
   /** Respawned or teleported: drop the route; adopt a yaw the move set. */
   moved(yaw?: number): void;
+  /** The gun fired (weapon.fired): the look rides up. */
+  fired(): void;
   mode(): Mode;
+  /** Internal state for tests and tools. */
+  debug(): Readonly<Record<string, unknown>>;
   hash(h: Hasher): void;
 }
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 type Use = 'enemy' | 'ally' | 'heal' | 'mobility' | 'buff' | 'nova';
+type Step = { x: number; z: number; kind: NavLinkKind };
 
 const alive = (e: Entity | undefined): e is Entity => !!e && !e.removed && !('health' in e && e.health.dead);
 const flat = (a: Vec3, b: Vec3): number => dmath.hypot(a.x - b.x, a.z - b.z);
 const dist3 = (a: Vec3, b: Vec3): number => dmath.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 const ehp = (e: HeroEntity): number => e.health.hp + e.health.talonShield + e.health.songShield + e.health.barrier;
+const fraction = (e: { health: { hp: number }; stats: { final: { maxHealth: number } } }): number => e.health.hp / Math.max(1, e.stats.final.maxHealth);
+const defence = (s: StructureEntity): { range: number; heroHit: number; interval: number } | undefined =>
+  s.structure.type === 'nest' ? undefined : DEFENCE[s.structure.type as keyof typeof DEFENCE] as { range: number; heroHit: number; interval: number } | undefined;
 
 /** Every `kind` named anywhere in an effect tree. */
 function kindsIn(value: unknown, out: Set<string>): Set<string> {
@@ -70,7 +82,7 @@ function kindsIn(value: unknown, out: Set<string>): Set<string> {
 }
 
 /** How a bot uses an ability or item active (GDD §11.2 ability use). */
-function useOf(targeting: AbilityDef['targeting'], effects: unknown, allies: boolean): Use {
+export function useOf(targeting: AbilityDef['targeting'], effects: unknown, allies: boolean): Use {
   const k = kindsIn(effects, new Set());
   const harms = k.has('damage') || k.has('projectile') || k.has('displace') || k.has('tether');
   const moves = k.has('dash') || k.has('teleport') || k.has('movementMode');
@@ -98,6 +110,10 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   const sweet = Math.min(gunRange, Math.max(FIGHT.minSweetM, def.weapon.falloff.start || FIGHT.defaultRangeM));
   const uses = def.abilities.map((a) => useOf(a.targeting, [a.effects, a.selfEffects ?? []], a.affects?.teams === 'allies'));
   const apOrder = AP_PRIORITY[h.hero.heroId];
+  const minCost = Math.min(...[...w.catalogue.values()].map((i) => i.cost));
+  /** Tower anchors on the nav graph: a waypoint there counts as reached at the tower's edge. */
+  const anchors = ctx.map.structures.map((s) => ({ pos: s.pos, r: STRUCTURE_RADIUS[s.type] + NAV.structureClearM }));
+  const ripeTicks = ticks(ECONOMY.pod.ripeS);
 
   const aim = createAim(h.yaw);
   const cmd: Mutable<PlayerCommand> = { ...IDLE_COMMAND, yaw: h.yaw };
@@ -105,7 +121,6 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   let mode: Mode = 'lane';
   let goal: Vec3 | null = null;
   let target: EntityId | null = null;
-  let targetPoint: Vec3 | null = null;
   /** Melee a pickup: its id and light or heavy. */
   let claim: { id: EntityId; heavy: boolean } | null = null;
   let strafe = false;
@@ -118,6 +133,13 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   let routeAt: Tick = 0;
   let bestD = Infinity;
   let bestAt: Tick = 0;
+  /** Links and start nodes this bot got stuck on (cleared on respawn). */
+  const blocked = new Set<number>();
+  const badStart = new Set<number>();
+  // Line of sight to the target, refreshed every TARGET.losEveryTicks.
+  let losFor: EntityId | null = null;
+  let losOk = false;
+  let losAt: Tick = 0;
   // Buttons spanning several ticks.
   let jumpUntil: Tick = 0;
   let meleeUntil: Tick = 0;
@@ -126,24 +148,28 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   let dashAt: Tick = 0;
   let strafeDir: 1 | -1 = side;
   let strafeUntil: Tick = 0;
+  let ledgeAt: Tick = 0;
+  let ledge = false;
   let buyAt: Tick = 0;
-  let plan: { buy: ItemId; sell: ItemId | null } | null = null;
-  // Updraft riding: latching since, or riding.
+  let plan: Purchase | null = null;
+  // Updraft riding.
   let latchFrom: Tick | null = null;
   let rideCooldown: Tick = 0;
   let jumpReleased = false;
-  /** Decisions made once per entity (last hits, pods, denies) and enemy last-seen points. */
+  /** Seeded once-per-entity draws (last hits, pods, denies), and enemy last-seen points. */
   const decided = new Map<EntityId, number>();
   const lastSeen = new Map<EntityId, { pos: Vec3; at: Tick }>();
   let lastEnemyNearAt: Tick = 0;
 
-  const hpFrac = (): number => h.health.hp / Math.max(1, h.stats.final.maxHealth);
+  const hpFrac = (): number => fraction(h);
   const shot = (): number => h.stats.final.weaponDamage * def.weapon.pellets;
   const dps = (e: HeroEntity): number => {
     const w0 = ctx.heroes[e.hero.heroId].def.weapon;
     return e.stats.final.weaponDamage * w0.pellets * w0.fireRate;
   };
   const myProgress = (): number => (geom ? geom.forward(team, geom.project(h.pos).s) : 0);
+  const policy = (): ShopPolicy => w.policy(team, h.hero.heroId);
+  const slots = (): number => STORE.baseSlots + ctx.teams[team].flexSlots;
 
   // ── Perception ────────────────────────────────────────────────────────────────────────────────────────────
   const enemyHeroes = (): HeroEntity[] => ctx.store.list('hero').filter((e) => e.team !== team && alive(e) && canSee(team, e));
@@ -156,12 +182,11 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     for (const a of friends) if (flat(a.pos, h.pos) <= FIGHT.scoreRadiusM) ours += ehp(a) * dps(a);
     for (const e of foes) if (flat(e.pos, h.pos) <= FIGHT.scoreRadiusM) theirs += ehp(e) * dps(e);
     for (const s of ctx.store.list('structure')) {
-      if (s.structure.type === 'nest' || !alive(s)) continue;
-      const def0 = DEFENCE[s.structure.type as keyof typeof DEFENCE] as { range: number; heroHit: number; interval: number } | undefined;
-      if (!def0 || flat(s.pos, h.pos) > def0.range) continue;
-      const v = (s.health.hp * def0.heroHit) / def0.interval;
-      if (s.team === team) ours += v * FIGHT.towerWeight;
-      else theirs += v * FIGHT.towerWeight;
+      const def0 = defence(s);
+      if (!def0 || !alive(s) || flat(s.pos, h.pos) > def0.range + s.structure.body.radius) continue;
+      const v = ((s.health.hp * def0.heroHit) / def0.interval) * FIGHT.towerWeight;
+      if (s.team === team) ours += v;
+      else theirs += v;
     }
     return theirs === 0 ? Infinity : ours / theirs;
   }
@@ -183,7 +208,7 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
         return { ...e.pos };
     }
   }
-  /** Distance from the muzzle to a point (the structure's surface for towers). */
+  /** Horizontal distance to the target's surface. */
   function reach(e: Entity): number {
     const r = e.kind === 'structure' ? e.structure.body.radius : 0;
     return Math.max(0, flat(e.pos, h.pos) - r);
@@ -197,23 +222,23 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     const len = dmath.hypot(dx, dy, dz);
     if (len < FIGHT.meleeM) return true;
     const hit = ctx.physics.raycast(from, { x: dx / len, y: dy / len, z: dz / len }, len, LAYERS_SOLID, h.id);
-    return !hit || hit.entity === e.id || hit.distance > len - FIGHT.losSlackM;
+    return !hit || hit.entity === e.id || hit.distance > len - TARGET.losSlackM;
   }
-  /** A once-per-entity seeded decision ("does this bot try for this last hit / pod"). */
-  function once(id: EntityId, p: number): boolean {
+  /** A seeded draw made once per entity, in [0, 1). */
+  function draw(id: EntityId): number {
     let v = decided.get(id);
     if (v === undefined) {
       v = rng.next();
       decided.set(id, v);
     }
-    return v < p;
+    return v;
   }
-  /** Enemy tower whose reach covers p, unless it is busy with this flock's fledglings. */
+  /** The enemy tower whose reach covers p, unless it is busy with this flock's fledglings. */
   function towerThreat(p: Vec3): StructureEntity | null {
     for (const s of ctx.store.list('structure')) {
-      if (s.team === team || s.structure.type === 'nest' || !alive(s)) continue;
-      const def0 = DEFENCE[s.structure.type as keyof typeof DEFENCE] as { range: number } | undefined;
-      if (!def0 || flat(s.pos, p) > def0.range + s.structure.body.radius + LANE.towerMarginM) continue;
+      const def0 = defence(s);
+      if (s.team === team || !def0 || !alive(s)) continue;
+      if (flat(s.pos, p) > def0.range + s.structure.body.radius + LANE.towerMarginM) continue;
       const t = s.structure.target === null ? undefined : ctx.store.get(s.structure.target);
       if (t && t.kind === 'unit' && t.team === team) continue;
       return s;
@@ -223,7 +248,6 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   /** Lane-time target (GDD §11.3 Lane): pods, last hits, a poke, the tower on the wave, the enemy wave, Nests. */
   function laneTarget(foes: readonly HeroEntity[], poke: boolean): Entity | null {
     const now = clock.tick;
-    const ripeTicks = ticks(POD_RIPE_S);
     let best: Entity | null = null;
     let bestScore = -Infinity;
     const offer = (e: Entity, score: number): void => {
@@ -235,37 +259,38 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     for (const p of ctx.store.list('pickup')) {
       if (p.pickup.type !== 'pod' || p.team === 'neutral' || !canSee(team, p) || p.pickup.expiresAt === null) continue;
       if (reach(p) > gunRange) continue;
-      const mine = p.team !== team;
-      if (!once(p.id, mine ? d.lastHitRate : d.denyRate)) continue;
-      // Shot at the ripe moment ± the difficulty's timing error (early shots pass through the rising pod).
-      const err = ((decided.get(p.id) ?? 0) * 2 - 1) * d.podTimingS;
-      if (now < p.pickup.expiresAt - ripeTicks + ticks(Math.max(0, err))) continue;
-      offer(p, PRIORITY.pod - reach(p) / gunRange);
+      const v = draw(p.id);
+      const secure = p.team !== team;
+      if (v >= (secure ? d.lastHitRate : d.denyRate)) continue;
+      // Shot at the ripe moment ± the difficulty's timing error (a shot while it rises passes through it).
+      const err = ((v / (secure ? d.lastHitRate : d.denyRate)) * 2 - 1) * d.podTimingS;
+      if (now < p.pickup.expiresAt - ripeTicks + ticks(err)) continue;
+      offer(p, TARGET.pod - reach(p) / gunRange);
     }
     const lastHit = shot() * FIGHT.lastHitMargin;
     for (const u of ctx.store.list('unit')) {
-      if (u.team === team || !alive(u) || !canSee(team, u) || reach(u) > gunRange) continue;
-      if (u.team === 'neutral') continue;
-      const frac = reach(u) / gunRange;
-      if (u.health.hp <= lastHit && once(u.id, d.lastHitRate)) offer(u, PRIORITY.lastHit - frac);
-      else offer(u, PRIORITY.wave - frac - u.health.hp / u.stats.final.maxHealth);
+      if (u.team === team || u.team === 'neutral' || !alive(u) || !canSee(team, u) || reach(u) > gunRange) continue;
+      const near = reach(u) / gunRange;
+      if (u.health.hp <= lastHit && draw(u.id) < d.lastHitRate) offer(u, TARGET.lastHit - near);
+      else offer(u, TARGET.wave - near - fraction(u));
     }
-    if (poke) {
+    const exposed = towerThreat(h.pos) !== null;
+    if (poke && !exposed) {
       for (const e of foes) {
-        if (reach(e) > gunRange || towerThreat(h.pos)) continue;
-        if (hpFrac() >= (e.health.hp / Math.max(1, e.stats.final.maxHealth)) * FIGHT.pokeHpRatio) offer(e, PRIORITY.poke - reach(e) / gunRange);
+        if (reach(e) <= gunRange && hpFrac() >= fraction(e) * FIGHT.pokeHpRatio) offer(e, TARGET.poke - reach(e) / gunRange);
       }
     }
     for (const s of ctx.store.list('structure')) {
-      if (s.team === team || !alive(s) || reach(s) > gunRange || s.stats.conditions.has('invulnerable')) continue;
+      if (s.team === team || !alive(s) || reach(s) > gunRange || !canSee(team, s)) continue;
       if (s.structure.type === 'nest') {
-        if (s.structure.breakable?.by === 'any' && reach(s) <= OBJECTIVE.nestShootM) offer(s, PRIORITY.nest - reach(s) / gunRange);
+        if (s.structure.breakable?.by === 'any' && reach(s) <= OBJECTIVE.nestShootM) offer(s, TARGET.nest - reach(s) / gunRange);
         continue;
       }
+      if (s.stats.conditions.has('invulnerable') && !s.structure.weakPoint) continue;
       if (s.structure.broodWard && foes.length > 0) continue;
       const t = s.structure.target === null ? undefined : ctx.store.get(s.structure.target);
       const onWave = !!t && t.kind === 'unit' && t.team === team;
-      if (onWave || towerThreat(h.pos) === null) offer(s, PRIORITY.structure - reach(s) / gunRange);
+      if (onWave || !exposed) offer(s, TARGET.structure - reach(s) / gunRange);
     }
     return best;
   }
@@ -274,12 +299,11 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   function fightTarget(foes: readonly HeroEntity[]): HeroEntity | null {
     let best: HeroEntity | null = null;
     let bestV = Infinity;
-    const current = target === null ? undefined : ctx.store.get(target);
     for (const e of foes) {
       if (flat(e.pos, h.pos) > FIGHT.engageM) continue;
       const arche = ctx.heroes[e.hero.heroId].def.archetype;
       let v = ehp(e) * (FIGHT.preferred.includes(arche) ? FIGHT.preferredWeight : 1);
-      if (e === current) v *= FIGHT.switchRatio;
+      if (e.id === target) v *= FIGHT.switchRatio;
       if (v < bestV) {
         bestV = v;
         best = e;
@@ -291,9 +315,8 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   // ── Decisions (GDD §11.3) ─────────────────────────────────────────────────────────────────────────────────
   function lanePoint(f: number): Vec3 {
     if (!geom) return { ...home };
-    const s = geom.fromForward(team, f);
     const off = Math.min(LANE.sideM, Math.max(0, geom.halfWidth - 1)) * side * (team === 'dawn' ? 1 : -1);
-    return geom.at(s, off);
+    return geom.at(geom.fromForward(team, f), off);
   }
   /** Where to stand in the lane: behind the own wave, short of the enemy wave and outside enemy tower reach. */
   function laneStand(push: boolean): Vec3 {
@@ -312,22 +335,21 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     let enemyTowerReach = 0;
     let busy = false;
     for (const s of ctx.store.list('structure')) {
-      if (s.structure.lane !== lane || !alive(s) || s.structure.type === 'nest') continue;
+      const def0 = defence(s);
+      if (s.structure.lane !== lane || !alive(s) || !def0) continue;
       const f = geom.forward(team, geom.project(s.pos).s);
       if (s.team === team) towerF = Math.max(towerF, f);
       else if (f < enemyTowerF) {
         enemyTowerF = f;
-        const def0 = DEFENCE[s.structure.type as keyof typeof DEFENCE] as { range: number } | undefined;
-        enemyTowerReach = (def0?.range ?? 0) + s.structure.body.radius;
+        enemyTowerReach = def0.range + s.structure.body.radius;
         const t = s.structure.target === null ? undefined : ctx.store.get(s.structure.target);
         busy = !!t && t.kind === 'unit' && t.team === team;
       }
     }
-    let f = Number.isFinite(ownFront) ? ownFront - LANE.behindWaveM : towerF + LANE.aheadOfTowerM;
+    // Wait by the outermost own tower for a wave still behind it, then keep behind its front.
+    let f = Math.max(Number.isFinite(ownFront) ? ownFront - LANE.behindWaveM : -Infinity, towerF + LANE.aheadOfTowerM);
     if (Number.isFinite(enemyFront)) f = Math.min(f, enemyFront - LANE.shortOfEnemyM);
-    const safe = busy || push ? enemyTowerF - LANE.towerStandM : enemyTowerF - enemyTowerReach - LANE.towerMarginM;
-    f = Math.min(f, safe);
-    if (!Number.isFinite(ownFront)) f = Math.max(Math.min(f, towerF + LANE.aheadOfTowerM), Math.min(towerF, f));
+    f = Math.min(f, busy || push ? enemyTowerF - LANE.towerStandM : enemyTowerF - enemyTowerReach - LANE.towerMarginM);
     return lanePoint(Math.max(0, f));
   }
 
@@ -341,35 +363,31 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     const alliesNear = friends.filter((a) => flat(a.pos, h.pos) <= FIGHT.scoreRadiusM);
     const score = near.length > 0 ? fightScore(foes, friends) : Infinity;
     const hp = hpFrac();
+    const was = mode;
     target = null;
     claim = null;
     strafe = false;
     rideOk = false;
+    if (decided.size > TARGET.forgetAfter) for (const id of [...decided.keys()]) if (!ctx.store.get(id)) decided.delete(id);
     const egg = ctx.objectives.egg;
     const eggEntity = egg?.pickup == null ? undefined : ctx.store.getKind(egg.pickup, 'pickup');
-    const carrying = eggEntity?.pickup.carrier === h.id;
 
     // Carrying the Golden Egg: straight to the Hatching Stone (the other perch), whatever else happens.
-    if (carrying && egg) {
+    if (egg && eggEntity?.pickup.carrier === h.id) {
       mode = 'objective';
       goal = { ...(ctx.map.eggPerches[1 - egg.perch]?.pos ?? home) };
       return;
     }
     // Retreat (GDD §11.3): HP under the threshold → the Home Roost until healed; outnumbered or losing → fall back.
-    if (homeRetreat && hp < RETREAT.healedHp) {
-      mode = 'retreat';
-      goal = { ...home };
-      return;
-    }
-    homeRetreat = false;
-    if (hp < d.retreatHp) {
+    if ((homeRetreat && hp < RETREAT.healedHp) || hp < d.retreatHp) {
       homeRetreat = true;
       mode = 'retreat';
       goal = { ...home };
       return;
     }
+    homeRetreat = false;
     if (near.length - alliesNear.length >= FIGHT.outnumberedBy || score < FIGHT.retreatScore ||
-      (mode === 'retreat' && near.length > 0 && score < FIGHT.regroupScore)) {
+      (was === 'retreat' && near.length > 0 && score < FIGHT.regroupScore)) {
       mode = 'retreat';
       goal = geom ? lanePoint(Math.max(0, myProgress() - FIGHT.fallBackM)) : { ...home };
       const e = fightTarget(near);
@@ -387,9 +405,10 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
       return;
     }
     // Chase a lost fight target to where it was last seen (Raptor).
-    if (d.lastSeen && mode === 'fight') {
-      for (const [, seen] of lastSeen) {
+    if (d.lastSeen && was === 'fight') {
+      for (const seen of lastSeen.values()) {
         if (now - seen.at <= ticks(FIGHT.chaseS) && flat(seen.pos, h.pos) <= FIGHT.engageM) {
+          mode = 'fight';
           goal = { ...seen.pos };
           return;
         }
@@ -400,8 +419,7 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     if (order && order.until > now) {
       mode = 'defend';
       goal = { ...order.pos };
-      const t = laneTarget(foes, true);
-      target = t?.id ?? null;
+      target = laneTarget(foes, true)?.id ?? null;
       return;
     }
     if (order) w.orders.delete(h.id);
@@ -418,12 +436,10 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     const deadEnemies = ctx.store.list('hero').filter((e) => e.team !== team && e.health.dead).length;
     const rekindle = (ctx.teams[team].rekindle?.until ?? 0) > now;
     const push = clock.seconds >= OBJECTIVE.pushFromS || rekindle || deadEnemies >= OBJECTIVE.pushDeadEnemies;
-    // Farming: the roamer after 10:00, or anyone whose lane has no own wave to escort and nothing visible.
     if (!push && foes.length === 0 && farm()) return;
     mode = push ? 'push' : 'lane';
     goal = siegeGoal(push) ?? laneStand(push);
-    const t = laneTarget(foes, true);
-    target = t?.id ?? null;
+    target = laneTarget(foes, true)?.id ?? null;
     rideOk = true;
   }
 
@@ -439,22 +455,23 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   function shopTrip(threatened: boolean): ShopAnchor | null {
     if (threatened || !plan) return null;
     const seeds = h.progress.seeds;
-    const usable = ctx.map.shops.filter((s) => (s.team === team || s.neutral) && (d.shops === 'own' || s.kind === 'roost'));
     let best: ShopAnchor | null = null;
-    for (const s of usable) if (!best || flat(s.pos, h.pos) < flat(best.pos, h.pos)) best = s;
+    for (const s of ctx.map.shops) {
+      if (!(s.team === team || s.neutral) || (d.shops === 'roost' && s.kind !== 'roost')) continue;
+      if (!best || flat(s.pos, h.pos) < flat(best.pos, h.pos)) best = s;
+    }
     if (!best) return null;
     if (d.leaveLaneSeeds !== null && seeds >= d.leaveLaneSeeds) return best;
     return d.shops === 'own' && seeds >= SHOP.tripSeeds && flat(best.pos, h.pos) <= SHOP.tripM ? best : null;
   }
 
-  /** The next enemy structure to besiege in order (Hawk → Heron → Wardens → Shrines → Patron) once the lane is open. */
+  /** The next inner structure to besiege (Shrines, then the Patron) once this lane's towers are down. */
   function siegeGoal(push: boolean): Vec3 | null {
     if (!push || !geom) return null;
-    const open = ctx.store.list('structure').filter((s) => s.team !== team && s.structure.type !== 'nest' && alive(s));
+    const open = ctx.store.list('structure').filter((s) => s.team !== team && defence(s) !== undefined && alive(s));
     if (open.some((s) => s.structure.lane === lane)) return null;
-    const inner = open.filter((s) => s.structure.lane === null);
     let best: StructureEntity | null = null;
-    for (const s of inner) if (!best || flat(s.pos, h.pos) < flat(best.pos, h.pos)) best = s;
+    for (const s of open) if (s.structure.lane === null && (!best || flat(s.pos, h.pos) < flat(best.pos, h.pos))) best = s;
     if (!best) return null;
     // Stand short of it on the line from the lane's enemy gate.
     const gate = lanePoint(geom.length);
@@ -465,37 +482,48 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     return { x: best.pos.x + (dx / len) * back, y: gate.y, z: best.pos.z + (dz / len) * back };
   }
 
-  /** GDD §11.3 Objective and §11.7: the Egg, runes, Embers and the Roc. Sets mode and returns true when one applies. */
+  /** Is this bot among the n bots of its flock nearest to p? */
+  function among(friends: readonly HeroEntity[], p: Vec3, n: number): boolean {
+    let closer = 0;
+    const mine = flat(h.pos, p);
+    for (const a of friends) {
+      if (a.id === h.id || !w.bots.has(a.id)) continue;
+      const da = flat(a.pos, p);
+      if (da < mine || (da === mine && a.id < h.id)) closer++;
+    }
+    return closer < n;
+  }
+
+  /** GDD §11.3 Objective and §11.7: the Egg, runes, Embers and the Roc. Sets the mode and returns true when one applies. */
   function objectives(foes: readonly HeroEntity[], friends: readonly HeroEntity[], egg: PickupEntity | undefined): boolean {
     const now = clock.tick;
-    const nearest = (p: Vec3, n: number): boolean => {
-      const order = friends.filter((a) => w.bots.has(a.id) || a.id === h.id).sort((a, b) => flat(a.pos, p) - flat(b.pos, p) || a.id - b.id);
-      return order.slice(0, n).some((a) => a.id === h.id);
-    };
     // The Golden Egg: the nearest bots go; the poorest of them takes it with a light melee, the rest escort.
     if (egg && alive(egg)) {
       const carrier = egg.pickup.carrier === null ? undefined : ctx.store.getKind(egg.pickup.carrier, 'hero');
       if (carrier && carrier.team === team) {
-        if (nearest(carrier.pos, OBJECTIVE.eggBots)) {
+        if (among(friends, carrier.pos, OBJECTIVE.eggBots)) {
           mode = 'objective';
-          goal = { ...carrier.pos };
+          goal = flat(carrier.pos, h.pos) > OBJECTIVE.escortM ? { ...carrier.pos } : null;
           target = laneTarget(foes, true)?.id ?? null;
           return true;
         }
       } else if (carrier) {
-        // Enemy carrier: top target for whoever sees it.
-        if (canSee(team, carrier) && flat(carrier.pos, h.pos) <= OBJECTIVE.runeM) {
+        // The enemy carrier is every bot's top target once seen (GDD §11.3).
+        if (canSee(team, carrier) && flat(carrier.pos, h.pos) <= FIGHT.engageM) {
           mode = 'fight';
           target = carrier.id;
           goal = { ...carrier.pos };
           return true;
         }
-      } else if (nearest(egg.pos, OBJECTIVE.eggBots)) {
+      } else if (among(friends, egg.pos, OBJECTIVE.eggBots) && flat(egg.pos, h.pos) <= OBJECTIVE.eggM) {
         mode = 'objective';
         goal = { ...egg.pos };
-        const group = friends.filter((a) => flat(a.pos, egg.pos) <= OBJECTIVE.rocNearM).sort((a, b) =>
-          a.progress.netWorth - b.progress.netWorth || a.id - b.id);
-        if ((group[0]?.id ?? h.id) === h.id && (egg.pickup.claimableAt ?? 0) <= now) claim = { id: egg.id, heavy: false };
+        let poorest = h;
+        for (const a of friends) {
+          if (!w.bots.has(a.id) || flat(a.pos, egg.pos) > OBJECTIVE.eggM || !among(friends, egg.pos, OBJECTIVE.eggBots)) continue;
+          if (a.progress.netWorth < poorest.progress.netWorth || (a.progress.netWorth === poorest.progress.netWorth && a.id < poorest.id)) poorest = a;
+        }
+        if (poorest === h && (egg.pickup.claimableAt ?? 0) <= now) claim = { id: egg.id, heavy: false };
         else target = laneTarget(foes, true)?.id ?? null;
         return true;
       }
@@ -504,84 +532,73 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     for (const p of ctx.store.list('pickup')) {
       if (p.pickup.type !== 'rune' && p.pickup.type !== 'ember') continue;
       const range = p.pickup.type === 'rune' ? OBJECTIVE.runeM : OBJECTIVE.emberM;
-      if (flat(p.pos, h.pos) > range || (p.pickup.claimableAt ?? 0) > now + ticks(OBJECTIVE.runeSoonS)) continue;
-      if (!nearest(p.pos, p.pickup.type === 'rune' ? 1 : OBJECTIVE.emberBots)) continue;
+      if (flat(p.pos, h.pos) > range || !among(friends, p.pos, p.pickup.type === 'rune' ? 1 : OBJECTIVE.emberBots)) continue;
       mode = 'objective';
       goal = { ...p.pos };
       if ((p.pickup.claimableAt ?? 0) <= now) claim = { id: p.id, heavy: true };
       return true;
     }
     // A rune due soon at a spot within reach: wait there.
-    const runeAt = ctx.objectives.runeAt;
-    if (runeAt) {
-      for (const [i, at] of runeAt.entries()) {
-        const spot = ctx.map.runeSpots[i];
-        if (at === null || !spot || at - now > ticks(OBJECTIVE.runeSoonS) || flat(spot.pos, h.pos) > OBJECTIVE.runeM) continue;
-        if (!nearest(spot.pos, 1)) continue;
-        mode = 'objective';
-        goal = { ...spot.pos };
-        target = laneTarget(foes, true)?.id ?? null;
-        return true;
-      }
+    for (const [i, at] of (ctx.objectives.runeAt ?? []).entries()) {
+      const spot = ctx.map.runeSpots[i];
+      if (at === null || !spot || at < now || at - now > ticks(OBJECTIVE.runeSoonS) || flat(spot.pos, h.pos) > OBJECTIVE.runeM) continue;
+      if (!among(friends, spot.pos, 1)) continue;
+      mode = 'objective';
+      goal = { ...spot.pos };
+      target = laneTarget(foes, true)?.id ?? null;
+      return true;
     }
-    // The Roc (GDD §11.3): enough allies near the Hollow and the enemy thinned or out of sight → fight it from the floor.
+    // The Roc (GDD §11.3): awake, enough allies near the Hollow, and the enemy thinned or out of sight.
     const hollow = ctx.map.hollow;
-    const roc = hollow ? ctx.store.list('unit').find((u) => u.unit.type === 'roc' && alive(u)) : undefined;
-    if (hollow && roc && !roc.unit.asleep === false) {
-      // Asleep before 20:00: nothing to do.
-    } else if (hollow && roc) {
-      const nearHollow = friends.filter((a) => flat(a.pos, hollow.centre) <= hollow.radius + OBJECTIVE.rocNearM);
+    const roc = hollow ? ctx.store.list('unit').find((u) => u.unit.type === 'roc' && alive(u) && !u.unit.asleep) : undefined;
+    if (hollow && roc && flat(h.pos, hollow.centre) <= hollow.radius + OBJECTIVE.rocNearM) {
+      const nearHollow = friends.filter((a) => flat(a.pos, hollow.centre) <= hollow.radius + OBJECTIVE.rocNearM).length;
       const dead = ctx.store.list('hero').filter((e) => e.team !== team && e.health.dead).length;
       const quiet = now - lastEnemyNearAt > ticks(OBJECTIVE.rocClearS) && !foes.some((e) => flat(e.pos, hollow.centre) <= OBJECTIVE.rocClearM);
-      if (nearHollow.length >= OBJECTIVE.rocAllies && (dead >= OBJECTIVE.rocDeadEnemies || quiet) && flat(h.pos, hollow.centre) <= hollow.radius + OBJECTIVE.rocNearM) {
+      if (nearHollow >= OBJECTIVE.rocAllies && (dead >= OBJECTIVE.rocDeadEnemies || quiet)) {
         mode = 'objective';
         goal = { x: hollow.centre.x, y: hollow.floorY, z: hollow.centre.z };
-        target = flat(roc.pos, h.pos) <= gunRange ? roc.id : null;
+        target = reach(roc) <= gunRange ? roc.id : null;
         return true;
       }
     }
     return false;
   }
 
-  /** GDD §11.3 Farm: Thickets by tier and level, the roamer from 10:00. */
+  /** GDD §11.3 Farm: Thickets by tier and level; the roamer from 10:00, anyone with no wave to escort. */
   function farm(): boolean {
-    const own = geom ? ctx.store.list('unit').some((u) => u.team === team && u.unit.lane === lane && alive(u)) : false;
+    const escort = geom ? ctx.store.list('unit').some((u) => u.team === team && u.unit.lane === lane && alive(u)) : false;
     const rotating = roamer && d.rotates && clock.seconds >= OBJECTIVE.rotateFromS;
-    if (!rotating && own) return false;
+    if (!rotating && escort) return false;
     const level = h.progress.level;
     let best: UnitEntity | null = null;
     for (const u of ctx.store.list('unit')) {
       if (u.team !== 'neutral' || u.unit.camp == null || !alive(u) || !canSee(team, u)) continue;
       const anchor = ctx.map.thickets[u.unit.camp];
       if (!anchor || flat(anchor.pos, h.pos) > OBJECTIVE.farmM) continue;
-      const tier = anchor.tier;
-      const ok = tier === 1 || (tier === 2 && level >= OBJECTIVE.tier2Level && d.shops === 'own') ||
-        (tier === 3 && level >= OBJECTIVE.tier3Level && d.shops === 'own');
-      if (!ok) continue;
-      if (!best || flat(u.pos, h.pos) < flat(best.pos, h.pos)) best = u;
+      const ok = anchor.tier === 1 || (d.shops === 'own' && (anchor.tier === 2 ? level >= OBJECTIVE.tier2Level : level >= OBJECTIVE.tier3Level));
+      if (ok && (!best || flat(u.pos, h.pos) < flat(best.pos, h.pos))) best = u;
     }
     if (!best) return false;
     mode = 'farm';
-    const gap = flat(best.pos, h.pos);
-    goal = gap > OBJECTIVE.farmStandM ? { ...best.pos } : null;
+    goal = flat(best.pos, h.pos) > OBJECTIVE.farmStandM ? { ...best.pos } : null;
     target = best.id;
     return true;
   }
 
   // ── Movement ──────────────────────────────────────────────────────────────────────────────────────────────
-  /** Steer round small towers the nav graph runs through (nav.ts). */
+  /** Steer round the towers the nav graph runs through (nav.ts). */
   function avoid(dx: number, dz: number): { x: number; z: number } {
     let x = dx;
     let z = dz;
     for (const s of ctx.store.list('structure')) {
-      if (s.structure.type === 'nest' || s.structure.solid === false) continue;
+      if (s.structure.solid === false) continue;
       const r = s.structure.body.radius + NAV.structureClearM;
       const cx = s.pos.x - h.pos.x;
       const cz = s.pos.z - h.pos.z;
       const c = dmath.hypot(cx, cz);
-      if (c > r + NAV.avoidAheadM || s.pos.y > h.pos.y + body.height || s.pos.y + s.structure.body.height < h.pos.y) continue;
+      if (c > r + NAV.avoidAheadM || c === 0 || s.pos.y > h.pos.y + body.height || s.pos.y + s.structure.body.height < h.pos.y) continue;
       if (c < r) {
-        // Inside the margin: push straight out, still heading on.
         x -= (cx / c) * NAV.avoidPush;
         z -= (cz / c) * NAV.avoidPush;
         continue;
@@ -593,20 +610,43 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
       const miss = dmath.hypot(perpX, perpZ);
       if (miss >= r) continue;
       // Slide past on the side the heading already leans to.
-      const pl = miss || 1;
-      const sx = miss > 0 ? -perpX / pl : -cz / c;
-      const sz = miss > 0 ? -perpZ / pl : cx / c;
-      x += sx * (r - miss) / r;
-      z += sz * (r - miss) / r;
+      const sx = miss > 0 ? -perpX / miss : -cz / c;
+      const sz = miss > 0 ? -perpZ / miss : cx / c;
+      x += (sx * (r - miss)) / r;
+      z += (sz * (r - miss)) / r;
     }
     const len = dmath.hypot(x, z) || 1;
     return { x: x / len, z: z / len };
   }
 
+  /** A waypoint at a tower's anchor counts as reached at the tower's edge. */
+  function arriveRadius(p: Vec3): number {
+    for (const a of anchors) if (flat(a.pos, p) < NAV.arriveM) return NAV.arriveM + a.r;
+    return NAV.arriveM;
+  }
+
+  /** The nearest node to p that can be seen from p at chest height (walls between are what strand bots). */
+  function nodeNear(p: Vec3, skip?: ReadonlySet<number>): number {
+    const cands = w.nav.near(p, NAV.candidates);
+    for (const id of cands) {
+      if (skip?.has(id)) continue;
+      const q = w.nav.node(id);
+      const dx = q.x - p.x;
+      const dy = q.y - p.y;
+      const dz = q.z - p.z;
+      const len = dmath.hypot(dx, dy, dz);
+      if (len < NAV.arriveM) return id;
+      const from = { x: p.x, y: p.y + NAV.eyeM, z: p.z };
+      const hit = ctx.physics.raycast(from, { x: dx / len, y: dy / len, z: dz / len }, len, LAYERS_SOLID, h.id);
+      if (!hit) return id;
+    }
+    return cands.find((id) => !skip?.has(id)) ?? cands[0] ?? -1;
+  }
+
   /** World direction toward `to` along the nav graph, and the link being crossed. */
-  function steer(to: Vec3): { x: number; z: number; kind: NavLinkKind } | null {
+  function steer(to: Vec3): Step | null {
     const now = clock.tick;
-    const straight = (p: Vec3): { x: number; z: number; kind: NavLinkKind } | null => {
+    const straight = (p: Vec3): Step | null => {
       const dx = p.x - h.pos.x;
       const dz = p.z - h.pos.z;
       const len = dmath.hypot(dx, dz);
@@ -614,28 +654,26 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     };
     if (w.nav.size === 0 || (flat(to, h.pos) <= NAV.directM && Math.abs(to.y - h.pos.y) < NAV.arriveDy)) return straight(to);
     if (!route || !routeGoal || flat(routeGoal, to) > NAV.goalMovedM || now - routeAt > ticks(NAV.replanS)) {
-      const start = w.nav.nearest(h.pos);
-      route = w.nav.route(start, w.nav.nearest(to), costs);
+      route = w.nav.route(nodeNear(h.pos, badStart), nodeNear(to), costs, blocked);
       routeGoal = { ...to };
       routeAt = now;
       step = 0;
       bestD = Infinity;
       bestAt = now;
       // Skip a start node behind us.
-      if (route && route.nodes.length > 1) {
+      if (route && route.nodes.length > 1 && route.kinds[1] === 'walk') {
         const a = w.nav.node(route.nodes[0]!);
         const b = w.nav.node(route.nodes[1]!);
-        if (flat(h.pos, b) < flat(a, b) && route.kinds[1] === 'walk') step = 1;
+        if (flat(h.pos, b) < flat(a, b)) step = 1;
       }
     }
     if (!route) return straight(to);
     while (step < route.nodes.length) {
       const p = w.nav.node(route.nodes[step]!);
-      if (flat(p, h.pos) < arriveRadius(p) && Math.abs(p.y - h.pos.y) < NAV.arriveDy) {
-        step++;
-        bestD = Infinity;
-        bestAt = now;
-      } else break;
+      if (flat(p, h.pos) >= arriveRadius(p) || Math.abs(p.y - h.pos.y) >= NAV.arriveDy) break;
+      step++;
+      bestD = Infinity;
+      bestAt = now;
     }
     if (step >= route.nodes.length) return straight(to);
     const p = w.nav.node(route.nodes[step]!);
@@ -644,67 +682,61 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
       bestD = dd;
       bestAt = now;
     } else if (now - bestAt > ticks(NAV.stuckS) * 2) {
-      // Stuck: replan from where we are next decision, and try the next node meanwhile.
+      // Stuck: this bot stops trusting that link (or start node) until it respawns, and plans afresh.
+      const k = step > 0 ? w.nav.link(route.nodes[step - 1]!, route.nodes[step]!) : -1;
+      if (k >= 0) blocked.add(k);
+      else badStart.add(route.nodes[step]!);
+      if (badStart.size > NAV.forgetBad) badStart.clear();
       route = null;
-      return straight(p);
-    } else if (now - bestAt > ticks(NAV.stuckS) && h.motor.grounded) jumpUntil = now + ticks(NAV.jumpHoldS);
-    const dir = straight(p) ?? { x: 0, z: 0, kind: 'walk' as NavLinkKind };
-    return { x: dir.x, z: dir.z, kind: route.kinds[step] ?? 'walk' };
-  }
-  /** A waypoint at a tower's anchor counts as reached at the tower's edge. */
-  function arriveRadius(p: Vec3): number {
-    for (const s of ctx.map.structures) {
-      if (flat(s.pos, p) < NAV.arriveM) return NAV.arriveM + NAV.structureClearM + (ctx.store.list('structure').find((e) => flat(e.pos, s.pos) < NAV.arriveM)?.structure.body.radius ?? 0);
+    } else if (now - bestAt > ticks(NAV.stuckS) && h.motor.grounded && jumpUntil < now) {
+      jumpUntil = now + ticks(NAV.jumpHoldS);
     }
-    return NAV.arriveM;
+    const dir = straight(p);
+    return dir ? { x: dir.x, z: dir.z, kind: route?.kinds[step] ?? 'walk' } : null;
   }
 
-  /** GDD §3.7: latch the lane's Updraft by holding Jump, ride, and jump off near the goal. Returns true while handling it. */
-  function ride(now: Tick, foesNear: boolean): boolean {
+  /** GDD §3.7: latch the lane's Updraft by holding Jump, ride, and jump off near the goal. True while handling it. */
+  function ride(now: Tick, danger: boolean): boolean {
     const updraft = w.updraftOf.get(lane);
     if (!geom || updraft === undefined || !goal) return false;
     const me = geom.project(h.pos);
-    const g = geom.project(goal);
-    const left = g.s - me.s;
+    const left = geom.project(goal).s - me.s;
+    const sign = Math.sign(left) || 1;
+    const d0 = geom.dir(me.s);
+    const along = dmath.atan2(d0.x * sign, d0.z * sign);
+    const wanted = rideOk && (mode === 'lane' || mode === 'push');
     if (h.motor.updraft !== null) {
       latchFrom = null;
-      cmd.forward = 0;
-      cmd.right = 0;
-      const d0 = geom.dir(me.s);
-      lookAlong(aim, dmath.atan2(d0.x * Math.sign(left || 1), d0.z * Math.sign(left || 1)), 0, d);
+      lookAlong(aim, along, 0, d);
       if (!jumpReleased) {
+        // Let go of Jump once: the dismount needs a fresh press.
         jumpReleased = true;
         return true;
       }
-      // Off near the goal, past it, with danger near, or when no longer wanted.
-      if (Math.abs(left) <= RIDE.offM || foesNear || !rideOk || mode !== 'lane') {
+      if (Math.abs(left) <= RIDE.offM || danger || !wanted) {
         cmd.held |= Button.Jump;
         cmd.pressed |= Button.Jump;
         rideCooldown = now + ticks(RIDE.giveUpS);
+        route = null;
       }
       return true;
     }
-    if (!rideOk || foesNear || now < rideCooldown || Math.abs(left) < RIDE.minM || me.off > LANE.corridorM) {
+    if (!wanted || danger || now < rideCooldown || Math.abs(left) < RIDE.minM || me.off > LANE.corridorM ||
+      h.stats.conditions.has('eggCarrier')) {
       latchFrom = null;
       return false;
     }
-    if (h.motor.updraftInReach !== updraft || h.stats.conditions.has('eggCarrier')) return latchFrom !== null && now - latchFrom < ticks(RIDE.giveUpS) ? holdLatch(me.s, left) : false;
+    const inReach = h.motor.updraftInReach === updraft;
+    if (!inReach && latchFrom === null) return false;
     latchFrom ??= now;
     if (now - latchFrom > ticks(RIDE.giveUpS)) {
       latchFrom = null;
-      rideCooldown = now + ticks(RIDE.giveUpS) * 2;
+      rideCooldown = now + ticks(RIDE.retryS);
       return false;
     }
-    return holdLatch(me.s, left);
-  }
-  function holdLatch(s: number, left: number): boolean {
-    const d0 = geom!.dir(s);
-    const sign = Math.sign(left) || 1;
     // Face the end to ride toward (the ride goes the way the camera faces at the latch), hold Jump, stand still.
-    aim.yaw = dmath.atan2(d0.x * sign, d0.z * sign);
+    aim.yaw = along;
     aim.pitch = 0;
-    cmd.forward = 0;
-    cmd.right = 0;
     cmd.held |= Button.Jump;
     if ((h.command.held & Button.Jump) === 0) cmd.pressed |= Button.Jump;
     jumpReleased = false;
@@ -712,39 +744,38 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   }
 
   // ── Abilities and item actives (GDD §11.2) ────────────────────────────────────────────────────────────────
-  function cast(now: Tick, foe: HeroEntity | null, foesNear: number): void {
-    if (now < castAt || h.abilities.casting !== null || h.stats.conditions.has('silenced') || h.motor.updraft !== null) return;
-    const hp = hpFrac();
+  function wants(use: Use, range: number, foe: HeroEntity | null, onTarget: boolean, selfFallback: boolean): boolean {
+    const now = clock.tick;
     const gap = foe ? flat(foe.pos, h.pos) : Infinity;
+    switch (use) {
+      case 'enemy':
+        return onTarget && gap <= range * (d.abilities === 'inRange' ? 1 : CAST.predictRange);
+      case 'nova':
+        return foe !== null && gap <= CAST.novaM;
+      case 'heal':
+      case 'ally':
+        return hpFrac() < CAST.healHp && h.health.inCombatUntil > now && (use === 'heal' || selfFallback);
+      case 'mobility':
+        return (mode === 'retreat' && foe !== null && gap <= RETREAT.escapeM) ||
+          (mode === 'fight' && gap > sweet && gap <= range + sweet && hpFrac() > CAST.healHp);
+      case 'buff':
+        return mode === 'fight' && foe !== null && gap <= gunRange;
+    }
+  }
+  function cast(now: Tick, foe: HeroEntity | null): void {
+    if (now < castAt || h.abilities.casting !== null || h.stats.conditions.has('silenced') || h.motor.updraft !== null) return;
     const onTarget = foe !== null && aim.target === foe.id && now >= aim.fireFrom;
+    const last = ABILITY_BUTTONS.length - 1;
     for (let i = 0; i < ABILITY_BUTTONS.length; i++) {
       const s = h.abilities.slots[i]!;
-      if (!s.unlocked || s.readyAt > now || s.charges <= 0) continue;
       const a = def.abilities[i]!;
-      const range = a.range > 0 ? a.range : CAST.defaultRangeM;
+      if (!s.unlocked || s.readyAt > now || s.charges <= 0) continue;
       const use = uses[i]!;
-      let go = false;
-      switch (use) {
-        case 'enemy':
-          go = onTarget && gap <= range * (d.abilities === 'inRange' ? 1 : CAST.predictRange);
-          break;
-        case 'nova':
-          go = foe !== null && gap <= CAST.novaM;
-          break;
-        case 'heal':
-        case 'ally':
-          go = hp < CAST.healHp && h.health.inCombatUntil > now && (use === 'heal' || a.selfFallback === true);
-          break;
-        case 'mobility':
-          go = (mode === 'retreat' && foe !== null && gap <= RETREAT.escapeM) || (mode === 'fight' && gap > sweet && gap <= range + sweet && hp > CAST.healHp);
-          break;
-        case 'buff':
-          go = mode === 'fight' && foe !== null && gap <= gunRange;
-          break;
-      }
-      // Raptor holds its ultimate for 2+ heroes or a likely kill (GDD §11.2).
-      if (go && i === ABILITY_BUTTONS.length - 1 && d.abilities === 'chain' && foe && (use === 'enemy' || use === 'nova')) {
-        go = foesNear >= CAST.holdHeroes || foe.health.hp / Math.max(1, foe.stats.final.maxHealth) <= CAST.holdKillHp;
+      let go = wants(use, a.range > 0 ? a.range : CAST.defaultRangeM, foe, onTarget, a.selfFallback === true);
+      // Raptor holds its ultimate for two or more heroes or a likely kill (GDD §11.2).
+      if (go && i === last && d.abilities === 'chain' && foe && (use === 'enemy' || use === 'nova')) {
+        const grouped = enemyHeroes().filter((e) => flat(e.pos, foe.pos) <= CAST.holdRadiusM).length;
+        go = grouped >= CAST.holdHeroes || fraction(foe) <= CAST.holdKillHp;
       }
       if (!go) continue;
       cmd.held |= ABILITY_BUTTONS[i]!;
@@ -752,18 +783,14 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
       castAt = now + ticks(CAST.everyS);
       return;
     }
-    // Item actives: the same rules, on Z, X, C, V.
+    // Item actives, on Z, X, C, V, by the same rules.
     for (let i = 0; i < ITEM_BUTTONS.length; i++) {
       const id = h.inventory.actives[i];
       const owned = id ? h.inventory.items.find((o) => o.item === id) : undefined;
       const active = id ? w.catalogue.get(id)?.active : null;
       if (!active || !owned || owned.readyAt > now) continue;
       const use = useOf(active.targeting, active.effects, active.affects?.teams === 'allies');
-      const go = use === 'enemy' ? onTarget && gap <= (active.range || CAST.defaultRangeM)
-        : use === 'heal' || use === 'ally' ? hp < CAST.healHp && h.health.inCombatUntil > now
-          : use === 'mobility' ? mode === 'retreat' && foe !== null && gap <= RETREAT.escapeM
-            : foe !== null && gap <= gunRange && mode === 'fight';
-      if (!go) continue;
+      if (!wants(use, active.range || CAST.defaultRangeM, foe, onTarget, active.selfFallback === true)) continue;
       cmd.held |= ITEM_BUTTONS[i]!;
       cmd.pressed |= ITEM_BUTTONS[i]!;
       castAt = now + ticks(CAST.everyS);
@@ -774,17 +801,25 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   // ── The command ───────────────────────────────────────────────────────────────────────────────────────────
   function shop(now: Tick): void {
     if (h.inventory.shopZone == null || now < buyAt) return;
-    const phase = phaseOf(clock.seconds, BUILDS.phases);
-    const slots = ITEM_SLOTS + ctx.teams[team].flexSlots;
-    plan ??= choosePurchase(h, w.catalogue, w.policy(team, h.hero.heroId), phase, slots, shopRng);
+    plan ??= choosePurchase(h, w.catalogue, policy(), phaseOf(clock.seconds, BUILDS.phases), slots(), shopRng);
     if (!plan) return;
     buyAt = now + SHOP.buyEveryTicks;
-    if (plan.sell && h.inventory.items.some((o) => o.item === plan!.sell)) {
-      cmd.sell = plan.sell;
+    const sell = plan.sell;
+    if (sell && h.inventory.items.some((o) => o.item === sell)) {
+      cmd.sell = sell;
       return;
     }
     cmd.buy = plan.buy;
     plan = null;
+  }
+
+  function lineOfSight(t: Entity, p: Vec3, now: Tick): boolean {
+    if (losFor !== t.id || now - losAt >= TARGET.losEveryTicks) {
+      losFor = t.id;
+      losAt = now;
+      losOk = clear(t, p);
+    }
+    return losOk;
   }
 
   function tick(): void {
@@ -793,19 +828,17 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     cmd.pressed = 0;
     cmd.buy = null;
     cmd.sell = null;
-    cmd.upgrade = null;
     cmd.ping = null;
     cmd.forward = 0;
     cmd.right = 0;
-    const slot = apOrder ? nextUpgrade(h, apOrder) : null;
-    if (slot !== null) cmd.upgrade = slot;
+    cmd.upgrade = apOrder ? nextUpgrade(h, apOrder) : null;
     if (h.health.dead) {
       route = null;
       target = null;
+      claim = null;
       latchFrom = null;
       homeRetreat = false;
       mode = 'lane';
-      plan = null;
       cmd.yaw = aim.yaw;
       cmd.pitch = aim.pitch;
       h.command = cmd;
@@ -814,78 +847,67 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     if (now >= next) {
       next = now + decisionTicks;
       decide();
-      // Plan the next purchase once per decision when there is money to spend (the shop-trip rule reads it).
-      if (!plan && h.progress.seeds >= MIN_ITEM_COST) {
-        plan = choosePurchase(h, w.catalogue, w.policy(team, h.hero.heroId), phaseOf(clock.seconds, BUILDS.phases),
-          ITEM_SLOTS + ctx.teams[team].flexSlots, shopRng);
-      }
+      // The next purchase, planned when there is money for one (the shop-trip rule reads it).
+      if (!plan && h.progress.seeds >= minCost) plan = choosePurchase(h, w.catalogue, policy(), phaseOf(clock.seconds, BUILDS.phases), slots(), shopRng);
     }
     shop(now);
 
-    // Aim: the target, else the claim, else along the way.
-    const t = target === null ? undefined : ctx.store.get(target);
-    if (target !== null && (!alive(t) || !canSee(team, t))) target = null;
-    const foe = t && t.kind === 'hero' && target !== null ? t : null;
-    const foesNear = foe ? enemyHeroes().filter((e) => flat(e.pos, foe.pos) <= CAST.holdRadiusM).length : 0;
-    let firing = false;
+    // Aim: a claim, else the target, else along the way.
+    let t = target === null ? undefined : ctx.store.get(target);
+    if (target !== null && (!alive(t) || !canSee(team, t))) {
+      target = null;
+      t = undefined;
+    }
     const c = claim === null ? undefined : ctx.store.get(claim.id);
     if (claim && !alive(c)) claim = null;
+    const foe = t && t.kind === 'hero' ? t : null;
     let moveTo = goal;
     if (claim && c) {
       // Melee pickups: walk onto it, look at it, swing (tap for light, hold for heavy).
-      const p = { x: c.pos.x, y: c.pos.y, z: c.pos.z };
-      moveTo = p;
+      moveTo = { ...c.pos };
       if (aim.target !== c.id) acquire(aim, c.id, false, now, d, rng);
-      track(aim, h, body, p, 0, 0, now, d, rng);
-      if (flat(p, h.pos) <= OBJECTIVE.meleeReachM && now >= meleeAt) {
+      track(aim, h, body, c.pos, 0, 0, now, d, rng);
+      if (flat(c.pos, h.pos) <= OBJECTIVE.meleeReachM && now >= meleeAt && now >= aim.fireFrom) {
         meleeUntil = now + ticks(claim.heavy ? OBJECTIVE.heavyHoldS : 0);
         meleeAt = now + ticks(FIGHT.meleeEveryS + (claim.heavy ? OBJECTIVE.heavyHoldS : 0));
         cmd.pressed |= Button.Melee;
       }
-    } else if (target !== null && t) {
+    } else if (t) {
       if (aim.target !== t.id) acquire(aim, t.id, t.kind === 'hero', now, d, rng);
       const p = aimPoint(t, aim.head);
-      targetPoint = p;
       // Lead a moving target by the bullet's flight time (projectile guns).
       const speed = def.weapon.hitscan ? 0 : def.weapon.projectileSpeed;
-      const tt = speed > 0 ? dist3(p, h.pos) / speed : 0;
-      const led = { x: p.x + t.vel.x * tt * d.lead, y: p.y + t.vel.y * tt * d.lead, z: p.z + t.vel.z * tt * d.lead };
-      const los = dmath.hypot(p.x - h.pos.x, p.z - h.pos.z) || 1;
-      const lateral = Math.abs((t.vel.x * (p.z - h.pos.z) - t.vel.z * (p.x - h.pos.x)) / los);
+      const tt = speed > 0 ? (dist3(p, h.pos) / speed) * d.lead : 0;
+      const led = { x: p.x + t.vel.x * tt, y: p.y + t.vel.y * tt, z: p.z + t.vel.z * tt };
+      const span = flat(p, h.pos) || 1;
+      const lateral = Math.abs((t.vel.x * (p.z - h.pos.z) - t.vel.z * (p.x - h.pos.x)) / span);
       const size = (t.kind === 'structure' ? t.structure.body.radius : t.radius) / Math.max(1, dist3(p, h.pos));
       const ready = track(aim, h, body, led, lateral, size, now, d, rng);
-      const tooFar = reach(t) > gunRange;
-      firing = ready && !tooFar && !h.weapon.reloading && (t.kind !== 'structure' || !t.stats.conditions.has('invulnerable') || !!t.structure.weakPoint) &&
-        (now % LOS_EVERY !== 0 || clear(t, p));
-      if (firing && clear(t, p)) {
-        cmd.held |= Button.Fire;
-        if (h.weapon.firing) kick(aim);
-      }
-      cast(now, foe, foesNear);
+      if (ready && reach(t) <= gunRange && !h.weapon.reloading && lineOfSight(t, p, now)) cmd.held |= Button.Fire;
+      cast(now, foe);
       // Light melee anything right on top of us while reloading.
-      if (h.weapon.reloading && reach(t) <= FIGHT.meleeM && now >= meleeAt) {
+      if (h.weapon.reloading && reach(t) <= FIGHT.meleeM && now >= meleeAt && t.kind !== 'pickup') {
         cmd.pressed |= Button.Melee;
         meleeAt = now + ticks(FIGHT.meleeEveryS);
       }
     } else {
       aim.target = null;
-      targetPoint = null;
-      if (mode === 'retreat') cast(now, null, 0);
+      if (mode === 'retreat') cast(now, null);
       // Top up the magazine between fights.
       if (h.weapon.ammo < h.stats.final.magazine * FIGHT.reloadBelow && !h.weapon.reloading) cmd.pressed |= Button.Reload;
     }
     if (meleeUntil > now) cmd.held |= Button.Melee;
+    if ((cmd.pressed & Button.Melee) !== 0) cmd.held |= Button.Melee;
 
-    // Movement.
-    const foesClose = enemyHeroes().some((e) => flat(e.pos, h.pos) <= RIDE.dangerM);
-    let walk: { x: number; z: number; kind: NavLinkKind } | null = null;
-    const riding = !claim && ride(now, foesClose);
-    if (!riding && moveTo) walk = steer(moveTo);
+    // Movement: ride, or walk the route; strafe in fights.
+    const danger = enemyHeroes().some((e) => flat(e.pos, h.pos) <= RIDE.dangerM);
+    const riding = !claim && ride(now, danger);
+    const walk = !riding && moveTo ? steer(moveTo) : null;
     let wx = walk?.x ?? 0;
     let wz = walk?.z ?? 0;
     if (!riding && strafe && t) {
       if (now >= strafeUntil) {
-        strafeDir = rng.chance(FIGHT.strafeFlip) ? (strafeDir === 1 ? -1 : 1) : strafeDir;
+        if (rng.chance(FIGHT.strafeFlip)) strafeDir = strafeDir === 1 ? -1 : 1;
         strafeUntil = now + ticks(FIGHT.strafeMinS + rng.next() * (FIGHT.strafeMaxS - FIGHT.strafeMinS));
       }
       const tx = t.pos.x - h.pos.x;
@@ -899,32 +921,46 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
         dashAt = now;
       }
     }
-    if (wx !== 0 || wz !== 0) {
-      const a = avoid(wx, wz);
-      wx = a.x;
-      wz = a.z;
+    // Off-route moves (strafing, backing off, walking straight at a goal) never step off a ledge: bridges and the
+    // Hollow's rim drop a fighter out of the fight.
+    if (!riding && (wx !== 0 || wz !== 0) && (strafe || !walk || !route) && h.motor.grounded) {
+      if (now >= ledgeAt) {
+        ledgeAt = now + NAV.ledgeEveryTicks;
+        const len = dmath.hypot(wx, wz) || 1;
+        const px = h.pos.x + (wx / len) * NAV.ledgeProbeM;
+        const pz = h.pos.z + (wz / len) * NAV.ledgeProbeM;
+        const ground = ctx.physics.groundHeight(px, pz, h.pos.y + NAV.eyeM);
+        ledge = ground === null || ground < h.pos.y - NAV.ledgeDropM;
+      }
+      if (ledge) {
+        strafeDir = strafeDir === 1 ? -1 : 1;
+        wx = walk && !strafe ? 0 : (walk?.x ?? 0);
+        wz = walk && !strafe ? 0 : (walk?.z ?? 0);
+      }
     }
     if (!riding) {
-      if (!t && !claim && walk) lookAlong(aim, dmath.atan2(walk.x, walk.z), 0, d);
-      // Links: jump the gaps and climbs, hold Jump into mantles (never long enough to latch an Updraft).
-      if (walk && route && (walk.kind === 'jump' || walk.kind === 'mantle' || walk.kind === 'dashJump')) {
-        const p = w.nav.node(route.nodes[step] ?? 0);
-        if (flat(p, h.pos) <= NAV.jumpM && h.motor.grounded && jumpUntil <= now) jumpUntil = now + ticks(NAV.jumpHoldS);
+      if (wx !== 0 || wz !== 0) {
+        const a = avoid(wx, wz);
+        wx = a.x;
+        wz = a.z;
+        if (!t && !claim) lookAlong(aim, dmath.atan2(wx, wz), 0, d);
+      }
+      // Links: jump gaps and climbs, hold Jump into mantles (never long enough to latch an Updraft).
+      if (walk && route && walk.kind !== 'walk' && walk.kind !== 'drop' && h.motor.grounded && jumpUntil < now) {
+        if (flat(w.nav.node(route.nodes[step] ?? 0), h.pos) <= NAV.jumpM) jumpUntil = now + ticks(NAV.jumpHoldS);
       }
       if (jumpUntil > now) {
         cmd.held |= Button.Jump;
         if ((h.command.held & Button.Jump) === 0) cmd.pressed |= Button.Jump;
       }
-    }
-    cmd.yaw = aim.yaw;
-    cmd.pitch = aim.pitch;
-    const s = dmath.sin(aim.yaw);
-    const co = dmath.cos(aim.yaw);
-    // World direction → the command's camera-relative axes (right = (−cos, sin)).
-    if (!riding) {
+      // World direction → the command's camera-relative axes (forward = (sin, cos), right = (−cos, sin)).
+      const s = dmath.sin(aim.yaw);
+      const co = dmath.cos(aim.yaw);
       cmd.forward = wx * s + wz * co;
       cmd.right = -wx * co + wz * s;
     }
+    cmd.yaw = aim.yaw;
+    cmd.pitch = aim.pitch;
     h.command = cmd;
   }
 
@@ -935,16 +971,17 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     tick,
     moved(yaw) {
       route = null;
+      blocked.clear();
+      badStart.clear();
       latchFrom = null;
       if (yaw !== undefined) aim.yaw = yaw;
     },
+    fired: () => kick(aim),
     mode: () => mode,
+    debug: () => ({ mode, goal, target, claim, step, route: route?.nodes.length ?? null, latchFrom, riding: h.motor.updraft !== null }),
     hash(hh) {
-      hh.value([mode, goal, target, targetPoint, claim, step, aim.yaw, aim.pitch, aim.errYaw, aim.errPitch, aim.target, aim.fireFrom, next, plan,
-        latchFrom, strafeDir, homeRetreat]);
+      hh.value([mode, goal, target, claim, step, aim.yaw, aim.pitch, aim.errYaw, aim.errPitch, aim.target, aim.fireFrom, next, plan,
+        latchFrom, strafeDir, homeRetreat, jumpUntil, meleeUntil, castAt]);
     },
   };
 }
-
-/** Sentinel timing for pods (GDD §8.2): the ripe window is the last POD_RIPE_S of a pod's life. */
-const POD_RIPE_S = 1.4;

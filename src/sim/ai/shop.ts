@@ -137,8 +137,9 @@ export function choosePurchase(
  */
 export function nextUpgrade(h: HeroEntity, priority: readonly number[]): number | null {
   const { ap, slots } = h.abilities;
-  const ult = slots[3];
-  if (ult.unlocked && ult.tier < AP_COSTS.length && ap >= AP_COSTS[ult.tier]!) return 3;
+  const last = slots.length - 1;
+  const ult = slots[last]!;
+  if (ult.unlocked && ult.tier < AP_COSTS.length && ap >= AP_COSTS[ult.tier]!) return last;
   for (let tier = 0; tier < AP_COSTS.length; tier++) {
     for (const slot of priority) {
       const s = slots[slot];

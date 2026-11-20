@@ -152,6 +152,38 @@ export const FIGHT = {
   regroupScore: 1.1,
   /** Chases a lost target to its last-seen point for this long. */
   chaseS: 3,
+  /** Shoots this far past the gun's falloff end (but never beyond its range). */
+  pastFalloffM: 10,
+  /** Fights from at least this far, or the gun's falloff start. */
+  minSweetM: 8,
+  /** A tower's (HP × hits per second) counts this much against a hero's (effective HP × DPS) in the fight score. */
+  towerWeight: 0.02,
+  /** Falls back this far along the lane when outnumbered. */
+  fallBackM: 25,
+  /** Steps back this far when too close. */
+  backOffM: 6,
+  /** Chance to flip strafe direction at each change. */
+  strafeFlip: 0.7,
+  /** Chance per tick, once a dash is allowed, to take it. */
+  dashChance: 0.02,
+  /** Tops up the magazine below this fraction with nothing to shoot. */
+  reloadBelow: 0.5,
+} as const;
+
+/** Lane-time target priorities (higher first; each loses up to 1 with distance) and line-of-sight checks. */
+export const TARGET = {
+  pod: 6,
+  lastHit: 5,
+  poke: 4,
+  structure: 3,
+  wave: 2,
+  nest: 1,
+  /** A ray that stops this close to the target still counts as clear. */
+  losSlackM: 0.6,
+  /** Line of sight to the current target is re-checked this often (ticks). */
+  losEveryTicks: 6,
+  /** Once-per-entity draws are pruned of despawned entities past this many. */
+  forgetAfter: 256,
 } as const;
 
 /** Retreat, healing and the Home Roost (GDD §11.3). */
@@ -208,6 +240,18 @@ export const NAV = {
   stuckProgressM: 0.4,
   /** Nearest-node search rings beyond the first. */
   searchRings: 3,
+  /** Start and goal nodes: the first of this many nearest that a ray from eyeM above the point reaches. */
+  candidates: 6,
+  eyeM: 1,
+  /** Start nodes a bot has given up on are forgotten past this many. */
+  forgetBad: 16,
+  /** Off-route moves probe the ground this far ahead every ledgeEveryTicks; a drop deeper than ledgeDropM stops them. */
+  ledgeProbeM: 1.5,
+  ledgeEveryTicks: 3,
+  ledgeDropM: 1.5,
+  /** Steering looks this far past a tower's margin for one in the way, and pushes out this hard inside it. */
+  avoidAheadM: 6,
+  avoidPush: 2,
   /** Routes keep this far (plus the tower's radius) from every tower's centre: the graph doesn't know their colliders. */
   structureClearM: 1.2,
   /** Towers at least this wide are routed round on the graph; narrower ones are steered round on the way. */
@@ -232,8 +276,9 @@ export const RIDE = {
   holdS: 0.3,
   /** Gets off at once with an enemy hero visible this close. */
   dangerM: 30,
-  /** Gives up latching after this long. */
+  /** Gives up latching after this long, and tries again after retryS. */
   giveUpS: 1.5,
+  retryS: 6,
 } as const;
 
 /** Objectives (GDD §11.3, §11.7). */
@@ -243,6 +288,8 @@ export const OBJECTIVE = {
   runeSoonS: 20,
   /** The Egg draws the nearest eggBots of each flock while it waits or lies on the ground. */
   eggBots: 3,
+  /** Bots go for the Egg from this far. */
+  eggM: 90,
   /** Escorts keep within this distance of the carrier. */
   escortM: 10,
   /** Swings at a melee pickup this close (horizontal). */
@@ -278,6 +325,9 @@ export const OBJECTIVE = {
   defendHeroes: 2,
   defendBots: 3,
   defendM: 30,
+  /** … that hit it in the last defendS, answered by bots within defendRangeM. */
+  defendS: 3,
+  defendRangeM: 120,
   /** Pushes after this match time, with Rekindle up, or with this many enemies dead (GDD §11.3). */
   pushFromS: 1200,
   pushDeadEnemies: 2,
@@ -293,6 +343,8 @@ export const CAST = {
   defaultRangeM: 15,
   /** 'predict': casts only when the target is within this fraction of the range. */
   predictRange: 0.8,
+  /** Self-centred damage fires with the target this close. */
+  novaM: 7,
   /** Self heals and shields fire below this HP fraction in combat. */
   healHp: 0.6,
   /** Raptor holds its ultimate for this many enemy heroes within holdRadiusM of the target, or a target this low. */

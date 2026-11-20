@@ -19,8 +19,15 @@ export interface Nav {
   node(i: number): Vec3;
   /** The best node to start from or aim for near p (−1 on a map without a graph). */
   nearest(p: Vec3): number;
-  /** Cheapest route under `cost` (per link kind; Infinity = never), or null when there is none. */
-  route(from: number, to: number, cost: Readonly<Record<NavLinkKind, number>>): Route | null;
+  /** Up to k nodes near p, best first (height counts NAV.heightWeight times more than horizontal distance). */
+  near(p: Vec3, k: number): number[];
+  /**
+   * Cheapest route under `cost` (per link kind; Infinity = never), avoiding the `blocked` link indices, or null when
+   * there is none.
+   */
+  route(from: number, to: number, cost: Readonly<Record<NavLinkKind, number>>, blocked?: ReadonlySet<number>): Route | null;
+  /** The index of the link a → b, or −1. */
+  link(a: number, b: number): number;
 }
 
 const KINDS: readonly NavLinkKind[] = ['walk', 'jump', 'dashJump', 'mantle', 'chimney', 'vine', 'updraft', 'drop'];
@@ -144,87 +151,86 @@ function buildNav(map: MapData): Nav {
     return top;
   };
 
+  function near(p: Vec3, k: number): number[] {
+    if (n === 0) return [];
+    const cx = cellOf(p.x);
+    const cz = cellOf(p.z);
+    const found: { id: number; d: number }[] = [];
+    const score = (id: number): number => {
+      const q = nodes[id]!;
+      return dmath.hypot(q.x - p.x, q.z - p.z) + Math.abs(q.y - p.y) * NAV.heightWeight;
+    };
+    for (let ring = 0; ring <= NAV.searchRings && found.length < k; ring++) {
+      for (let i = -ring; i <= ring; i++) {
+        for (let j = -ring; j <= ring; j++) {
+          if (Math.max(Math.abs(i), Math.abs(j)) !== ring) continue;
+          for (const id of cells.get(cellKey(cx + i, cz + j)) ?? []) found.push({ id, d: score(id) });
+        }
+      }
+    }
+    // Far from every node (fallen, flung): search them all.
+    if (found.length === 0) nodes.forEach((_, id) => found.push({ id, d: score(id) }));
+    found.sort((a, b) => a.d - b.d || a.id - b.id);
+    return found.slice(0, k).map((f) => f.id);
+  }
+
+  function route(from: number, goal: number, cost: Readonly<Record<NavLinkKind, number>>, blocked?: ReadonlySet<number>): Route | null {
+    if (from < 0 || goal < 0 || from >= n || goal >= n) return null;
+    const costs = KINDS.map((k) => cost[k]);
+    generation++;
+    heapNode.length = 0;
+    heapF.length = 0;
+    const target = nodes[goal]!;
+    const h = (i: number): number => {
+      const q = nodes[i]!;
+      return dmath.hypot(target.x - q.x, target.y - q.y, target.z - q.z);
+    };
+    g[from] = 0;
+    came[from] = -1;
+    cameKind[from] = 0;
+    seen[from] = generation;
+    push(from, h(from));
+    while (heapNode.length > 0) {
+      const cur = pop();
+      if (done[cur] === generation) continue;
+      done[cur] = generation;
+      if (cur === goal) break;
+      for (let k = first[cur]!; k < first[cur + 1]!; k++) {
+        const step = len[k]! * costs[kind[k]!]!;
+        if (step === Infinity || blocked?.has(k)) continue;
+        const next = to[k]!;
+        if (done[next] === generation) continue;
+        const tentative = g[cur]! + step;
+        if (seen[next] === generation && tentative >= g[next]!) continue;
+        seen[next] = generation;
+        g[next] = tentative;
+        came[next] = cur;
+        cameKind[next] = kind[k]!;
+        push(next, tentative + h(next));
+      }
+    }
+    if (done[goal] !== generation) return null;
+    const out: number[] = [];
+    const kinds: NavLinkKind[] = [];
+    for (let i = goal; i >= 0; i = came[i]!) {
+      out.push(i);
+      kinds.push(KINDS[cameKind[i]!]!);
+    }
+    out.reverse();
+    kinds.reverse();
+    kinds[0] = 'walk';
+    return { nodes: out, kinds };
+  }
+
   return {
     size: n,
     node: (i) => nodes[i]!,
-    nearest(p) {
-      if (n === 0) return -1;
-      const cx = cellOf(p.x);
-      const cz = cellOf(p.z);
-      let best = -1;
-      let bestD = Infinity;
-      for (let ring = 0; ring <= NAV.searchRings && best < 0; ring++) {
-        for (let i = -ring; i <= ring; i++) {
-          for (let k = -ring; k <= ring; k++) {
-            if (Math.max(Math.abs(i), Math.abs(k)) !== ring) continue;
-            for (const id of cells.get(cellKey(cx + i, cz + k)) ?? []) {
-              const q = nodes[id]!;
-              const d = dmath.hypot(q.x - p.x, q.z - p.z) + Math.abs(q.y - p.y) * NAV.heightWeight;
-              if (d < bestD || (d === bestD && id < best)) {
-                bestD = d;
-                best = id;
-              }
-            }
-          }
-        }
-      }
-      if (best >= 0) return best;
-      // Far from every node (fallen, flung): the nearest anywhere.
-      nodes.forEach((q, id) => {
-        const d = dmath.hypot(q.x - p.x, q.z - p.z) + Math.abs(q.y - p.y) * NAV.heightWeight;
-        if (d < bestD) {
-          bestD = d;
-          best = id;
-        }
-      });
-      return best;
-    },
-    route(from, goal, cost) {
-      if (from < 0 || goal < 0 || from >= n || goal >= n) return null;
-      const costs = KINDS.map((k) => cost[k]);
-      generation++;
-      heapNode.length = 0;
-      heapF.length = 0;
-      const target = nodes[goal]!;
-      const h = (i: number): number => {
-        const q = nodes[i]!;
-        return dmath.hypot(target.x - q.x, target.y - q.y, target.z - q.z);
-      };
-      g[from] = 0;
-      came[from] = -1;
-      cameKind[from] = 0;
-      seen[from] = generation;
-      push(from, h(from));
-      while (heapNode.length > 0) {
-        const cur = pop();
-        if (done[cur] === generation) continue;
-        done[cur] = generation;
-        if (cur === goal) break;
-        for (let k = first[cur]!; k < first[cur + 1]!; k++) {
-          const step = len[k]! * costs[kind[k]!]!;
-          if (step === Infinity) continue;
-          const next = to[k]!;
-          if (done[next] === generation) continue;
-          const tentative = g[cur]! + step;
-          if (seen[next] === generation && tentative >= g[next]!) continue;
-          seen[next] = generation;
-          g[next] = tentative;
-          came[next] = cur;
-          cameKind[next] = kind[k]!;
-          push(next, tentative + h(next));
-        }
-      }
-      if (done[goal] !== generation) return null;
-      const out: number[] = [];
-      const kinds: NavLinkKind[] = [];
-      for (let i = goal; i >= 0; i = came[i]!) {
-        out.push(i);
-        kinds.push(KINDS[cameKind[i]!]!);
-      }
-      out.reverse();
-      kinds.reverse();
-      kinds[0] = 'walk';
-      return { nodes: out, kinds };
+    nearest: (p) => near(p, 1)[0] ?? -1,
+    near,
+    route,
+    link(a, b) {
+      for (let k = first[a]!; k < first[a + 1]!; k++) if (to[k] === b) return k;
+      return -1;
     },
   };
 }
