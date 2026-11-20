@@ -2619,3 +2619,21 @@ The Build Lab's Phase B (D-EP-049) runs on the simulation track, at most 4 proce
 Release 2 ships against the same stability bar as Release 1. No Stage 5 work follows (D-EP-050).
 
 **Why:** the user's choice after Release 1.
+
+### D-EP-053 · 21/11/2026 — Lanes rework and the zipline start come before the remaining art
+**Decision:** the user's feedback on Release 1 adds functionality, which comes first (D-EP-051):
+- every lane gets a bridge;
+- lanes stop being flat and become isolated from each other;
+- each hero is assigned a lane and starts the match riding that lane's zipline.
+
+The Level Designer reworks the lanes (`docs/briefs/W8-lanes.md`). The Architect adds lane assignment and the zipline
+start (`docs/briefs/W8-start.md`).
+
+The Environment Artist pauses lane-area dressing until the new layout lands, and continues only the layout-independent
+work: memory, deferred generation and interiors. Bird and structure art carry on, because they don't touch the map.
+
+These changes, the Practice Swap bird fix and finished art ship together in the next push, against the same stability bar.
+
+**Why:** "the lanes are too flat look back at the video references each lane should have a bridge on it, and its too
+open the lanes should be more isolated, and you should be assigned a lane at the start of the game and put on the
+zipline".
