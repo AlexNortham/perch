@@ -11,7 +11,7 @@ import type { BoneName } from './bird';
 import { GUN_CAP } from './constants';
 import { STATES } from './debug';
 import { BIRD_LOD } from './sculpted';
-import { SCULPTED_BUILDS } from './sculpted-birds';
+import { SCULPTED_IDS } from './heroes';
 import { fledglingGeometry } from './fledgling';
 import { createModelKit } from './index';
 import { triangles } from './parts';
@@ -19,9 +19,9 @@ import { TEAM_COLOURS } from '../palette';
 
 const OLD: readonly HeroId[] = ['shrike', 'albatross', 'kingfisher', 'lyrebird'];
 const TWELVE: readonly HeroId[] = [...OLD, 'owl', 'pelican', 'secretarybird', 'starling', 'hornbill', 'flamingo', 'penguin', 'puffin'];
-/** Birds sculpted to the style guide (D-ART-004). */
-const SCULPTED = Object.keys(SCULPTED_BUILDS) as HeroId[];
-const FOUR: readonly HeroId[] = [...TWELVE, ...SCULPTED];
+/** Birds sculpted to the style guide (D-ART-004, D-ART-010). */
+const SCULPTED = SCULPTED_IDS;
+const FOUR: readonly HeroId[] = [...new Set([...TWELVE, ...SCULPTED])];
 /** Style guide §11.3: at most three draw calls per bird (opaque body, cut-out feathers, gun). */
 const SCULPTED_DRAW_CALLS = 3;
 /** Building every sculpted bird at every level takes a few seconds under a parallel run. */

@@ -1,5 +1,19 @@
-// TODO(Hero Engineer B): Frigatebird's kit is data in src/sim/data/heroes/frigatebird.ts; add `hooks` here only for what data can't express.
+/**
+ * Frigatebird's hooks: only what data can't say.
+ * - Plunder Shot: the Song shield goes to the caster when the bolt lands (an onHit effect lands on the victim).
+ */
 import type { HeroModule } from '../../core/contracts';
-import { frigatebirdDef } from '../../data/heroes/frigatebird';
+import { frigatebirdDef, PLUNDER_HIT_HOOK, PLUNDER_SHIELD } from '../../data/heroes/frigatebird';
 
-export const frigatebird: HeroModule = { def: frigatebirdDef };
+export const frigatebird: HeroModule = {
+  def: frigatebirdDef,
+  implemented: true,
+  hooks: (ctx) => ({
+    onEffect(name, _target, cause) {
+      if (name !== PLUNDER_HIT_HOOK || cause.source === null) return;
+      const hero = ctx.store.getKind(cause.source, 'hero');
+      if (!hero || hero.health.dead) return;
+      ctx.effects.apply(PLUNDER_SHIELD, { entity: hero.id, point: { ...hero.pos }, dir: { x: 0, y: 0, z: 1 } }, cause);
+    },
+  }),
+};
