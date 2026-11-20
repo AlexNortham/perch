@@ -24,7 +24,8 @@ beforeAll(() => {
 }, GENERATION_TIMEOUT_MS);
 afterAll(() => rmSync(out, { recursive: true, force: true }));
 
-describe('wiki coverage', () => {
+// Every test reads the generated pages (and some the committed ones): under load they need more than the 5 s default.
+describe('wiki coverage', { timeout: GENERATION_TIMEOUT_MS }, () => {
   it('builds with no broken [[links]] in the sources', () => {
     expect(result.broken).toEqual([]);
   });
@@ -114,5 +115,5 @@ describe('wiki coverage', () => {
     const stale = result.pages.filter((p) => !existsSync(join(committed, p)) || strip(readFileSync(join(committed, p), 'utf8')) !== strip(read(p)));
     if (stale.length > 0) console.warn(`wiki: committed wiki/ is stale (${stale.length} page(s), e.g. ${stale[0]}); run npm run wiki`);
     expect(Array.isArray(stale)).toBe(true);
-  }, GENERATION_TIMEOUT_MS); // it reads every committed and generated page: 9 s measured under load
+  });
 });
