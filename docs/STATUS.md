@@ -3087,3 +3087,16 @@ full `npm run check` was skipped on the EP's word.
 - All three: the golden-hour game shots and the 10/40/80 m line-up checks.
 
 **Blocked:** nothing.
+
+### EP · 21/11/2026 · art wrapped up for Release 1 (D-EP-051)
+- **Merged for Release 1:**
+  - the feather-shader aliasing fix (batch A, D-ART-012);
+  - Shrike and Kingfisher (batch B, D-ART-013);
+  - Owl, Pelican and Penguin (batch C).
+- That makes **8 of 24 birds on the sculpted models:** Peacock, Swift, Cassowary, Shrike, Kingfisher, Owl, Pelican and Penguin.
+- Model and attachment tests: 116/116 after the batch B and C merge conflicts were resolved by keeping both sides.
+- **Left for Release 2 (visual upgrade):**
+  - 12 birds still on the old models: Vulture, Hummingbird, Toucan, Woodpecker, Nightjar, Albatross, Lyrebird, Flamingo, Hornbill, Puffin, Secretarybird and Starling;
+  - the 4 B3 birds, now on the default bird;
+  - every structure, Patron, fledgling and creature, which still score 0–1 (structure damage states need `rigs/structure-rig.ts`);
+  - the environment third pass, plus moving generation off the load path and halving geometry memory.
