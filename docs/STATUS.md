@@ -2886,3 +2886,8 @@ bots-ride and dead-bird tests; `ai.perf` margin under load.
   - after Bot AI merges: Level polish with bot nav through interiors, and bot tuning for all 24 birds;
   - after the art lands: QA's gated-test rewrites, the 20-match run and the soak.
 - Then the Stage 4 gate.
+
+### W5b · Environment Artist · third pass stopped · 20/11/2026
+**Done:** the third pass was stopped for the functionality-first priority. Nothing half-built is kept: the shared-model (instancing) registry was reverted before commit. The branch is `integrate/w5` (bec687c) with my second pass already in it.
+**Verified:** typecheck and lint clean; `npx vitest run src/client/render` 53/53; `e2e/draw-budget.spec.ts` 3/3.
+**Left for the art round:** lift Riverbank, Pinewood, interiors and the Thicket camp to 3. Add big bird-scale statements to Hedgerow (woven rooftop nests between chimneys, perch towers, large feeders). Halve vertex memory from 75.5 MB with shared models for clumps, birds and nests, half-float uv, and lighter back faces. Move generation (1.2–1.5 s) onto the W6 ready hook or a worker.
