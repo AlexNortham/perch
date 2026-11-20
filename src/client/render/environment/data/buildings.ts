@@ -211,7 +211,10 @@ export function dressBuildings(w: World): void {
     for (const f of faces) {
       if (!f.hidden) facade(ctx, f);
     }
-    if (!isOctagon(b)) roof(ctx);
+    if (!isOctagon(b)) {
+      roof(ctx);
+      roofLife(ctx);
+    }
     for (const v of d.balconies) balcony(ctx, v);
     for (const v of d.landings) landing(ctx, v);
     dressArchetype(ctx);
@@ -263,6 +266,7 @@ function facade(c: Ctx, f: Face): void {
   cornice(c, f);
   for (const h of f.holes) opening(c, f, h);
   bays(c, f);
+  birdLife(c, f);
 }
 
 function corners(c: Ctx, f: Face, near: Mesher, g2: Mesher): void {
@@ -1094,6 +1098,166 @@ function landing(c: Ctx, v: BoxVolume): void {
   if (hash2(seed, 2) < 0.5) {
     g1.paint(TWIG, seed).span(u0 + 0.25, u1 - 0.25, top + 0.015, top + 0.04, 0.12, depth - 0.1);
   }
+}
+
+// ── Birds' use of the town (§1, D-EP-048) ────────────────────────────────────────────────────────────────────────
+
+const DROPPINGS = { mat: 'plaster', tint: 0xf4f0e8, shade: 1.05 } as const;
+const STRAW_TUFT = { mat: 'thatch', tint: 0xf0dca8 } as const;
+
+/** A tuft of straw and twigs poking out of a gap: nest material showing (gutters, holes, eaves). */
+export function tuft(g: Mesher, x: number, y: number, z: number, out: number, seed: number): void {
+  for (let k = 0; k < 4; k++) {
+    const a = (hash2(seed, k) - 0.5) * 1.6;
+    const l = 0.18 + hash2(seed, k + 4) * 0.22;
+    g.paint(k % 2 ? TWIG : STRAW_TUFT, seed + k).tube([new Vector3(x, y, z), new Vector3(x + Math.sin(a) * l, y + 0.04 + hash2(seed, k + 8) * 0.12, z + out * Math.cos(a) * l)], [0.014, 0.004], 3);
+  }
+}
+
+/** A faint pale streak under a ledge (§1.4: at most a speckle, never on floors). */
+function streak(g: Mesher, u: number, y: number, seed: number): void {
+  const l = 0.25 + hash2(seed, 1) * 0.35;
+  g.paint(DROPPINGS, seed).poly([new Vector3(u - 0.025, y - l, PROUD.skin + 0.004), new Vector3(u + 0.025, y - l * 0.7, PROUD.skin + 0.004), new Vector3(u + 0.035, y, PROUD.skin + 0.004), new Vector3(u - 0.035, y, PROUD.skin + 0.004)], new Vector3(0, 0, 1));
+}
+
+/**
+ * On every street face: nest holes with straw under the eaves, a cluster of nest boxes, twigs poking out of the
+ * gutters, perch dowels and the odd streak under sills, a feeder on a bracket and seed by some doors, and the
+ * perches ambient birds sit on.
+ */
+function birdLife(c: Ctx, f: Face): void {
+  const W = f.width / 2;
+  const { d } = c;
+  const pitched = (d.roof.style === 'gable' || d.roof.style === 'steep') && !f.gable;
+  const busy = (u: number, y0: number, y1: number): boolean => f.holes.some((h) => Math.abs(h.u - u) < h.w / 2 + 0.4 && h.y1 > y0 && h.y0 < y1);
+  const g1 = c.M(1, f.frame);
+  const g0 = c.M(0, f.frame);
+  const seed = c.seed + f.side * 977;
+  // Nest holes in a row under the eaves; a straw tuft from one in three.
+  const ey = (f.gable ? d.roof.eaves : f.top) - (pitched ? 0.45 : 0.8);
+  for (let u = -W + 1.1; u < W - 0.9; u += 2.1) {
+    if (busy(u, ey - 0.4, ey + 0.3) || ey < c.base + 2.5) continue;
+    g1.paint({ mat: 'timberDark', shade: 0.12 }, seed);
+    const pts: Vector3[] = [];
+    for (let k = 0; k < 8; k++) pts.push(new Vector3(u + Math.cos((k / 8) * Math.PI * 2) * 0.075, ey + Math.sin((k / 8) * Math.PI * 2) * 0.075, PROUD.skin + 0.006));
+    g1.poly(pts, new Vector3(0, 0, 1));
+    g1.paint({ mat: 'timber' }, seed).tube([new Vector3(u, ey - 0.16, 0.02), new Vector3(u, ey - 0.16, 0.2)], 0.015, 4);
+    if (hash2(seed, u) < 0.34) tuft(g0, u, ey - 0.03, 0.05, 1, seed + Math.round(u * 10));
+    if (hash2(seed, u + 1) < 0.5) streak(g0, u, ey - 0.2, seed + Math.round(u));
+    c.w.perch(f.frame, u, ey - 0.14, 0.17, 0);
+  }
+  // A cluster of nest boxes high on wide faces.
+  if (f.width > 5 && ey > c.base + 3.5) {
+    const u = (hash2(seed, 2) - 0.5) * (f.width - 3);
+    if (!busy(u, ey - 1.6, ey - 0.3)) nestBoxCluster(c, f, u, ey - 1.5, seed);
+  }
+  // Twigs and straw out of the gutters (pitched eaves).
+  if (pitched) {
+    const tan = Math.tan((d.roof.pitchDeg * Math.PI) / 180);
+    const ov = overhang(d);
+    const gy = d.roof.eaves - ov * tan - 0.15;
+    for (let u = -W + 0.8; u < W; u += 1.9 + hash2(seed, u) * 1.2) {
+      tuft(g1, u, gy, ov + 0.1, 1, seed + Math.round(u * 7));
+      if (hash2(seed, u + 3) < 0.5) c.w.perch(f.frame, u + 0.3, gy + 0.08, ov + 0.12, 0);
+    }
+  }
+  for (const h of f.holes) {
+    const hs = seed + Math.round(h.u * 31 + h.y0 * 7);
+    if (h.kind === 'mark-window' || h.kind === 'window') {
+      // A perch dowel under the sill, the odd streak below it; birds sit on sills.
+      g1.paint({ mat: 'timber' }, hs).tube([new Vector3(h.u - h.w / 2, h.y0 - 0.2, 0.18), new Vector3(h.u + h.w / 2, h.y0 - 0.2, 0.18)], 0.02, 4);
+      for (const s of [-1, 1]) g1.span(h.u + s * (h.w / 2 - 0.05) - 0.02, h.u + s * (h.w / 2 - 0.05) + 0.02, h.y0 - 0.24, h.y0 - 0.1, 0, 0.19, 0, '-z');
+      if (hash2(hs, 1) < 0.4) streak(g0, h.u + (hash2(hs, 2) - 0.5) * h.w * 0.6, h.y0 - 0.26, hs);
+      if (hash2(hs, 3) < 0.6) c.w.perch(f.frame, h.u + (hash2(hs, 4) - 0.5) * h.w * 0.7, h.y0 + 0.0, 0.08, 0);
+    } else if ((h.kind === 'door' || h.kind === 'mark-door') && h.storey === 0) {
+      const side = hash2(hs, 5) < 0.5 ? 1 : -1;
+      const u = h.u + side * (h.w / 2 + 0.75);
+      if (hash2(hs, 6) < 0.6 && !busy(u, h.y0 + 2, h.y0 + 2.8)) {
+        wallBracket(g1, u, h.y0 + 2.7, 0.55, hs);
+        hangingFeeder(g1, u, h.y0 + 2.65, 0.5, hs);
+        c.w.perch(f.frame, u + 0.2, h.y0 + 2.08, 0.5, Math.PI / 2);
+      }
+      if (hash2(hs, 7) < 0.45) {
+        const su = h.u - side * (h.w / 2 + 0.6);
+        doorSacks(g1, su, h.y0, hs);
+      }
+    }
+  }
+}
+
+function doorSacks(g: Mesher, u: number, y: number, seed: number): void {
+  g.paint({ mat: 'canvas', tint: 0xc8b48c }, seed).within(placed(u, y, 0.42, hash2(seed, 1) * 3), () => {
+    g.lathe([[0.2, 0], [0.26, 0.15], [0.25, 0.42], [0.2, 0.55], [0.22, 0.58], [0.19, 0.56]], 8);
+  });
+  g.paint({ mat: 'gravel', tint: 0xe0c890 }, seed).within(placed(u, y + 0.5, 0.42, 0), () => g.lathe([[0.18, 0], [0.001, 0.06]], 8));
+  g.paint({ mat: 'gravel', tint: 0xe0c890 }, seed + 1).within(placed(u + 0.35, y, 0.6, 0), () => g.lathe([[0.32, 0], [0.18, 0.03], [0.001, 0.04]], 8));
+}
+
+function nestBoxCluster(c: Ctx, f: Face, u: number, y: number, seed: number): void {
+  const g = c.M(1, f.frame);
+  const n = 2 + Math.floor(hash2(seed, 4) * 2);
+  for (let k = 0; k < n; k++) {
+    const x = u + (k - (n - 1) / 2) * 0.55;
+    const yy = y + (k % 2) * 0.35;
+    g.paint({ mat: 'timber', tint: [0xd8c8a8, 0xa8b89a, 0xc8a890][k % 3] }, seed + k).span(x - 0.17, x + 0.17, yy, yy + 0.4, 0, 0.26);
+    g.paint({ mat: 'roofShingle' }, seed + k).within(oriented(x, yy + 0.45, 0.14, 0, -0.25), () => g.box(0, 0, 0, 0.44, 0.04, 0.38));
+    g.paint({ mat: 'timberDark', shade: 0.12 }, seed).poly(Array.from({ length: 8 }, (_, j) => new Vector3(x + Math.cos((j / 8) * Math.PI * 2) * 0.06, yy + 0.26 + Math.sin((j / 8) * Math.PI * 2) * 0.06, 0.265)), new Vector3(0, 0, 1));
+    g.paint({ mat: 'timber' }, seed).tube([new Vector3(x, yy + 0.13, 0.26), new Vector3(x, yy + 0.13, 0.4)], 0.015, 4);
+    c.w.perch(f.frame, x, yy + 0.49, 0.14, 0);
+  }
+}
+
+/** Roofs as places birds live: perches along ridges and copings, woven rooftop rooms and ridge turrets. */
+function roofLife(c: Ctx): void {
+  const { d } = c;
+  const f = bframe(c);
+  const seed = c.seed + 4441;
+  if (d.roof.style === 'gable' || d.roof.style === 'steep') {
+    const alongX = d.roof.ridge === 'x';
+    const len = alongX ? c.sx : c.sz;
+    for (let k = 0; k < 4; k++) {
+      const t = (hash2(seed, k) - 0.5) * len * 0.8;
+      c.w.perch(f, alongX ? t : 0, d.roof.top + 0.22, alongX ? 0 : t, alongX ? Math.PI / 2 : 0);
+    }
+    if (hash2(seed, 9) < 0.4) {
+      // A woven turret astride the ridge near one end: a bird-built room with its round door and landing mat.
+      const t = (hash2(seed, 10) < 0.5 ? -1 : 1) * (len / 2 - 2.2);
+      wovenRoom(c.M(2, f), alongX ? t : 0, d.roof.top - 0.5, alongX ? 0 : t, 0.85, 1.4, seed);
+    }
+    return;
+  }
+  if (d.roof.style !== 'flat') return;
+  const top = d.roof.top;
+  const hx = c.sx / 2 - 1.4;
+  const hz = c.sz / 2 - 1.4;
+  if (hx < 1 || hz < 1) return;
+  for (let k = 0; k < 4; k++) {
+    const a = hash2(seed, k + 20) * Math.PI * 2;
+    c.w.perch(f, Math.cos(a) * (c.sx / 2 - 0.25), top + 0.95, Math.sin(a) * (c.sz / 2 - 0.25), a);
+  }
+  if (hash2(seed, 11) < 0.55) {
+    // A woven rooftop room in the corner opposite the nest crown.
+    const corners: [number, number][] = [[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]];
+    const [x, z] = corners[(Math.floor(hash2(c.seed, 70) * 4) + 2) % 4]!;
+    wovenRoom(c.M(2, f), x * 0.9, top, z * 0.9, 1.1, 1.6, seed);
+  }
+}
+
+/** A woven dome room (§1.1 bird-built additions): a twig dome with a round door, a lip and a landing mat. */
+export function wovenRoom(g: Mesher, x: number, y: number, z: number, r: number, h: number, seed: number): void {
+  const yaw = hash2(seed, 1) * Math.PI * 2;
+  g.within(placed(x, y, z, yaw), () => {
+    g.paint(TWIG, seed).lathe([[r, 0], [r * 1.05, h * 0.3], [r * 0.9, h * 0.7], [r * 0.5, h * 0.95], [0.001, h]], 10);
+    // Woven bands round it.
+    g.paint({ mat: 'twig', shade: 0.8 }, seed).lathe([[r * 1.07, h * 0.28], [r * 1.09, h * 0.33], [r * 1.07, h * 0.38]], 10);
+    g.paint({ mat: 'timberDark', shade: 0.1 }, seed).poly(Array.from({ length: 10 }, (_, j) => new Vector3(Math.cos((j / 10) * Math.PI * 2) * r * 0.32, h * 0.42 + Math.sin((j / 10) * Math.PI * 2) * r * 0.32, r * 1.02 + 0.01)), new Vector3(0, 0, 1));
+    g.paint(TWIG, seed + 1).tube(Array.from({ length: 11 }, (_, j) => new Vector3(Math.cos((j / 10) * Math.PI * 2) * r * 0.36, h * 0.42 + Math.sin((j / 10) * Math.PI * 2) * r * 0.36, r * 1.02)), 0.05, 4);
+    g.paint(LANDING, seed).span(-r * 0.4, r * 0.4, h * 0.42 - r * 0.36 - 0.06, h * 0.42 - r * 0.36, r, r + 0.24);
+    for (let k = 0; k < 7; k++) {
+      const a = (k / 7) * Math.PI * 2;
+      g.paint(TWIG, seed + k).tube([new Vector3(Math.cos(a) * r * 0.5, h * 0.92, Math.sin(a) * r * 0.5), new Vector3(Math.cos(a) * r * 0.9, h * 1.15, Math.sin(a) * r * 0.9)], [0.025, 0.006], 3);
+    }
+  });
 }
 
 export { UP, WALL, PLINTH };

@@ -419,15 +419,29 @@ export class Mesher {
     if (this.idx.n === 0) return null;
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(this.pos.view(), XYZ));
-    g.setAttribute('normal', new BufferAttribute(this.nrm.view(), XYZ));
+    // Compact vertex data (27 bytes, not 48): normals as normalised bytes, colour as normalised unsigned bytes (baked
+    // light only darkens or lifts a little, clamped at 1), the material layer as a byte the shader reads as a float.
+    g.setAttribute('normal', new BufferAttribute(packed(this.nrm, Int8Array, BYTE_SIGNED), XYZ, true));
     g.setAttribute('uv', new BufferAttribute(this.uvs.view(), UV));
-    g.setAttribute('color', new BufferAttribute(this.col.view(), XYZ));
-    g.setAttribute('matLayer', new BufferAttribute(this.lay.view(), 1));
+    g.setAttribute('color', new BufferAttribute(packed(this.col, Uint8Array, BYTE), XYZ, true));
+    g.setAttribute('matLayer', new BufferAttribute(Uint8Array.from(this.lay.view()), 1));
     g.setIndex(new BufferAttribute(this.idx.a.slice(0, this.idx.n), 1));
     g.computeBoundingBox();
     g.computeBoundingSphere();
     return g;
   }
+}
+
+const BYTE = 255;
+const BYTE_SIGNED = 127;
+
+/** Floats scaled to a normalised integer array, rounded and clamped. */
+function packed<T extends Int8Array | Uint8Array>(src: Floats, Type: new (n: number) => T, scale: number, signed = scale === BYTE_SIGNED): T {
+  const v = src.view();
+  const out = new Type(v.length);
+  const lo = signed ? -scale : 0;
+  for (let i = 0; i < v.length; i++) out[i] = Math.max(lo, Math.min(scale, Math.round((v[i] ?? 0) * scale)));
+  return out;
 }
 
 /** A rigid frame: translate to (x, y, z), then turn by yaw about y. */

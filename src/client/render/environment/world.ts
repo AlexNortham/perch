@@ -2,6 +2,8 @@
  * The build context every environment generator writes into: meshers bucketed by pass, detail band and 32 m cell,
  * the map and its dressing descriptor, a seeded hash, and the set of blockout prims the environment re-skins.
  */
+import { Vector3 } from 'three';
+import type { Matrix4 } from 'three';
 import type { MapData } from '../../../sim/core/contracts';
 import type { MapDressing } from '../../../sim/core/contracts';
 import { CELL } from './constants';
@@ -38,8 +40,17 @@ export class World {
   readonly covered = new Set<number>();
   /** Prims another generator has already dressed (left to the blockout, skipped by walls.ts). */
   readonly dressed = new Set<number>();
+  /** Spots where a small ambient bird could sit (ridges, rails, sills, wires, rims), in world space; life.ts picks. */
+  readonly perches: { x: number; y: number; z: number; yaw: number }[] = [];
 
   constructor(readonly map: MapData, readonly dressing: MapDressing) {}
+
+  /** Register a perch at a local point of a rigid `frame`, the bird facing local `yaw`. */
+  perch(frame: Matrix4, x: number, y: number, z: number, yaw = 0): void {
+    const p = new Vector3(x, y, z).applyMatrix4(frame);
+    const d = new Vector3(Math.sin(yaw), 0, Math.cos(yaw)).transformDirection(frame);
+    this.perches.push({ x: p.x, y: p.y, z: p.z, yaw: Math.atan2(d.x, d.z) });
+  }
 
   /** The mesher for geometry anchored at (x, z). Ground-contact shading is set for `ground`. */
   m(pass: Pass, band: Band, x: number, z: number, ground = 0): Mesher {

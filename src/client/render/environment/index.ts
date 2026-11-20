@@ -27,6 +27,7 @@ import { dressNature } from './data/nature';
 import { dressObjectives } from './data/objectives';
 import { dressInteriors } from './data/interiors';
 import { dressWalls } from './data/walls';
+import { dressLife } from './data/life';
 
 export interface EnvironmentStats {
   /** Triangles per band (all cells), and in total. */
@@ -63,6 +64,7 @@ export function generate(map: MapData): World {
   dressNature(world);
   dressObjectives(world);
   dressWalls(world);
+  dressLife(world);
   return world;
 }
 
@@ -134,6 +136,8 @@ export function buildEnvironment(map: MapData, quality: Quality): Environment {
     prims: map.prims.filter((_, i) => !covered.has(i)),
     // Vines are drawn as flowering vines in rope frames (§1.4).
     climbs: map.climbs.filter((c) => c.kind !== 'vine'),
+    // Updraft stations are the environment's woven masts; the blockout keeps the cables.
+    updrafts: map.updrafts.map((u) => ({ ...u, stations: [] })),
   };
 
   return {
