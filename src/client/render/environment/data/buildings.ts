@@ -114,16 +114,25 @@ export function runs(a: number, b: number, cuts: readonly (readonly [number, num
   return out;
 }
 
+export const isOctagon = (b: Building): boolean => b.archetype === 'dovecote' || b.archetype === 'hollow-tree';
+
 function facesOf(w: World, i: number, b: Building, d: BuildingDress): Face[] {
   const { centre: c, size, yaw: psi } = b.footprint;
   const X = new Vector3(Math.cos(psi), 0, -Math.sin(psi));
   const Z = new Vector3(Math.sin(psi), 0, Math.cos(psi));
-  const sides = [
-    { n: Z, yaw: psi, half: size.z / 2, width: size.x },
-    { n: X, yaw: psi + Math.PI / 2, half: size.x / 2, width: size.z },
-    { n: Z.clone().negate(), yaw: psi + Math.PI, half: size.z / 2, width: size.x },
-    { n: X.clone().negate(), yaw: psi - Math.PI / 2, half: size.x / 2, width: size.z },
-  ];
+  // Octagonal towers (Dovecote, Hollow-tree House): eight faces on the octagon whose apothem is the footprint's half.
+  const octagon = isOctagon(b);
+  const sides = octagon
+    ? Array.from({ length: 8 }, (_, k) => {
+      const yaw = psi + (k * Math.PI) / 4;
+      return { n: new Vector3(Math.sin(yaw), 0, Math.cos(yaw)), yaw, half: size.x / 2, width: size.x * Math.tan(Math.PI / 8) };
+    })
+    : [
+      { n: Z, yaw: psi, half: size.z / 2, width: size.x },
+      { n: X, yaw: psi + Math.PI / 2, half: size.x / 2, width: size.z },
+      { n: Z.clone().negate(), yaw: psi + Math.PI, half: size.z / 2, width: size.x },
+      { n: X.clone().negate(), yaw: psi - Math.PI / 2, half: size.x / 2, width: size.z },
+    ];
   const base = b.storeys[0]?.floorY ?? 0;
   const roomsOf = w.map.rooms ?? [];
   const openings = (w.map.openings ?? []).filter((o) => o.rooms[1] === -1 && o.rooms[0] >= 0 && roomsOf[o.rooms[0]]?.building === i);
@@ -154,7 +163,8 @@ function facesOf(w: World, i: number, b: Building, d: BuildingDress): Face[] {
     const inner = { x: cx - s.n.x * 0.25, y: d.roof.top + 0.4, z: cz - s.n.z * 0.25 };
     const parapet = d.roof.style === 'flat' && near.some((q) => inPrim(q, inner, 0.02));
     const gable = pitched && (d.roof.ridge === 'x' ? Math.abs(s.n.x) > 0.7 : Math.abs(s.n.z) > 0.7);
-    const top = pitched || d.roof.style === 'spire' ? d.roof.eaves : d.roof.top + (parapet ? PARAPET : 0);
+    // Spires stand on a flat roof slab (0.4 m) over the eaves; octagons stop under their crown deck.
+    const top = pitched || octagon ? d.roof.eaves : d.roof.style === 'spire' ? d.roof.eaves + 0.4 : d.roof.top + (parapet ? PARAPET : 0);
     // Where a neighbour stands against this face, the face is covered up to the neighbour's eaves.
     let hidden = false;
     for (const [k, o] of others) {
@@ -198,12 +208,10 @@ export function dressBuildings(w: World): void {
         return g;
       },
     };
-    const tower = d.style === 'hollow-trunk';
     for (const f of faces) {
-      if (f.hidden) continue;
-      if (!tower) facade(ctx, f);
+      if (!f.hidden) facade(ctx, f);
     }
-    roof(ctx);
+    if (!isOctagon(b)) roof(ctx);
     for (const v of d.balconies) balcony(ctx, v);
     for (const v of d.landings) landing(ctx, v);
     dressArchetype(ctx);
@@ -709,7 +717,7 @@ function bays(c: Ctx, f: Face): void {
       const bw = (b - a) / n;
       for (let j = 0; j < n; j++) {
         const u = a + bw * (j + 0.5);
-        if (j > 0 && !c.kit.halfTimber) pilaster(c, f, a + bw * j, fy, ceil);
+        if (j > 0 && !c.kit.halfTimber && c.kit.corner !== 'none') pilaster(c, f, a + bw * j, fy, ceil);
         bayFiller(c, f, u, bw, fy, ceil, c.seed + Math.round(u * 13 + fy * 7) + f.side);
       }
     }
@@ -725,6 +733,11 @@ function bayFiller(c: Ctx, f: Face, u: number, bw: number, fy: number, ceil: num
   const r = hash2(seed, 1);
   const low = fy - c.base < 0.5;
   const g1 = c.M(1, f.frame);
+  if (c.d.style === 'hollow-trunk') {
+    if (r < 0.5) ivyPatch(c, f, u, bw, fy, Math.min(ceil, fy + 6), seed);
+    else if (!low) nestBoxes(c, f, u, fy + 1.4, seed);
+    return;
+  }
   if (r < 0.34) {
     // A blind window, shutters closed, with its sill (§5.2 rhythm).
     const w = Math.min(1.1, bw - 0.8);

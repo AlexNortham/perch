@@ -11,7 +11,7 @@ import { oriented, placed } from '../mesher';
 import type { Mesher, Paint } from '../mesher';
 import { hash2 } from '../world';
 import type { Pass, World } from '../world';
-import { barrel, hangingFeeder, lantern, lanternPost } from './buildings';
+import { barrel, hangingFeeder, inVolume, lantern, lanternPost } from './buildings';
 import { nest } from './nest';
 import { BRASS, FADED, FEATHER, IRON, MOSS, POT, ROPE, STRAW, TWIG, WATER } from './styles';
 
@@ -663,7 +663,19 @@ const dovecoteBoxes: Builder = (c) => {
   const g = c.M(2);
   const g1 = c.M(1);
   const rows = Math.max(3, Math.min(6, Math.floor(sy / 0.8)));
-  for (let side = 0; side < 4; side++) {
+  // A free-standing block gets holes all round (a Dovecote tower is drawn by its archetype); a strip on a wall gets
+  // them on the face away from its building only.
+  const host = (c.w.map.buildings ?? []).map((b) => b.footprint).sort((a, b) => Math.hypot(a.centre.x - c.p.pos.x, a.centre.z - c.p.pos.z) - Math.hypot(b.centre.x - c.p.pos.x, b.centre.z - c.p.pos.z))[0];
+  let sides = [0, 1, 2, 3];
+  if (sx >= 1.5 && sz >= 1.5) {
+    if (host && inVolume(host, { ...c.p.pos, y: host.centre.y })) return;
+  } else if (host) {
+    const thinX = sx < sz;
+    const ax = thinX ? new Vector3(Math.cos(c.p.yaw), 0, -Math.sin(c.p.yaw)) : new Vector3(Math.sin(c.p.yaw), 0, Math.cos(c.p.yaw));
+    const out = (c.p.pos.x - host.centre.x) * ax.x + (c.p.pos.z - host.centre.z) * ax.z >= 0;
+    sides = thinX ? [out ? 1 : 3] : [out ? 0 : 2];
+  }
+  for (const side of sides) {
     const width = side % 2 ? sz : sx;
     const depth = side % 2 ? sx : sz;
     g.within(placed(0, 0, 0, (side * Math.PI) / 2), () => {

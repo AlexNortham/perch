@@ -151,19 +151,61 @@ function giant(w: World, q: CylinderPrim, seed: number): void {
   clumps(w, q.centre.x, y1 + 2, q.centre.z, R + 7, 8, seed + 60, 2);
 }
 
-/** Bark on trunk boxes and ramps (boughs, root walls): a skin on every face, moss on the tops. */
+/**
+ * Trunk boxes and ramps are boughs and root walks: a round, tapering bark limb whose top runs along the walking
+ * surface (the prim's top or slope), a moss strip along it and a few leafy sprigs. Short squat boxes are stumps.
+ */
 function barkBox(w: World, q: BlockoutPrim, i: number): void {
   if (q.shape === 'cylinder') return;
-  const g = m(w, 2, q.centre.x, q.centre.z, 'opaque', q.centre.y - q.size.y / 2);
   const seed = 800 + i * 7;
+  const y0 = q.centre.y - q.size.y / 2;
+  const g = m(w, 2, q.centre.x, q.centre.z, 'cast', Math.min(0, y0));
+  const [hx, hy, hz] = [q.size.x / 2, q.size.y / 2, q.size.z / 2];
+  const wall = (w.map.buildings ?? []).some((b) => inVolume(b.footprint, q.centre, 0.1));
   g.paint(BARK, seed).within(placed(q.centre.x, q.centre.y, q.centre.z, q.yaw), () => {
-    const [x, y, z] = [q.size.x / 2 + 0.03, q.size.y / 2 + 0.03, q.size.z / 2 + 0.03];
-    if (q.shape === 'box') g.box(0, 0, 0, x * 2, y * 2, z * 2, 0.08);
-    else {
-      // Wedge: floor at −y, slope rising from −z to +z.
-      g.poly([new Vector3(-x, -y, -z), new Vector3(x, -y, -z), new Vector3(x, y, z), new Vector3(-x, y, z)], new Vector3(0, z * 2, -y * 2).normalize());
-      g.poly([new Vector3(-x, -y, z), new Vector3(x, -y, z), new Vector3(x, y, z), new Vector3(-x, y, z)], new Vector3(0, 0, 1));
-      for (const s of [-1, 1]) g.poly([new Vector3(s * x, -y, -z), new Vector3(s * x, -y, z), new Vector3(s * x, y, z)], new Vector3(s, 0, 0));
+    if (wall) {
+      // A building's trunk walls (the Hollow-tree House): bark over every face; archetypes.ts rounds the trunk.
+      if (q.shape === 'box') g.box(0, 0, 0, hx * 2 + 0.024, hy * 2 + 0.024, hz * 2 + 0.024, 0.06);
+      else {
+        const [x, y, z] = [hx + 0.03, hy + 0.03, hz + 0.03];
+        g.poly([new Vector3(-x, -y, -z), new Vector3(x, -y, -z), new Vector3(x, y, z), new Vector3(-x, y, z)], new Vector3(0, z * 2, -y * 2).normalize());
+        g.poly([new Vector3(-x, -y, z), new Vector3(x, -y, z), new Vector3(x, y, z), new Vector3(-x, y, z)], new Vector3(0, 0, 1));
+        for (const s of [-1, 1]) g.poly([new Vector3(s * x, -y, -z), new Vector3(s * x, -y, z), new Vector3(s * x, y, z)], new Vector3(s, 0, 0));
+      }
+      return;
+    }
+    if (q.shape === 'box' && Math.max(hx, hz) < hy * 2.5) {
+      g.radial([-hy - 0.05, -hy + 0.3, hy - 0.1, hy + 0.02], 10, (a, y) => Math.hypot(hx, hz) * (y < -hy + 0.3 ? 1.08 : 1) + ridges(seed, 4, 0.05)(a));
+      g.disc(0, hy + 0.02, 0, Math.hypot(hx, hz) * 0.95, 10, 1);
+      return;
+    }
+    // Along the longer horizontal axis; ramps rise from −z to +z.
+    const alongZ = q.shape === 'ramp' || hz >= hx;
+    const len = alongZ ? hz : hx;
+    const r = Math.max(alongZ ? hx : hz, 0.4) * 1.02;
+    const rise = q.shape === 'ramp' ? hy * 2 : 0;
+    const topAt = (t: number): number => (q.shape === 'ramp' ? -hy + rise * t : hy);
+    const pts: Vector3[] = [];
+    const radii: number[] = [];
+    for (let k = 0; k <= 6; k++) {
+      const t = k / 6;
+      const s = -len + t * len * 2;
+      const rr = r * (1.08 - 0.16 * t);
+      const y = topAt(t) + 0.03 - rr + (q.shape === 'ramp' ? 0 : Math.sin(t * Math.PI) * 0.05);
+      pts.push(alongZ ? new Vector3(0, y, s) : new Vector3(s, y, 0));
+      radii.push(rr);
+    }
+    g.tube(pts, radii, 12);
+    g.paint(MOSS, seed + 1).tube(pts.map((p, k) => p.clone().setY(p.y + radii[k]! - 0.04)), radii.map((rr) => rr * 0.35), 5);
+  });
+  const gc = m(w, 1, q.centre.x, q.centre.z, 'cutout');
+  gc.within(placed(q.centre.x, q.centre.y, q.centre.z, q.yaw), () => {
+    for (let k = 0; k < 3; k++) {
+      const s = (hash2(seed, k) - 0.5) * 1.6 * Math.max(hx, hz);
+      const side = k % 2 ? 1 : -1;
+      const along = q.shape === 'ramp' || hz >= hx;
+      const c = along ? new Vector3(side * (hx + 0.2), 0, s) : new Vector3(s, 0, side * (hz + 0.2));
+      clump(gc, c.x, c.y, c.z, 0.6, seed + k);
     }
   });
 }
@@ -286,8 +328,11 @@ function pineTiers(w: World, x: number, y0: number, z: number, y1: number, r: nu
       // Drooping: the card runs out and down from the trunk.
       const along = out.clone().multiplyScalar(rr * 0.55).add(new Vector3(0, -rr * 0.25, 0));
       const side = new Vector3(-out.z, 0, out.x).multiplyScalar(rr * 0.32);
-      g.paint({ mat: 'pineCard', tint: t > 0.7 ? 0xb8d0a8 : hash2(seed, j + k) < 0.5 ? 0xa0b898 : 0x90a888 }, seed + k * 7 + j);
+      // Dense rosette cards in pine green keep their coverage at distance; needle cards fringe the tips.
+      g.paint({ mat: 'leafCard', tint: t > 0.7 ? 0x6f8f6a : hash2(seed, j + k) < 0.5 ? 0x5a7a5e : 0x4f6e54 }, seed + k * 7 + j);
       g.card2(c, side, along);
+      g.paint({ mat: 'pineCard', tint: 0xa0b898 }, seed + k * 7 + j + 1);
+      g.card2(c.clone().addScaledVector(out, rr * 0.35).setY(c.y - rr * 0.12), side.clone().multiplyScalar(0.8), along.clone().multiplyScalar(0.6));
     }
   }
 }
