@@ -585,6 +585,7 @@ export function buildWorld(spec: MapSpec): { readonly map: MapData; readonly dre
     jungle: all.jungle ?? [],
     interactables,
     springs,
+    dressing: { buildings: all.dress ?? [], props: all.props ?? [] },
   };
-  return { map, dressing: { buildings: all.dress ?? [], props: all.props ?? [] } };
+  return { map, dressing: map.dressing ?? { buildings: [], props: [] } };
 }

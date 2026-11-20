@@ -2069,3 +2069,52 @@ spatial-hash entries every tick).
 ### EP · 19/11/2026 · wave 5b part 2, W5.5 and the W5a integration round launched
 - Running in parallel: Rendering and the Technical Artist (wave 5b part 1), the Environment Artist (#22, Opus), Bot AI (Opus), Audio (Sonnet), the Architect's W5.5 contract round (Opus) and the W5a integration round (Opus). Briefs: `docs/briefs/W5-env.md`, `W5-bots.md`, `W5-audio.md`, `W5-arch2.md`, `W5-integ.md`.
 - The Build Lab (D-EP-036/037/044) starts as soon as Bot AI merges: mock games with bots that stand at spawn and never shop would measure nothing.
+### W5b · Audio Engineer · 19/11/2026
+**Done:** Stage 4 sound on this branch (from `integrate/w5`), all in `src/client/audio/**` plus `e2e/audio.spec.ts`.
+- **New cues (41):** Egg (carry pulse, drop, spoil; spawn, pickup and delivery jingles reused), Roc (wake, rake, flap, shriek, enrage, death), Embers (drop; claim reused), Rekindle, Thickets (wake, five attacks, death, camp cleared), Nests (twig, woven, keepsake break), Feeders (break, chime, full chime, lamp blink), Keepsakes, Berries, Hides in/out, Bough Springs, Lookouts, ivy curtains, Cellar Run, Magpie Den, Updraft latch and dismount, indoor room tone.
+- **Engine:** per-voice range (Feeder 70 m, Bell Tower 120 m), occlusion (-6 dB, 2 kHz) across rooms and for unseen enemy heroes, `Settings.mute`, `onScreen` and `previewHero`, menu music ticks itself, the Roc fight and the Egg carry hold the objective music (D-AUDIO-003, -004).
+- **Tests:** `e2e/audio.spec.ts` renders each new cue offline: finite, above the wind bed, and a distinct signature (41 cues), plus indoor tone, occlusion, mute, a 150-shot flood against the 48-voice cap, and music states.
+**Verified:** see the run line below.
+**Interface requests:** none blocking. Rendering/VFX: nothing. UI: call `audio.onScreen` and `previewHero` (already wired in app.ts). Level: Lookouts have no radius, audio uses 2.5 m. Systems: Bough Spring launches and Lookout use emit no event, so audio infers them from position; a `movement` action for springs would be cleaner.
+
+### W5.5 · Technical Architect · 20/11/2026
+**Branch:** `worktree-agent-a9824254322cf5310` from `integrate/w5` f25766d, with `integrate/w5` fdc85f8 (Audio) merged
+in. Decisions D-ARCH-025 to D-ARCH-028; owner follow-ups in `docs/briefs/W5-contract-followups.md` § W5.5.
+1. **Interact deleted (D-ARCH-025).** `Button.Interact` is gone; `RETIRED_BUTTONS.Interact` keeps 0x20000 from reuse,
+   and core's latch now clears every bit outside `Button`. Proof: deleting the member compiles (no reader), a new
+   `index.test.ts` case shows the bit never reaches `HeroEntity.command`, and the no-Interact suite holds it beside a
+   cable without mounting. Bindings were already done by the UI's W5a work (`'interact'` and `'scoreboard'` out of
+   `BindAction`); `sanitizeSettings` drops a Stage 3 profile's saved codes with no storage bump (`app.test.ts`,
+   `e2e/no-interact.spec.ts`).
+2. **`SimOptions.practiceStart` (D-ARCH-026).** `{ pos, yaw }`, Practice Hub only, validated and yaw-wrapped by
+   createSim, honoured by core's spawn; the training targets stay put. `practiceConfig(seed, hero, start)`; Swap bird
+   no longer emits on `sim.ctx.bus` (`e2e/practice-swap.spec.ts` 6/6, "same spot" included).
+3. **Dressing in `MapData` (D-ARCH-028).** `MapData.dressing` (optional, absent on the arena); the types moved into
+   `contracts/map.ts` and `world/map/dressing.ts` re-exports them; `loadDressing` is a deprecated alias of
+   `loadMap(id).dressing` until the Environment Artist switches (W6).
+4. **Wave 5a requests (INTERFACES §15, D-ARCH-027):** 19 rows: 12 accepted, 1 modified, 5 satisfied, 1 rejected. New
+   optional fields: `AbilityDef.surface`, `EffectTarget.surface`, `DashEffect.steerDeg` (replacing two value names),
+   `HealEffect.triggerPct` (Gape), `endOn: 'stun'` (Tree Cling), `TriggerDef.beyondM` (Kestrel's Eye),
+   `ShieldEffect.id` (shields taken back on sale), `Layer.Sight`/`Movement`/`EggCarrier`. `PhysicsService.updraftInReach`
+   and `Motor.updraftInReach` are now required. Rejected: a cooldown stat for Boundless Song (the refund is exact).
+   Deferred to W6: tether `breakDistance` as a Magnitude. Bot AI raised no request; its WIP commit c77a55c reads
+   `motor.updraftInReach` in a way the required field keeps valid.
+5. **Outside my paths, type-only or mechanical, each forced by the contract change:** `physics/controller.ts` (its
+   `Mode.endOn` type follows the contract), `physics/rapier.ts` (its partial service type), the abilities and combat
+   test kits (`updraftInReach`), `world/map/dressing.ts`, `build.ts` (one field) and `index.ts` (the alias), and the
+   two tests that named `Button.Interact`. No other owner's behaviour changed; the `'stun'` rule, the value-name
+   switch and each new field's behaviour are follow-ups (W5 for the integration round where it acts for the owner).
+**Verified** (machine loaded by parallel agents: 20–28 node, ~150 browser processes):
+- `bash scripts/check.sh` with the integration round's two world-test fixes (3ff5f5f, overlaid, not committed):
+  `PASS typecheck 11s · lint 5s · test 51s`, then `FAIL perf`: the Stage 4 objectives budget test (+0.31 to +0.43 ms
+  against 0.3). It fails the same way on a clean `integrate/w5` fdc85f8 checkout (+0.424 ms), so it predates this
+  round; it is the full-map rerun Objectives asked for (100 Nests, 24 camps), for the integration round and QA.
+- Without the overlay, `npm test`: 1,048 passed, 5 failed, all five the known Objectives cases (W5-integ item 1).
+- `npm run sim -- --seed 1 --minutes 3 --bots 12`: 10,800 ticks, 7,145 ticks/s, hash `0e2f8fafa4067d33`.
+- `npm run e2e`: 61 passed, 1 skipped, 1 failed (`preview-regressions` side buttons: `page.reload` timeout, a known
+  load flake); rerun alone with `practice-swap` and `no-interact`: all pass (one Play-scene timeout in the batch passed
+  alone too).
+**Notes for owners:** the new Audio listener throws "non-finite AudioParam value" from `audio/index.ts:146` on some
+frames (the camera pose it gets is not finite yet); seen in the e2e server log, no test fails on it (Audio, Camera).
+The no-Interact suite's last red test waits on bots riding Updrafts (Bot AI).
+**Interface requests:** none. **Blocked:** nothing.

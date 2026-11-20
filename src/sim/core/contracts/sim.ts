@@ -134,6 +134,12 @@ export interface SimOptions {
   readonly structures?: boolean;
   /** Menu Practice Hub, distinct from the test sandbox. Enables resettable training targets. */
   readonly practiceHub?: boolean;
+  /**
+   * Practice Hub only: the human hero's first spawn (feet) and facing, instead of its team spawn; the training
+   * targets stay where they are. Swap bird (D-EP-040) starts the new bird where the old one stood. Later respawns use
+   * the team spawn. createSim throws if it is set without `practiceHub` or is not finite. Honoured by core.
+   */
+  readonly practiceStart?: { readonly pos: Vec3; readonly yaw: number };
   /** Thickets, Nests, runes, the Egg and the Roc. Default: as `waves`. Honoured by sim/world. */
   readonly neutrals?: boolean;
   /** Every ability unlocked from the start (ability sandboxes). Default false. Honoured by sim/abilities. */
@@ -171,8 +177,8 @@ export interface ResolvedSimConfig {
   readonly seed: number;
   readonly map: MapId;
   readonly roster: readonly RosterSlot[];
-  readonly options: Required<Omit<SimOptions, 'structures' | 'practiceHub' | 'botShopping'>> &
-    Pick<SimOptions, 'structures' | 'practiceHub' | 'botShopping'>;
+  readonly options: Required<Omit<SimOptions, 'structures' | 'practiceHub' | 'practiceStart' | 'botShopping'>> &
+    Pick<SimOptions, 'structures' | 'practiceHub' | 'practiceStart' | 'botShopping'>;
 }
 
 /** What every system receives. Everything a system may touch outside its own state is here. */
