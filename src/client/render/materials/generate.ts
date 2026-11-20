@@ -345,20 +345,27 @@ const CAVITY_IN_ALBEDO = 0.7;
 
 /** Separable wrap-around box blur with running sums (cost independent of the radius). */
 function boxBlurWrap(src: Float32Array, size: number, r: number): Float32Array {
-  const pass = (from: Float32Array, at: (line: number, k: number) => number): Float32Array => {
-    const to = new Float32Array(from.length);
-    const n = 2 * r + 1;
-    for (let line = 0; line < size; line++) {
-      let s = 0;
-      for (let k = -r; k <= r; k++) s += from[at(line, wrap(k, size))] ?? 0;
-      for (let k = 0; k < size; k++) {
-        to[at(line, k)] = s / n;
-        s += (from[at(line, wrap(k + r + 1, size))] ?? 0) - (from[at(line, wrap(k - r, size))] ?? 0);
-      }
+  const n = 2 * r + 1;
+  const tmp = new Float32Array(src.length);
+  const out = new Float32Array(src.length);
+  for (let row = 0; row < size; row++) {
+    const o = row * size;
+    let sum = 0;
+    for (let k = -r; k <= r; k++) sum += src[o + wrap(k, size)] ?? 0;
+    for (let k = 0; k < size; k++) {
+      tmp[o + k] = sum / n;
+      sum += (src[o + ((k + r + 1) % size)] ?? 0) - (src[o + ((k - r + size) % size)] ?? 0);
     }
-    return to;
-  };
-  return pass(pass(src, (row, k) => row * size + k), (col, k) => k * size + col);
+  }
+  for (let col = 0; col < size; col++) {
+    let sum = 0;
+    for (let k = -r; k <= r; k++) sum += tmp[wrap(k, size) * size + col] ?? 0;
+    for (let k = 0; k < size; k++) {
+      out[k * size + col] = sum / n;
+      sum += (tmp[((k + r + 1) % size) * size + col] ?? 0) - (tmp[((k - r + size) % size) * size + col] ?? 0);
+    }
+  }
+  return out;
 }
 
 /** Render one layer at size × size (rows bottom-up, matching v). */
@@ -444,11 +451,14 @@ export function renderLayer(spec: LayerSpec, size: number, seed: number, withNor
 export function halve(src: Uint8Array, size: number): Uint8Array {
   const h = size / 2;
   const out = new Uint8Array(h * h * RGBA);
+  const row = size * RGBA;
   for (let j = 0; j < h; j++) {
     for (let i = 0; i < h; i++) {
-      for (let c = 0; c < RGBA; c++) {
-        const at = (x: number, y: number): number => src[(y * size + x) * RGBA + c] ?? 0;
-        out[(j * h + i) * RGBA + c] = Math.round((at(2 * i, 2 * j) + at(2 * i + 1, 2 * j) + at(2 * i, 2 * j + 1) + at(2 * i + 1, 2 * j + 1)) / RGBA);
+      const s0 = (2 * j * size + 2 * i) * RGBA;
+      const d = (j * h + i) * RGBA;
+      for (let ch = 0; ch < RGBA; ch++) {
+        const sum = (src[s0 + ch] ?? 0) + (src[s0 + RGBA + ch] ?? 0) + (src[s0 + row + ch] ?? 0) + (src[s0 + row + RGBA + ch] ?? 0);
+        out[d + ch] = (sum + 2) >> 2;
       }
     }
   }
