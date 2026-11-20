@@ -70,6 +70,7 @@ export function dressNature(w: World): void {
     }
   });
   groundCover(w);
+  jungleCanopy(w);
 }
 
 // ── Trunks ───────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -247,7 +248,7 @@ function ivyCurtain(w: World, q: BlockoutPrim, i: number): void {
  * (+15 % value). Cards per clump scale with its size.
  */
 export function clump(g: Mesher, x: number, y: number, z: number, r: number, seed: number, tint?: number): void {
-  const n = Math.max(5, Math.round(r * 3.2));
+  const n = Math.max(5, Math.round(r * 2.3));
   for (let k = 0; k < n; k++) {
     const u = hash2(seed, k * 3);
     const v = hash2(seed, k * 3 + 1);
@@ -258,7 +259,7 @@ export function clump(g: Mesher, x: number, y: number, z: number, r: number, see
     const sun = (c.y - y) / r + (c.x - x) * -0.5 / r + (c.z - z) * -0.3 / r;
     const base = tint ?? LEAF_TINTS[Math.floor(hash2(seed, k + 99) * LEAF_TINTS.length)]!;
     g.paint({ mat: 'leafCard', tint: sun > 0.35 ? SUNLIT : sun < -0.3 ? DEEP : base }, seed + k);
-    const s = r * (0.55 + 0.25 * hash2(seed, k + 50));
+    const s = r * (0.66 + 0.28 * hash2(seed, k + 50));
     const t = hash2(seed, k + 70) * Math.PI;
     const tilt = (hash2(seed, k + 80) - 0.5) * 1.4;
     const ua = new Vector3(Math.cos(t) * s, 0, Math.sin(t) * s);
@@ -302,6 +303,18 @@ function crown(w: World, q: CylinderPrim, i: number): void {
     }
   }
   clump(g, q.centre.x, y1 - 0.5, q.centre.z, q.radius * 0.7, seed + 99);
+  // The crown spreads into the canopy on boughs (§6.1: 2–4 boughs, clumps dark inside and light at the tips).
+  const gb0 = m(w, 2, q.centre.x, q.centre.z, 'cast');
+  gb0.paint(BARK, seed + 5);
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2 + hash2(seed, k + 40) * 0.8;
+    const reach = 5 + hash2(seed, k + 41) * 4;
+    const base = new Vector3(q.centre.x, y0 + q.height * 0.55, q.centre.z);
+    const tip = new Vector3(q.centre.x + Math.cos(a) * reach, y1 + 1 + hash2(seed, k + 42) * 3, q.centre.z + Math.sin(a) * reach);
+    const mid = base.clone().lerp(tip, 0.5).setY(tip.y - 0.5);
+    gb0.tube([base, mid, tip], [0.32, 0.2, 0.06], 6);
+    for (let j = 0; j < 3; j++) clump(g, tip.x + (hash2(seed, k * 9 + j) - 0.5) * 3, tip.y + (hash2(seed, k * 9 + j + 3) - 0.3) * 2, tip.z + (hash2(seed, k * 9 + j + 6) - 0.5) * 3, 2.2 + hash2(seed, j) * 1.2, seed + k * 13 + j);
+  }
   // Branches up into the crown.
   const gb = m(w, 1, q.centre.x, q.centre.z, 'opaque');
   gb.paint(BARK, seed);
@@ -373,7 +386,24 @@ function hedge(w: World, q: BlockoutPrim, i: number): void {
   const y0 = q.centre.y - q.size.y / 2;
   const g = m(w, 2, q.centre.x, q.centre.z, 'cast', y0);
   const [sx, sy, sz] = [q.size.x + 0.08, q.size.y + 0.04, q.size.z + 0.08];
-  g.paint(HEDGE, seed).within(placed(q.centre.x, q.centre.y, q.centre.z, q.yaw), () => g.box(0, 0.02, 0, sx, sy, sz, 0.2));
+  g.paint(HEDGE, seed).within(placed(q.centre.x, q.centre.y, q.centre.z, q.yaw), () => {
+    g.box(0, -0.1, 0, sx, sy - 0.2, sz, 0.2);
+    // A grown, broken silhouette: lumps of foliage along the top and bulging out of the flanks.
+    const long = sx >= sz;
+    const len = long ? sx : sz;
+    const thick = long ? sz : sx;
+    for (let t = -len / 2 + 0.3; t < len / 2 - 0.1; t += 0.55 + hash2(seed, t) * 0.3) {
+      const r = thick * (0.42 + hash2(seed, t + 1) * 0.2);
+      const h = 0.25 + hash2(seed, t + 2) * 0.35;
+      const [x, z] = long ? [t, (hash2(seed, t + 3) - 0.5) * thick * 0.2] : [(hash2(seed, t + 3) - 0.5) * thick * 0.2, t];
+      g.within(placed(x, sy / 2 - 0.35, z, hash2(seed, t + 4) * 3), () => g.radial([0, h * 0.5, h], 6, (a, y) => r * (1 - (y / h) ** 2 * 0.75) * (0.85 + 0.15 * Math.sin(a * 3 + t))));
+      if (hash2(seed, t + 5) < 0.45) {
+        const s = hash2(seed, t + 6) < 0.5 ? 1 : -1;
+        const [bx, bz] = long ? [t, s * thick / 2] : [s * thick / 2, t];
+        g.within(placed(bx, (hash2(seed, t + 7) - 0.5) * sy * 0.5, bz, 0), () => g.radial([-0.35, 0, 0.35], 6, (a, y) => 0.32 * (1 - (y / 0.35) ** 2 * 0.8)));
+      }
+    }
+  });
   const gc = m(w, 1, q.centre.x, q.centre.z, 'cutout');
   gc.within(placed(q.centre.x, q.centre.y + sy / 2, q.centre.z, q.yaw), () => {
     for (const [len, axis] of [[sx, 'x'], [sz, 'z']] as const) {
@@ -396,7 +426,7 @@ function hedge(w: World, q: BlockoutPrim, i: number): void {
       for (let k = 0; k < 22; k++) {
         const x = (hash2(seed, k + 10) - 0.5) * (sx - 0.3);
         const y = 0.3 + hash2(seed, k + 20) * (sy - 0.5);
-        g0.box(x, y, sz / 2 + 0.02, 0.09, 0.07, 0.05);
+        g0.bead(x, y, sz / 2 + 0.03, 0.09);
       }
     });
   }
@@ -463,7 +493,7 @@ function bramble(w: World, p: PropAnchor, seed: number, berries = true): void {
       for (let j = 0; j < 12; j++) {
         const a = hash2(seed, k * 20 + j) * Math.PI * 2;
         const d = r * (0.6 + hash2(seed, k * 20 + j + 7) * 0.5);
-        g0.box(cx + Math.cos(a) * d, p.pos.y + sy * (0.3 + hash2(seed, j + 3) * 0.6), cz + Math.sin(a) * d, 0.06, 0.06, 0.06);
+        g0.bead(cx + Math.cos(a) * d, p.pos.y + sy * (0.3 + hash2(seed, j + 3) * 0.6), cz + Math.sin(a) * d, 0.07);
       }
     }
   }
@@ -482,7 +512,7 @@ function flowers(w: World, p: PropAnchor, seed: number): void {
         const a = hash2(seed, k + 140) * Math.PI;
         gc.paint({ mat: 'leafCard', tint: 0x9cbf7a }, seed + k).card2(new Vector3(x, sy * 0.45, z), new Vector3(Math.cos(a) * 0.3, 0, Math.sin(a) * 0.3), new Vector3(0, sy * 0.45, 0));
         g0.paint({ mat: 'plaster', tint: [0xe7a1b0, 0xf2d46b, 0xe8e0f0][k % 3], shade: 1.05 }, seed + k);
-        for (let j = 0; j < 3; j++) g0.box(x + (hash2(seed, k * 3 + j) - 0.5) * 0.4, sy * (0.7 + hash2(seed, j + k) * 0.35), z + (hash2(seed, k * 5 + j) - 0.5) * 0.4, 0.08, 0.06, 0.08);
+        for (let j = 0; j < 3; j++) g0.bead(x + (hash2(seed, k * 3 + j) - 0.5) * 0.4, sy * (0.7 + hash2(seed, j + k) * 0.35), z + (hash2(seed, k * 5 + j) - 0.5) * 0.4, 0.09);
       }
     });
   });
@@ -619,6 +649,10 @@ function groundCover(w: World): void {
       const pathD = Math.min(Infinity, ...zones.flatMap((j) => j.paths.map((pp) => distToPath(pp, px, pz))));
       const r = hash2(k, 3);
       const g0 = m(w, 0, px, pz, 'cutout');
+      if (jungle) {
+        jungleFloor(w, px, pz, pathD, k);
+        continue;
+      }
       if (pathD < 1.4 && r < 0.75) continue;
       if (r < 0.62) {
         tuft(g0, px, 0, pz, 0.25 + hash2(k, 4) * 0.2, k);
@@ -634,6 +668,82 @@ function groundCover(w: World): void {
         // A dropped feather (§1.2: 1 per 40 m² anywhere).
         const a = hash2(k, 6) * Math.PI * 2;
         g0.paint({ mat: 'featherCard', tint: [0xe8e0d0, 0xa89a88, 0x8a8a90][k % 3] }, k).card2(new Vector3(px, 0.02, pz), new Vector3(Math.cos(a) * 0.05, 0, Math.sin(a) * 0.05), new Vector3(-Math.sin(a) * 0.15, 0.01, Math.cos(a) * 0.15));
+      }
+    }
+  }
+}
+
+/**
+ * The jungle floor (§6.4): dappled canopy shade on the ground everywhere, then ferns, soft bushes, litter, moss
+ * cushions, mushrooms, fallen logs and stones, thinning toward the paths so routes stay readable.
+ */
+function jungleFloor(w: World, x: number, z: number, pathD: number, k: number): void {
+  const r = hash2(k, 3);
+  const g0 = m(w, 0, x, z, 'cutout');
+  // Dapple: dark leaf shadows lying on the ground (§10.1 baked dapple at Medium).
+  const a = hash2(k, 9) * Math.PI * 2;
+  const s = 0.7 + hash2(k, 10) * 0.9;
+  m(w, 1, x, z, 'cutout').paint({ mat: 'leafCard', tint: 0x1c2618, shade: 0.55 }, k).card2(new Vector3(x, 0.025, z), new Vector3(Math.cos(a) * s, 0, Math.sin(a) * s), new Vector3(-Math.sin(a) * s, 0, Math.cos(a) * s));
+  if (pathD < 1.2) {
+    if (r < 0.3) litter(g0, x, z, k);
+    return;
+  }
+  if (r < 0.3) tuft(g0, x, 0, z, 0.3 + hash2(k, 4) * 0.25, k);
+  else if (r < 0.52 && pathD > 1.8) fern(m(w, 1, x, z, 'cutout'), x, 0, z, 0.75 + hash2(k, 5) * 0.55, k);
+  else if (r < 0.64 && pathD > 2.2) clump(m(w, 1, x, z, 'cutout'), x, 0.45, z, 0.55 + hash2(k, 6) * 0.25, k, 0x5f7f52);
+  else if (r < 0.74) litter(g0, x, z, k);
+  else if (r < 0.79) {
+    const g = m(w, 1, x, z);
+    g.paint(MOSS, k).within(placed(x, 0, z, 0), () => g.lathe([[0.6 + hash2(k, 7) * 0.5, 0], [0.4, 0.06], [0.001, 0.09]], 7));
+  } else if (r < 0.83) mushrooms(m(w, 0, x, z), x, 0, z, 0.5, k);
+  else if (r < 0.86 && pathD > 3) {
+    // A fallen log, low, mossy along its top.
+    const g = m(w, 1, x, z);
+    const yaw = hash2(k, 8) * Math.PI;
+    const len = 1.8 + hash2(k, 11) * 1.8;
+    const rr = 0.18 + hash2(k, 12) * 0.12;
+    g.paint(BARK, k).within(oriented(x, rr, z, yaw, Math.PI / 2), () => g.lathe([[rr, -len / 2], [rr * 1.08, 0], [rr * 0.9, len / 2]], 7));
+    g.paint(MOSS, k).within(oriented(x, rr * 1.7, z, yaw, Math.PI / 2), () => g.lathe([[rr * 0.5, -len * 0.4], [rr * 0.55, 0], [rr * 0.4, len * 0.35]], 5));
+    mushrooms(m(w, 0, x, z), x + Math.cos(yaw) * 0.4, 0, z - Math.sin(yaw) * 0.4, 0.4, k + 1);
+  } else if (r < 0.89) pebbles(m(w, 0, x, z), x, z, k);
+  else if (r < 0.91) {
+    const b = hash2(k, 6) * Math.PI * 2;
+    g0.paint({ mat: 'featherCard', tint: [0xe8e0d0, 0xa89a88, 0x8a8a90][k % 3] }, k).card2(new Vector3(x, 0.03, z), new Vector3(Math.cos(b) * 0.05, 0, Math.sin(b) * 0.05), new Vector3(-Math.sin(b) * 0.15, 0.01, Math.cos(b) * 0.15));
+  }
+}
+
+/**
+ * The jungle canopy (§6.4: 60–80 % over the jungle, 30–50 % over lanes) on a 9 m grid at 17–25 m, clear of towers,
+ * with lianas hanging from it to 6–9 m (soft foliage above 3 m is free of the sightline rule).
+ */
+function jungleCanopy(w: World): void {
+  const zones = w.map.jungle ?? [];
+  const tall = (w.map.buildings ?? []).filter((b) => b.footprint.centre.y + b.footprint.size.y / 2 > 13);
+  const { min, max } = w.map.bounds;
+  const step = 9;
+  for (let x = min.x + 4; x < max.x - 4; x += step) {
+    for (let z = min.z + 4; z < max.z - 4; z += step) {
+      const k = Math.round(x * 13 + z * 7) + 77;
+      const px = x + (hash2(k, 1) - 0.5) * step * 0.8;
+      const pz = z + (hash2(k, 2) - 0.5) * step * 0.8;
+      const jungle = zones.some((j) => insidePoly(j.outline, px, pz));
+      const laneD = Math.min(...w.map.lanes.map((l) => distToPath(l.path, px, pz) / l.halfWidth));
+      const p = jungle ? 0.75 : laneD < 1.6 ? 0.3 : 0;
+      if (hash2(k, 3) > p) continue;
+      if (tall.some((b) => Math.hypot(b.footprint.centre.x - px, b.footprint.centre.z - pz) < Math.max(b.footprint.size.x, b.footprint.size.z) / 2 + 5)) continue;
+      const y = 17 + hash2(k, 4) * 8;
+      const g = m(w, 2, px, pz, 'cutout');
+      for (let j = 0; j < 3; j++) clump(g, px + (hash2(k, j + 5) - 0.5) * 6, y + (hash2(k, j + 8) - 0.5) * 2.5, pz + (hash2(k, j + 11) - 0.5) * 6, 2.8 + hash2(k, j + 14) * 1.2, k * 3 + j);
+      if (jungle && hash2(k, 20) < 0.4) {
+        // A liana: a thin stem hanging from the canopy with leaf strips along it.
+        const bottom = 6 + hash2(k, 21) * 3;
+        const gs = m(w, 1, px, pz);
+        gs.paint({ mat: 'bark', tint: 0x8a8060 }, k).tube([new Vector3(px, y - 1, pz), new Vector3(px + 0.3, (y + bottom) / 2, pz + 0.2), new Vector3(px + 0.1, bottom, pz)], [0.04, 0.03, 0.015], 4);
+        const gl = m(w, 1, px, pz, 'cutout');
+        for (let yy = bottom + 0.3; yy < y - 1.5; yy += 0.9) {
+          const ang = hash2(k, yy) * Math.PI;
+          gl.paint({ mat: 'leafCard', tint: 0x5f8052 }, k + Math.round(yy)).card2(new Vector3(px + 0.15, yy, pz + 0.1), new Vector3(Math.cos(ang) * 0.35, 0, Math.sin(ang) * 0.35), new Vector3(0, 0.4, 0));
+        }
       }
     }
   }

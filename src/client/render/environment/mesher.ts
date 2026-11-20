@@ -268,6 +268,30 @@ export class Mesher {
     }
   }
 
+  /**
+   * A thin relief piece seen from the front (local +z): its front face at z1 and, when `wrap` is ±1, the side face at
+   * that x end. 4–8 vertices where a box costs 20–24: for glazing bars, quoins and other shallow, numerous trims.
+   */
+  relief(x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, wrap: -1 | 0 | 1 = 0): void {
+    this.poly([new Vector3(x0, y0, z1), new Vector3(x1, y0, z1), new Vector3(x1, y1, z1), new Vector3(x0, y1, z1)], new Vector3(0, 0, 1));
+    if (wrap !== 0) {
+      const x = wrap > 0 ? x1 : x0;
+      this.poly([new Vector3(x, y0, z0), new Vector3(x, y0, z1), new Vector3(x, y1, z1), new Vector3(x, y1, z0)], new Vector3(wrap, 0, 0));
+    }
+  }
+
+  /** A small rounded blob (berries, flower heads, seed): a tetrahedron, 12 vertices where a box costs 24. */
+  bead(x: number, y: number, z: number, s: number): void {
+    const h = s * BEAD;
+    const [lo, back] = [y - h * BEAD_LOW, z - h * BEAD];
+    const p = [new Vector3(x, y + h, z), new Vector3(x - h, lo, back), new Vector3(x + h, lo, back), new Vector3(x, lo, z + h)];
+    const c = new Vector3(x, y, z);
+    for (const [a, b, d] of BEAD_FACES) {
+      const n = new Vector3().add(p[a]!).add(p[b]!).add(p[d]!).divideScalar(XYZ).sub(c).normalize();
+      this.poly([p[a]!, p[b]!, p[d]!], n);
+    }
+  }
+
   /** Box from min/max corners (local). */
   span(x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, bevel = 0, skip = ''): void {
     if (x1 <= x0 || y1 <= y0 || z1 <= z0) return;
@@ -433,6 +457,9 @@ export class Mesher {
 }
 
 const BYTE = 255;
+const BEAD = 0.6;
+const BEAD_LOW = 0.5;
+const BEAD_FACES = [[0, 1, 2], [0, 2, 3], [0, 3, 1], [1, 3, 2]] as const;
 const BYTE_SIGNED = 127;
 
 /** Floats scaled to a normalised integer array, rounded and clamped. */

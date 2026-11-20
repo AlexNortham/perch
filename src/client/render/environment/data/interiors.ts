@@ -17,6 +17,7 @@ import { barrel, hangingFeeder, inPrim, lantern } from './buildings';
 import { nest, perchRail } from './nest';
 import { bowl, crateAt, openSack, sack } from './props';
 import { POT, ROPE, TWIG } from './styles';
+import { carve, rect } from '../../../../sim/world/map/data/interiors';
 
 interface Blocker {
   readonly x: number;
@@ -28,6 +29,7 @@ interface Blocker {
 
 const TIMBER = { mat: 'timber' } as const;
 const DARK = { mat: 'timberDark' } as const;
+const LANDING_BOARD = { mat: 'boards', tint: 0xf2e8d6 } as const;
 
 export function dressInteriors(w: World): void {
   const map = w.map;
@@ -105,6 +107,44 @@ function furnish(w: World, room: Room, archetype: string, seed: number, blockers
       else g.span(t - 0.1, t + 0.1, ceil - 0.24, ceil - 0.02, -hz, hz);
     }
   }
+  // A floor where the ground shows (ground floors and cellars stand on the terrain): boards in timber and woven
+  // buildings, flagstones in stone ones, with the stair, hatch and Chimney holes left open.
+  if (room.storey <= 0) {
+    const style = w.dressing.buildings[room.building]?.style ?? '';
+    const stone = /stone|belfry|dovecote|brick/.test(style);
+    const c = Math.cos(v.yaw);
+    const s = Math.sin(v.yaw);
+    const holes = blockers.filter((b) => b.r >= 1 && b.y0 < floor + 0.5 && b.y1 > floor + 0.2).map((b) => {
+      const dx = b.x - v.centre.x;
+      const dz = b.z - v.centre.z;
+      const lx = dx * c - dz * s;
+      const lz = dx * s + dz * c;
+      const r = b.r * 0.6;
+      return rect(lx - r, lx + r, lz - r, lz + r);
+    });
+    const gf = M(1);
+    gf.ambient = SHADE.interior;
+    gf.paint(stone ? { mat: 'flagstone', tint: 0xe8e0d0 } : { mat: 'boards', tint: 0xd8c4a8 }, seed);
+    for (const r of carve(rect(-hx, hx, -hz, hz), holes)) {
+      gf.poly([new Vector3(r.x0, floor + 0.012, r.z0), new Vector3(r.x1, floor + 0.012, r.z0), new Vector3(r.x1, floor + 0.012, r.z1), new Vector3(r.x0, floor + 0.012, r.z1)], new Vector3(0, 1, 0));
+    }
+  }
+  // Timber wainscot panelling (1.1 m) round the walls, broken at doors.
+  {
+    const gw = M(1);
+    gw.paint({ mat: 'timber', tint: 0xc8a888 }, seed + 1);
+    const sides: [number, number, number, number, boolean][] = [[-hx, hx, -hz, 1, true], [-hx, hx, hz, -1, true], [-hz, hz, -hx, 1, false], [-hz, hz, hx, -1, false]];
+    for (const [a, b, at, dir, alongX] of sides) {
+      for (let u = a + 0.05; u < b - 0.4; u += 1.2) {
+        const [x, z] = alongX ? [u + 0.6, at] : [at, u + 0.6];
+        const p = world(x, z);
+        if (!clear(blockers.filter((bl) => bl.r < 2.5), p.x, floor + 0.6, p.z, 0.3)) continue;
+        const e = Math.min(u + 1.18, b);
+        if (alongX) gw.poly([new Vector3(u, floor, at + dir * 0.035), new Vector3(e, floor, at + dir * 0.035), new Vector3(e, floor + 1.1, at + dir * 0.035), new Vector3(u, floor + 1.1, at + dir * 0.035)], new Vector3(0, 0, dir));
+        else gw.poly([new Vector3(at + dir * 0.035, floor, u), new Vector3(at + dir * 0.035, floor, e), new Vector3(at + dir * 0.035, floor + 1.1, e), new Vector3(at + dir * 0.035, floor + 1.1, u)], new Vector3(dir, 0, 0));
+      }
+    }
+  }
   // A rug or woven mat in the middle (flat; skipped over holes and stairs).
   if (free(0, 0, Math.min(hx, hz) * 0.4, floor + 0.3)) {
     const g = M(0);
@@ -138,7 +178,7 @@ function furnish(w: World, room: Room, archetype: string, seed: number, blockers
       if (!free(x, z, 0.2, floor + 0.3)) continue;
       g.within(placed(...pos3(wall.at(u + 0.8, 0.02), floor), wall.yaw), () => g.span(-0.8, 0.8, 0, 0.16, 0, 0.03));
     }
-    for (let u = -wall.half + 1.0; u < wall.half - 0.9; u += 1.7) {
+    for (let u = -wall.half + 1.0; u < wall.half - 0.9; u += 1.35) {
       slot++;
       const s = seed + slot * 7;
       const [x, z] = wall.at(u, 0.45);
@@ -229,6 +269,45 @@ function wallPiece(g: Mesher, archetype: string, pick: number, height: number, s
       crateAt(g, -0.35, 0.8, 0.45, 0.7, 0.6, 0.7, seed + 2);
       return;
     }
+    case 'cubbies': {
+      // A wall of nest cubbies: a 3 × 3 timber grid, nests in some, a perch peg under each row.
+      g.paint(TIMBER, seed);
+      for (let i = 0; i <= 3; i++) g.span(-0.75 + i * 0.5 - 0.03, -0.75 + i * 0.5 + 0.03, 0.4, 1.95, 0.02, 0.45);
+      for (let j = 0; j <= 3; j++) g.span(-0.78, 0.78, 0.4 + j * 0.5 - 0.03, 0.4 + j * 0.5 + 0.03, 0.02, 0.45);
+      g.paint({ mat: 'boards', shade: 0.6 }, seed).span(-0.75, 0.75, 0.4, 1.9, 0.02, 0.05);
+      for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+          if (hash2(seed, i * 3 + j) < 0.55) nest(g, -0.5 + i * 0.5, 0.43 + j * 0.5, 0.25, 0.19, 0.14, seed + i * 3 + j, hash2(seed, i + j * 5) < 0.3 ? 1 : 0, 5);
+        }
+        g.paint(TIMBER, seed).tube([new Vector3(-0.78, 0.38 + i * 0.5, 0.5), new Vector3(0.78, 0.38 + i * 0.5, 0.5)], 0.015, 4);
+      }
+      return;
+    }
+    case 'sorting': {
+      // A sorting table: trays of seed sorted by kind, a scoop, a sieve.
+      g.paint(TIMBER, seed).span(-0.8, 0.8, 0.82, 0.88, 0.1, 0.8, 0.01);
+      for (const sx of [-0.7, 0.7]) for (const sz of [0.18, 0.72]) g.span(sx - 0.04, sx + 0.04, 0, 0.82, sz - 0.04, sz + 0.04);
+      for (let k = 0; k < 3; k++) {
+        const x = -0.5 + k * 0.5;
+        g.paint({ mat: 'timber', tint: 0xd8c4a0 }, seed + k).span(x - 0.22, x + 0.22, 0.88, 0.94, 0.25, 0.65);
+        g.paint({ mat: 'gravel', tint: [0xe0c890, 0x8a6a48, 0xb89060][k] }, seed + k).span(x - 0.19, x + 0.19, 0.9, 0.95, 0.28, 0.62);
+      }
+      g.paint({ mat: 'twig' }, seed).within(placed(0.55, 0.88, 0.85, 0), () => g.lathe([[0.18, 0], [0.2, 0.06], [0.18, 0.07]], 10));
+      return;
+    }
+    case 'roost': {
+      // A roost shelf: three staggered perch boards and dowels up the wall, a feather or two below.
+      for (let k = 0; k < 3; k++) {
+        const y = 0.9 + k * 0.55;
+        const x = (k - 1) * 0.35;
+        g.paint(LANDING_BOARD, seed + k).span(x - 0.4, x + 0.4, y - 0.04, y, 0.02, 0.32);
+        g.paint(TIMBER, seed).span(x - 0.36, x - 0.3, y - 0.22, y - 0.04, 0.02, 0.28);
+        g.span(x + 0.3, x + 0.36, y - 0.22, y - 0.04, 0.02, 0.28);
+        g.tube([new Vector3(x - 0.4, y + 0.12, 0.3), new Vector3(x + 0.4, y + 0.12, 0.3)], 0.018, 4);
+      }
+      g.paint({ mat: 'gravel', tint: 0xe0c890 }, seed).within(placed(0, 0, 0.4, 0), () => g.lathe([[0.3, 0], [0.15, 0.02], [0.001, 0.03]], 8));
+      return;
+    }
     case 'produce': {
       // Strings of dried fruit and seed heads hanging from a rail (Market Hall).
       g.paint(DARK, seed).span(-0.8, 0.8, 2.3, 2.38, 0.02, 0.3);
@@ -246,21 +325,21 @@ function wallPiece(g: Mesher, archetype: string, pick: number, height: number, s
   }
 }
 
-type Piece = 'shelf' | 'pegs' | 'rail' | 'bin' | 'nestbed' | 'hearth' | 'kegs' | 'sacks' | 'grain' | 'crates' | 'produce';
+type Piece = 'shelf' | 'pegs' | 'rail' | 'bin' | 'nestbed' | 'hearth' | 'kegs' | 'sacks' | 'grain' | 'crates' | 'produce' | 'cubbies' | 'sorting' | 'roost';
 
 const BY_ARCHETYPE: Readonly<Record<string, readonly Piece[]>> = {
-  'market-hall': ['produce', 'bin', 'shelf', 'sacks', 'rail', 'pegs'],
-  'water-mill': ['sacks', 'grain', 'pegs', 'bin', 'crates'],
-  tavern: ['kegs', 'hearth', 'nestbed', 'shelf', 'rail', 'pegs'],
-  granary: ['sacks', 'grain', 'bin', 'sacks', 'pegs'],
-  warehouse: ['crates', 'sacks', 'crates', 'kegs', 'pegs'],
-  'bell-tower': ['rail', 'pegs', 'nestbed', 'bin'],
-  'hollow-tree': ['nestbed', 'rail', 'shelf', 'pegs'],
-  'terrace-house': ['nestbed', 'hearth', 'shelf', 'rail', 'bin', 'pegs'],
-  'seed-exchange': ['bin', 'sacks', 'shelf', 'produce', 'rail'],
-  'stilt-house': ['nestbed', 'shelf', 'rail', 'pegs'],
-  hide: ['rail', 'pegs'],
-  dovecote: ['nestbed', 'rail'],
+  'market-hall': ['produce', 'bin', 'sorting', 'sacks', 'cubbies', 'roost', 'produce', 'bin'],
+  'water-mill': ['sacks', 'grain', 'sorting', 'bin', 'roost', 'crates'],
+  tavern: ['kegs', 'hearth', 'cubbies', 'roost', 'nestbed', 'produce'],
+  granary: ['sacks', 'grain', 'bin', 'sorting', 'roost', 'cubbies'],
+  warehouse: ['crates', 'sacks', 'crates', 'roost', 'cubbies', 'bin'],
+  'bell-tower': ['roost', 'cubbies', 'nestbed', 'bin', 'pegs'],
+  'hollow-tree': ['nestbed', 'cubbies', 'roost', 'produce', 'pegs'],
+  'terrace-house': ['nestbed', 'hearth', 'cubbies', 'roost', 'bin', 'produce'],
+  'seed-exchange': ['bin', 'sorting', 'sacks', 'produce', 'cubbies', 'roost'],
+  'stilt-house': ['nestbed', 'cubbies', 'roost', 'produce'],
+  hide: ['roost', 'pegs'],
+  dovecote: ['cubbies', 'nestbed', 'roost'],
 };
 
 function choose(archetype: string, pick: number): Piece {

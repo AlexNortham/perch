@@ -114,6 +114,23 @@ function updraftMast(w: World, s: Vec3, seed: number): void {
   const pts = [new Vector3(s.x + 0.18, s.y + 1.1, s.z), new Vector3(s.x + 0.18, s.y + 0.5, s.z), new Vector3(s.x + 1.7, s.y + 0.75, s.z + 0.1), new Vector3(s.x + 1.3, s.y + 0.85, s.z + 0.08), new Vector3(s.x + 1.8, s.y + 1.0, s.z + 0.12)];
   g.poly(pts, new Vector3(0, 0, 1));
   g.poly(pts, new Vector3(0, 0, -1));
+  // Woven twig collars up the mast, a crow's-nest basket under the pulley, and feather-cut streamers in the wind.
+  g.paint(TWIG, seed + 3);
+  for (const t of [0.15, 0.45, 0.75]) g.within(placed(s.x, ground + (s.y - ground) * t, s.z, 0), () => g.lathe([[0.3, -0.2], [0.34, 0], [0.3, 0.2]], 8));
+  g.within(placed(s.x, s.y - 1.6, s.z, 0), () => g.lathe([[0.25, 0], [0.75, 0.15], [0.85, 0.75], [0.78, 0.8]], 10));
+  nest(m(w, 1, s), s.x + 0.2, s.y - 1.45, s.z, 0.45, 0.35, seed + 4, 0, 8);
+  const gs = m(w, 1, s);
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * Math.PI * 2 + hash2(seed, k);
+    const top = new Vector3(s.x + Math.cos(a) * 0.82, s.y - 0.85, s.z + Math.sin(a) * 0.82);
+    const len = 1.2 + hash2(seed, k + 5) * 0.9;
+    const sway = new Vector3(Math.cos(a + 0.6) * 0.25, 0, Math.sin(a + 0.6) * 0.25);
+    gs.paint({ mat: 'canvas', tint: k % 2 ? tint : FADED.neutral }, seed + k);
+    const strip = [top.clone().add(new Vector3(-0.06, 0, 0)), top.clone().add(new Vector3(0.06, 0, 0)), top.clone().add(sway).add(new Vector3(0.03, -len, 0)), top.clone().add(sway).add(new Vector3(0, -len - 0.18, 0)), top.clone().add(sway).add(new Vector3(-0.03, -len, 0))];
+    gs.poly(strip, new Vector3(0, 0, 1));
+    gs.poly(strip, new Vector3(0, 0, -1));
+  }
+  w.perches.push({ x: s.x + 0.85, y: s.y - 0.82, z: s.z, yaw: hash2(seed, 9) * 6 });
 }
 
 /** A Chimney (§1.4): a soot-stained brick hearth ring at the foot of the warm shaft and a sooty collar at its top. */
@@ -195,26 +212,48 @@ function camp(w: World, p: Vec3, yaw: number, family: string, seed: number): voi
       gd.paint(MOSS, seed).within(placed(den.x, den.y, den.z, 0), () => gd.lathe([[2.0, 0], [1.85, 0.2], [1.7, 0.3]], 12));
     }
   }
-  // Bushes behind the den close the camp's back.
+  // Brambles and bushes close the camp's back; a ring of stones and logs marks its ground; gnawed husks and bones of
+  // seed heads litter it; burrows open under the bushes.
   const gc = m(w, 1, den, 'cutout');
-  for (let k = 0; k < 3; k++) {
-    const a = yaw + Math.PI + (k - 1) * 0.6;
-    clump(gc, p.x + Math.sin(a) * 6, p.y + 0.8, p.z + Math.cos(a) * 6, 1.1, seed + k);
+  for (let k = 0; k < 6; k++) {
+    const a = yaw + Math.PI + (k - 2.5) * 0.45;
+    clump(gc, p.x + Math.sin(a) * (5.5 + hash2(seed, k) * 1.5), p.y + 0.7, p.z + Math.cos(a) * (5.5 + hash2(seed, k) * 1.5), 1.0 + hash2(seed, k + 1) * 0.5, seed + k, 0x5a7a4e);
+  }
+  const gr = m(w, 1, p);
+  for (let k = 0; k < 9; k++) {
+    const a = (k / 9) * Math.PI * 2 + hash2(seed, k + 30);
+    const r = 4.6 + hash2(seed, k + 31) * 0.8;
+    const x = p.x + Math.cos(a) * r;
+    const z = p.z + Math.sin(a) * r;
+    if (k % 3 === 0) gr.paint(BARK, seed + k).within(oriented(x, p.y + 0.18, z, -a, Math.PI / 2), () => gr.lathe([[0.18, -0.8], [0.2, 0], [0.17, 0.8]], 6));
+    else gr.paint({ mat: 'granite', tint: 0xb8b8a8 }, seed + k).within(placed(x, p.y, z, a), () => gr.radial([0, 0.18, 0.35], 6, (b, y) => (0.32 + 0.08 * Math.sin(b * 3 + k)) * (1 - (y / 0.35) ** 2 * 0.7)));
+  }
+  const g0 = m(w, 0, p);
+  g0.paint({ mat: 'thatch', tint: 0xd8c090 }, seed);
+  for (let k = 0; k < 14; k++) {
+    const a = hash2(seed, k + 50) * Math.PI * 2;
+    const r = 1.2 + hash2(seed, k + 51) * 2.8;
+    g0.within(oriented(p.x + Math.cos(a) * r, p.y + 0.03, p.z + Math.sin(a) * r, a, Math.PI / 2), () => g0.lathe([[0.03, -0.12], [0.05, 0], [0.02, 0.12]], 4));
+  }
+  g0.paint({ mat: 'timberDark', shade: 0.1 }, seed);
+  for (let k = 0; k < 2; k++) {
+    const a = yaw + Math.PI + (k ? 0.7 : -0.7);
+    g0.within(oriented(p.x + Math.sin(a) * 4.4, p.y + 0.2, p.z + Math.cos(a) * 4.4, a, -0.3), () => g0.lathe([[0.001, 0], [0.3, 0.01], [0.001, 0.02]], 9));
   }
 }
 
-/** A Nest's bed: a ring of straw and twigs, a feather or two, on the floor under the breakable nest. */
+/** A Nest's cradle: a woven twig ring with volume, straw and down inside, under the breakable nest (D-EP-048). */
 function nestBed(w: World, p: Vec3, seed: number): void {
-  const g = m(w, 0, p);
-  g.paint({ mat: 'thatch', tint: 0xe8d8b0 }, seed).within(placed(p.x, p.y, p.z, hash2(seed, 1) * 3), () => g.lathe([[0.95, 0], [0.82, 0.08], [0.55, 0.06], [0.001, 0.03]], 10));
-  g.paint(TWIG, seed);
-  for (let k = 0; k < 5; k++) {
-    const a = hash2(seed, k) * Math.PI * 2;
-    g.tube([new Vector3(p.x + Math.cos(a) * 0.7, p.y + 0.04, p.z + Math.sin(a) * 0.7), new Vector3(p.x + Math.cos(a + 0.4) * 1.15, p.y + 0.02, p.z + Math.sin(a + 0.4) * 1.15)], 0.015, 3);
-  }
+  const g = m(w, 1, p);
+  nest(g, p.x, p.y, p.z, 0.95, 0.42, seed, 0, 12);
+  const g0 = m(w, 0, p);
+  g0.paint({ mat: 'thatch', tint: 0xf0e0b8 }, seed).within(placed(p.x, p.y + 0.12, p.z, hash2(seed, 1) * 3), () => g0.lathe([[0.62, 0], [0.4, 0.06], [0.001, 0.08]], 9));
   const gc = m(w, 0, p, 'cutout');
-  const a = hash2(seed, 9) * Math.PI * 2;
-  gc.paint({ mat: 'featherCard', tint: 0xe8e0d0 }, seed).card2(new Vector3(p.x + Math.cos(a) * 0.9, p.y + 0.05, p.z + Math.sin(a) * 0.9), new Vector3(0.05, 0, 0.02), new Vector3(-0.03, 0.01, 0.15));
+  for (let k = 0; k < 3; k++) {
+    const a = hash2(seed, 9 + k) * Math.PI * 2;
+    gc.paint({ mat: 'featherCard', tint: [0xe8e0d0, 0xc8bca8, 0xf0ece4][k] }, seed + k).card2(new Vector3(p.x + Math.cos(a) * 1.05, p.y + 0.04, p.z + Math.sin(a) * 1.05), new Vector3(0.05, 0, 0.02), new Vector3(-0.03, 0.01, 0.15));
+  }
+  w.perches.push({ x: p.x + 0.9, y: p.y + 0.42, z: p.z, yaw: hash2(seed, 3) * 6 });
 }
 
 // ── Runes, the Egg, the Hollow ───────────────────────────────────────────────────────────────────────────────────
@@ -315,6 +354,38 @@ function rocHollow(w: World, c: Vec3, r: number, floorY: number): void {
         gr.tube(pts, [0.3, 0.2, 0.14, 0.08], 5);
       }
     });
+  }
+  // The Roc's nest: a huge ring of woven boughs round the pit's middle (the Roc's model is the Technical Artist's),
+  // great moulted feathers, mossy boulders and ferns round the walls, roots crossing the floor.
+  const gn = m(w, 2, c, 'cast');
+  const ringR = 7.5;
+  gn.paint(TWIG, seed + 101).within(placed(c.x, floorY, c.z, 0), () => {
+    gn.lathe([[ringR + 1.6, 0], [ringR + 1.2, 0.9], [ringR + 0.4, 1.35], [ringR - 0.4, 1.1], [ringR - 0.9, 0.3], [ringR - 1.2, 0]], 28);
+  });
+  gn.paint(BARK, seed + 102);
+  for (let k = 0; k < 26; k++) {
+    const a = (k / 26) * Math.PI * 2 + hash2(seed, k + 300) * 0.3;
+    const lean = 0.4 + hash2(seed, k + 301) * 0.8;
+    const p0 = new Vector3(c.x + Math.cos(a) * ringR, floorY + 0.8, c.z + Math.sin(a) * ringR);
+    const p1 = p0.clone().add(new Vector3(Math.cos(a + 1.2) * 2.4, lean, Math.sin(a + 1.2) * 2.4));
+    gn.tube([p0, p1], [0.16, 0.04], 4);
+  }
+  const gf = m(w, 1, c, 'cutout');
+  for (let k = 0; k < 7; k++) {
+    const a = hash2(seed, k + 400) * Math.PI * 2;
+    const d = ringR + 2 + hash2(seed, k + 401) * 6;
+    gf.paint({ mat: 'featherCard', tint: [0x4a3a30, 0x6a5040, 0x3a3434][k % 3] }, seed + k).card2(new Vector3(c.x + Math.cos(a) * d, floorY + 0.06, c.z + Math.sin(a) * d), new Vector3(Math.cos(a) * 0.3, 0.02, Math.sin(a) * 0.3), new Vector3(-Math.sin(a) * 1.1, 0.05, Math.cos(a) * 1.1));
+  }
+  const gb = m(w, 1, c);
+  for (let k = 0; k < 10; k++) {
+    const a = (k / 10) * Math.PI * 2 + hash2(seed, k + 500);
+    const d = r - 2.5 - hash2(seed, k + 501) * 2;
+    const x = c.x + Math.cos(a) * d;
+    const z = c.z + Math.sin(a) * d;
+    const br = 0.6 + hash2(seed, k + 502) * 0.7;
+    gb.paint({ mat: 'granite', tint: 0x98a088 }, seed + k).within(placed(x, floorY, z, a), () => gb.radial([0, br * 0.5, br * 0.9], 7, (b, y) => br * (1.1 + 0.15 * Math.sin(b * 3 + k)) * (1 - (y / (br * 0.9)) ** 2 * 0.75)));
+    gb.paint(MOSS, seed + k).within(placed(x, floorY + br * 0.62, z, 0), () => gb.lathe([[br * 0.75, 0], [br * 0.4, br * 0.18], [0.001, br * 0.24]], 7));
+    clump(gf, x + Math.cos(a + 1) * 1.2, floorY + 0.5, z + Math.sin(a + 1) * 1.2, 0.7, seed + k + 600, 0x5f7f52);
   }
   // Old mill timbers leaning in a corner, a fallen millstone, scattered sacks.
   const corner = new Vector3(c.x - r + 4, floorY, c.z + r - 4);

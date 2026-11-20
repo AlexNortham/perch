@@ -21,6 +21,7 @@ import { hash2 } from '../world';
 import type { Pass, World } from '../world';
 import { dressArchetype } from './archetypes';
 import { nest, perchRail, wallBracket } from './nest';
+import { distToPath } from './nature';
 import { GLASS, IRON, LANDING, LIT, POT, ROPE, SOOT, STYLES, TWIG } from './styles';
 import type { StyleKit } from './styles';
 
@@ -267,6 +268,8 @@ function facade(c: Ctx, f: Face): void {
   for (const h of f.holes) opening(c, f, h);
   bays(c, f);
   birdLife(c, f);
+  // The jungle grows over its streets: ivy climbs most jungle faces (§6.2: at least 30 %).
+  if (c.d.style.startsWith('jungle') && hash2(c.seed, f.side + 70) < 0.65 && f.width > 3) ivyPatch(c, f, (hash2(c.seed, f.side + 71) - 0.5) * f.width * 0.5, Math.min(3.2, f.width * 0.5), c.base + 0.4, Math.min(f.top, c.base + 8), c.seed + f.side + 72);
 }
 
 function corners(c: Ctx, f: Face, near: Mesher, g2: Mesher): void {
@@ -286,8 +289,8 @@ function corners(c: Ctx, f: Face, near: Mesher, g2: Mesher): void {
       for (let y = c.base + PLINTH + 0.02; y + 0.3 < f.top - 0.1; y += 0.33, k++) {
         if (y < from(s * W)) continue;
         const len = k % 2 ? 0.26 : 0.42;
-        if (s > 0) g1.span(W - len, W + 0.035, y, y + 0.3, 0, 0.035, 0, '-z');
-        else g1.span(-W - 0.035, -W + len, y, y + 0.3, 0, 0.035, 0, '-z');
+        if (s > 0) g1.relief(W - len, W + 0.035, y, y + 0.3, -0.035, 0.035, 1);
+        else g1.relief(-W - 0.035, -W + len, y, y + 0.3, -0.035, 0.035, -1);
       }
     }
   } else if (kit.corner === 'post') {
@@ -443,9 +446,10 @@ function head(c: Ctx, g: Mesher, u: number, w: number, y1: number, seed: number)
 
 function frameAround(g: Mesher, u: number, w: number, y0: number, y1: number, t: number, depth: number, paint: Paint, seed: number, sill = true): void {
   g.paint(paint, seed);
-  g.span(u - w / 2 - t, u - w / 2, y0, y1, -0.03, depth, 0.015, '-z');
-  g.span(u + w / 2, u + w / 2 + t, y0, y1, -0.03, depth, 0.015, '-z');
-  g.span(u - w / 2 - t, u + w / 2 + t, y1, y1 + t, -0.03, depth, 0.015, '-z');
+  g.relief(u - w / 2 - t, u - w / 2, y0, y1, -0.03, depth, 1);
+  g.relief(u + w / 2, u + w / 2 + t, y0, y1, -0.03, depth, -1);
+  g.relief(u - w / 2 - t, u + w / 2 + t, y1, y1 + t, -0.03, depth);
+  g.poly([new Vector3(u - w / 2, y1, -0.03), new Vector3(u + w / 2, y1, -0.03), new Vector3(u + w / 2, y1, depth), new Vector3(u - w / 2, y1, depth)], new Vector3(0, -1, 0));
   if (sill) g.span(u - w / 2 - t, u + w / 2 + t, y0 - t, y0, -0.03, depth, 0.015, '-z');
 }
 
@@ -454,15 +458,15 @@ function shutters(g: Mesher, u: number, w: number, y0: number, y1: number, paint
   const sw = w / 2;
   for (const s of [-1, 1]) {
     if (closed) {
-      g.span(u + (s < 0 ? -sw : 0) + 0.01, u + (s < 0 ? 0 : sw) - 0.01, y0, y1, 0.02, 0.07, 0.01, '-z');
+      g.relief(u + (s < 0 ? -sw : 0) + 0.01, u + (s < 0 ? 0 : sw) - 0.01, y0, y1, 0.02, 0.07);
       continue;
     }
     const open = hash2(seed, s) < 0.6 ? 0.1 + hash2(seed, s + 5) * 0.42 : 0;
     const hinge = u + s * (w / 2 + 0.1);
     g.within(oriented(hinge, 0, 0.1, s * open, 0, 0), () => {
-      g.span(s < 0 ? -sw : 0, s < 0 ? 0 : sw, y0, y1, 0, 0.05, 0.01);
+      g.relief(s < 0 ? -sw : 0, s < 0 ? 0 : sw, y0, y1, 0, 0.05, s < 0 ? -1 : 1);
       // A ledged back: one rail across the middle.
-      g.span(s < 0 ? -sw + 0.05 : 0.05, s < 0 ? -0.05 : sw - 0.05, (y0 + y1) / 2 - 0.04, (y0 + y1) / 2 + 0.04, 0.05, 0.075, 0, '-z');
+      g.relief(s < 0 ? -sw + 0.05 : 0.05, s < 0 ? -0.05 : sw - 0.05, (y0 + y1) / 2 - 0.04, (y0 + y1) / 2 + 0.04, 0.05, 0.075);
     });
   }
 }
@@ -484,11 +488,11 @@ function glazing(c: Ctx, f: Face, u: number, w: number, y0: number, y1: number, 
   const nv = Math.max(1, Math.round((y1 - y0) / 0.36));
   for (let k = 1; k < nu; k++) {
     const x = u - w / 2 + (w * k) / nu;
-    (k === Math.floor(nu / 2) ? g1 : g0).span(x - 0.018, x + 0.018, y0, y1, z, z + 0.035, 0, '-z');
+    (k === Math.floor(nu / 2) ? g1 : g0).relief(x - 0.018, x + 0.018, y0, y1, z, z + 0.03);
   }
   for (let k = 1; k < nv; k++) {
     const y = y0 + ((y1 - y0) * k) / nv;
-    (k === Math.floor(nv / 2) ? g1 : g0).span(u - w / 2, u + w / 2, y - 0.018, y + 0.018, z, z + 0.035, 0, '-z');
+    (k === Math.floor(nv / 2) ? g1 : g0).relief(u - w / 2, u + w / 2, y - 0.018, y + 0.018, z, z + 0.03);
   }
 }
 
@@ -511,7 +515,7 @@ function windowBox(c: Ctx, f: Face, u: number, w: number, y0: number, seed: numb
   g0o.paint(flower, seed);
   for (let k = 0; k < n + 2; k++) {
     const x = u - w / 2 + 0.08 + hash2(seed, k + 9) * (w - 0.16);
-    g0o.box(x, y0 + 0.02 + hash2(seed, k + 19) * 0.1, 0.1 + hash2(seed, k + 29) * 0.1, 0.06, 0.05, 0.06);
+    { const fx = x; const fy = y0 + 0.02 + hash2(seed, k + 19) * 0.1; g0o.relief(fx - 0.035, fx + 0.035, fy - 0.03, fy + 0.03, 0.1, 0.25); }
   }
 }
 
@@ -1133,9 +1137,13 @@ function birdLife(c: Ctx, f: Face): void {
   const g1 = c.M(1, f.frame);
   const g0 = c.M(0, f.frame);
   const seed = c.seed + f.side * 977;
+  // Street faces (looking onto a lane or a jungle path) get the full set; back faces only the eaves holes.
+  const px = f.cx + Math.sin(f.yaw) * 6;
+  const pz = f.cz + Math.cos(f.yaw) * 6;
+  const street = c.w.map.lanes.some((l) => distToPath(l.path, px, pz) < l.halfWidth + 12) || (c.w.map.jungle ?? []).some((j) => j.paths.some((p) => distToPath(p, px, pz) < 9));
   // Nest holes in a row under the eaves; a straw tuft from one in three.
   const ey = (f.gable ? d.roof.eaves : f.top) - (pitched ? 0.45 : 0.8);
-  for (let u = -W + 1.1; u < W - 0.9; u += 2.1) {
+  for (let u = -W + 1.1; u < W - 0.9; u += street ? 2.4 : 3.6) {
     if (busy(u, ey - 0.4, ey + 0.3) || ey < c.base + 2.5) continue;
     g1.paint({ mat: 'timberDark', shade: 0.12 }, seed);
     const pts: Vector3[] = [];
@@ -1147,7 +1155,7 @@ function birdLife(c: Ctx, f: Face): void {
     c.w.perch(f.frame, u, ey - 0.14, 0.17, 0);
   }
   // A cluster of nest boxes high on wide faces.
-  if (f.width > 5 && ey > c.base + 3.5) {
+  if (street && f.width > 5 && ey > c.base + 3.5) {
     const u = (hash2(seed, 2) - 0.5) * (f.width - 3);
     if (!busy(u, ey - 1.6, ey - 0.3)) nestBoxCluster(c, f, u, ey - 1.5, seed);
   }
@@ -1156,17 +1164,16 @@ function birdLife(c: Ctx, f: Face): void {
     const tan = Math.tan((d.roof.pitchDeg * Math.PI) / 180);
     const ov = overhang(d);
     const gy = d.roof.eaves - ov * tan - 0.15;
-    for (let u = -W + 0.8; u < W; u += 1.9 + hash2(seed, u) * 1.2) {
+    for (let u = -W + 0.8; u < W; u += (street ? 2.6 : 4.5) + hash2(seed, u) * 1.2) {
       tuft(g1, u, gy, ov + 0.1, 1, seed + Math.round(u * 7));
       if (hash2(seed, u + 3) < 0.5) c.w.perch(f.frame, u + 0.3, gy + 0.08, ov + 0.12, 0);
     }
   }
-  for (const h of f.holes) {
+  for (const h of street ? f.holes : []) {
     const hs = seed + Math.round(h.u * 31 + h.y0 * 7);
     if (h.kind === 'mark-window' || h.kind === 'window') {
       // A perch dowel under the sill, the odd streak below it; birds sit on sills.
       g1.paint({ mat: 'timber' }, hs).tube([new Vector3(h.u - h.w / 2, h.y0 - 0.2, 0.18), new Vector3(h.u + h.w / 2, h.y0 - 0.2, 0.18)], 0.02, 4);
-      for (const s of [-1, 1]) g1.span(h.u + s * (h.w / 2 - 0.05) - 0.02, h.u + s * (h.w / 2 - 0.05) + 0.02, h.y0 - 0.24, h.y0 - 0.1, 0, 0.19, 0, '-z');
       if (hash2(hs, 1) < 0.4) streak(g0, h.u + (hash2(hs, 2) - 0.5) * h.w * 0.6, h.y0 - 0.26, hs);
       if (hash2(hs, 3) < 0.6) c.w.perch(f.frame, h.u + (hash2(hs, 4) - 0.5) * h.w * 0.7, h.y0 + 0.0, 0.08, 0);
     } else if ((h.kind === 'door' || h.kind === 'mark-door') && h.storey === 0) {

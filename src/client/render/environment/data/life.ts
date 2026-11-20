@@ -144,7 +144,7 @@ export function berryBush(w: World, x: number, z: number, seed: number): void {
   for (let k = 0; k < 14; k++) {
     const a = hash2(seed, k + 10) * Math.PI * 2;
     const d = 0.25 + hash2(seed, k + 20) * 0.35;
-    g.box(x + Math.cos(a) * d, 0.3 + hash2(seed, k + 30) * 0.45, z + Math.sin(a) * d, 0.05, 0.05, 0.05);
+    g.bead(x + Math.cos(a) * d, 0.3 + hash2(seed, k + 30) * 0.45, z + Math.sin(a) * d, 0.06);
   }
   w.perches.push({ x, y: 0.9, z, yaw: hash2(seed, 4) * 6 });
 }
