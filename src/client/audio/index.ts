@@ -80,7 +80,7 @@ export const createAudio = (settings: Settings, opts: AudioOptions = {}): AudioO
   let active: Active[] = [];
   let listener: CameraPose | null = null;
   let view: SimView | null = null;
-  let screen: Screen = 'menu';
+  let screen: Screen = 'match'; // until the app says otherwise (it calls onScreen on every change)
   let lastFight = -Infinity;
   let lastCall = new Map<number, number>();
   let lastAlarm = -Infinity;
@@ -433,7 +433,7 @@ export const createAudio = (settings: Settings, opts: AudioOptions = {}): AudioO
         lastPulse = seconds;
         play(N.eggCarryPulse, Prio.Ambient, carrier.id === f.curr.localHero ? null : carrier.pos, Len.Cue);
       }
-      music.setState(musicState(f.curr));
+      if (screen !== 'menu' && screen !== 'heroSelect') music.setState(musicState(f.curr)); // those screens own their music state
       music.tick(c.currentTime);
       duck.gain.setTargetAtTime(seconds - lastFight < FIGHT_HOLD ? DUCK_GAIN : 1, c.currentTime, VOLUME_SMOOTH * DUCK_SMOOTH_FACTOR);
       if (me && me.hp > 0 && me.hp / me.maxHp < LOW_HP && seconds - lastBeat >= HEARTBEAT_PERIOD) { lastBeat = seconds; play(C.heartbeat, Prio.Heartbeat, null, Len.Cue); }
