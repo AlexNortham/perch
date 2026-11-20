@@ -520,11 +520,11 @@ function hawkStatue(f: Flock, lod: Lod): BufferGeometry {
   beak(k, { at: [0, 1.25, 0.28], len: 0.1, w: 0.034, up: 0.04, dn: 0.022, curve: 0.028, hook: 0.03, base: f.gild, tip: shade(f.gild, 0.6) }, d);
   for (const side of [1, -1] as const) {
     glowEye(k, [side * 0.054, 1.279, 0.238], [side * 0.55, 0.05, 0.85], 0.04, f.glow, STATE(1.9), seg(10, lod, 5));
-    featherWing(k, { side, shoulder: [side * 0.24, 0.98, -0.1], span: 1.05, chord: 0.48, raise: 0.95, sweep: 0.35, open: 0.75, roll: 1.0, root: 0x6b4f2f, tip: 0x9a7a50, covert: 0x7a5c38, finish: { gloss: 0.5 }, rows: d.rows, primaries: [8, 5, 4][lod], secondaries: [10, 6, 4][lod] });
+    featherWing(k, { side, shoulder: [side * 0.24, 0.98, -0.1], span: 1.05, chord: 0.48, raise: 0.95, sweep: 0.35, open: 0.75, roll: 1.0, root: 0x6b4f2f, tip: 0x9a7a50, covert: 0x7a5c38, finish: { gloss: 0.5 }, rows: d.rows, primaries: ([8, 5, 4] as const)[lod], secondaries: ([10, 6, 4] as const)[lod] });
     limb(k, [side * 0.11, 0.24, 0.08], [side * 0.11, 0.07, 0.1], 0.03, 0.024, f.gild, { tile: TILE.rings, size: 0.04, gloss: 0.6 }, lod);
     if (lod < 2) talons(sm, m, [side * 0.11, 0.06, 0.11], 1, f.gild, 0x1a1410, lod, side);
   }
-  featherFan(k, [0, 0.36, -0.3], [0, -0.55, -1], [0, 0.88, -0.47], { n: [8, 6, 4][lod], len: 0.5, wid: 0.13, spread: 0.7, root: 0x6b4f2f, tip: 0x9a7a50, rows: d.rows, finish: { gloss: 0.5 } });
+  featherFan(k, [0, 0.36, -0.3], [0, -0.55, -1], [0, 0.88, -0.47], { n: ([8, 6, 4] as const)[lod], len: 0.5, wid: 0.13, spread: 0.7, root: 0x6b4f2f, tip: 0x9a7a50, rows: d.rows, finish: { gloss: 0.5 } });
   skinInto(sm, 'hawk', lod, style, m);
   sm.sculpt(k, m);
   return sm.build();
