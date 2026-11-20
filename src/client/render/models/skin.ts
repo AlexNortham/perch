@@ -2,10 +2,12 @@
 /**
  * Baked implicit bodies at runtime (D-ART-008): decode a skin baked by `mesher.ts` and paint it.
  *
- * Format (little-endian, 4-byte aligned): a header of float32 [version, levels, min xyz, max xyz]; then per level
- * uint32 [vertices V, indices I], V × 3 uint16 positions quantised to the box, V × 2 int16 octahedral normals,
- * V × 8 bytes of bones (4 ids into BONE_NAMES, then 4 weights summing to 255), V × 8 bytes of paint regions (4 ids
- * into the body's region list, then 4 weights), I uint16 indices, padded to 4 bytes.
+ * Format (little-endian, 4-byte aligned): a header of float32 [version, levels, min xyz, max xyz, vertices V]; V × 3
+ * uint16 positions quantised to the box, V × 2 int16 octahedral normals, V × 2 int16 octahedral feather flows (the way
+ * the feathers point, in the surface), V × 8 bytes of bones (4 ids into BONE_NAMES, then 4 weights summing to 255),
+ * V × 8 bytes of paint regions (4 ids into the body's region list, then 4 weights), padded to 4 bytes; then per level
+ * uint32 [vertices used n, indices I] and I uint16 indices into the first n vertices (the coarsest level's come
+ * first), padded.
  *
  * Positions are in the model frame at the bind pose. Colour is painted here, per region, from the bird's palette and
  * flock colours: the bake holds only shape and ownership.
@@ -15,11 +17,13 @@ import { TILE } from './feathers';
 import { mix, PATTERN_FADE } from './sculpt';
 import type { Finish } from './sculpt';
 
-export const SKIN_FORMAT = { version: 1 } as const;
+export const SKIN_FORMAT = { version: 2 } as const;
 
 export interface SkinLevel {
   readonly pos: Float32Array;
   readonly nrm: Float32Array;
+  /** Unit feather flow in the surface (bind pose). */
+  readonly flow: Float32Array;
   readonly bones: Uint8Array;
   readonly boneW: Float32Array;
   readonly regions: Uint8Array;
@@ -47,12 +51,15 @@ export function decodeSkin(b64: string): readonly SkinLevel[] {
   o += V * 6;
   const oct = new Int16Array(buf, o, V * 2);
   o += V * 4;
+  const octFlow = new Int16Array(buf, o, V * 2);
+  o += V * 4;
   const bw = new Uint8Array(buf, o, V * 8);
   o += V * 8;
   const rw = new Uint8Array(buf, o, V * 8);
-  o += V * 8 + ((V * 26) % 4 ? 2 : 0);
+  o += V * 8 + ((V * 30) % 4 ? 2 : 0);
   const pos = new Float32Array(V * 3);
   const nrm = new Float32Array(V * 3);
+  const flow = new Float32Array(V * 3);
   const bones = new Uint8Array(V * 4);
   const boneW = new Float32Array(V * 4);
   const regions = new Uint8Array(V * 4);
@@ -60,6 +67,7 @@ export function decodeSkin(b64: string): readonly SkinLevel[] {
   for (let i = 0; i < V; i++) {
     for (let c = 0; c < 3; c++) pos[i * 3 + c] = lo[c]! + (q[i * 3 + c]! / 65535) * span[c]!;
     nrm.set(octDecode(oct[i * 2]! / 32767, oct[i * 2 + 1]! / 32767), i * 3);
+    flow.set(octDecode(octFlow[i * 2]! / 32767, octFlow[i * 2 + 1]! / 32767), i * 3);
     for (let k = 0; k < 4; k++) {
       bones[i * 4 + k] = bw[i * 8 + k]!;
       boneW[i * 4 + k] = bw[i * 8 + 4 + k]! / 255;
@@ -75,7 +83,7 @@ export function decodeSkin(b64: string): readonly SkinLevel[] {
     const index = new Uint16Array(buf.slice(o, o + I * 2));
     o += I * 2 + (I % 2 ? 2 : 0);
     levels.push({
-      pos: pos.slice(0, n * 3), nrm: nrm.slice(0, n * 3), bones: bones.slice(0, n * 4), boneW: boneW.slice(0, n * 4),
+      pos: pos.slice(0, n * 3), nrm: nrm.slice(0, n * 3), flow: flow.slice(0, n * 3), bones: bones.slice(0, n * 4), boneW: boneW.slice(0, n * 4),
       regions: regions.slice(0, n * 4), regionW: regionW.slice(0, n * 4), index,
     });
   }
@@ -127,7 +135,6 @@ export function paintSkin(level: SkinLevel, regionNames: readonly string[], styl
     let hex = -1;
     let acc = 0;
     let iri = 0, glow = 0, gloss = 0;
-    let tile: number = TILE.flat, size = 0.1, best = -1;
     const styles: (RegionStyle | undefined)[] = [];
     for (let k = 0; k < 4; k++) {
       const w = level.regionW[i * 4 + k]!;
@@ -141,14 +148,23 @@ export function paintSkin(level: SkinLevel, regionNames: readonly string[], styl
       iri += (f.iri ?? 0) * w;
       glow += (f.glow ?? 0) * w;
       gloss += (f.gloss ?? 0) * w;
-      if (w > best) {
-        best = w;
-        tile = f.tile ?? TILE.flat;
-        size = f.size ?? size;
-      }
     }
+    // The pattern: the patterned tile with the most weight here, at the strength of its weight. A plain region next to
+    // a patterned one carries that tile at low strength, so a triangle never mixes tile indices (which would speckle)
+    // and the pattern fades out across the border.
+    const byTile = new Map<number, { w: number; size: number }>();
+    for (let k = 0; k < 4; k++) {
+      const f = styles[k]?.finish;
+      const t = f?.tile ?? TILE.flat;
+      if (t === TILE.flat) continue;
+      const e = byTile.get(t) ?? { w: 0, size: f?.size ?? 0.1 };
+      e.w += level.regionW[i * 4 + k]!;
+      byTile.set(t, e);
+    }
+    let tile: number = TILE.flat;
+    let size = 0.1;
     let same = 0;
-    for (let k = 0; k < 4; k++) if ((styles[k]?.finish?.tile ?? TILE.flat) === tile) same += level.regionW[i * 4 + k]!;
+    for (const [t, e] of byTile) if (e.w > same) [tile, size, same] = [t, e.size, e.w];
     colour.setHex(Math.max(0, hex));
     c[i * 3] = colour.r;
     c[i * 3 + 1] = colour.g;
@@ -157,7 +173,7 @@ export function paintSkin(level: SkinLevel, regionNames: readonly string[], styl
     fx[i * 4] = iri / norm;
     fx[i * 4 + 1] = glow / norm;
     fx[i * 4 + 2] = gloss / norm;
-    fx[i * 4 + 3] = tile + PATTERN_FADE * Math.min(1, Math.max(0, (1 - same) * 2));
+    fx[i * 4 + 3] = tile + PATTERN_FADE * Math.min(1, Math.max(0, 1 - same));
     uv[i * 2] = tile === TILE.flat ? 0.5 : -1 / size;
     uv[i * 2 + 1] = 0.5;
   }

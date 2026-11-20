@@ -205,20 +205,30 @@ function pack(field: Field, pos: Float32Array, owners: ReturnType<Field['owners'
   const V = order.length;
   const q = new Uint16Array(V * 3);
   const nrm = new Int16Array(V * 2);
+  const flow = new Int16Array(V * 2);
   const bones = new Uint8Array(V * 8);
   const regions = new Uint8Array(V * 8);
   order.forEach((src, i) => {
     for (let c = 0; c < 3; c++) q[i * 3 + c] = Math.round(((pos[src * 3 + c]! - lo[c]!) / Math.max(1e-6, hi[c]! - lo[c]!)) * 65535);
-    const [ox, oy] = octEncode(field.normal(pos[src * 3]!, pos[src * 3 + 1]!, pos[src * 3 + 2]!));
+    const n = field.normal(pos[src * 3]!, pos[src * 3 + 1]!, pos[src * 3 + 2]!);
+    const [ox, oy] = octEncode(n);
     nrm[i * 2] = Math.round(ox * 32767);
     nrm[i * 2 + 1] = Math.round(oy * 32767);
     const w = owners[src]!;
+    // The feathers' flow laid on the surface (where it points straight out, any tangent will do).
+    const f = w.flow;
+    const along = f[0] * n[0] + f[1] * n[1] + f[2] * n[2];
+    let t: [number, number, number] = [f[0] - along * n[0], f[1] - along * n[1], f[2] - along * n[2]];
+    if (Math.hypot(...t) < 1e-3) t = [-n[2], 0, n[0]];
+    const [fx, fy] = octEncode(t);
+    flow[i * 2] = Math.round(fx * 32767);
+    flow[i * 2 + 1] = Math.round(fy * 32767);
     quantise(w.bones.map(([b, x]) => [BONE_NAMES.indexOf(b), x]), bones, i * 8);
     quantise(w.regions.map(([r, x]) => [field.regions.indexOf(r), x]), regions, i * 8);
   });
   const chunks: Uint8Array[] = [new Uint8Array(new Float32Array([SKIN_FORMAT.version, levels.length, ...lo, ...hi, V]).buffer)];
-  chunks.push(new Uint8Array(q.buffer), new Uint8Array(nrm.buffer), bones, regions);
-  if ((V * 26) % 4) chunks.push(new Uint8Array(2));
+  chunks.push(new Uint8Array(q.buffer), new Uint8Array(nrm.buffer), new Uint8Array(flow.buffer), bones, regions);
+  if ((V * 30) % 4) chunks.push(new Uint8Array(2));
   levels.forEach((idx, l) => {
     const tri = Uint16Array.from(idx, (v) => remap.get(v)!);
     chunks.push(new Uint8Array(new Uint32Array([prefix[l]!, idx.length]).buffer), new Uint8Array(tri.buffer));
