@@ -20,7 +20,7 @@ const MAX_TICKS = 60 * 60 * TICK_RATE;
 it('siege proof: one Owl on ordinary commands takes the Dusk structures and both Patron phases to victory', { timeout: 120_000 }, async () => {
   const sim = await createSim({
     seed: SEED, map: 'main', roster: humanRoster(SEED, HERO, { team: 'dawn', bots: 0 }),
-    options: { structures: true, waves: true, neutrals: false },
+    options: { structures: true, waves: true, neutrals: false, laneStart: false },
   });
   const me = sim.view.localHero as EntityId;
   const route = sim.ctx.store.list('structure').filter((s) => s.team === 'dusk' &&

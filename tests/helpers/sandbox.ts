@@ -148,7 +148,8 @@ export interface Sandbox {
   apply(effects: Effect | readonly Effect[], target: Target, cause: EffectCause): void;
 }
 
-const DEFAULT_OPTIONS: SimOptions = { unlockAbilities: true, waves: false, neutrals: false };
+// Sandboxes place their heroes themselves: no zipline start (D-ARCH-035).
+const DEFAULT_OPTIONS: SimOptions = { unlockAbilities: true, waves: false, neutrals: false, laneStart: false };
 const DEFAULT_MAX_TICKS = 600;
 const AIM_ITERATIONS = 8;
 const DUMMY_RADIUS = 0.5;

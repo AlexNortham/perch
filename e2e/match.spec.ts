@@ -24,7 +24,7 @@ const SWEEP_MS = 700;
 const seedsOf = async (page: Page) => Number((await page.locator('.pu-seeds').innerText()).replace(/[^\d]/g, ''));
 
 test('Play from the menu as Kingfisher: earn, level, buy and sell in the shop zone, scoreboard, map, damage numbers', async ({ page }) => {
-  await open(page, `/?t=${FAST_FORWARD_S}`);
+  await open(page, `/?t=${FAST_FORWARD_S}&zipline=0`);
   await pickHero(page, 'Play', 'Kingfisher');
   await lockPointer(page);
 

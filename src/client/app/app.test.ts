@@ -49,13 +49,14 @@ describe('scene router', () => {
     expect(at('blockout')).toMatchObject({ map: 'main', roster: [] });
     expect(at('sandbox').roster).toEqual([{ team: 'dawn', hero: 'kiwi', controller: 'human' }]);
     expect(at('match').roster.length).toBe(12);
-    // The replay is the Play match with the siege-proof Owl, whatever `hero` says.
-    expect(at('replay')).toEqual(matchConfig({ hero: 'owl', team: 'dawn', difficulty: 'normal', seed: 3 }));
+    // The replay is the Play match with the siege-proof Owl, whatever `hero` says, on foot (D-ARCH-035).
+    const play = matchConfig({ hero: 'owl', team: 'dawn', difficulty: 'normal', seed: 3 });
+    expect(at('replay')).toEqual({ ...play, options: { ...play.options, laneStart: false } });
   });
 
-  it('starts the structure match from Play and from ?scene=lane', () => {
+  it('starts the structure match from Play (on the zipline) and from ?scene=lane (on foot)', () => {
     const practice = { map: 'main', roster: [{ team: 'dawn', hero: 'kiwi', controller: 'human' }], options: { structures: true, waves: true, neutrals: false } };
-    expect(sceneConfig(parseScene('?scene=lane&hero=kiwi&seed=3'))).toEqual({ seed: 3, ...practice });
+    expect(sceneConfig(parseScene('?scene=lane&hero=kiwi&seed=3'))).toEqual({ seed: 3, ...practice, options: { ...practice.options, laneStart: false } });
     expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3 })).toEqual({ seed: 3, ...practice });
     expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3, bots: 11 }).roster.length).toBe(12);
     expect(matchConfig({ hero: 'kiwi', team: 'dawn', difficulty: 'normal', seed: 3, bots: 11 }).options?.structures).toBe(true);

@@ -25,7 +25,7 @@ const isBot = (h: HeroEntity): boolean => h.hero.controller === 'easy' || h.hero
 const archetypeOf = (id: HeroId): Archetype => HEROES[id].def.archetype;
 const NO_PICKS: ReadonlySet<ItemId> = new Set();
 
-/** GDD §11.3 laning: the human first on Riverbank, then bots two by two, frontline paired with backline. */
+/** GDD §11.3 laning: each bot takes the lane core assigned it at match start (`HeroInfo.lane`, D-ARCH-034). */
 export function assignLanes(heroes: readonly HeroEntity[]): Map<EntityId, { lane: LaneId; side: 1 | -1; roamer: boolean }> {
   const out = new Map<EntityId, { lane: LaneId; side: 1 | -1; roamer: boolean }>();
   for (const team of PLAYER_TEAMS) {
@@ -39,9 +39,14 @@ export function assignLanes(heroes: readonly HeroEntity[]): Map<EntityId, { lane
       if (back[i]) queue.push(back[i]!);
     }
     const order = [...mine.filter((h) => h.hero.controller === 'human'), ...queue];
+    // The lane core assigned at match start wins (D-ARCH-034); the two-by-two order is the fallback for heroes without
+    // one. In a lane the first bird (the human first) holds the near side and the second roams.
+    const seen = new Map<LaneId, number>();
     order.forEach((h, i) => {
-      const lane = LANE_ORDER[Math.floor(i / PER_LANE) % LANE_ORDER.length]!;
-      out.set(h.id, { lane, side: i % PER_LANE === 0 ? 1 : -1, roamer: i % PER_LANE === 1 });
+      const lane = h.hero.lane ?? LANE_ORDER[Math.floor(i / PER_LANE) % LANE_ORDER.length]!;
+      const k = seen.get(lane) ?? 0;
+      seen.set(lane, k + 1);
+      out.set(h.id, { lane, side: k % PER_LANE === 0 ? 1 : -1, roamer: k % PER_LANE === 1 });
     });
   }
   return out;

@@ -142,6 +142,7 @@ function heroView(ctx: SimContext, h: HeroEntity, scores: TelemetryCollector): H
     team: h.team,
     slot: h.hero.slot,
     controller: h.hero.controller,
+    ...(h.hero.lane && { lane: h.hero.lane }),
     level: h.progress.level,
     seeds: h.progress.seeds,
     netWorth: h.progress.netWorth,

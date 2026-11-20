@@ -1199,7 +1199,7 @@ describe('robustness', () => {
     b.step({}, 40);
     expect(b.h.pos.y).toBeCloseTo(0, 3);
 
-    const sim = await createSim({ seed: 1, map: 'main', roster: [{ team: 'dawn', hero: 'kingfisher', controller: 'human' }] });
+    const sim = await createSim({ seed: 1, map: 'main', roster: [{ team: 'dawn', hero: 'kingfisher', controller: 'human' }], options: { laneStart: false } });
     const [h] = sim.ctx.store.list('hero');
     if (!h) throw new Error('no hero');
     const step: Bench['step'] = (_cmd, n = 1) => {

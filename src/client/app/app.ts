@@ -14,7 +14,7 @@ import { createUi } from '../ui';
 import { createVfx } from '../vfx';
 import type { AppActions, CameraPose, CameraPreset, Frame, HudIntent, Renderer, Screen, Settings, UiAction, Vfx } from './contracts';
 import { createFixedStep, entityById } from './loop';
-import { matchConfig, practiceConfig, sceneConfig } from './router';
+import { matchConfig, onFoot, practiceConfig, sceneConfig } from './router';
 import type { SceneName, SceneRequest } from './router';
 import { loadSettings, saveSettings } from './settings';
 import { deferWork, runDeferred } from './stages';
@@ -133,7 +133,7 @@ export async function startApp(root: HTMLElement, req: SceneRequest): Promise<vo
         void swapHero(setup.hero);
         return;
       }
-      void switchSession(mode === 'practice' ? practiceConfig(setup.seed, setup.hero) : matchConfig(setup), 'player', 'match', req.t);
+      void switchSession(mode === 'practice' ? practiceConfig(setup.seed, setup.hero) : req.onFoot ? onFoot(matchConfig(setup)) : matchConfig(setup), 'player', 'match', req.t);
     },
     toMenu: () => {
       mode = 'siege';

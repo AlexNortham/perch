@@ -171,9 +171,12 @@ every tick's hash must match (D-ARCH-021). The rules:
   through `deferWork(label, job)`: jobs run after `'menu'`, in order, one per browser task, each awaited (so a job
   may hand work to a Web Worker), each recorded as a `perch:job:<label>` performance measure next to the
   `perch:boot`, `perch:sim`, `perch:menu` and `perch:world` marks. Until Rendering queues its own generation the
-  whole renderer is the first job. `?scene=menu|blockout|sandbox|lane|match` (`lane` is the practice match that Play
-  starts, D-ARCH-013) plus `seed`, `hero`, `cam` (player, overview,
+  whole renderer is the first job. `?scene=menu|blockout|sandbox|lane|match` (`lane` is the structure match from the
+  base with no bots and no zipline start, for the browser suites; Play and `match` start every bird riding its lane's
+  Updraft, D-ARCH-035) plus `seed`, `hero`, `cam` (player, overview,
   top), `quality` and `t` (seconds fast-forwarded before the first frame): see `src/client/app/router.ts`.
+- Every hero gets a lane at match start (`HeroInfo.lane`, `core/lanes.ts`, D-ARCH-034); with `SimOptions.laneStart`
+  physics starts it on that lane's Updraft (D-ARCH-035).
 
 ## 6. Frame, units and aim
 

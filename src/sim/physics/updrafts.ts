@@ -54,6 +54,30 @@ export function pointOnLine(line: Line, s: number, out: Vec3, tan: Vec3): void {
   out.z = a.z + (b.z - a.z) * t;
 }
 
+/** Arc length of the cable point nearest `p` (3D). */
+export function arcLengthAt(line: Line, p: Vec3): number {
+  let best = 0;
+  let bestD2 = Number.POSITIVE_INFINITY;
+  for (let i = 1; i < line.points.length; i++) {
+    const a = line.points[i - 1] as Vec3;
+    const b = line.points[i] as Vec3;
+    const ex = b.x - a.x;
+    const ey = b.y - a.y;
+    const ez = b.z - a.z;
+    const len2 = ex * ex + ey * ey + ez * ez;
+    const f = len2 > 0 ? clamp(((p.x - a.x) * ex + (p.y - a.y) * ey + (p.z - a.z) * ez) / len2, 0, 1) : 0;
+    const dx = a.x + ex * f - p.x;
+    const dy = a.y + ey * f - p.y;
+    const dz = a.z + ez * f - p.z;
+    const d2 = dx * dx + dy * dy + dz * dz;
+    if (d2 < bestD2) {
+      bestD2 = d2;
+      best = (line.cum[i - 1] ?? 0) + f * ((line.cum[i] ?? 0) - (line.cum[i - 1] ?? 0));
+    }
+  }
+  return best;
+}
+
 export interface Updrafts {
   readonly lines: readonly Line[];
   /** Fills `out` with the nearest cable point in latch reach of feet at `pos`; false when none is. */

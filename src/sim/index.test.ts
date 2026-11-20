@@ -211,6 +211,46 @@ describe('contracts', () => {
   });
 });
 
+describe('the zipline start (GDD §3.7, D-ARCH-034, D-ARCH-035)', () => {
+  it('at tick 1 every hero rides its own lane\'s Updraft out from the station nearest its base; the view has the lane', { timeout: 30_000 }, async () => {
+    const sim = await createSim({ seed: 3, roster: humanRoster(3, 'kingfisher', { bots: 11 }) });
+    sim.step();
+    const map = sim.ctx.map;
+    for (const h of sim.ctx.store.list('hero')) {
+      const u = h.motor.updraft === null ? undefined : map.updrafts[h.motor.updraft];
+      expect(u?.lane, `${h.hero.heroId} rides`).toBe(h.hero.lane);
+      expect(sim.view.heroes.find((v) => v.id === h.id)?.lane).toBe(h.hero.lane);
+      // Out from its own end: a tick of riding has moved it toward the enemy base, from the station by its own.
+      const own = map.spawns.find((s) => s.team === h.team)!.pos;
+      const ends = [u!.stations[0]!, u!.stations.at(-1)!].sort((a, b) => Math.abs(a.z - own.z) - Math.abs(b.z - own.z));
+      expect(Math.abs(h.pos.z - ends[0]!.z), `${h.hero.heroId} starts by its own end`).toBeLessThan(1);
+      expect(Math.sign(h.vel.z), `${h.hero.heroId} rides out`).toBe(Math.sign(ends[1]!.z - ends[0]!.z));
+    }
+  });
+
+  it('respawns on foot; laneStart: false, dummies and the Practice Hub start on foot', { timeout: 30_000 }, async () => {
+    const sim = await createSim({ seed: 3, roster: humanRoster(3, 'kingfisher', { bots: 11 }) });
+    sim.step();
+    const me = sim.ctx.store.getKind(sim.view.localHero!, 'hero')!;
+    sim.ctx.effects.apply({ kind: 'damage', amount: 1e6, type: 'talon' }, { entity: me.id, point: { ...me.pos }, dir: { x: 0, y: 0, z: 1 } },
+      { source: null, team: 'neutral', via: 'objective', ability: null, item: null, values: null, songPower: 0, proc: false, origin: { ...me.pos } });
+    sim.step();
+    expect(me.health.dead, 'killed').toBe(true);
+    for (let i = 0; i < 60 * TICK_RATE && me.health.dead; i++) sim.step();
+    expect(me.health.dead, 'respawned').toBe(false);
+    expect(me.motor.updraft, 'a respawn is on foot').toBeNull();
+    const off = await createSim({ seed: 3, roster: humanRoster(3, 'kingfisher', { bots: 11 }), options: { laneStart: false } });
+    off.step();
+    expect(off.ctx.store.list('hero').every((h) => h.motor.updraft === null && h.hero.lane !== undefined)).toBe(true);
+    const dummies = await createSim({ seed: 3, roster: allBotRoster(3, 12).map((s) => ({ ...s, controller: 'dummy' as const })) });
+    dummies.step();
+    expect(dummies.ctx.store.list('hero').every((h) => h.motor.updraft === null)).toBe(true);
+    const hub = await createSim({ seed: 3, map: 'arena', roster: humanRoster(3, 'kingfisher', { bots: 0 }), options: { practiceHub: true } });
+    hub.step();
+    expect(hub.ctx.store.list('hero').every((h) => h.motor.updraft === null && h.hero.lane === undefined)).toBe(true);
+  });
+});
+
 describe('concession', () => {
   it('ends the match for the other flock only from 15:00', async () => {
     // The human alone: concession needs no opponent, and a bot's 15 minutes of AI quadrupled the run (it hit 5 s under load).

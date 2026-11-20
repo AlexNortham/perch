@@ -51,6 +51,10 @@ export const MAP_STYLE = {
   timerFont: 9,
   timerStroke: 2.5,
   pingGrow: 1.5,
+  /** Lane stroke opacity; the assigned lane at the start is opaque over a white glow this much wider (D-ARCH-035). */
+  laneAlpha: 0.55,
+  laneGlow: 5,
+  laneGlowAlpha: 0.85,
 } as const;
 const SENS = { min: 0.1, max: 5, step: 0.05 } as const;
 const FOV = { min: 75, max: 110, step: 1 } as const;
@@ -84,6 +88,9 @@ export type HitKind = keyof typeof HIT_MARKER;
 
 /** Pod "secured" / "denied" banner lifetime (ms). */
 export const POD_BANNER_MS = 1400;
+/** The match-start lane banner (D-ARCH-035): shown this long, and the lane glows on the minimap for the match's first seconds. */
+export const LANE_BANNER_MS = 5000;
+export const LANE_HIGHLIGHT_S = 30;
 /** Cooldowns under this many seconds show a decimal. */
 export const DECIMAL_COOLDOWN_BELOW_S = 10;
 /** Upgrade tiers per ability (GDD §6). */

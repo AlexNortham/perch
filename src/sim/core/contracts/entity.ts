@@ -106,6 +106,11 @@ export interface HeroInfo {
   readonly controller: Controller;
   /** Practice target reset point and HP, set by core and honoured by Combat. */
   readonly training?: { readonly pos: Vec3; readonly hp: number };
+  /**
+   * The lane core assigned at match start (D-ARCH-034): two birds per lane for six, archetypes spread, seeded. Bots
+   * lane from it and `SimOptions.laneStart` puts the hero on its Updraft. Absent on maps without lanes.
+   */
+  readonly lane?: LaneId;
 }
 
 /**

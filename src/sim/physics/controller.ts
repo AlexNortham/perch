@@ -19,6 +19,7 @@ import type {
   EntityId,
   HeroEntity,
   Hasher,
+  LaneId,
   MovementAction,
   MovementModeEffect,
   MovementModeKind,
@@ -32,7 +33,7 @@ import { TICK_SECONDS } from '../data/core';
 import { AIR, CHIMNEY, CONTROLLER, DASH, DISPLACE, GROUND, MANTLE, SLIDE, SPRING, TUNNEL, UPDRAFT, VINE } from '../data/movement';
 import { MOVE_MASK } from './rapier';
 import type { MoveResult, Space } from './rapier';
-import { pointOnLine } from './updrafts';
+import { arcLengthAt, pointOnLine } from './updrafts';
 import type { Reach, Updrafts } from './updrafts';
 import * as dmath from '../core/dmath';
 
@@ -587,6 +588,31 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
     const index = ctx.config.roster.slice(0, h.hero.slot).filter((r) => r.team === h.team).length;
     const spawns = map.spawns.filter((a) => a.team === h.team);
     return copy(spawns[index % spawns.length]?.pos ?? h.pos);
+  };
+
+  /**
+   * The zipline start (GDD §3.7, D-ARCH-035): the hero is on its lane's cable at the station nearest its own spawn,
+   * riding toward the far end, with no latch to wait out. Stations come from the map, so a moved lane moves this too.
+   */
+  const startRide = (h: HeroEntity, s: HeroState, lane: LaneId): void => {
+    const index = map.updrafts.findIndex((u) => u.lane === lane);
+    const line = lines[index];
+    const home = spawnPoint(h);
+    let station: Vec3 | null = null;
+    for (const p of map.updrafts[index]?.stations ?? []) {
+      if (!station || dmath.hypot(p.x - home.x, p.z - home.z) < dmath.hypot(station.x - home.x, station.z - home.z)) station = p;
+    }
+    if (!line || !station) return;
+    const at = arcLengthAt(line, station);
+    pointOnLine(line, at, P, TAN);
+    h.pos = { x: P.x, y: P.y, z: P.z };
+    h.vel = { x: 0, y: 0, z: 0 };
+    s.ride = { line: index, s: at, dir: at <= line.length - at ? 1 : -1, mount: 0, mountTicks: 1, from: copy(h.pos),
+      boostUntil: NEVER, released: false };
+    h.motor.grounded = false;
+    h.motor.updraft = index;
+    h.motor.updraftInReach = null;
+    emit(h.id, 'updraftOn');
   };
 
   const reseat = (h: HeroEntity, pos: Vec3): void => {
@@ -1343,7 +1369,11 @@ export function createController(ctx: CoreContext, space: Space, service: Physic
 
   return {
     add(h) {
-      states.set(h.id, freshState(h.pos.y));
+      const s = freshState(h.pos.y);
+      states.set(h.id, s);
+      // Match start only: later spawns (none for heroes today) and respawns (reseat) start on foot.
+      const lane = h.hero.lane;
+      if (lane && clock.tick === 0 && ctx.config.options.laneStart && h.hero.controller !== 'dummy') startRide(h, s, lane);
     },
     remove(id) {
       states.delete(id);

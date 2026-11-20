@@ -140,6 +140,12 @@ export interface SimOptions {
    * the team spawn. createSim throws if it is set without `practiceHub` or is not finite. Honoured by core.
    */
   readonly practiceStart?: { readonly pos: Vec3; readonly yaw: number };
+  /**
+   * The zipline start (GDD §3.7, §6.2, D-EP-053, D-ARCH-035): at match start every hero but dummies is already riding
+   * its assigned lane's Updraft out from the base-end station. Respawns are unchanged. Default: as `structures`.
+   * Honoured by sim/physics.
+   */
+  readonly laneStart?: boolean;
   /** Thickets, Nests, runes, the Egg and the Roc. Default: as `waves`. Honoured by sim/world. */
   readonly neutrals?: boolean;
   /** Every ability unlocked from the start (ability sandboxes). Default false. Honoured by sim/abilities. */
