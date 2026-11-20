@@ -247,6 +247,11 @@ export function createVision(ctx: SimContext, hides: Hides | null = null): { upd
     return false;
   };
 
+  const targetTeam = (id: EntityId | null): PlayerTeam | null => {
+    const h = id === null ? undefined : ctx.store.getKind(id, 'hero');
+    return h && !h.health.dead ? h.team : null;
+  };
+
   /** A hero hidden in Hide `room`: seen only under true sight or by an enemy hero standing in the same Hide. */
   const seesHidden = (E: Eyes, team: PlayerTeam, e: HeroEntity, room: number): boolean => {
     for (let i = 0; i < E.tn; i++) {
@@ -279,9 +284,13 @@ export function createVision(ctx: SimContext, hides: Hides | null = null): { upd
         const invisible = cond?.has('invisible') ?? false;
         let bits = e.team === 'neutral' ? 0 : SeenBy[e.team];
         const room = e.kind === 'hero' && hides && !revealed && !hides.exposed(e.id) ? hides.hiddenIn(e.id) : -1;
+        // A creature attacking a hero sees it from within reach (thickets; the Roc in its open Hollow): that flock sees it.
+        const biting = e.kind === 'unit' && e.team === 'neutral' && e.unit.attacking && !invisible ? targetTeam(e.unit.target) : null;
         for (const t of TEAMS) {
           if (t === e.team) continue;
-          if (room >= 0 ? seesHidden(byTeam[t], t, e as HeroEntity, room) : sees(byTeam[t], e, invisible, revealed)) bits |= SeenBy[t];
+          if (t === biting || (room >= 0 ? seesHidden(byTeam[t], t, e as HeroEntity, room) : sees(byTeam[t], e, invisible, revealed))) {
+            bits |= SeenBy[t];
+          }
         }
         e.seenBy = bits;
         if (revealed || e.mapOnlySeenBy) e.mapOnlySeenBy = revealed ? SeenBy.all & ~bits : 0;

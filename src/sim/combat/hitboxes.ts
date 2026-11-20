@@ -64,6 +64,11 @@ export function createHitboxes(ctx: SimContext): Hitboxes {
     return null;
   };
   const crouched = (e: Entity): boolean => e.kind === 'hero' && (e.motor.crouching || e.motor.sliding);
+  /**
+   * Breakables (Nests, Bell Feeders: 100+ short structures, GDD §7.9) go through the broad phase like units; only the
+   * few tall structures (towers, the Patron) are tested on every cast.
+   */
+  const broad = (e: Entity): boolean => e.kind !== 'structure' || e.structure.breakable !== undefined;
 
   const head = (e: Entity, out: Vec3): number => {
     const body = bodyOf(e);
@@ -190,11 +195,12 @@ export function createHitboxes(ctx: SimContext): Hitboxes {
             const ex = vx - d.x * t;
             const ey = vy - d.y * t;
             const ez = vz - d.z * t;
-            if (ex * ex + ey * ey + ez * ez <= r * r && passes(e, f)) consider(e, o, d, maxT, radius);
+            if (ex * ex + ey * ey + ez * ez <= r * r && broad(e) && passes(e, f)) consider(e, o, d, maxT, radius);
           }
         };
         if (f.heroes) scan(ctx.store.list('hero'));
         if (f.units) scan(ctx.store.list('unit'));
+        if (f.structures) scan(ctx.store.list('structure'));
         if (f.pods || f.ember || f.melee !== null) scan(ctx.store.list('pickup'));
       } else {
         mid.x = o.x + d.x * half;
@@ -203,11 +209,11 @@ export function createHitboxes(ctx: SimContext): Hitboxes {
         ctx.spatial.query(mid, half + reach, ids);
         for (const id of ids) {
           const e = ctx.store.get(id);
-          if (e && e.kind !== 'structure' && passes(e, f)) consider(e, o, d, maxT, radius);
+          if (e && broad(e) && passes(e, f)) consider(e, o, d, maxT, radius);
         }
       }
-      // Structures are tall and few: test them all instead of padding every query by their height.
-      if (f.structures) for (const s of ctx.store.list('structure')) if (passes(s, f)) consider(s, o, d, maxT, radius);
+      // Tall structures are few: test them all instead of padding every query by their height.
+      if (f.structures) for (const s of ctx.store.list('structure')) if (!broad(s) && passes(s, f)) consider(s, o, d, maxT, radius);
       return hits;
     },
   };
