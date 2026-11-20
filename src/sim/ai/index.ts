@@ -145,6 +145,9 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
       policy,
       pushLane,
     };
+    // Bots play maps with lanes. On a lane-less test map (the arena) they stand still as the W1 stub did, so benches
+    // that place a bot as a target keep working (D-AI-007).
+    if (ctx.map.lanes.length === 0) return;
     for (const h of heroes) {
       if (!isBot(h)) continue;
       const a = lanes.get(h.id) ?? { lane: LANE_ORDER[0]!, side: 1 as const, roamer: false };
