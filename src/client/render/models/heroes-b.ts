@@ -23,46 +23,6 @@ const pivots = (o: { sy: number; legLen: number; R: number; legX: number; tailY:
   tail: [0, o.tailY, o.tailZ] as V3,
 });
 
-/** Starling: small and spiky, ruffled shoulders, a square tail, and a halo of eight tiny starlings at head height. */
-const starling: Build = (plan, team) => {
-  const { H, R, hc, hr, top } = dims(plan);
-  const legLen = H * 0.17;
-  const y0 = legLen * 0.9;
-  const cy = (y0 + top) / 2;
-  const ry = (top - y0) / 2;
-  const body = new Parts()
-    .ell(C.starBlack, [R * 0.95, ry, R * 1.2], [0, cy, -R * 0.1])
-    .ell(C.starGreen, [R * 0.85, ry * 0.7, R * 0.9], [0, cy + ry * 0.2, -R * 0.2])
-    .ell(team.primary, [hr * 1.3, H * 0.03, hr * 1.3], [0, hc - hr * 0.95, 0]);
-  for (const s of [1, -1]) {
-    for (let i = 0; i < 3; i++) body.cone(i === 1 ? C.starPurple : C.starGreen, R * 0.18, R * 0.8, [s * R * (0.5 + i * 0.12), cy + ry * (0.55 - i * 0.12), -R * (0.1 + i * 0.35)], [-Math.PI / 2 + 0.5 + i * 0.2, s * (0.6 + i * 0.15), 0]);
-  }
-  for (let i = 0; i < 5; i++) body.ell(C.starSpeck, [0.025, 0.025, 0.025], [Math.sin(i * 2.4) * R * 0.6, cy + ry * 0.3 - i * ry * 0.15, -R * 0.5 - Math.cos(i * 2.4) * R * 0.3], [0, 0, 0], [4, 3]);
-  const head = headShell(new Parts(), C.starBlack, hr)
-    .ell(C.starPurple, [hr * 0.9, hr * 0.5, hr * 0.8], [0, hr * 0.4, -hr * 0.1])
-    .cone(PLUMAGE.shrikeBill, hr * 0.35, hr * 1.5, [0, -hr * 0.1, hr * 0.85]);
-  eyes(head, hr, 0.15, 0.62);
-  const tail = new Parts().box(C.starBlack, [R * 0.8, H * 0.02, H * 0.14], [0, 0, -H * 0.07]);
-  const halo = new Parts();
-  const ringR = Math.max(R * 1.7, hr * 3.2);
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    const at: V3 = [Math.sin(a) * ringR, Math.sin(a * 3) * hr * 0.2, Math.cos(a) * ringR];
-    const yaw: V3 = [0, a + Math.PI / 2, 0];
-    halo.ell(C.starPurple, [0.05, 0.05, 0.1], at, yaw, [5, 4]).box(C.starGreen, [0.2, 0.012, 0.06], at, yaw).cone(C.starSpeck, 0.02, 0.05, [at[0] + Math.sin(a + Math.PI / 2) * 0.09, at[1], at[2] + Math.cos(a + Math.PI / 2) * 0.09], yaw);
-  }
-  return assemble(plan, {
-    body, head, tail, halo,
-    wing: { hex: C.starBlack, len: H * 0.4, chord: R * 1.1, thick: R * 0.1, trim: team.primary },
-    leg: { hex: PLUMAGE.leg, len: legLen, thick: H * 0.02, foot: R * 0.4 },
-    gun: { length: 0.4, thick: 0.05, main: 0.72, support: 0.3 },
-    pivot: pivots({ sy: cy + ry * 0.55, legLen, R, legX: R * 0.4, tailY: cy, tailZ: -R * 1.2 }),
-    // Murmuration, Mob, Scatter, Black Sun.
-    casts: ['throw', 'throw', 'leap', 'raise'],
-    sway: 0, castTail: -0.5,
-  });
-};
-
 /** Hornbill: heavy chest, huge down-curved yellow bill under a tall red casque, long banded tail. */
 const hornbill: Build = (plan, team) => {
   const { H, R, hc, hr, top } = dims(plan);
@@ -126,4 +86,4 @@ const flamingo: Build = (plan, team) => {
   });
 };
 
-export const BIRD_BUILDS_B: Readonly<Record<string, Build>> = { starling, hornbill, flamingo };
+export const BIRD_BUILDS_B: Readonly<Record<string, Build>> = { hornbill, flamingo };

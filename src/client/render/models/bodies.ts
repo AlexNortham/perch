@@ -661,6 +661,53 @@ export function secretarybirdBody(plan: BodyPlan): Body {
   };
 }
 
+// =================================================================================================================
+// Starling: small, plump and upright, a full breast, high rounded shoulders where the ruff springs, a short neck
+// into a flat-crowned head with a ridge for the crest tuft and a long narrow bill base.
+
+export function starlingAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.5;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.72, 1.06 * s, 0.0], hip: [R * 0.38, plan.height * 0.17, 0.0], tail: [0, 0.54 * s, -0.25 * s],
+    legLen: plan.height * 0.17, legThick: 0.022 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export const STARLING_HEAD: HeadShape = {
+  skull: [1.06, 1.04, 1.16], skullAt: [0, 0.02, -0.06], face: [0.68, 0.58, 0.62], faceAt: [0, -0.1, 0.45],
+  cheek: [0.5, 0.46, 0.52], cheekAt: [0.5, -0.32, 0.3], brow: [0.44, 0.16, 0.38], browAt: [0.5, 0.4, 0.5], browTilt: 0.4,
+  nape: [0.82, 0.7, 0.64], napeAt: [0, -0.5, -0.42], throat: [0.6, 0.5, 0.58], throatAt: [0, -0.72, 0.25],
+  eye: [0.62, 0.14, 0.58], socket: 0.22, bill: [0, -0.06, 1.0], billW: 0.24, billH: 0.18,
+};
+
+export function starlingBody(plan: BodyPlan): Body {
+  const a = starlingAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  const hr = a.hr;
+  return {
+    tris: [2000, 760, 228, 95],
+    ops: [
+      // Plump and upright, leaning a little forward, the breast full and high under the head so the neck stays short.
+      ell([0, 0.82 * s, -0.05 * s], [0.2 * s, 0.33 * s, 0.21 * s], 'body', 'back', { rot: [0.25, 0, 0], k: 0.05 }),
+      ...pair(ell([0.07 * s, 0.97 * s, 0.08 * s], [0.14 * s, 0.21 * s, 0.15 * s], 'body', 'breast', { k: 0.06, rot: [0.3, 0.25, 0] })),
+      ell([0, 0.93 * s, 0.15 * s], [0.06 * s, 0.2 * s, 0.09 * s], 'body', 'breast', { k: 0.05, rot: [0.3, 0, 0] }),
+      ell([0, 0.64 * s, 0.0], [0.16 * s, 0.18 * s, 0.16 * s], 'body', 'belly', { k: 0.07 }),
+      ell([0, 1.08 * s, -0.09 * s], [0.16 * s, 0.1 * s, 0.15 * s], 'body', 'mantle', { k: 0.05, rot: [0.3, 0, 0] }),
+      cone([0, 0.62 * s, -0.2 * s], [0, 0.5 * s, -0.27 * s], 0.08 * s, 0.04 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.13 * s, 1.06 * s, -0.06 * s], scapularR: [0.08 * s, 0.08 * s, 0.14 * s], root: 0.055 * s, inset: 0.06 }),
+      ...thighs(a, { r: 0.06 * s, rKnee: 0.035 * s, reach: 0.5, root: [0.08 * s, 0.52 * s, 0.0] }),
+      // A short neck the head bone takes from just above the shoulders, so the head owns the skin round its hitbox.
+      ...neck([[0, 1.07 * s, 0.04 * s], [0, 1.13 * s, 0.05 * s], [0, 1.19 * s, 0.04 * s], [0, hc[1] - 0.07 * s, 0.02 * s]], [0.14 * s, 0.12 * s, 0.11 * s, 0.1 * s], 'neck', 0.4),
+      ...head(hc, hr, STARLING_HEAD),
+      // The crest tuft's root: a low ridge along the back of the crown.
+      cone(at(hc, hr, [0, 0.82, 0.1]), at(hc, hr, [0, 0.7, -0.6]), 0.3 * hr, 0.22 * hr, 'head', 'crest', { k: 0.15 * hr, flow: [0, 0.3, -1] }),
+    ],
+  };
+}
+
 /** The birds with implicit bodies, by hero id. */
 export const BODIES = {
   peacock: peacockBody,
@@ -673,6 +720,7 @@ export const BODIES = {
   penguin: penguinBody,
   puffin: puffinBody,
   secretarybird: secretarybirdBody,
+  starling: starlingBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */

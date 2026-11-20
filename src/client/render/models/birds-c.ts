@@ -5,22 +5,24 @@
  * from the BodyPlan at runtime (head about the head hitbox centre, body inside the capsule, the gun's tip at the
  * muzzle); only fractions and authored offsets are written here.
  */
+import { SphereGeometry } from 'three';
 import type { Vector3 } from 'three';
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
-import { beak, eye, foldedWings, hackles, inBone, legsOf, norm, shingle, tailFan, wingsOf } from './anatomy';
+import { beak, eye, flare, foldedWings, hackles, inBone, legsOf, norm, ovoid, shingle, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
-import { bodyField, flipX, OWL_HEAD, owlAnchors, PELICAN_HEAD, pelicanAnchors, PENGUIN_HEAD, penguinAnchors, PUFFIN_HEAD, puffinAnchors, SECRETARYBIRD_HEAD, secretarybirdAnchors, skinFor, TRUNK } from './bodies';
+import { bodyField, flipX, OWL_HEAD, owlAnchors, PELICAN_HEAD, pelicanAnchors, PENGUIN_HEAD, penguinAnchors, PUFFIN_HEAD, puffinAnchors, SECRETARYBIRD_HEAD, secretarybirdAnchors, skinFor, STARLING_HEAD, starlingAnchors, TRUNK } from './bodies';
 import { SKIN as OWL_SKIN } from './data/skins/owl';
 import { SKIN as PELICAN_SKIN } from './data/skins/pelican';
 import { SKIN as PENGUIN_SKIN } from './data/skins/penguin';
 import { SKIN as PUFFIN_SKIN } from './data/skins/puffin';
 import { SKIN as SECRETARYBIRD_SKIN } from './data/skins/secretarybird';
+import { SKIN as STARLING_SKIN } from './data/skins/starling';
 import { CARD, TILE } from './feathers';
 import { band, bead, block, BRASS, carve, GEAR, LEATHER, lathe, plume, pouch, ring, sash, scope, stud, WEAVE, WOOD } from './gear';
 import type { Detail, SculptedBird, SculptedSpec } from './sculpted';
 import { hinge, jitter, mix, shade } from './sculpt';
-import type { Sculpt, V3 } from './sculpt';
+import type { Sculpt, Surface, V3 } from './sculpt';
 
 const clamp01 = (x: number): number => Math.min(1, Math.max(0, x));
 /** Soft, deterministic blotches in [0, 1] by model-frame position (`f` cycles per metre): mottled plumage. */
@@ -1112,4 +1114,234 @@ function secretarybirdGun(s: number, d: Detail): SculptedSpec['gun'] {
   };
 }
 
-export const C_BUILDS: Readonly<Record<string, SculptedBird>> = { owl, pelican, penguin, puffin, secretarybird };
+// =================================================================================================================
+// Starling: small, plump and spiky. Glossy black with a purple sheen on the head and green on the body, pale-tipped
+// speckled feathers over the mantle and breast, a ruff of spiky shoulder feathers that bristles on a cast, lanceolate
+// throat hackles, a crest tuft, a long yellow bill, reddish legs, a short square tail, and the hero shape: a halo of
+// eight tiny starlings orbiting at head height. Spirit burst: a twin-barrelled Chatter Pistol with a glass jar of
+// glowing specks and a music-box key.
+
+const STARLING = {
+  black: 0x1a1b1d,
+  green: 0x1c2a22,
+  purple: 0x2a1e30,
+  brown: 0x3e3630,
+  buff: 0xc8b088,
+  bill: 0xe8c43a,
+  billBase: 0x7a8a9a,
+  leg: 0xb06a5a,
+  claw: 0x2a2220,
+  iris: 0x2a1a10,
+  glow: 0xc48cff,
+  lacquer: 0x2a1c34,
+} as const;
+
+/** A small glowing speck (a low sphere: cheaper than a bead where many are needed). */
+const speck = (k: Sculpt, at: V3, r: number, hex: number, glow: number): void => {
+  k.mesh(new SphereGeometry(r, 4, 3), { at, paint: hex, finish: { glow, gloss: 0.8 } });
+};
+
+/**
+ * Speckled plumage: rows of feathers over a surface, glossy dark at the root and pale at the tip, so each tip reads as
+ * the starling's white speck (`shingle` takes one colour, this takes a tip colour).
+ */
+function speckled(k: Sculpt, surf: Surface, o: { t: readonly [number, number]; a: readonly [number, number]; rows: number; cols: number; len: number; wid: number; root: number; tip: number; lift: number; seed: number }, d: Detail): void {
+  if (d.level >= 2) return;
+  const rows = d.keep(o.rows, 1);
+  const cols = d.keep(o.cols, 2);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const t = o.t[0] + (o.t[1] - o.t[0]) * (rows === 1 ? 0.5 : r / (rows - 1));
+      const a = o.a[0] + (o.a[1] - o.a[0]) * ((c + 0.5 + (r % 2) * 0.5) / (cols + 0.5)) + (jitter(r * cols + c, o.seed) - 0.5) * 0.06;
+      const sp = surf.at(t, a, 0.003);
+      const down = sp.t.clone().multiplyScalar(-1);
+      const dir = norm([down.x * Math.cos(o.lift) + sp.n.x * Math.sin(o.lift), down.y * Math.cos(o.lift) + sp.n.y * Math.sin(o.lift), down.z * Math.cos(o.lift) + sp.n.z * Math.sin(o.lift)]);
+      k.card({ at: [sp.p.x, sp.p.y, sp.p.z], dir, face: [sp.n.x, sp.n.y, sp.n.z], len: o.len, wid: o.wid, cell: CARD.spotted, root: o.root, tip: o.tip, curl: -o.lift * 0.8, segs: d.rows, cup: 0.06, finish: { gloss: 0.5, iri: 0.6 } });
+    }
+  }
+}
+
+/** The orbiting flock (halo bone, about the head centre): eight tiny starlings flying round, wings up in a V. */
+function starlingHalo(k: Sculpt, ringR: number, hr: number, d: Detail): void {
+  const S = STARLING;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const at: V3 = [Math.sin(a) * ringR, Math.sin(a * 3) * hr * 0.25, Math.cos(a) * ringR];
+    // Flying along the orbit (the halo bone turns about +y), banking a little into the turn.
+    const v: V3 = [Math.cos(a), 0, -Math.sin(a)];
+    const yaw = Math.atan2(v[0], v[2]);
+    // Sized to read as specks at 40 m (GDD §9.24.1), not as true-scale starlings; simpler with each level.
+    const len = 0.06;
+    ovoid(k, at, [0.032, 0.028, len], { rot: [0, yaw, 0.25], n: [4, 3, 2, 2][d.level], seg: [5, 4, 4, 3][d.level], egg: 0.25, paint: i % 2 ? S.purple : S.green, finish: { iri: 0.7, gloss: 0.6 } });
+    if (d.level >= 2) continue;
+    const head: V3 = [at[0] + v[0] * len, at[1] + 0.01, at[2] + v[2] * len];
+    if (d.level === 0) k.loft([{ c: head, w: 0.008, up: 0.006 }, { c: [head[0] + v[0] * 0.035, head[1] - 0.003, head[2] + v[2] * 0.035], w: 0, up: 0 }], { seg: 4, ref: [0, 1, 0], paint: S.bill, finish: { gloss: 0.5 } });
+    const side: V3 = [v[2], 0, -v[0]];
+    for (const x of [1, -1]) {
+      k.card({ at: [at[0] + v[0] * 0.012, at[1] + 0.016, at[2] + v[2] * 0.012], dir: norm([side[0] * x, 0.45 + 0.25 * Math.sin(a * 2 + x), side[2] * x]), face: [0, 1, 0], len: 0.11, wid: 0.05, cell: CARD.primary, root: S.black, tip: S.buff, segs: 2, finish: { iri: 0.6, gloss: 0.4 } });
+    }
+  }
+}
+
+function starling(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
+  const H = plan.height;
+  const hr = plan.head.radius;
+  const A = starlingAnchors(plan);
+  const s = A.s;
+  const S = STARLING;
+  const GLOSS = { tile: TILE.scales, size: 0.055, gloss: 0.55, iri: 0.6 } as const;
+  const field = bodyField('starling', plan);
+  const skin = skinFor('starling', plan, STARLING_SKIN, d.level, {
+    // Green-glossed body, purple-glossed head and neck; a browner, speckled mantle reads apart from the head from behind.
+    back: { paint: S.green, finish: GLOSS },
+    mantle: { paint: mix(S.brown, S.green, 0.3), finish: { ...GLOSS, iri: 0.3 } },
+    scapular: { paint: mix(S.brown, S.green, 0.5), finish: GLOSS },
+    shoulder: { paint: S.green, finish: GLOSS },
+    coverts: { paint: S.green, finish: GLOSS },
+    breast: { paint: (p) => mix(S.purple, S.green, clamp01((1.12 * s - p.y) / (0.08 * s))), finish: GLOSS },
+    belly: { paint: S.green, finish: GLOSS },
+    thigh: { paint: S.black, finish: GLOSS },
+    neck: { paint: S.purple, finish: GLOSS },
+    crown: { paint: S.purple, finish: { ...GLOSS, size: 0.04 } },
+    crest: { paint: S.purple, finish: { ...GLOSS, size: 0.04 } },
+    nape: { paint: S.purple, finish: { ...GLOSS, size: 0.04 } },
+    face: { paint: S.black, finish: { gloss: 0.5, iri: 0.6 } },
+    cheek: { paint: S.black, finish: { gloss: 0.5, iri: 0.6 } },
+    brow: { paint: S.purple, finish: { gloss: 0.5, iri: 0.6 } },
+    throat: { paint: S.purple, finish: GLOSS },
+    bill: { paint: S.billBase, finish: { gloss: 0.5 } },
+    socket: { paint: S.black, finish: { gloss: 0.4 } },
+  });
+  const leg: LegStyle = {
+    skin: S.leg, claw: S.claw, thick: A.legThick, thigh: S.black, fringe: 0.5, skinned: { r: 0.045 * s, at: 0.3 },
+    toes: [{ yaw: -0.5, len: 0.065 * s }, { yaw: 0, len: 0.08 * s }, { yaw: 0.5, len: 0.065 * s }, { yaw: Math.PI, len: 0.045 * s }],
+    clawLen: 0.022 * s,
+  };
+  const wing: WingStyle = {
+    covert: S.green, secondary: S.black, primary: S.black, primaryTip: S.buff, trim: team.primary,
+    thick: 0.026 * s, chord: 0.17 * s, primaries: 6, secondaries: 4, primaryLen: 0.5, secondaryLen: 0.8, cell: CARD.spotted, secondaryCell: CARD.spottedTail,
+  };
+  const SPECKLE = { gloss: 0.5, iri: 0.6 } as const;
+
+  const body = (k: Sculpt): void => {
+    const torso = field.only(...TRUNK).surface([0, 0.4 * s, -0.22 * s], [0, 1.06 * s, 0.04 * s], [0, 0, 1]);
+    const collar = field.only(...TRUNK, 'neck').surface([0, 0.92 * s, 0.0], [0, A.head[1] - 0.06 * s, 0.02 * s], [0, 0, 1]);
+    // The player-camera standard: purple-glossed hackles down the back of the neck onto the speckled mantle.
+    hackles(k, collar, { t: [0.3, 0.75], rows: 2, cols: 4, len: 0.07 * s, wid: 0.05 * s, lift: 0.25, cell: CARD.spotted, paint: S.purple, finish: SPECKLE }, d);
+    // Lanceolate throat hackles, pointed and lifted.
+    shingle(k, collar, { t: [0.4, 0.85], a: [Math.PI * 0.2, Math.PI * 0.8], rows: 2, cols: 4, len: 0.07 * s, wid: 0.035 * s, cell: CARD.sickle, lift: 0.3, flow: -1, seed: 71, paint: S.purple, finish: SPECKLE }, d);
+    // The speckled mantle and flanks: pale-tipped feathers in rows (the mantle reads lighter than the glossy head).
+    speckled(k, torso, { t: [0.45, 0.9], a: [-Math.PI * 0.88, -Math.PI * 0.12], rows: 3, cols: 5, len: 0.085 * s, wid: 0.07 * s, root: mix(S.brown, S.green, 0.4), tip: S.buff, lift: 0.1, seed: 73 }, d);
+    speckled(k, torso, { t: [0.3, 0.62], a: [Math.PI * 0.25, Math.PI * 0.75], rows: 2, cols: 4, len: 0.08 * s, wid: 0.06 * s, root: S.green, tip: mix(S.buff, 0xffffff, 0.3), lift: 0.12, seed: 79 }, d);
+    // The ruff: spiky shoulder feathers sticking out over the wing roots, bristling on a cast.
+    for (const side of [1, -1] as const) {
+      shingle(k, torso, {
+        t: [0.8, 0.94], a: side > 0 ? [-0.5, 0.45] : [Math.PI - 0.45, Math.PI + 0.5], rows: 2, cols: 3, len: 0.14 * s, wid: 0.05 * s, cell: CARD.sickle, lift: 0.7,
+        toward: [side * 0.6, 0.4, -0.7], seed: side > 0 ? 83 : 89, paint: S.green, finish: SPECKLE,
+        morph: (_t, _a, at, dir, n) => flare(at, dir, n, 0.6),
+      }, d);
+    }
+    // Gear: a flock cravat with two tails, a bandolier of seed pellets, a satchel.
+    band(k, collar, 0.45, { width: 0.055 * s, thick: 0.014 * s, hex: team.primary, stitch: team.light, off: 0.006 * s, finish: WEAVE }, d);
+    if (d.level < 3) {
+      const knot = collar.at(0.45, -Math.PI / 2, 0.02 * s);
+      for (const x of [1, -1]) k.card({ at: [knot.p.x, knot.p.y, knot.p.z], dir: norm([x * 0.3, -1, -0.3]), face: [0, 0.2, -1], len: 0.22 * s, wid: 0.06 * s, cell: CARD.cloth, root: team.primary, tip: team.dark, curl: 0.3, sweep: x * 0.2, segs: d.level === 0 ? 4 : 2 });
+    }
+    if (d.level < 3) sash(k, torso, 0.55, 0.2, Math.PI * 0.35, { width: 0.04 * s, thick: 0.01 * s, hex: GEAR.leather, stitch: team.light, off: 0.01 * s, finish: LEATHER }, d);
+    if (d.level < 1) {
+      // Brass seed pellets along the bandolier.
+      for (let i = 0; i < 5; i++) {
+        const u = 0.18 + i * 0.07;
+        const p = torso.at(0.55 + 0.2 * Math.cos(u * Math.PI * 2), Math.PI * 0.35 + u * Math.PI * 2, 0.022 * s);
+        stud(k, [p.p.x, p.p.y, p.p.z], 0.011 * s);
+      }
+    }
+    pouch(k, torso.at(0.35, Math.PI * 1.1, 0.006 * s), [0.08 * s, 0.08 * s, 0.05 * s], GEAR.leather, d);
+  };
+
+  const head = (k: Sculpt): void => {
+    hackles(k, inBone(field.only('crown', 'nape', 'neck', 'crest').surface([A.head[0], A.head[1] - hr * 1.5, A.head[2] - hr * 0.1], [A.head[0], A.head[1] + hr * 0.9, A.head[2] - hr * 0.1], [0, 0, 1]), A.head), {
+      t: [0.2, 0.5], rows: 2, cols: 4, len: 0.06 * s, wid: 0.045 * s, lift: 0.3, cell: CARD.contour, paint: S.purple, finish: SPECKLE, seed: 97,
+    }, d);
+    // The crest tuft: spiky feathers raised along the crown, standing up on a cast.
+    if (d.level < 3) {
+      const n = d.keep(5, 2);
+      for (let i = 0; i < n; i++) {
+        const u = n === 1 ? 0.5 : i / (n - 1);
+        const at: V3 = [(u - 0.5) * hr * 0.3, hr * (0.92 - 0.12 * u), hr * (0.1 - 0.6 * u)];
+        k.card({ at, dir: norm([(u - 0.5) * 0.6, 0.7, -1]), face: [0, 1, 0.3], len: hr * (1.05 - 0.25 * u), wid: hr * 0.26, cell: CARD.sickle, root: S.purple, tip: S.black, curl: -0.2, segs: d.rows, finish: SPECKLE, morph: { display: hinge(at, [1, 0, 0], -0.5) } });
+      }
+    }
+    const E = STARLING_HEAD.eye;
+    for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.78, 0.05, 0.62], { r: hr * 0.21, iris: S.iris, ring: S.black, lid: S.purple, ringW: hr * 0.035 }, d);
+    // A long, sharp yellow bill, blue-grey at the base.
+    const B = STARLING_HEAD.bill;
+    beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.04)], len: hr * 1.45, w: hr * 0.2, up: hr * 0.16, dn: hr * 0.12, curve: hr * 0.04, hook: 0, base: S.billBase, tip: S.bill, bands: [[0, S.billBase], [0.18, S.bill]], open: 0.4 }, d);
+  };
+
+  const tail = (k: Sculpt): void => {
+    // Short and square.
+    tailFan(k, { count: 8, len: 0.17 * s, wid: 0.05 * s, spread: 0.55, droop: 0.65, root: S.black, tip: S.buff, cell: CARD.spottedTail, finish: SPECKLE }, d);
+  };
+
+  return {
+    body, head, tail, skin,
+    halo: (k) => starlingHalo(k, Math.max(plan.radius * 1.7, hr * 3.2), hr, d),
+    wing: wingsOf(wing, d),
+    leg: legsOf(leg, d),
+    gun: starlingGun(s, d),
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
+    legLen: A.legLen, legThick: leg.thick, wingLen: H * 0.36,
+    // Murmuration, Mob, Scatter, Black Sun.
+    casts: ['throw', 'throw', 'leap', 'raise'],
+    sway: 0, castTail: -0.5,
+  };
+}
+
+/** Chatter Pistol: twin brass barrels, a glass jar of glowing specks in a brass cage, a music-box key, a lacquered grip. */
+function starlingGun(s: number, d: Detail): SculptedSpec['gun'] {
+  const S = STARLING;
+  const L = 0.5 * s;
+  const r = 0.009 * s;
+  return {
+    main: [0, -0.05 * s, -L * 0.66],
+    support: [0, -0.022 * s, 0],
+    slideAt: [0, -0.006 * s, -L * 0.3],
+    travel: 0.025 * s,
+    build(k, part) {
+      if (part === 'slide') {
+        if (d.level >= 3) return;
+        lathe(k, [[r * 2.4, 0.04 * s], [r * 3, 0.03 * s], [r * 3, -0.03 * s], [r * 2.4, -0.04 * s]], { seg: d.n(10, 4), paint: S.lacquer, finish: { ...WOOD, iri: 0.5 }, flat: 0.8 });
+        return;
+      }
+      if (part !== 'gun') return;
+      if (d.level >= 3) {
+        lathe(k, [[0.02 * s, 0], [0.02 * s, -L * 0.5], [0.03 * s, -L * 0.62], [0.02 * s, -L]], { seg: 4, paint: S.lacquer });
+        return;
+      }
+      // Twin barrels side by side, each with a violet glow at the mouth.
+      for (const x of [1, -1]) {
+        lathe(k, [[r * 1.4, 0], [r * 1.1, -0.015 * s], [r, -L * 0.45], [r * 1.2, -L * 0.5]], { at: [x * r * 1.3, 0, 0], seg: d.n(10, 4), paint: (t) => (t < 0.06 || Math.abs(t - 0.5) < 0.05 ? GEAR.brass : GEAR.brassDark), finish: BRASS });
+        bead(k, [x * r * 1.3, 0, -0.002 * s], r * 0.85, S.glow, 0.9, d);
+      }
+      // The jar: dark glass in a brass cage, specks of the swarm glowing round it (the signature chamber).
+      const jz = -L * 0.56;
+      bead(k, [0, 0.012 * s, jz], 0.03 * s, 0x241830, 0.15, d);
+      ring(k, [0, 0.012 * s, jz], 0.031 * s, 0.003 * s, d, GEAR.brass, undefined, [0, Math.PI / 2, 0]);
+      ring(k, [0, 0.012 * s, jz], 0.031 * s, 0.003 * s, d, GEAR.brass, undefined, [Math.PI / 2, 0, 0]);
+      if (d.level < 1) for (let i = 0; i < 6; i++) speck(k, [Math.sin(i * 2.4) * 0.032 * s, 0.012 * s + Math.cos(i * 1.7) * 0.026 * s, jz + Math.cos(i * 2.4) * 0.03 * s], 0.005 * s, S.glow, 0.95);
+      // The music-box key on the left: wind it and it chatters.
+      if (d.level < 2) {
+        block(k, [0.03 * s, 0.006 * s, 0.006 * s], [0.03 * s, 0.012 * s, jz], GEAR.brass, BRASS, d);
+        ring(k, [0.05 * s, 0.012 * s, jz], 0.012 * s, 0.0035 * s, d, GEAR.brass, undefined, [0, Math.PI / 2, 0]);
+      }
+      block(k, [0.03 * s, 0.04 * s, 0.09 * s], [0, -0.006 * s, -L * 0.66], S.lacquer, { ...WOOD, iri: 0.5 }, d);
+      carve(k, [[-L * 0.62, -0.02 * s], [-L * 0.69, -0.02 * s], [-L * 0.77, -0.1 * s], [-L * 0.69, -0.104 * s]], 0.024 * s, S.lacquer, { ...WOOD, iri: 0.5 }, d);
+      // A short scrolled stock with a feather fan at the butt.
+      carve(k, [[-L * 0.72, 0.012 * s], [-L * 0.94, 0.02 * s], [-L, -0.02 * s], [-L * 0.96, -0.05 * s], [-L * 0.76, -0.03 * s]], 0.022 * s, S.lacquer, { ...WOOD, iri: 0.5 }, d);
+      if (d.level < 2) for (const u of [-1, 0, 1]) plume(k, [0, 0.0, -L], [u * 0.5, 0.4, -1], 0.06 * s, 0.022 * s, S.black, CARD.spotted, [0, 1, 0], S.buff);
+    },
+  };
+}
+
+export const C_BUILDS: Readonly<Record<string, SculptedBird>> = { owl, pelican, penguin, puffin, secretarybird, starling };
