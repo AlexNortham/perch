@@ -36,6 +36,8 @@ export interface Shared {
   readonly catalogue: ReadonlyMap<ItemId, ItemDef>;
   /** Every bot's hero id. */
   readonly bots: ReadonlySet<EntityId>;
+  /** Living towers (every structure but Nests and Feeders), refreshed at the start of each ai phase. */
+  readonly towers: readonly StructureEntity[];
   /** Orders from pings and defence calls, by bot hero id. */
   readonly orders: Map<EntityId, { pos: Vec3; until: Tick }>;
   readonly policy: (team: PlayerTeam, heroId: HeroId) => ShopPolicy;
@@ -160,6 +162,8 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   const decided = new Map<EntityId, number>();
   const lastSeen = new Map<EntityId, { pos: Vec3; at: Tick }>();
   let lastEnemyNearAt: Tick = 0;
+  /** Enemy heroes seen at the last decision (positions stay live). */
+  let seen: HeroEntity[] = [];
 
   const hpFrac = (): number => fraction(h);
   const shot = (): number => h.stats.final.weaponDamage * def.weapon.pellets;
@@ -181,9 +185,12 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     let theirs = 0;
     for (const a of friends) if (flat(a.pos, h.pos) <= FIGHT.scoreRadiusM) ours += ehp(a) * dps(a);
     for (const e of foes) if (flat(e.pos, h.pos) <= FIGHT.scoreRadiusM) theirs += ehp(e) * dps(e);
-    for (const s of ctx.store.list('structure')) {
+    for (const s of w.towers) {
       const def0 = defence(s);
       if (!def0 || !alive(s) || flat(s.pos, h.pos) > def0.range + s.structure.body.radius) continue;
+      // An enemy tower busy with this flock's fledglings isn't shooting heroes.
+      const t = s.structure.target === null ? undefined : ctx.store.get(s.structure.target);
+      if (s.team !== team && t?.kind === 'unit' && t.team === team) continue;
       const v = ((s.health.hp * def0.heroHit) / def0.interval) * FIGHT.towerWeight;
       if (s.team === team) ours += v;
       else theirs += v;
@@ -235,7 +242,7 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   }
   /** The enemy tower whose reach covers p, unless it is busy with this flock's fledglings. */
   function towerThreat(p: Vec3): StructureEntity | null {
-    for (const s of ctx.store.list('structure')) {
+    for (const s of w.towers) {
       const def0 = defence(s);
       if (s.team === team || !def0 || !alive(s)) continue;
       if (flat(s.pos, p) > def0.range + s.structure.body.radius + LANE.towerMarginM) continue;
@@ -290,17 +297,42 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
       if (s.structure.broodWard && foes.length > 0) continue;
       const t = s.structure.target === null ? undefined : ctx.store.get(s.structure.target);
       const onWave = !!t && t.kind === 'unit' && t.team === team;
-      if (onWave || !exposed) offer(s, TARGET.structure - reach(s) / gunRange);
+      // A tower busy with our wave is the siege moment: it outranks pokes and the enemy wave.
+      if (onWave) offer(s, TARGET.siege - reach(s) / gunRange);
+      else if (!exposed) offer(s, TARGET.structure - reach(s) / gunRange);
     }
     return best;
+  }
+
+  /** An enemy tower shooting this bot, and the point just outside its reach to step back to (§11.3 Lane). */
+  function towerOnMe(): Vec3 | null {
+    for (const s of w.towers) {
+      const def0 = defence(s);
+      if (s.team === team || !def0 || s.structure.target !== h.id) continue;
+      const out = def0.range + s.structure.body.radius + LANE.towerMarginM;
+      if (geom) {
+        const f = geom.forward(team, geom.project(s.pos).s);
+        if (geom.project(s.pos).off <= LANE.corridorM) return lanePoint(Math.max(0, Math.min(myProgress(), f - out)));
+      }
+      const dx = h.pos.x - s.pos.x;
+      const dz = h.pos.z - s.pos.z;
+      const len = dmath.hypot(dx, dz) || 1;
+      return { x: s.pos.x + (dx / len) * out, y: h.pos.y, z: s.pos.z + (dz / len) * out };
+    }
+    return null;
   }
 
   /** GDD §11.3 Fight: the visible enemy hero with the lowest effective HP in range, supports and carries first. */
   function fightTarget(foes: readonly HeroEntity[]): HeroEntity | null {
     let best: HeroEntity | null = null;
     let bestV = Infinity;
+    // No fights inside an idle enemy tower's reach (it would shoot us anyway), except to finish a nearly dead hero
+    // (Raptor) or the Egg carrier. A tower busy with our wave is fair game; if it turns on us, towerOnMe backs off.
+    const exposed = towerThreat(h.pos) !== null;
     for (const e of foes) {
       if (flat(e.pos, h.pos) > FIGHT.engageM) continue;
+      const carrier = e.stats.conditions.has('eggCarrier');
+      if (exposed && !carrier && !(d.lastSeen && fraction(e) <= CAST.holdKillHp)) continue;
       const arche = ctx.heroes[e.hero.heroId].def.archetype;
       let v = ehp(e) * (FIGHT.preferred.includes(arche) ? FIGHT.preferredWeight : 1);
       if (e.id === target) v *= FIGHT.switchRatio;
@@ -319,7 +351,7 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     return geom.at(geom.fromForward(team, f), off);
   }
   /** Where to stand in the lane: behind the own wave, short of the enemy wave and outside enemy tower reach. */
-  function laneStand(push: boolean): Vec3 {
+  function laneStand(): Vec3 {
     if (!geom) return { ...home };
     let ownFront = -Infinity;
     let enemyFront = Infinity;
@@ -334,7 +366,7 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     let enemyTowerF = geom.length;
     let enemyTowerReach = 0;
     let busy = false;
-    for (const s of ctx.store.list('structure')) {
+    for (const s of w.towers) {
       const def0 = defence(s);
       if (s.structure.lane !== lane || !alive(s) || !def0) continue;
       const f = geom.forward(team, geom.project(s.pos).s);
@@ -349,13 +381,14 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     // Wait by the outermost own tower for a wave still behind it, then keep behind its front.
     let f = Math.max(Number.isFinite(ownFront) ? ownFront - LANE.behindWaveM : -Infinity, towerF + LANE.aheadOfTowerM);
     if (Number.isFinite(enemyFront)) f = Math.min(f, enemyFront - LANE.shortOfEnemyM);
-    f = Math.min(f, busy || push ? enemyTowerF - LANE.towerStandM : enemyTowerF - enemyTowerReach - LANE.towerMarginM);
+    f = Math.min(f, busy ? enemyTowerF - LANE.towerStandM : enemyTowerF - enemyTowerReach - LANE.towerMarginM);
     return lanePoint(Math.max(0, f));
   }
 
   function decide(): void {
     const now = clock.tick;
     const foes = enemyHeroes();
+    seen = foes;
     const friends = allyHeroes();
     for (const e of foes) lastSeen.set(e.id, { pos: { ...e.pos }, at: now });
     const near = foes.filter((e) => flat(e.pos, h.pos) <= FIGHT.scoreRadiusM);
@@ -376,6 +409,13 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     if (egg && eggEntity?.pickup.carrier === h.id) {
       mode = 'objective';
       goal = { ...(ctx.map.eggPerches[1 - egg.perch]?.pos ?? home) };
+      return;
+    }
+    // A tower turned on us: step out of its reach first (GDD §11.3 "never stands in enemy tower range").
+    const out = towerOnMe();
+    if (out) {
+      mode = 'retreat';
+      goal = out;
       return;
     }
     // Retreat (GDD §11.3): HP under the threshold → the Home Roost until healed; outnumbered or losing → fall back.
@@ -438,7 +478,7 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     const push = clock.seconds >= OBJECTIVE.pushFromS || rekindle || deadEnemies >= OBJECTIVE.pushDeadEnemies;
     if (!push && foes.length === 0 && farm()) return;
     mode = push ? 'push' : 'lane';
-    goal = siegeGoal(push) ?? laneStand(push);
+    goal = siegeGoal(push) ?? laneStand();
     target = laneTarget(foes, true)?.id ?? null;
     rideOk = true;
   }
@@ -468,7 +508,7 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   /** The next inner structure to besiege (Shrines, then the Patron) once this lane's towers are down. */
   function siegeGoal(push: boolean): Vec3 | null {
     if (!push || !geom) return null;
-    const open = ctx.store.list('structure').filter((s) => s.team !== team && defence(s) !== undefined && alive(s));
+    const open = w.towers.filter((s) => s.team !== team);
     if (open.some((s) => s.structure.lane === lane)) return null;
     let best: StructureEntity | null = null;
     for (const s of open) if (s.structure.lane === null && (!best || flat(s.pos, h.pos) < flat(best.pos, h.pos))) best = s;
@@ -548,17 +588,20 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
       target = laneTarget(foes, true)?.id ?? null;
       return true;
     }
-    // The Roc (GDD §11.3): awake, enough allies near the Hollow, and the enemy thinned or out of sight.
+    // The Roc (GDD §11.3): awake, at least four allies alive, and the enemy thinned or out of sight: the bots nearest
+    // the Hollow gather on its floor (the only place it can be hurt) and fight it from a ring round it.
     const hollow = ctx.map.hollow;
     const roc = hollow ? ctx.store.list('unit').find((u) => u.unit.type === 'roc' && alive(u) && !u.unit.asleep) : undefined;
-    if (hollow && roc && flat(h.pos, hollow.centre) <= hollow.radius + OBJECTIVE.rocNearM) {
-      const nearHollow = friends.filter((a) => flat(a.pos, hollow.centre) <= hollow.radius + OBJECTIVE.rocNearM).length;
+    if (hollow && roc && friends.length >= OBJECTIVE.rocAllies && hpFrac() > CAST.healHp && among(friends, hollow.centre, OBJECTIVE.rocBots)) {
       const dead = ctx.store.list('hero').filter((e) => e.team !== team && e.health.dead).length;
       const quiet = now - lastEnemyNearAt > ticks(OBJECTIVE.rocClearS) && !foes.some((e) => flat(e.pos, hollow.centre) <= OBJECTIVE.rocClearM);
-      if (nearHollow >= OBJECTIVE.rocAllies && (dead >= OBJECTIVE.rocDeadEnemies || quiet)) {
+      if (dead >= OBJECTIVE.rocDeadEnemies || quiet) {
         mode = 'objective';
-        goal = { x: hollow.centre.x, y: hollow.floorY, z: hollow.centre.z };
-        target = reach(roc) <= gunRange ? roc.id : null;
+        const dx = h.pos.x - roc.pos.x;
+        const dz = h.pos.z - roc.pos.z;
+        const len = dmath.hypot(dx, dz) || 1;
+        goal = { x: roc.pos.x + (dx / len) * OBJECTIVE.rocRingM, y: hollow.floorY, z: roc.pos.z + (dz / len) * OBJECTIVE.rocRingM };
+        target = reach(roc) <= gunRange && h.pos.y < hollow.floorY + NAV.arriveDy ? roc.id : null;
         return true;
       }
     }
@@ -591,7 +634,7 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   function avoid(dx: number, dz: number): { x: number; z: number } {
     let x = dx;
     let z = dz;
-    for (const s of ctx.store.list('structure')) {
+    for (const s of w.towers) {
       if (s.structure.solid === false) continue;
       const r = s.structure.body.radius + NAV.structureClearM;
       const cx = s.pos.x - h.pos.x;
@@ -802,7 +845,11 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
   function shop(now: Tick): void {
     if (h.inventory.shopZone == null || now < buyAt) return;
     plan ??= choosePurchase(h, w.catalogue, policy(), phaseOf(clock.seconds, BUILDS.phases), slots(), shopRng);
-    if (!plan) return;
+    if (!plan) {
+      // Nothing to buy: look again at the next decision.
+      buyAt = next;
+      return;
+    }
     buyAt = now + SHOP.buyEveryTicks;
     const sell = plan.sell;
     if (sell && h.inventory.items.some((o) => o.item === sell)) {
@@ -844,6 +891,8 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
       h.command = cmd;
       return;
     }
+    // A tower turning on us is noticed at once, not at the next decision.
+    if (mode !== 'retreat' && w.towers.some((s) => s.team !== team && s.structure.target === h.id)) next = now;
     if (now >= next) {
       next = now + decisionTicks;
       decide();
@@ -900,7 +949,7 @@ export function createBot(w: Shared, h: HeroEntity, lane: LaneId, side: 1 | -1, 
     if ((cmd.pressed & Button.Melee) !== 0) cmd.held |= Button.Melee;
 
     // Movement: ride, or walk the route; strafe in fights.
-    const danger = enemyHeroes().some((e) => flat(e.pos, h.pos) <= RIDE.dangerM);
+    const danger = seen.some((e) => alive(e) && flat(e.pos, h.pos) <= RIDE.dangerM);
     const riding = !claim && ride(now, danger);
     const walk = !riding && moveTo ? steer(moveTo) : null;
     let wx = walk?.x ?? 0;

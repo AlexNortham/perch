@@ -19,7 +19,6 @@ import { navFor } from './nav';
 import { choosePurchase, exp, nextUpgrade, softmaxPick } from './shop';
 
 const catalogue = new Map(ITEMS.map((i) => [i.id, i]));
-type HeroStub = { abilities: HeroEntity['abilities']; inventory: HeroEntity['inventory']; progress: HeroEntity['progress'] };
 const stub = (seeds: number, items: string[] = [], ap = 0): HeroEntity =>
   ({
     progress: { level: 1, molts: 0, seeds, netWorth: seeds },
@@ -30,7 +29,7 @@ const stub = (seeds: number, items: string[] = [], ap = 0): HeroEntity =>
       channelling: false,
       slots: [0, 1, 2, 3].map((i) => ({ ability: String(i), unlocked: i < 3, tier: 0, readyAt: 0, cooldownTicks: 0, charges: 1 })),
     },
-  }) as HeroStub as HeroEntity;
+  }) as unknown as HeroEntity;
 const policy = (scores: ItemScores | null, temperature = 0.5) => ({ scores, temperature, random: scores === null, situational: new Set<string>() });
 
 describe('§11.4 scored buying (D-EP-036)', () => {

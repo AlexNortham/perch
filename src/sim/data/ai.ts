@@ -173,6 +173,8 @@ export const FIGHT = {
 /** Lane-time target priorities (higher first; each loses up to 1 with distance) and line-of-sight checks. */
 export const TARGET = {
   pod: 6,
+  /** An enemy tower busy with the own wave (the window to siege it). */
+  siege: 5.5,
   lastHit: 5,
   poke: 4,
   structure: 3,
@@ -296,9 +298,11 @@ export const OBJECTIVE = {
   meleeReachM: 2.2,
   /** Heavy melee: holds Melee this long (heavy commits at 0.35 s). */
   heavyHoldS: 0.45,
-  /** Starts the Roc with at least this many allies alive and near the Hollow. */
+  /** Starts the Roc with at least this many allies alive; the rocBots bots nearest the Hollow go, and fight it from rocRingM. */
   rocAllies: 4,
   rocNearM: 40,
+  rocBots: 5,
+  rocRingM: 10,
   /** … and either this many enemies dead or no enemy hero seen within rocClearM for rocClearS. */
   rocDeadEnemies: 2,
   rocClearM: 80,

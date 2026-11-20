@@ -6,7 +6,7 @@
  */
 import { HERO_IDS, PLAYER_TEAMS } from '../core/contracts';
 import type {
-  Archetype, EntityId, HeroEntity, HeroId, ItemId, LaneId, PlayerTeam, Rng, SimContext, SystemFactory, Tick, Vec3,
+  Archetype, EntityId, HeroEntity, HeroId, ItemId, LaneId, PlayerTeam, Rng, SimContext, StructureEntity, SystemFactory, Tick, Vec3,
 } from '../core/contracts';
 import * as dmath from '../core/dmath';
 import { ticks } from '../core/math';
@@ -78,6 +78,7 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
   const policies = new Map<string, ShopPolicy>();
   const catalogue = new Map(ITEMS.map((i) => [i.id, i]));
   let shared: Shared | null = null;
+  const towers: StructureEntity[] = [];
 
   function policy(team: PlayerTeam, heroId: HeroId): ShopPolicy {
     const key = team + '/' + heroId;
@@ -114,6 +115,7 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
       updraftOf: new Map(ctx.map.updrafts.map((u, i) => [u.lane, i])),
       catalogue,
       bots: new Set(heroes.filter(isBot).map((h) => h.id)),
+      towers,
       orders,
       policy,
     };
@@ -180,6 +182,8 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
     phases: {
       ai: () => {
         if (!shared) start();
+        towers.length = 0;
+        for (const s of ctx.store.list('structure')) if (s.structure.type !== 'nest' && !s.health.dead) towers.push(s);
         if (ctx.clock.tick % defendEvery === 0) defend();
         for (const b of bots) b.tick();
       },
