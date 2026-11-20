@@ -147,6 +147,8 @@ export const FIGHT = {
   defaultRangeM: 25,
   /** Light melee an enemy this close while reloading. */
   meleeM: 2.5,
+  /** Committed to an open enemy base, a bot stops to fight only an enemy hero this close (D-AI-009). */
+  siegeEngageM: 15,
   /** Parries a heavy wind-up from this close (the heavy lunge plus melee reach). */
   parryM: 6.5,
   meleeEveryS: 0.7,

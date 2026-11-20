@@ -497,7 +497,8 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
     }
     // Fight: an enemy hero within 35 m and the fight score at least 0.9.
     const prey = fightTarget(foes);
-    if (prey && score >= FIGHT.engageScore) {
+    // Committed to an open enemy base, only an enemy this close stops the walk; others are shot on the way (siegeOn).
+    if (prey && score >= FIGHT.engageScore && !(atBase && flat(prey.pos, h.pos) > FIGHT.siegeEngageM)) {
       mode = 'fight';
       target = prey.id;
       strafe = d.strafe;
@@ -568,7 +569,9 @@ export function createBot(w: Shared, h: HeroEntity, homeLane: LaneId, side: 1 | 
     }
     goal = siegeStand(t);
     const shootable = reach(t) <= gunRange && !(warded(t) && foes.length > 0);
-    target = shootable ? t.id : (laneTarget(foes, true)?.id ?? null);
+    // On the way in: an enemy hero in gun range, else nothing (no fledglings, pods or Nests to stop for).
+    const prey = shootable ? null : fightTarget(foes);
+    target = shootable ? t.id : prey && reach(prey) <= gunRange ? prey.id : t.structure.lane === null ? null : (laneTarget(foes, true)?.id ?? null);
   }
 
   /** A point straight away from p, for backing off. */
