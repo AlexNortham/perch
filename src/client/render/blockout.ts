@@ -7,6 +7,7 @@
  */
 import {
   AdditiveBlending,
+  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   Color,
@@ -25,10 +26,10 @@ import type { Camera, Material } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { BlockoutPrim, Climb, MapData, MaterialTag, PlayerTeam, Vec3 } from '../../sim/core/contracts';
 import { CellBatch, LodInstances, updateBands } from './batch';
-import { bakeAO, paint, retarget } from './materials';
+import { bakeAO, compactGeometry, paint, retarget } from './materials';
 import type { MaterialId, MaterialLibrary, PaintOptions } from './materials';
 import { chamferBox, column, leafClump, stairs, trunk, tube, wedge } from './shapes';
-import { ART, BACKDROP, CHIMNEY_RADIUS, LANE_ART, SHOP_ART, STATION_ART, SUN, UPDRAFT_HEIGHT, VINE_ART } from './constants';
+import { ART, BACKDROP, CELL, SHADOW_PROXY_SIDES, CHIMNEY_RADIUS, LANE_ART, SHOP_ART, STATION_ART, SUN, UPDRAFT_HEIGHT, VINE_ART } from './constants';
 import { SHIMMER_FRAGMENT, SHIMMER_VERTEX } from './shimmer';
 
 export interface Blockout {
@@ -106,6 +107,21 @@ function districts(map: MapData): (x: number, z: number) => District {
   };
 }
 
+/** Whether a point lies inside any building's footprint (turned by its yaw), with ART.footprintMargin to spare. */
+function footprints(map: MapData): (p: Vec3) => boolean {
+  const boxes = (map.buildings ?? []).map((b) => b.footprint);
+  return (p) =>
+    boxes.some((f) => {
+      const dx = p.x - f.centre.x;
+      const dz = p.z - f.centre.z;
+      const [c, s] = [Math.cos(f.yaw), Math.sin(f.yaw)];
+      const lx = dx * c - dz * s;
+      const lz = dx * s + dz * c;
+      const m = ART.footprintMargin;
+      return Math.abs(lx) <= f.size.x / 2 + m && Math.abs(lz) <= f.size.z / 2 + m && p.y >= f.centre.y - f.size.y / 2 - m && p.y <= f.centre.y + f.size.y / 2 + m;
+    });
+}
+
 /** Split a non-indexed geometry's triangles into those facing up (normal.y > minY) and the rest. */
 function splitUp(g: BufferGeometry, minY: number): [BufferGeometry | null, BufferGeometry | null] {
   const pos = g.getAttribute('position');
@@ -145,6 +161,8 @@ interface Ctx {
   readonly toSun: Vector3;
   /** §11.6 Low: bevels in texture only, no trims or hedge fringes, sparser cards. */
   readonly low: boolean;
+  /** Inside a building footprint: the environment layer's facades carry the trims there (its request, W5b). */
+  readonly inBuilding: (p: Vec3) => boolean;
 }
 
 /** Paint and queue one piece; walls standing on something get the contact band and damp gradient. */
@@ -219,7 +237,7 @@ function boxPrim(ctx: Ctx, p: BlockoutPrim & { shape: 'box' }, i: number): void 
       // Wall tops grow moss (§5.8); broad tops are walkable flat roofs, paved.
       put(ctx, top, thin && p.centre.y + sy / 2 > ART.mossAbove ? 'moss' : 'flagstone', { ...common, ground: undefined });
       put(ctx, side, id, { ...common, ...(tint !== undefined && { tint }) });
-      if (!ctx.low && !big && sy >= ART.trimMinHeight && footprint >= ART.trimMinFootprint) trims(ctx, p, i * ART.seedStride, tag === 'brick' ? pal.stone : id, tint);
+      if (!ctx.low && !big && !ctx.inBuilding(p.centre) && sy >= ART.trimMinHeight && footprint >= ART.trimMinFootprint) trims(ctx, p, i * ART.seedStride, tag === 'brick' ? pal.stone : id, tint);
       return;
     }
     case 'wood': {
@@ -334,7 +352,23 @@ function canopy(ctx: Ctx, p: BlockoutPrim & { shape: 'cylinder' }, i: number): v
     const at = (g: BufferGeometry): BufferGeometry => g.translate(p.centre.x + Math.cos(a) * d, y, p.centre.z + Math.sin(a) * d);
     const tint = hash(s + ART.canopyTintSalt) < 1 / 2 ? ART.canopyTint : ART.canopyTintAlt;
     ctx.batch.add(paint(at(cards), 'leafCard', { uv: 'keep', tint }), { kind: 'cutout', cast: false });
-    put(ctx, at(core), 'hedge', { tint: ART.coreTint, rays: false, cast: true });
+    const placed = at(core);
+    ctx.batch.add(placed.clone(), { kind: 'shadow' });
+    put(ctx, placed, 'hedge', { tint: ART.coreTint, rays: false });
+  }
+}
+
+/** The prim's plain shape for the shadow pass (floors, water and canopies cast nothing or cast through their cores). */
+function shadowProxy(ctx: Ctx, p: BlockoutPrim): void {
+  if (p.material === 'grass' || p.material === 'ground' || p.material === 'road' || p.material === 'water') return;
+  if (p.shape === 'box') {
+    ctx.batch.add(place(new BoxGeometry(p.size.x, p.size.y, p.size.z), p.centre, p.yaw), { kind: 'shadow' });
+  } else if (p.shape === 'ramp') {
+    const slope = Math.atan2(p.size.y, p.size.z);
+    const steps = p.material !== 'roof' && slope > ART.stairMin && slope < ART.stairMax;
+    for (const g of steps ? stairs(p.size.x, p.size.y, p.size.z) : [wedge(p.size.x, p.size.y, p.size.z)]) ctx.batch.add(place(g, p.centre, p.yaw), { kind: 'shadow' });
+  } else if (p.material !== 'foliage') {
+    ctx.batch.add(new CylinderGeometry(p.radius, p.radius, p.height, SHADOW_PROXY_SIDES).translate(p.centre.x, p.centre.y, p.centre.z), { kind: 'shadow' });
   }
 }
 
@@ -572,13 +606,13 @@ function backdrop(map: MapData, lib: MaterialLibrary, toSun: Vector3, low: boole
     }
   }
   // Variants built at unit-ish size and instanced with a uniform scale (bark and leaves keep their proportions).
-  const trunkG = paint(trunk(BACKDROP.trunkRadius, BACKDROP.trunkHeight, BACKDROP.trunkSeed), 'bark', { uv: 'cylinder' });
+  const trunkG = compactGeometry(paint(trunk(BACKDROP.trunkRadius, BACKDROP.trunkHeight, BACKDROP.trunkSeed), 'bark', { uv: 'cylinder' }));
   const canopyParts = BACKDROP.clumps.map(({ x, y, z, r }, i) => {
     const { cards, core } = leafClump(r, Math.round(BACKDROP.cardsPerClump * (low ? ART.lowCards : 1)), BACKDROP.canopySeed + i, toSun, r * BACKDROP.cardOfClump * (low ? ART.lowCardGrow : 1));
     return { cards: cards.translate(x, y, z), core: core.translate(x, y, z) };
   });
-  const cards = paint(mergeGeometries(canopyParts.map((c) => c.cards)), 'leafCard', { uv: 'keep', tint: BACKDROP.leafTint });
-  const cores = paint(mergeGeometries(canopyParts.map((c) => c.core)), 'hedge', { tint: ART.coreTint });
+  const cards = compactGeometry(paint(mergeGeometries(canopyParts.map((c) => c.cards)), 'leafCard', { uv: 'keep', tint: BACKDROP.leafTint }));
+  const cores = compactGeometry(paint(mergeGeometries(canopyParts.map((c) => c.core)), 'hedge', { tint: ART.coreTint }));
   for (const c of canopyParts) {
     c.cards.dispose();
     c.core.dispose();
@@ -606,7 +640,8 @@ export function buildBlockout(map: MapData, lib: MaterialLibrary): Blockout {
   const root = new Group();
   root.name = 'blockout';
   const toSun = new Vector3(SUN.azimuth.x * Math.cos(SUN.elevationDeg * ART.deg), Math.sin(SUN.elevationDeg * ART.deg), SUN.azimuth.z * Math.cos(SUN.elevationDeg * ART.deg)).normalize();
-  const ctx: Ctx = { batch: new CellBatch(), foliage: map.prims.filter((p) => p.material === 'foliage' && p.shape === 'cylinder'), district: districts(map), toSun, low: lib.quality === 'low' };
+  const ctx: Ctx = { batch: new CellBatch(CELL.size, { shadowProxies: true }), foliage: map.prims.filter((p) => p.material === 'foliage' && p.shape === 'cylinder'), district: districts(map), toSun, low: lib.quality === 'low', inBuilding: footprints(map) };
+  map.prims.forEach((p) => shadowProxy(ctx, p));
   map.prims.forEach((p, i) => {
     if (p.shape === 'box') boxPrim(ctx, p, i);
     else if (p.shape === 'ramp') rampPrim(ctx, p, i);

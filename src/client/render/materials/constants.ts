@@ -32,6 +32,16 @@ export const EMISSIVE_HDR = 8;
 export const ENV_INTENSITY = 0.4;
 /** Water scrolls this many tiles per second along u and v. */
 export const WATER_FLOW = { u: 0.02, v: 0.013 } as const;
+/** compactGeometry: weld keys (positions to 1 mm, other attributes to 1/1000), hash constants, packing ranges. */
+export const COMPACT = {
+  positionSteps: 1000,
+  attributeSteps: 1000,
+  hashSeed: -2128831035,
+  hashPrime: 16777619,
+  int8: 127,
+  uint8: 255,
+  uint16Max: 65535,
+} as const;
 /** Cards: the alpha cut-out (§8.2). */
 export const ALPHA_CUTOFF = 0.5;
 /** §4.4 per-piece colour: value ±5 %, hue ±3° (applied as a warm/cool tilt); hash constants for the seed. */

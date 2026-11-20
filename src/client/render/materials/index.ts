@@ -45,6 +45,7 @@ import { MATERIAL_TIERS, MACRO_VARIATION, EMISSIVE_HDR, ENV_INTENSITY, WATER_FLO
 export { MATERIAL_IDS, RECIPES } from './data/recipes';
 export type { MaterialId, Recipe } from './data/recipes';
 export { MATERIAL_TIERS } from './constants';
+export { compactGeometry, geometryBytes } from './compact';
 
 /** Which shared material a mesh uses: opaque surfaces or alpha-tested, double-sided cards. */
 export type MaterialKind = 'opaque' | 'cutout';
@@ -133,6 +134,9 @@ vMatLayer = matLayer;
 vMatUv = uv;
 {
   vec4 matWp = vec4( transformed, 1.0 );
+  #ifdef USE_BATCHING
+    matWp = batchingMatrix * matWp;
+  #endif
   #ifdef USE_INSTANCING
     matWp = instanceMatrix * matWp;
   #endif

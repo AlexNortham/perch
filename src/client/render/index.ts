@@ -5,6 +5,7 @@
  * Owner: Rendering & VFX.
  */
 import {
+  BatchedMesh,
   CanvasTexture,
   Color,
   DirectionalLight,
@@ -61,6 +62,8 @@ import {
   QUALITY_PRESETS,
   SHADOW_BIAS,
   SHADOW_DISTANCE,
+  SHADOW_LAYER,
+  SHADOW_UPSUN,
   SHADOW_FIT,
   SHADOW_INTENSITY,
   SHADOW_MAX_HALF,
@@ -211,7 +214,9 @@ function budgetOf(scene: Scene, camera: PerspectiveCamera, calls: number, triang
     const t = (o.userData['budget'] as string | undefined) ?? tag;
     if (o instanceof Mesh && (!o.frustumCulled || frustum.intersectsObject(o))) {
       const g = o.geometry;
-      const tris = (g.index ? g.index.count : g.getAttribute('position').count) / TRI;
+      // A BatchedMesh draws only the entries its culling kept this frame (multi-draw counts), not its capacity.
+      const drawn = o instanceof BatchedMesh ? (o as unknown as { _multiDrawCount: number; _multiDrawCounts: Int32Array }) : null;
+      const tris = drawn ? Array.from(drawn._multiDrawCounts.subarray(0, drawn._multiDrawCount)).reduce((a, b) => a + b, 0) / TRI : (g.index ? g.index.count : g.getAttribute('position').count) / TRI;
       const n = o instanceof InstancedMesh ? o.count : 1;
       if (n > 0) {
         const c = (categories[t] ??= { meshes: 0, triangles: 0 });
@@ -247,6 +252,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   sun.shadow.intensity = SHADOW_INTENSITY;
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = SHADOW_DISTANCE * 2;
+  sun.shadow.camera.layers.enable(SHADOW_LAYER);
   scene.add(sun, sun.target);
 
   let env: Texture | null = null;
@@ -365,6 +371,9 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       shadowHalf = half;
       const cam = sun.shadow.camera;
       [cam.left, cam.right, cam.top, cam.bottom] = [-half, half, half, -half];
+      // Depth: from the up-sun reach of tall casters to the far side of the box; nothing beyond casts into view.
+      cam.near = Math.max(1, SHADOW_DISTANCE - half - SHADOW_UPSUN);
+      cam.far = SHADOW_DISTANCE + half;
       cam.updateProjectionMatrix();
     }
     const texel = (2 * half) / preset.shadowMapSize;

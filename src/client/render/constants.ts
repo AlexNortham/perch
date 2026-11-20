@@ -90,6 +90,12 @@ export const SHADOW_MIN_HALF = 45;
 export const SHADOW_MAX_HALF = 240;
 /** How far up the sun direction the shadow camera sits, and its depth range. */
 export const SHADOW_DISTANCE = 400;
+/** Shadow-only proxies live on this layer: the sun's shadow camera sees it, the main camera doesn't. */
+export const SHADOW_LAYER = 1;
+/** Proxy cylinders (trunks, columns) are this many sided. */
+export const SHADOW_PROXY_SIDES = 8;
+/** How far up-sun of the shadow box casters still matter: a 40 m wall at 24° throws its shadow about 100 m along the light. */
+export const SHADOW_UPSUN = 100;
 
 /**
  * Fog thins with camera height, like aerial haze: density × min(1, FOG_HEIGHT_REF / camera height). The player camera
@@ -202,6 +208,8 @@ export const ART = {
   /** §5.1 trims on stone and brick masses at least this tall and this deep. */
   trimMinHeight: 3,
   trimMinFootprint: 0.4,
+  /** A prim within this of a building footprint counts as inside it (the environment layer dresses it). */
+  footprintMargin: 0.5,
   storey: 4,
   minTrimGap: 0.5,
   plinth: { height: 0.8, out: 0.07 },
@@ -236,8 +244,8 @@ export const ART = {
   crownHeight: 0.9,
   crownLift: 0.15,
   /** §7.6 faded flock tints for base dressing (saturation ≤ 45 %, value ≤ 60 % after the albedo). */
-  dawnFaded: 0xe8cfa6,
-  duskFaded: 0xb6b4d8,
+  dawnFaded: 0xf0e4cc,
+  duskFaded: 0xc8c8e2,
   /** Blue slate walls of the Dusk base from granite. */
   duskStoneTint: 0xa4b4e0,
 } as const;

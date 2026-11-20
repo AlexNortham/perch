@@ -28,16 +28,24 @@ describe('map layer', () => {
       const b = buildBlockout(m, lib);
       const all = meshes(b.root);
       const cells = new Set(all.filter((x) => x.name.startsWith('map:')).map((x) => x.name.split(':')[1]));
-      // At most opaque, trims and cards per cell, plus the shimmer, the floor and three instanced forest meshes.
-      expect(all.length).toBeLessThanOrEqual(cells.size * 3 + 5);
-      for (const x of all.filter((x) => !(x instanceof InstancedMesh) && x.name.startsWith('map:'))) {
+      // At most opaque, trims, cards and the shadow proxy per cell, plus the shimmer, the floor and the forest.
+      expect(all.length).toBeLessThanOrEqual(cells.size * 4 + 5);
+      // Painted meshes cast nothing; plain proxies cast, seen only by the sun's shadow camera (layer 1).
+      const proxies = all.filter((x) => x.name.endsWith(':shadow:far'));
+      if (m.prims.length > 0) expect(proxies.length).toBeGreaterThan(0);
+      for (const x of proxies) expect([x.castShadow, x.layers.mask]).toEqual([true, 2]);
+      for (const x of all.filter((x) => x.name.endsWith(':opaque:far'))) expect(x.castShadow).toBe(false);
+      for (const x of all.filter((x) => !(x instanceof InstancedMesh) && x.name.startsWith('map:') && !x.name.endsWith(':shadow:far'))) {
         for (const name of ['position', 'normal', 'uv', 'color']) {
           expect(Array.from(x.geometry.getAttribute(name).array).every(Number.isFinite), `${x.name}.${name}`).toBe(true);
         }
         for (const l of layers(x.geometry)) expect(l >= 0 && l < 64, `${x.name} layer ${l}`).toBe(true);
         expect(x.material === lib.opaque || x.material === lib.cutout, x.name).toBe(true);
       }
-      const colours = all.filter((x) => x.name.endsWith(':opaque:far')).flatMap((x) => Array.from(x.geometry.getAttribute('color').array));
+      const colours = all.filter((x) => x.name.endsWith(':opaque:far')).flatMap((x) => {
+        const c = x.geometry.getAttribute('color');
+        return Array.from({ length: c.count }, (_, i) => c.getX(i));
+      });
       expect(colours.reduce((a, c) => Math.min(a, c), 1), 'baked AO darkens somewhere').toBeLessThan(0.8);
       b.dispose();
     }, FULL_MAP_MS);
