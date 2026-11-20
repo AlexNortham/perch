@@ -193,14 +193,15 @@ export interface ReportInput {
 }
 
 /** Mean result of the flock using `side` (a policy test) against the other, with a 95% CI. */
-function heldOut(matches: readonly MatchRecord[], side: (m: MatchRecord) => PlayerTeam | null): string {
+function heldOut(matches: readonly MatchRecord[], side: (m: MatchRecord) => PlayerTeam | null): { text: string; better: boolean } {
   const ys = matches.flatMap((m) => {
     const t = side(m);
     return t ? [outcome(m, t)] : [];
   });
   const { m, h } = ci(ys);
-  const verdict = ys.length < 2 ? 'too few' : m - h > 0.5 ? 'better (p < 0.05)' : m + h < 0.5 ? 'worse (p < 0.05)' : 'no significant difference';
-  return `${ys.length} matches, mean result ${fmt(m, 3)} ± ${fmt(h, 3)}: ${verdict}`;
+  const better = ys.length >= 2 && m - h > 0.5;
+  const verdict = ys.length < 2 ? 'too few' : better ? 'better (p < 0.05)' : m + h < 0.5 ? 'worse (p < 0.05)' : 'no significant difference';
+  return { text: `${ys.length} matches, mean result ${fmt(m, 3)} ± ${fmt(h, 3)}: ${verdict}`, better };
 }
 
 export function reportMarkdown(r: ReportInput): string {
@@ -223,6 +224,14 @@ export function reportMarkdown(r: ReportInput): string {
   const ciPass = shares.every((s) => s >= CONVERGENCE.settledShare);
   const enough = r.matches.length >= CONVERGENCE.minMatches;
   const yes = (b: boolean): string => (b ? 'pass' : '**not yet**');
+  const explore = heldOut(r.matches, (m) => (m.policy.dawn.kind !== m.policy.dusk.kind ? (m.policy.dawn.kind === 'scores' ? 'dawn' : 'dusk') : null));
+  const duels = ['prev', 'random'].map((kind) => {
+    const d = r.duels.find((x) => x.kind === kind);
+    const rival = kind === 'prev' ? `round ${r.round - 1}` : 'random buying';
+    if (!d) return { kind, better: false, line: `- Duel, round ${r.round} vs ${rival}: not run yet (\`--duel ${kind}\`).` };
+    const h = heldOut(d.matches, (m) => (m.policy.dawn.kind === 'scores' && m.policy.dawn.round === r.round ? 'dawn' : 'dusk'));
+    return { kind, better: h.better, line: `- Duel, round ${r.round} vs ${rival}: ${h.text}.` };
+  });
 
   push(
     '# Build Lab balance report',
@@ -243,14 +252,13 @@ export function reportMarkdown(r: ReportInput): string {
       `${CONVERGENCE.maxCoreChanges} change per core | every hero | ${yes(corePass)} |`,
     `| Settled picks (gap > ${CONVERGENCE.z}·SE or a tie within ${CONVERGENCE.equivalent}) | median ${pct(median(shares))}, ` +
       `min ${pct(Math.min(...shares))} | every hero ≥ ${pct(CONVERGENCE.settledShare)} | ${yes(ciPass)} |`,
+    `| Held-out duels (newest scores vs round ${r.round - 1} and vs random) | ${duels.filter((d) => d.better).length} of 2 better | ` +
+      `both, p < 0.05 | ${yes(duels.every((d) => d.better))} |`,
     '',
-    'Held-out policy tests (one observation per match, the result of the named flock):',
+    'Held-out policy tests (one observation per match: the mean result of the named flock, 95% CI):',
     '',
-    `- Scored flock vs a random-buying flock in training matches: ${heldOut(r.matches, (m) =>
-      m.policy.dawn.kind !== m.policy.dusk.kind ? (m.policy.dawn.kind === 'scores' ? 'dawn' : 'dusk') : null)}.`,
-    ...r.duels.map((d) => `- Duel, round ${r.round} scores vs ${d.kind === 'prev' ? `round ${r.round - 1}` : 'random buying'}: ` +
-      `${heldOut(d.matches, (m) => (m.policy.dawn.kind === 'scores' && m.policy.dawn.round === r.round ? 'dawn' : 'dusk'))}.`),
-    ...(r.duels.length ? [] : ['- Duels (newest vs last round, newest vs random): none run yet (`--duel prev|random`, Phase B).']),
+    `- Scored flock vs a random-buying flock in training matches (round ${r.round - 1} scores and earlier): ${explore.text}.`,
+    ...duels.map((d) => d.line),
     '',
   );
 
