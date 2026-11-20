@@ -87,7 +87,7 @@ export interface HealEffect {
   readonly overS?: Magnitude;
   /**
    * Trigger effects only: fraction of the triggering hit's damage dealt (what its `damage.applied` reports) added to
-   * the heal (Gape heals 0.3 of its bite through a one-use 'abilityHit' trigger, D-ARCH-027). Combat reads it like
+   * the heal (Gape heals 0.3 of its bite through a brief 'abilityHit' trigger, D-ARCH-027). Combat reads it like
    * `DamageEffect.triggerPct` (D-SYS-014); with no hit being reported it adds nothing.
    */
   readonly triggerPct?: Magnitude;

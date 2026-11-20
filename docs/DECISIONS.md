@@ -1910,3 +1910,44 @@ No decorative cuboids go into `prims`.
 
 Riverbank's span over the Hollow is exempt: by GDD §6.4, its long open sightline with the pit below is that stretch's verticality. Stilted roost stands, the first-leg façades and walkway, extra balconies and lane-edge cover deliver the rules. Wires never cross a lane and keep 3 m from Updraft cables (style guide §1.1).
 **Why:** feel gaps G19 and G20 turned into numbers QA can check.
+
+### D-ARCH-025 · 20/11/2026 — Interact deleted; core clears retired and unknown button bits
+**Decision:** `Button.Interact` is deleted (D-EP-039, D-ARCH-022). Its bit lives on only as `RETIRED_BUTTONS.Interact`
+(0x20000), never reused, and core's command latch now keeps `held` and `pressed` bits that are in `Button` and clears
+the rest, so no system can see a retired or made-up bit whatever a client or bot sends. The binding side was already
+done by the UI's W5a work (`'interact'` and `'scoreboard'` out of `BindAction`, `sanitizeSettings` drops saved codes,
+no storage bump). The two tests that held the old bit name it through `RETIRED_BUTTONS`.
+**Why:** the brief asked for proof that nothing reads it. Deleting the member compiles, which proves no code names
+it; clearing unknown bits at the trust boundary proves no code can read it by number either. `| 0` already made the
+bits integral, so the mask costs nothing and moves no hash (no command carried other bits).
+
+### D-ARCH-026 · 20/11/2026 — `SimOptions.practiceStart` places the Practice Hub player
+**Decision:** `SimOptions.practiceStart { pos, yaw }` spawns the human hero there, facing `yaw`, instead of at its
+team spawn. It is Practice Hub only and createSim throws if it is set without `practiceHub` or is not finite. The
+training targets keep their places beside the spawn; later respawns use the team spawn. Swap bird builds
+`practiceConfig(seed, hero, { pos: old.pos, yaw: look.yaw })`, and the app's `sim.ctx` bus emit and extra step
+(D-UI-007's ponytail) are gone.
+**Why:** the client must not reach into `sim.ctx` (ARCHITECTURE §5). A config option is the smallest honest way to
+start a fresh session somewhere else, and core already owns the first placement.
+
+### D-ARCH-027 · 20/11/2026 — Wave 5a contract requests: typed fields over value names, additive where it can be
+**Decision:** INTERFACES §15 decides the 19 requests (12 A, 1 M, 5 S, 1 R). The contract gains `AbilityDef.surface`
+and `EffectTarget.surface` (replacing the `surface` value name), `DashEffect.steerDeg` (replacing `steerDeg`),
+`HealEffect.triggerPct`, `'stun'` in `MovementModeEffect.endOn`, `TriggerDef.beyondM`, `ShieldEffect.id` (with
+`cleanse` by id), `Layer.Sight`/`Movement`/`EggCarrier` (the bits physics already uses), and makes
+`PhysicsService.updraftInReach` and `Motor.updraftInReach` required now that Physics has landed them. Rejected: a
+per-slot cooldown stat for one item (the refund helper is exact). Deferred to W6: `TetherEffect.breakDistance` as a
+Magnitude, because widening a field breaks its readers and they belong to an owner mid-wave.
+**Why:** a value name the framework reads is a contract the compiler can't see; a typed field can't be misspelt and
+shows up in the TSDoc. Everything new is optional, so heroes and items move over in any order. The non-additive
+pieces were kept to one-line type fixes in other owners' files (physics' `endOn` type, the rapier partial service,
+two test fakes): `'stun'` widens a union physics had copied, and `required` was the planned end of D-ARCH-022.
+
+### D-ARCH-028 · 20/11/2026 — The dressing descriptor is part of `MapData`
+**Decision:** `MapData.dressing?: MapDressing` carries the Level Designer's descriptor (facade styles, roofs, marks,
+balconies, landing boards, stairs and props; `buildings` parallel to `MapData.buildings`). Its types move from
+`world/map/dressing.ts` into `contracts/map.ts`, and that file re-exports them so existing imports work.
+`loadDressing(id)` stays, `@deprecated`, as `loadMap(id).dressing` until the Environment Artist has switched, then
+goes in W6. The sim never reads it; it is not hashed.
+**Why:** the renderer already receives `MapData`; one object for the whole map means one memoised build and no second
+loader to keep in step. Optional, so the arena and test maps need nothing.
