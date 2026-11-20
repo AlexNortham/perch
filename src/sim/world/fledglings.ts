@@ -380,7 +380,8 @@ export function createFledglings(ctx: SimContext): Fledglings {
     if (!best && f.assault && !f.target) {
       // From the breached gate march to the closest open objective, even beyond normal aggro range.
       for (const s of ctx.store.list('structure')) {
-        if (s.team === team || s.stats.conditions.has('invulnerable')) continue;
+        // GDD §7.1: fledglings ignore Nests and Feeders (neutral breakables).
+        if (s.team === team || s.team === 'neutral' || s.stats.conditions.has('invulnerable')) continue;
         if (s.structure.lane !== null && (s.structure.lane !== f.track.lane.id || s.structure.type !== 'warden')) continue;
         const d = reach(f, s);
         if (d < bestD) {
@@ -439,6 +440,15 @@ export function createFledglings(ctx: SimContext): Fledglings {
     delta.y = e.vel.y * TICK_SECONDS;
     delta.z = mz;
     const r = ctx.physics.moveCharacter(e.id, delta, movement);
+    // A displaced fledgling that ends up under a floor finds no ground below and falls forever, keeping its target and
+    // hold slot (D-AI-010). Below the map's killY it is put back on the ground under it.
+    if (r.pos.y < ctx.map.killY) {
+      const g = ctx.physics.groundHeight(r.pos.x, r.pos.z, AI.recoverFromY);
+      if (g !== null) {
+        r.pos.y = g;
+        r.grounded = true;
+      }
+    }
     if (r.grounded) e.vel.y = 0;
     e.pos.x = r.pos.x;
     e.pos.y = r.pos.y;
@@ -543,7 +553,8 @@ export function createFledglings(ctx: SimContext): Fledglings {
       for (const f of live) {
         const e = f.e;
         if (e.removed) continue;
-        if (ctx.config.options.structures && f.at.s >= f.track.holdS - AI.avoidLead) f.assault = true;
+        // At the hold line or queued at a hold slot behind it: the siege wave pursues open base objectives (§7.1, §7.6).
+        if (ctx.config.options.structures && (f.hold >= 0 || f.at.s >= f.track.holdS - AI.avoidLead)) f.assault = true;
         if (!f.assault && f.at.off > AI.pathLeash) {
           f.returning = true;
           setTarget(f, null, NONE);

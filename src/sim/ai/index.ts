@@ -11,12 +11,12 @@ import type {
 import * as dmath from '../core/dmath';
 import { ticks } from '../core/math';
 import { canSee } from '../core/vision';
-import { CONDITIONS, DIFFICULTIES, FRONTLINE, LANE_ORDER, OBJECTIVE, PER_LANE, PICK_ORDER } from '../data/ai';
+import { CONDITIONS, DIFFICULTIES, FRONTLINE, LANE_ORDER, OBJECTIVE, PER_LANE, PICK_ORDER, TARGET } from '../data/ai';
 import { BUILDS } from '../data/builds';
 import { ITEMS } from '../data/items';
 import { HEROES } from '../heroes/registry';
 import { createBot } from './bot';
-import type { Bot, Shared } from './bot';
+import type { Bot, Shared, Siege } from './bot';
 import { laneGeom } from './lanes';
 import { navFor } from './nav';
 import type { ShopPolicy } from './shop';
@@ -110,7 +110,7 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
   const pushLanes = new Map<PlayerTeam, { at: Tick; lane: LaneId }>();
   function pushLane(team: PlayerTeam): LaneId {
     const cached = pushLanes.get(team);
-    if (cached && cached.at === ctx.clock.tick) return cached.lane;
+    if (cached && ctx.clock.tick - cached.at < TARGET.flockEveryTicks) return cached.lane;
     let best: LaneId = LANE_ORDER[0]!;
     let bestScore = Infinity;
     for (const lane of LANE_ORDER) {
@@ -126,6 +126,96 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
     }
     pushLanes.set(team, { at: ctx.clock.tick, lane: best });
     return best;
+  }
+
+  /** Last tick each flock killed the Roc (GDD §7.12): a push window. */
+  const rocKilledAt: Record<PlayerTeam, Tick> = { dawn: -Infinity, dusk: -Infinity };
+  ctx.bus.on('entity.died', (e) => {
+    if (e.victimType !== 'roc' || e.creditHero === null) return;
+    const killer = ctx.store.getKind(e.creditHero, 'hero');
+    if (killer) rocKilledAt[killer.team] = ctx.clock.tick;
+  });
+
+  /**
+   * GDD §11.3 Sieging, for the whole flock (D-AI-009). The flock commits every bot to its push lane after a team wipe,
+   * a Roc kill, with Rekindle, with two more heroes up from 20:00, or with at least as many up from 30:00; it falls back
+   * when it is down to two or outnumbered by two. The target is the lane's outermost enemy tower, then the open Shrine
+   * nearest that lane's gate, then the Patron once both Shrines are down.
+   */
+  const committed: Record<PlayerTeam, boolean> = { dawn: false, dusk: false };
+  const sieges = new Map<PlayerTeam, { at: Tick; siege: Siege }>();
+  function siege(team: PlayerTeam): Siege {
+    const cached = sieges.get(team);
+    if (cached && ctx.clock.tick - cached.at < TARGET.flockEveryTicks) return cached.siege;
+    const now = ctx.clock.tick;
+    const heroes = ctx.store.list('hero');
+    const mine = heroes.filter((h) => h.team === team && !h.health.dead).length;
+    const theirs = heroes.filter((h) => h.team !== team && !h.health.dead).length;
+    const s = ctx.clock.seconds;
+    const start = mine >= OBJECTIVE.commitMinAllies && (theirs <= OBJECTIVE.wipeAlive ||
+      now - rocKilledAt[team] <= ticks(OBJECTIVE.rocPushS) || (ctx.teams[team].rekindle?.until ?? 0) > now ||
+      (s >= OBJECTIVE.pushFromS && mine - theirs >= OBJECTIVE.commitEdge) || (s >= OBJECTIVE.allInFromS && theirs - mine < OBJECTIVE.commitEdge));
+    const stop = mine <= OBJECTIVE.fallBackAlive || theirs - mine >= OBJECTIVE.commitEdge;
+    committed[team] = committed[team] ? !stop : start;
+    const lane = pushLane(team);
+    const geom = shared?.lanes.get(lane);
+    let target: StructureEntity | null = null;
+    let best = Infinity;
+    for (const t of towers) {
+      if (t.team === team || t.structure.lane !== lane || !geom) continue;
+      const f = geom.forward(team, geom.project(t.pos).s);
+      if (f < best) {
+        best = f;
+        target = t;
+      }
+    }
+    if (!target && geom) {
+      const gate = geom.at(geom.fromForward(team, geom.length));
+      best = Infinity;
+      for (const t of towers) {
+        if (t.team === team || t.structure.type !== 'shrine' || t.stats.conditions.has('invulnerable')) continue;
+        const d = dmath.hypot(t.pos.x - gate.x, t.pos.z - gate.z);
+        if (d < best) {
+          best = d;
+          target = t;
+        }
+      }
+      target ??= towers.find((t) => t.team !== team && t.structure.type === 'patron' && !t.stats.conditions.has('invulnerable')) ?? null;
+    }
+    const out: Siege = { commit: committed[team], target, lane };
+    sieges.set(team, { at: now, siege: out });
+    return out;
+  }
+
+  /**
+   * "Defend at home" (GDD §11.3 Defend): an open Shrine or the Patron with a seen enemy hero within homeM, or
+   * homeFledglings enemy fledglings within the Brood Ward's 30 m. Returns the structure under the most pressure and
+   * how many bots answer: the 3 nearest (§11.3), or one more than the heroes inside.
+   */
+  const threats = new Map<PlayerTeam, { at: Tick; threat: { structure: StructureEntity; defenders: number } | null }>();
+  function homeThreat(team: PlayerTeam): { structure: StructureEntity; defenders: number } | null {
+    const cached = threats.get(team);
+    if (cached && ctx.clock.tick - cached.at < TARGET.flockEveryTicks) return cached.threat;
+    let worst: { structure: StructureEntity; defenders: number } | null = null;
+    let most = 0;
+    for (const s of towers) {
+      if (s.team !== team || s.structure.lane !== null || s.stats.conditions.has('invulnerable')) continue;
+      let heroes = 0;
+      let units = 0;
+      for (const h of ctx.store.list('hero')) {
+        if (h.team !== team && !h.health.dead && canSee(team, h) && dmath.hypot(h.pos.x - s.pos.x, h.pos.z - s.pos.z) <= OBJECTIVE.homeM) heroes++;
+      }
+      for (const u of ctx.store.list('unit')) {
+        if (u.team !== team && u.team !== 'neutral' && u.unit.lane && dmath.hypot(u.pos.x - s.pos.x, u.pos.z - s.pos.z) <= OBJECTIVE.homeWardM) units++;
+      }
+      const pressure = heroes * OBJECTIVE.homeFledglings + units;
+      if ((heroes > 0 || units >= OBJECTIVE.homeFledglings) && pressure > most) {
+        most = pressure;
+        worst = { structure: s, defenders: Math.max(OBJECTIVE.defendBots, heroes + 1) };
+      }
+    }
+    threats.set(team, { at: ctx.clock.tick, threat: worst });
+    return worst;
   }
 
   /** Created on match start, once the heroes exist. */
@@ -144,10 +234,9 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
       orders,
       policy,
       pushLane,
+      siege,
+      homeThreat,
     };
-    // Bots play maps with lanes. On a lane-less test map (the arena) they stand still as the W1 stub did, so benches
-    // that place a bot as a target keep working (D-AI-007).
-    if (ctx.map.lanes.length === 0) return;
     for (const h of heroes) {
       if (!isBot(h)) continue;
       const a = lanes.get(h.id) ?? { lane: LANE_ORDER[0]!, side: 1 as const, roamer: false };
@@ -211,8 +300,11 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
     phases: {
       ai: () => {
         if (!shared) start();
-        towers.length = 0;
-        for (const s of ctx.store.list('structure')) if (s.structure.type !== 'nest' && !s.health.dead) towers.push(s);
+        // The tower list changes only when one falls: refresh it a few times a second.
+        if (ctx.clock.tick % TARGET.towersEveryTicks === 1 || towers.some((s) => s.removed || s.health.dead)) {
+          towers.length = 0;
+          for (const s of ctx.store.list('structure')) if (s.structure.type !== 'nest' && !s.health.dead) towers.push(s);
+        }
         if (ctx.clock.tick % defendEvery === 0) defend();
         for (const b of bots) b.tick();
       },
@@ -220,6 +312,7 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
     hash(h) {
       for (const b of bots) b.hash(h);
       h.value(orders);
+      h.value([committed, rocKilledAt]);
     },
   };
 };

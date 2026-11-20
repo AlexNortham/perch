@@ -79,7 +79,7 @@ export const AIM = {
   /** Fires only while the crosshair is within this many degrees of the target point, plus its angular size. */
   fireConeDeg: 3,
   /** Solves the camera offset (the crosshair isn't the pivot) with this many refinement passes. */
-  solvePasses: 3,
+  solvePasses: 2,
   /** A target not seen for this long is dropped. */
   forgetS: 2.5,
   /** Body aim point as a fraction of the target's height. */
@@ -147,6 +147,8 @@ export const FIGHT = {
   defaultRangeM: 25,
   /** Light melee an enemy this close while reloading. */
   meleeM: 2.5,
+  /** Committed to an open enemy base, a bot stops to fight only an enemy hero this close (D-AI-009). */
+  siegeEngageM: 15,
   /** Parries a heavy wind-up from this close (the heavy lunge plus melee reach). */
   parryM: 6.5,
   meleeEveryS: 0.7,
@@ -188,6 +190,10 @@ export const TARGET = {
   losEveryTicks: 6,
   /** Once-per-entity draws are pruned of despawned entities past this many. */
   forgetAfter: 256,
+  /** The shared tower list is rebuilt this often (ticks), and at once when one falls. */
+  towersEveryTicks: 30,
+  /** Flock-level push lane, siege and home threat are re-judged this often (ticks). */
+  flockEveryTicks: 15,
 } as const;
 
 /** Retreat, healing and the Home Roost (GDD §11.3). */
@@ -196,6 +202,8 @@ export const RETREAT = {
   roostHp: 0.3,
   /** Stays at the Roost until this healthy. */
   healedHp: 0.9,
+  /** Committed to an open enemy base, a bot goes home only below this HP fraction (D-AI-009). */
+  committedHp: 0.15,
   /** Uses an escape ability when an enemy hero is this close. */
   escapeM: 15,
 } as const;
@@ -339,6 +347,22 @@ export const OBJECTIVE = {
   pushDeadEnemies: 2,
   /** Rotations: free roamers leave the lane after this match time (Hunter+). */
   rotateFromS: 600,
+  /**
+   * The flock commits to a siege (D-AI-009) with at least commitMinAllies up, when the enemy is down to wipeAlive, for
+   * rocPushS after a Roc kill, with Rekindle, from 20:00 when commitEdge more heroes are up, or from allInFromS when at
+   * least as many are up. It falls back at fallBackAlive up, or when outnumbered by commitEdge.
+   */
+  commitMinAllies: 3,
+  wipeAlive: 2,
+  rocPushS: 90,
+  commitEdge: 2,
+  allInFromS: 1500,
+  fallBackAlive: 2,
+  /** Defend at home: a seen enemy hero within homeM of an open Shrine or Patron, or homeFledglings enemy fledglings in its 30 m Ward radius; defenders stand homeStandM out from it. */
+  homeM: 40,
+  homeWardM: 30,
+  homeFledglings: 3,
+  homeStandM: 8,
 } as const;
 
 /**
@@ -351,7 +375,14 @@ export const SIEGE = {
   shrine: { x: 11.6, z: 100.4 },
   patronZ: 92,
   slackM: 4,
-  minM: 6,
+  /** Stands at least this far from a base structure's body (the Shrine pulse reaches 12 m) and at most maxM. */
+  minM: 16,
+  maxM: 30,
+  /** Candidate stands: these angles (radians) either side of the gate's direction, at these fractions of the range. */
+  fan: [0, 0.4, -0.4, 0.8, -0.8, 1.2, -1.2, 1.6, -1.6],
+  rings: [1, 0.8],
+  /** Ground under a candidate is probed from this far above the structure's base. */
+  probeUpM: 3,
 } as const;
 
 /** Ability and item-active use (GDD §11.2). */
@@ -364,6 +395,10 @@ export const CAST = {
   predictRange: 0.8,
   /** Self-centred damage fires with the target this close. */
   novaM: 7,
+  /** Ally heals and shields go to the ally in combat with the lowest HP fraction under allyHp. */
+  allyHp: 0.7,
+  /** An ally cast waits this long for the crosshair to reach its ally, then gives up. */
+  assistS: 0.8,
   /** Self heals and shields fire below this HP fraction in combat. */
   healHp: 0.6,
   /** Raptor holds its ultimate for this many enemy heroes within holdRadiusM of the target, or a target this low. */

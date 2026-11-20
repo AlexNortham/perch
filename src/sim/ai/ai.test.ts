@@ -155,6 +155,26 @@ describe('nav and lanes', () => {
   });
 });
 
+describe('§11.2 ally casts (D-AI-011)', () => {
+  it('a hard Flamingo bot casts Poise (affects.self, no selfFallback) on a wounded ally in combat', async () => {
+    const sim = await createSim({ seed: 2, map: 'arena', options: { unlockAbilities: true }, roster: [
+      { team: 'dawn', hero: 'flamingo', controller: 'hard' },
+      { team: 'dawn', hero: 'owl', controller: 'dummy' },
+    ] });
+    const [flamingo, owl] = sim.ctx.store.list('hero');
+    sim.ctx.effects.apply({ kind: 'teleport', to: 'point', face: 'keep' }, { entity: owl!.id, point: { x: 6, y: 0, z: 8 }, dir: { x: 0, y: 0, z: 1 } },
+      { source: owl!.id, team: 'dawn', via: 'weapon', ability: null, item: null, values: null, songPower: 0, proc: false, origin: { ...owl!.pos } });
+    const casts: string[] = [];
+    for (let i = 0; i < 4 * 60; i++) {
+      owl!.health.hp = owl!.stats.final.maxHealth * 0.3;
+      owl!.health.inCombatUntil = sim.tick + 60;
+      sim.step();
+      for (const e of sim.drainEvents()) if (e.type === 'ability' && e.caster === flamingo!.id && e.stage === 'land') casts.push(e.ability);
+    }
+    expect(casts).toContain('flamingo.poise');
+  });
+});
+
 describe('§11.2 aim', () => {
   it('waits out the reaction time, then tracks to within the difficulty error', async () => {
     const sim = await createSim({ seed: 1, map: 'arena', roster: [{ team: 'dawn', hero: 'owl', controller: 'human' }] });
