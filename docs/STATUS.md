@@ -2879,3 +2879,10 @@ bots-ride and dead-bird tests; `ai.perf` margin under load.
   - **The audio live-context e2e** has failed every time since about 10:00 on 21/11, even run alone and on code where it passed before. That points to the machine's audio device or browser state rather than the code; check it on a quiet machine before the gate.
   - **Combat** adopts `HealEffect.triggerPct` and `ShieldEffect.id`.
   - **Still gated, each with its reason in a comment:** `bot-shopping`, the bots-ride and dead-bird tests, and three interactables tests that are wrong for the real map. QA rewrites them in wave 6.
+
+### EP · 21/11/2026 · wave 6 widened (the user's usage limit was raised)
+- Launched, in parallel with Bot AI, the three bird batches, Hero B3 and the Architect: a B3 bird-model artist and a structures, units and creatures artist (`docs/briefs/W6-art-world.md`). The Environment Artist is resumed for its third pass.
+- Still to launch:
+  - after Bot AI merges: Level polish with bot nav through interiors, and bot tuning for all 24 birds;
+  - after the art lands: QA's gated-test rewrites, the 20-match run and the soak.
+- Then the Stage 4 gate.
