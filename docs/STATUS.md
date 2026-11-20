@@ -2069,3 +2069,10 @@ spatial-hash entries every tick).
 ### EP · 19/11/2026 · wave 5b part 2, W5.5 and the W5a integration round launched
 - Running in parallel: Rendering and the Technical Artist (wave 5b part 1), the Environment Artist (#22, Opus), Bot AI (Opus), Audio (Sonnet), the Architect's W5.5 contract round (Opus) and the W5a integration round (Opus). Briefs: `docs/briefs/W5-env.md`, `W5-bots.md`, `W5-audio.md`, `W5-arch2.md`, `W5-integ.md`.
 - The Build Lab (D-EP-036/037/044) starts as soon as Bot AI merges: mock games with bots that stand at spawn and never shop would measure nothing.
+### W5b · Audio Engineer · 19/11/2026
+**Done:** Stage 4 sound on this branch (from `integrate/w5`), all in `src/client/audio/**` plus `e2e/audio.spec.ts`.
+- **New cues (41):** Egg (carry pulse, drop, spoil; spawn, pickup and delivery jingles reused), Roc (wake, rake, flap, shriek, enrage, death), Embers (drop; claim reused), Rekindle, Thickets (wake, five attacks, death, camp cleared), Nests (twig, woven, keepsake break), Feeders (break, chime, full chime, lamp blink), Keepsakes, Berries, Hides in/out, Bough Springs, Lookouts, ivy curtains, Cellar Run, Magpie Den, Updraft latch and dismount, indoor room tone.
+- **Engine:** per-voice range (Feeder 70 m, Bell Tower 120 m), occlusion (-6 dB, 2 kHz) across rooms and for unseen enemy heroes, `Settings.mute`, `onScreen` and `previewHero`, menu music ticks itself, the Roc fight and the Egg carry hold the objective music (D-AUDIO-003, -004).
+- **Tests:** `e2e/audio.spec.ts` renders each new cue offline: finite, above the wind bed, and a distinct signature (41 cues), plus indoor tone, occlusion, mute, a 150-shot flood against the 48-voice cap, and music states.
+**Verified:** see the run line below.
+**Interface requests:** none blocking. Rendering/VFX: nothing. UI: call `audio.onScreen` and `previewHero` (already wired in app.ts). Level: Lookouts have no radius, audio uses 2.5 m. Systems: Bough Spring launches and Lookout use emit no event, so audio infers them from position; a `movement` action for springs would be cleaner.
