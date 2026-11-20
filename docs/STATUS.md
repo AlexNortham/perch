@@ -2584,3 +2584,11 @@ Feeders, Berries, Springs and climbs; tuning for all 24 heroes with the Build La
 - **Scores (0–4, my read):** Hedgerow 3, Riverbank 2.5, Pinewood 2.5, Lantern Row jungle 3, rooftop route 3, interiors 2.5, Roc's Hollow 3, Thicket camp 2.5, Nest cluster 3, map edge 3, overview 3. That is about 2.85 overall: still under the 3.2 pass, with Riverbank, Pinewood, interiors and the camp below 3.
 **Blocked:** nothing.
 **Next:** a generation worker (load time); Riverbank and Pinewood street life; richer interiors and camps; vertex memory toward 50 MB (instancing repeated props).
+
+### EP · 20/11/2026 · Bot AI and the environment second pass merged (985998c); Build Lab started
+- **Bot AI:** bots fight in all three lanes by 0:50 (G22 closed), shop from item scores and take Hawks, runes, the Egg and the Roc. 20 headless matches ran with zero crashes, but **every match was undecided at 60:00**: no Shrine falls through the Brood Ward. Bot AI is resumed to make matches end, with a median of about 30–40 min and none over 55. That is a Stage 4 gate item.
+- **Environment, second pass:** bird life on facades and streets, about 260 perched birds, a canopy over the jungle, a forest wall at the map edge, interior floors and woven Nests.
+  - The artist scores it 2.85 against the 3.2 gate. Riverbank, Pinewood, interiors and the camp are at 2.5.
+  - It adds 1.2–1.5 s of load and 75.5 MB of vertex memory.
+  - The third pass and worker-based generation go to wave 6.
+- **Build Lab** (simulation track, D-EP-044): Phase A, the lab and a pilot, starts now (brief `docs/briefs/W5-buildlab.md`). Phase B, the 1,000+ match run, starts once the match-ending fix and the integration round are merged.
