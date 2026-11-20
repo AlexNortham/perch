@@ -2266,3 +2266,13 @@ What would lift the 2s, and the rest toward 4:
   - muddy colour and value, with no sheen.
 - The Technical Artist is doing a second pass on the shared pipeline (anatomy, feathers, bird material, sculpt) and then each bird.
 - The wave 6 rework of the 12 older birds waits for that pipeline, so they inherit the fixes rather than the faults.
+
+### EP · 20/11/2026 · art review of the environment layer (first pass, not merged yet)
+- Branch `worktree-agent-a347043346bfb584a` (2de8b3d) carries Rendering's work-in-progress branch at 1213e1d. It merges after Rendering, never before.
+- EP agrees with the artist's 2.6 against the 3.2 pass mark. Hedgerow's terrace, roofs and lighting are a real step up. Second pass ordered:
+  - bird life at every scale in each street view (D-EP-048);
+  - a real layered jungle instead of a lawn;
+  - the giant blank boundary wall dressed as a skyline;
+  - interior floors (grass shows indoors) and bird-purpose furnishing;
+  - volumetric Nests and objective sites;
+  - vertex memory down from about 95 MB, jointly with Rendering.
