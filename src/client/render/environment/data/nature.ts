@@ -393,8 +393,8 @@ function hedge(w: World, q: BlockoutPrim, i: number): void {
     const len = long ? sx : sz;
     const thick = long ? sz : sx;
     for (let t = -len / 2 + 0.3; t < len / 2 - 0.1; t += 0.55 + hash2(seed, t) * 0.3) {
-      const r = thick * (0.42 + hash2(seed, t + 1) * 0.2);
-      const h = 0.25 + hash2(seed, t + 2) * 0.35;
+      const r = thick * (0.34 + hash2(seed, t + 1) * 0.24);
+      const h = 0.5 + hash2(seed, t + 2) * 0.6;
       const [x, z] = long ? [t, (hash2(seed, t + 3) - 0.5) * thick * 0.2] : [(hash2(seed, t + 3) - 0.5) * thick * 0.2, t];
       g.within(placed(x, sy / 2 - 0.35, z, hash2(seed, t + 4) * 3), () => g.radial([0, h * 0.5, h], 6, (a, y) => r * (1 - (y / h) ** 2 * 0.75) * (0.85 + 0.15 * Math.sin(a * 3 + t))));
       if (hash2(seed, t + 5) < 0.45) {
@@ -683,7 +683,7 @@ function jungleFloor(w: World, x: number, z: number, pathD: number, k: number): 
   // Dapple: dark leaf shadows lying on the ground (§10.1 baked dapple at Medium).
   const a = hash2(k, 9) * Math.PI * 2;
   const s = 0.7 + hash2(k, 10) * 0.9;
-  m(w, 1, x, z, 'cutout').paint({ mat: 'leafCard', tint: 0x1c2618, shade: 0.55 }, k).card2(new Vector3(x, 0.025, z), new Vector3(Math.cos(a) * s, 0, Math.sin(a) * s), new Vector3(-Math.sin(a) * s, 0, Math.cos(a) * s));
+  m(w, 1, x, z, 'cutout').paint({ mat: 'leafCard', tint: 0x8a9a78, shade: 0.62 }, k).card2(new Vector3(x, 0.025, z), new Vector3(Math.cos(a) * s, 0, Math.sin(a) * s), new Vector3(-Math.sin(a) * s, 0, Math.cos(a) * s));
   if (pathD < 1.2) {
     if (r < 0.3) litter(g0, x, z, k);
     return;

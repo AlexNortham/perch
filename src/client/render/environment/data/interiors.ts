@@ -25,6 +25,8 @@ interface Blocker {
   readonly r: number;
   readonly y0: number;
   readonly y1: number;
+  /** A hole in the floor (hatch, grate, skylight, stair, Chimney): interior floors leave it open. */
+  readonly hole?: boolean;
 }
 
 const TIMBER = { mat: 'timber' } as const;
@@ -38,15 +40,15 @@ export function dressInteriors(w: World): void {
   const blockers: Blocker[] = [];
   for (const o of map.openings ?? []) {
     const passable = o.kind !== 'window';
-    blockers.push({ x: o.centre.x, z: o.centre.z, r: Math.max(o.width, o.kind === 'hatch' || o.kind === 'skylight' ? 2.2 : 0) / 2 + (passable ? 1.4 : 0.4), y0: o.centre.y - o.height / 2 - 4.2, y1: o.centre.y + o.height / 2 + 0.2 });
+    blockers.push({ x: o.centre.x, z: o.centre.z, r: Math.max(o.width, o.kind === 'hatch' || o.kind === 'skylight' ? 2.2 : 0) / 2 + (passable ? 1.4 : 0.4), y0: o.centre.y - o.height / 2 - 4.2, y1: o.centre.y + o.height / 2 + 0.2, hole: o.kind === 'hatch' || o.kind === 'skylight' || o.kind === 'grate' });
   }
-  for (const c of map.climbs) blockers.push({ x: c.bottom.x, z: c.bottom.z, r: c.kind === 'chimney' ? 2.4 : 1.6, y0: c.bottom.y - 0.5, y1: c.top.y + 0.5 });
+  for (const c of map.climbs) blockers.push({ x: c.bottom.x, z: c.bottom.z, r: c.kind === 'chimney' ? 2.4 : 1.6, y0: c.bottom.y - 0.5, y1: c.top.y + 0.5, hole: c.kind === 'chimney' });
   for (const d of map.dressing?.buildings ?? []) {
     for (const s of d.stairs) {
       const n = Math.max(2, Math.ceil(Math.hypot(s.to.x - s.from.x, s.to.z - s.from.z) / 1.5));
       for (let k = 0; k <= n; k++) {
         const t = k / n;
-        blockers.push({ x: s.from.x + (s.to.x - s.from.x) * t, z: s.from.z + (s.to.z - s.from.z) * t, r: s.width / 2 + 0.9, y0: Math.min(s.from.y, s.to.y) - 0.5, y1: Math.max(s.from.y, s.to.y) + 3 });
+        blockers.push({ x: s.from.x + (s.to.x - s.from.x) * t, z: s.from.z + (s.to.z - s.from.z) * t, r: s.width / 2 + 0.9, y0: Math.min(s.from.y, s.to.y) - 0.5, y1: Math.max(s.from.y, s.to.y) + 3, hole: true });
       }
     }
   }
@@ -114,7 +116,7 @@ function furnish(w: World, room: Room, archetype: string, seed: number, blockers
     const stone = /stone|belfry|dovecote|brick/.test(style);
     const c = Math.cos(v.yaw);
     const s = Math.sin(v.yaw);
-    const holes = blockers.filter((b) => b.r >= 1 && b.y0 < floor + 0.5 && b.y1 > floor + 0.2).map((b) => {
+    const holes = blockers.filter((b) => b.hole === true && b.y0 < floor + 0.5 && b.y1 > floor + 0.2).map((b) => {
       const dx = b.x - v.centre.x;
       const dz = b.z - v.centre.z;
       const lx = dx * c - dz * s;
