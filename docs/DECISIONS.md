@@ -1857,6 +1857,15 @@ and added to `SCULPTED_IDS` the same way.
 **Why:** `sculpted-birds.ts` cannot import `heroes.ts` (it would be a cycle), and the brief keeps each batch in its own
 builder file.
 
+### D-ART-014 · 21/11/2026 — The Lyrebird's lyre keeps the player's view open
+**Decision:** the lyre (GDD §9.4, style guide §8.2's hero shape) rises to 2.6 m in the tail bone's frame and stays within
+±0.45 m of the bird's midline. The player camera sits 0.75 m to the right of the bird (`aimRay`), so the crosshair ray
+passes outside the lyre at every pitch. Its silver filaments fan out toward the two outer plumes with the middle left
+open, so from the player camera the head, nape and gear show through it. The outer plumes are flat ribbon lofts (one
+smooth S-curve each), not chained cards. On a cast the whole lyre swings forward over the head.
+**Why:** a lyre filled edge to edge with filaments hid the bird's back and head from its own player. The camera offset
+keeps the aim line clear only while the lyre stays narrower than that offset.
+
 ### D-SYS-006 · 19/11/2026 — The Updraft latch, read exactly (GDD §3.7, D-EP-039)
 **Decision:** `updraftInReach` is the nearer of two tests per segment: the column (feet within 2.5 m of the cable's
 ground line, the cable 0.5–14 m above them, at the point straight above the feet's nearest spot) and a 1.5 m sphere
