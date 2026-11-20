@@ -1833,6 +1833,15 @@ Triangle targets per level go in the body (`tris`); the rest of the bird must fi
 **Why:** the EP scored v2 at 2.5 for its plastic surfaces and bare backs of heads. What the player sees most is the
 back of the head, the nape and the shoulders, so the standard is written down for the 21 birds that follow.
 
+### D-ART-012 · 21/11/2026 — Sculpted birds outside `sculpted-birds.ts` register through `heroes.ts`
+**Decision:** batch B birds are `SculptedBird` functions in their builder file (`heroes.ts`), wrapped with
+`sculptedBuild` into `HERO_BUILDS`. `heroes.ts` exports `SCULPTED_IDS` (the ids of `SCULPTED_BUILDS` plus its own), and
+`models.test.ts` takes its sculpted list from it, de-duplicating the old twelve, so the display, jaw, blink and gun-cap
+tests cover every converted bird. A bird converted in `heroes-b.ts` should be exported as a `SculptedBird` record there
+and added to `SCULPTED_IDS` the same way.
+**Why:** `sculpted-birds.ts` cannot import `heroes.ts` (it would be a cycle), and the brief keeps each batch in its own
+builder file.
+
 ### D-SYS-006 · 19/11/2026 — The Updraft latch, read exactly (GDD §3.7, D-EP-039)
 **Decision:** `updraftInReach` is the nearer of two tests per segment: the column (feet within 2.5 m of the cable's
 ground line, the cable 0.5–14 m above them, at the point straight above the feet's nearest spot) and a 1.5 m sphere
