@@ -363,7 +363,11 @@ test.describe('stage 4 cues', () => {
     expect(roc.sig).not.toBe(laning.sig);
     expect(egg.sig).not.toBe(laning.sig);
     expect(egg.rms).toBeGreaterThan(laning.rms); // the objective state adds the lead and percussion stems
-    const select = await run(page, '', m(`pre: (a) => a.onScreen('heroSelect')`)); // fails while update() overrides the screen state (QA W6: routed to Audio)
-    expect(select.sig).not.toBe(laning.sig);
+    const select = await run(page, '', m(`pre: (a) => a.onScreen('heroSelect')`));
+    expect(Math.abs(select.rms - laning.rms)).toBeGreaterThan(1e-3); // sigs are not stable run to run; rms is
+    // Frames arriving on the hero-select screen must not override its music state (QA, Stage 4).
+    const framed = await run(page, `a.update({ curr: v, prev: v, alpha: 1, dt: 0.016 }, { position: { x: 0, y: 0, z: 0 }, target: { x: 0, y: 0, z: -1 }, fovDeg: 90 });`, m(`pre: (a) => a.onScreen('heroSelect')`));
+    expect(framed.rms).toBeCloseTo(select.rms, 6); // still the hero-select mix
+    expect(Math.abs(framed.rms - laning.rms)).toBeGreaterThan(1e-3); // not laning
   });
 });
