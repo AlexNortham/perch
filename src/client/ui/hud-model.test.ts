@@ -24,9 +24,12 @@ describe('names', () => {
 describe('scoreboard centre', () => {
   it('the lead is a whole percent of the trailing flock, on the leader\'s side', () => {
     expect(leadPercent(1250, 1000)).toEqual({ side: 'own', pct: 25 });
-    expect(leadPercent(900, 1000)).toEqual({ side: 'enemy', pct: 11 });
+    expect(leadPercent(1000, 1125)).toEqual({ side: 'enemy', pct: 13 });
     expect(leadPercent(500, 500)).toEqual({ side: null, pct: 0 });
-    expect(leadPercent(10, 0).pct).toBe(1000);
+    // Early in a match a tiny trailing total must not give a huge percentage (was +6700%).
+    expect(leadPercent(67, 1)).toEqual({ side: null, pct: 0 });
+    expect(leadPercent(10, 0)).toEqual({ side: null, pct: 0 });
+    expect(leadPercent(999, 5000)).toEqual({ side: null, pct: 0 });
   });
 
   it('names the soonest upcoming Egg or Roc as a clock window', () => {
