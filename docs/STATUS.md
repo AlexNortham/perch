@@ -2257,3 +2257,12 @@ What would lift the 2s, and the rest toward 4:
   slot's cast pose plays in matches.
 
 **Blocked:** nothing.
+
+### EP · 20/11/2026 · art review of the eight sculpted birds (first pass merged, 8c66eab)
+- EP scores below the bar of D-EP-047: Peacock 2/4, Swift 1/4. Findings:
+  - primitive silhouettes (ball heads on tube necks; Swift a bowling pin from the player camera);
+  - wings read as arms;
+  - feather cards render as dithered noise;
+  - muddy colour and value, with no sheen.
+- The Technical Artist is doing a second pass on the shared pipeline (anatomy, feathers, bird material, sculpt) and then each bird.
+- The wave 6 rework of the 12 older birds waits for that pipeline, so they inherit the fixes rather than the faults.
