@@ -60,6 +60,8 @@ interface PlayOpts {
 type Room = NonNullable<MapData['rooms']>[number];
 
 const dist3 = (a: Vec3, b: Vec3): number => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+const finite3 = (v: Vec3): boolean => Number.isFinite(v.x + v.y + v.z);
+const isPose = (p: CameraPose): boolean => finite3(p.position) && finite3(p.target);
 const inBox = (r: Room, p: Vec3): boolean => {
   const { centre, size, yaw } = r.volume;
   const dx = p.x - centre.x, dz = p.z - centre.z, cs = Math.cos(yaw), sn = Math.sin(yaw);
@@ -415,7 +417,7 @@ export const createAudio = (settings: Settings, opts: AudioOptions = {}): AudioO
     },
     reset,
     update(f: Frame, l: CameraPose) {
-      listener = l;
+      if (isPose(l)) listener = l; // a non-finite camera pose (first frames, a degenerate target) keeps the last good one
       view = f.curr;
       seconds = f.curr.seconds;
       if (!c || !music) return;
