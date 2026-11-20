@@ -3160,3 +3160,12 @@ Magnitude is not needed by Swan. **Bot AI:** nothing; no `data/ai.ts` block was 
 - **Prepared for item 6, not run:** `npm run release-matches`, `npm run soak -- --minutes 30`.
 - **Check runs so far:** one `--release` pass of the steps by hand: typecheck, lint, unit (1,433), sim pass; perf 13/14; e2e 111/112.
   No three-in-a-row yet.
+
+### EP · 21/11/2026 · QA stability round merged (b4eeabf)
+- Nothing is behind `PERCH_PENDING` any more. `bot-shopping` runs in `npm run slow`. The audio live-context failure was the machine's audio clock lagging under load, and the test now polls. Release mode is `npm run check -- --release`. `e2e/all-heroes.spec.ts` starts a match with every implemented hero; it needs a rerun with all 24.
+- **Release 1 blockers, with owners:**
+  - `__perch.hero` null in a running match (Architect, in progress);
+  - objectives perf at +0.30–0.34 ms against 0.3 on quiet runs, a real cost (Architect: static spatial-hash entries);
+  - `update()` in `src/client/audio/index.ts` overrides the hero-select music every frame (Audio).
+- **Release 2 (visual):** for 1–2 s after a scene opens, a frame draws up to 50% more triangles than it settles to (lane/low 390k, then 257k). Rendering to find the cause; the test now waits for the settled frame.
+- **Prepared for after the bot fix:** `npm run release-matches` and `npm run soak -- --minutes 30`.
