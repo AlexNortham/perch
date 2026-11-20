@@ -23,39 +23,6 @@ const pivots = (o: { sy: number; legLen: number; R: number; legX: number; tailY:
   tail: [0, o.tailY, o.tailZ] as V3,
 });
 
-/** Owl: round barrel body, no neck, flat facial disc, two ear tufts, huge orange eyes, a rifle as tall as itself. */
-const owl: Build = (plan, team) => {
-  const { H, R, hc, hr, top } = dims(plan);
-  const legLen = H * 0.1;
-  const y0 = legLen * 0.9;
-  const cy = (y0 + top) / 2;
-  const ry = (top - y0) / 2;
-  const body = new Parts()
-    .ell(C.owlTawny, [R * 1.05, ry, R * 1.1], [0, cy, -R * 0.05])
-    .ell(C.owlCream, [R * 0.85, ry * 0.8, R * 0.9], [0, cy - ry * 0.1, R * 0.25])
-    .ell(team.primary, [hr * 1.3, H * 0.03, hr * 1.3], [0, hc - hr * 0.95, 0]);
-  const head = headShell(new Parts(), C.owlTawny, hr)
-    .ell(C.owlCream, [hr * 1.0, hr * 0.95, hr * 0.3], [0, 0, hr * 0.92])
-    .cone(PLUMAGE.shrikeBill, hr * 0.2, hr * 0.5, [0, -hr * 0.2, hr * 1.1], [0.3, 0, 0])
-    .cone(C.owlTawny, hr * 0.28, hr * 0.8, [hr * 0.7, hr * 0.8, 0], [-Math.PI / 2, 0, -0.35])
-    .cone(C.owlTawny, hr * 0.28, hr * 0.8, [-hr * 0.7, hr * 0.8, 0], [-Math.PI / 2, 0, 0.35]);
-  for (const s of [1, -1]) {
-    head.ell(C.owlEye, [hr * 0.36, hr * 0.36, hr * 0.15], [s * hr * 0.45, hr * 0.15, hr * 1.08]);
-    head.ell(PLUMAGE.eye, [hr * 0.15, hr * 0.15, hr * 0.1], [s * hr * 0.45, hr * 0.15, hr * 1.17]);
-  }
-  const tail = new Parts().box(C.owlTawny, [R * 0.5, H * 0.02, H * 0.16], [0, 0, -H * 0.08]);
-  return assemble(plan, {
-    body, head, tail,
-    wing: { hex: C.owlTawny, len: H * 0.4, chord: R * 1.2, thick: R * 0.12, trim: team.primary },
-    leg: { hex: C.owlCream, len: legLen, thick: H * 0.03, foot: R * 0.4 },
-    gun: { length: H * 0.7, thick: 0.06, scope: true, main: 0.5, support: 0.22 },
-    pivot: pivots({ sy: cy + ry * 0.5, legLen, R, legX: R * 0.4, tailY: cy - ry * 0.2, tailZ: -R * 1.0 }),
-    // Hush, Night Eyes, Silent Wing, Moonlit Mark.
-    casts: ['aim', 'raise', 'leap', 'aim'],
-    sway: 0, castTail: -0.3,
-  });
-};
-
 /** Pelican: bottom-heavy pear, long bill with a sagging pouch that swings with the head, a gatling at the hip. */
 const pelican: Build = (plan, team) => {
   const { H, R, hr, top } = dims(plan);
@@ -292,4 +259,4 @@ const puffin: Build = (plan, team) => {
   });
 };
 
-export const BIRD_BUILDS_B: Readonly<Record<string, Build>> = { owl, pelican, secretarybird, starling, hornbill, flamingo, penguin, puffin };
+export const BIRD_BUILDS_B: Readonly<Record<string, Build>> = { pelican, secretarybird, starling, hornbill, flamingo, penguin, puffin };

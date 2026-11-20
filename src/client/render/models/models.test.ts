@@ -21,7 +21,8 @@ const OLD: readonly HeroId[] = ['shrike', 'albatross', 'kingfisher', 'lyrebird']
 const TWELVE: readonly HeroId[] = [...OLD, 'owl', 'pelican', 'secretarybird', 'starling', 'hornbill', 'flamingo', 'penguin', 'puffin'];
 /** Birds sculpted to the style guide (D-ART-004). */
 const SCULPTED = Object.keys(SCULPTED_BUILDS) as HeroId[];
-const FOUR: readonly HeroId[] = [...TWELVE, ...SCULPTED];
+// A converted bird is in both lists: count it once.
+const FOUR: readonly HeroId[] = [...new Set([...TWELVE, ...SCULPTED])];
 /** Style guide §11.3: at most three draw calls per bird (opaque body, cut-out feathers, gun). */
 const SCULPTED_DRAW_CALLS = 3;
 /** Building every sculpted bird at every level takes a few seconds under a parallel run. */

@@ -292,11 +292,76 @@ export const CASSOWARY_HEAD: HeadShape = {
   bill: [0, -0.12, 1.1], billW: 0.3, billH: 0.3, browTilt: 0.2,
 };
 
+// =================================================================================================================
+// Batch C (heroes' builders in birds-c.ts).
+// Owl: an upright barrel with no neck to speak of, a broad flat-topped head carrying a facial disc of two concave
+// dishes ringed by a raised ruff, a stern V brow, ear tufts, and fluffy feathered legs.
+
+export function owlAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.7;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.8, 1.1 * s, 0.02 * s], hip: [R * 0.36, plan.height * 0.12, 0.02 * s], tail: [0, 0.5 * s, -0.3 * s],
+    legLen: plan.height * 0.12, legThick: 0.03 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export const OWL_HEAD: HeadShape = {
+  skull: [1.24, 1.06, 1.06], skullAt: [0, 0.06, -0.1], face: [0.98, 0.9, 0.42], faceAt: [0, -0.06, 0.5],
+  cheek: [0.55, 0.5, 0.45], cheekAt: [0.6, -0.38, 0.28], brow: [0.42, 0.15, 0.34], browAt: [0.36, 0.36, 0.8], browTilt: 0.55,
+  nape: [1.0, 0.75, 0.7], napeAt: [0, -0.45, -0.45], throat: [0.75, 0.45, 0.5], throatAt: [0, -0.78, 0.22],
+  eye: [0.4, 0.06, 0.8], socket: 0.31, bill: [0, -0.26, 0.98], billW: 0.15, billH: 0.15,
+};
+
+export function owlBody(plan: BodyPlan): Body {
+  const a = owlAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  const hr = a.hr;
+  // The ruff: a raised rim round the facial disc, a ring of small masses (shares of hr about the head centre).
+  const ruff: Op[] = [];
+  for (let i = 0; i < 22; i++) {
+    const th = (i / 22) * Math.PI * 2;
+    // Open at the bottom where the disc gives way to the white throat bib.
+    if (Math.abs(th - Math.PI) < 0.5) continue;
+    const c: V3 = [Math.sin(th) * 1.0, -0.06 + Math.cos(th) * 0.86, 0.66 - 0.12 * Math.abs(Math.sin(th))];
+    ruff.push(ell(at(hc, hr, c), mulS([0.16, 0.16, 0.14], hr), 'head', 'ruff', { k: 0.08 * hr, rot: [0, 0, th] }));
+  }
+  return {
+    tris: [2150, 800, 225, 110],
+    ops: [
+      // The barrel: upright and round, broadest at the belly, with no waist.
+      ell([0, 0.8 * s, -0.04 * s], [0.33 * s, 0.44 * s, 0.3 * s], 'body', 'back', { rot: [0.08, 0, 0], k: 0.05 }),
+      ...pair(ell([0.1 * s, 0.88 * s, 0.11 * s], [0.2 * s, 0.3 * s, 0.19 * s], 'body', 'breast', { k: 0.07, rot: [-0.1, 0.25, 0] })),
+      ell([0, 0.82 * s, 0.18 * s], [0.08 * s, 0.3 * s, 0.12 * s], 'body', 'breast', { k: 0.05 }),
+      ell([0, 0.52 * s, 0.02 * s], [0.29 * s, 0.25 * s, 0.27 * s], 'body', 'belly', { k: 0.08 }),
+      ell([0, 1.1 * s, -0.12 * s], [0.26 * s, 0.13 * s, 0.2 * s], 'body', 'mantle', { k: 0.06, rot: [-0.2, 0, 0] }),
+      cone([0, 0.62 * s, -0.25 * s], [0, 0.46 * s, -0.34 * s], 0.12 * s, 0.07 * s, 'tail', 'coverts', { k: 0.06, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.2 * s, 1.08 * s, -0.08 * s], scapularR: [0.11 * s, 0.09 * s, 0.2 * s], root: 0.08 * s }),
+      // Feathered legs: fluffy drumsticks right down to the feet.
+      ...thighs(a, { r: 0.1 * s, rKnee: 0.07 * s, reach: 0.95, root: [0.12 * s, 0.34 * s, 0.02 * s] }),
+      // No visible neck: a thick column the head sits straight onto.
+      ...neck([[0, 1.08 * s, 0], [0, 1.22 * s, 0], [0, hc[1] - 0.12 * s, -0.01 * s]], [0.27 * s, 0.25 * s, 0.22 * s], 'neck', 0.5),
+      ...head(hc, hr, OWL_HEAD),
+      // The facial disc: two shallow dishes round the eyes, the ridge between them running down to the bill.
+      ...pair(ell(at(hc, hr, [0.42, 0.04, 1.26]), mulS([0.5, 0.56, 0.42], hr), 'head', 'disc', { sub: true, k: 0.12 * hr, soft: 0.01 })),
+      ...ruff,
+      // Markings: the disc's paint fills the whole face inside the ruff, and a white bib under the bill.
+      ell(at(hc, hr, [0, -0.08, 0.7]), mulS([0.98, 0.86, 0.6], hr), 'head', 'disc', { mark: true, soft: 0.006 }),
+      ell(at(hc, hr, [0, -0.86, 0.6]), mulS([0.5, 0.26, 0.4], hr), 'head', 'bib', { mark: true, soft: 0.012 }),
+      // Ear tufts: two upright horns of feathers off the top corners of the head.
+      ...pair(cone(at(hc, hr, [0.5, 0.72, 0.0]), at(hc, hr, [0.78, 1.42, -0.18]), 0.22 * hr, 0.05 * hr, 'head', 'tuft', { k: 0.12 * hr, flow: [0.3, 1, -0.2] })),
+    ],
+  };
+}
+
 /** The birds with implicit bodies, by hero id. */
 export const BODIES = {
   peacock: peacockBody,
   swift: swiftBody,
   cassowary: cassowaryBody,
+  owl: owlBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */
