@@ -53,7 +53,7 @@ export const AO = {
   maxVoxels: 64_000_000,
   voxelGrowth: 1.25,
   /** Voxelising stops splitting a triangle once its edges are this many voxels long. */
-  leafVoxels: 2,
+  leafVoxels: 2.5,
   /** The mask of space near baked vertices is this many voxels per cell (and never finer than the reach). */
   coarseVoxels: 4,
   /** Sample points that agree to 1 cm share one trace; keys pack x, y, z (±200 m) into one safe integer. */
