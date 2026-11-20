@@ -18,11 +18,14 @@ export function entityName(e: Pick<EntityView, 'kind' | 'team' | 'type'>): strin
   return e.type.length > 0 ? `${e.type.slice(0, 1).toUpperCase()}${e.type.slice(1)}` : 'The world';
 }
 
-/** How far ahead the leading flock is, as whole percent of the other's total (side null when level). */
+/** Below this trailing total a percentage lead is noise (a few Seeds against none reads "+6700%"), so none is shown. */
+export const LEAD_MIN_BASE = 1000;
+
+/** How far ahead the leading flock is, as whole percent of the other's total (side null when level or too early to mean anything). */
 export function leadPercent(own: number, enemy: number): { readonly side: 'own' | 'enemy' | null; readonly pct: number } {
-  if (own === enemy) return { side: null, pct: 0 };
   const lo = Math.min(own, enemy);
-  return { side: own > enemy ? 'own' : 'enemy', pct: Math.round(((Math.max(own, enemy) - lo) / Math.max(1, lo)) * PERCENT) };
+  if (own === enemy || lo < LEAD_MIN_BASE) return { side: null, pct: 0 };
+  return { side: own > enemy ? 'own' : 'enemy', pct: Math.round(((Math.max(own, enemy) - lo) / lo) * PERCENT) };
 }
 
 /** After the timer reaches zero the Egg or Roc is up for about this long; the window shown under the totals spans it. */

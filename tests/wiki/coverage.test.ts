@@ -134,3 +134,10 @@ describe('wiki coverage', { timeout: GENERATION_TIMEOUT_MS }, () => {
     expect(Array.isArray(stale)).toBe(true);
   });
 });
+
+describe('hero tips', () => {
+  it('has tips for every implemented hero', () => {
+    const tips = readFileSync(resolve(__dirname, '../../tools/wiki/pages/hero-tips.md'), 'utf8');
+    for (const id of HERO_IDS) if (HEROES[id].implemented) expect(tips, `tips for ${id}`).toMatch(new RegExp(`^## ${id}\\n\\S`, 'm'));
+  });
+});
