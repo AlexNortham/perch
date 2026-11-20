@@ -264,3 +264,49 @@ otherwise.
 ### Bot AI
 
 - Nothing requested this round. `motor.updraftInReach` is never `undefined` now: `!== null` is enough.
+
+---
+
+## W6 · 21/11/2026 · from the wave 6 contract round
+
+From INTERFACES §16 and D-ARCH-029 to D-ARCH-032. Already done for the owner, in this round: combat's heal, shield and
+status events carry `ability` and `item` (D-ARCH-030); abilities folds `AbilityUpgrade.channelS`, and Cockatoo and Kiwi
+use it (D-ARCH-032). The W5.5 line "`TetherEffect.breakDistance` becomes a `Magnitude`" is dropped.
+
+### Rendering & VFX (client/render, client/vfx)
+
+- Move generation onto `deferWork(label, job)` (`src/client/app/stages.ts`) so `createRenderer` itself is cheap: the
+  material library's texture generation (about 1.8 s in a dev-server load profile) and the blockout batching (about
+  1.4 s) are the two biggest parts. Split long jobs into several, or hand them to a Web Worker (inline it with
+  `?worker&inline` so `build:single` runs from file://); a job that holds the main thread also holds the menu's clicks.
+- When `createRenderer` is cheap, tell the Architect: the app creates it at boot again (one line in `app.ts`), so the
+  menu gets its 3D backdrop at once, and only the queued jobs wait for `'world'`.
+- Portraits: the menu and hero select can open before the renderer exists; they show the placeholder portraits until
+  `setPortraitProvider` runs.
+
+### Environment Artist (client/render/environment)
+
+- The layer's generation (about 2.2 s in the browser, mostly `mesher.ts`) is the largest single job: queue it with
+  `deferWork`, ideally in a worker, and add it to the scene when it resolves.
+
+### Objectives (sim/world)
+
+- With the spatial rebuild fixed, world's vision pass is the largest objectives cost: in a profile of the objectives
+  benchmark, `world/vision.ts` self time is about 3.3× the objectives-off match. The 108 Nests and Feeders go through
+  the eye loop every tick; they never move, so their visibility could be cached or refreshed every few ticks.
+
+### Balance & Data (tools/buildlab)
+
+- Credit healing, shielding and crowd control per ability and item: `heal.applied.ability/item`, the new
+  `shield.applied` (amount as granted, with `absorbs`) and `status.applied.ability/item`.
+
+### QA and Build & Tooling (e2e, playwright.config.ts)
+
+- `__perch.ready` still means the full world (`'world'` stage), so no spec needs changing. A spec that needs only the
+  menu can wait on `__perch.stage` being `'menu'` or `'world'`, but until Rendering's jobs are chunked or in a worker the
+  main thread is busy right after `'menu'`, so clicks wait for the world anyway.
+- `preview-regressions` "binds side buttons" can leave the serial project once the time to `'world'` drops (D-BUILD-011);
+  it hasn't yet (8.9 s median here, under load).
+- A page-load check worth adding: the `perch:menu` mark (performance marks `perch:boot`, `perch:sim`, `perch:menu`,
+  `perch:world`, and a `perch:job:<label>` measure per deferred job) within a few seconds of navigation on a production
+  build.

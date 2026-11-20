@@ -2452,7 +2452,9 @@ chunked or moved to a worker (follow-ups).
 
 ### D-ARCH-032 · 21/11/2026 — Wave 6 contract requests
 **Decision:** INTERFACES §16. Accepted `AbilityUpgrade.channelS` (seconds added to the channel, replacing Hero B3's
-`channelExtraS` value name); abilities folds it in on the B3 merge, since B3's branch edits the same lines. Dropped
+`channelExtraS` value name). B3 was merged during the round, so on the EP's word the Architect made the switch:
+abilities' `fold` adds it, the kit validator checks it at every tier, Cockatoo's Sulphur Shriek T2 and Kiwi's Burrow T1
+use it, and `CHANNEL_EXTRA_VALUE` is deleted (behaviour unchanged; both suites pass). Dropped
 `TetherEffect.breakDistance` as a Magnitude: Swan's Grace Link doesn't need it (Hero B3) and Hummingbird's hook covers
 Nectar Sip.
 **Why:** a typed field over a value name the framework reads (D-ARCH-027); a contract widening with no user is churn.
