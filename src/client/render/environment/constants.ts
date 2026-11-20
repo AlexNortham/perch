@@ -33,9 +33,9 @@ export const SHADE = {
 export type Band = 0 | 1 | 2;
 export const BANDS: readonly Band[] = [0, 1, 2];
 
-/** Show distances (m) of bands 0 and 1 per quality; band 2 is always drawn. Low draws no near detail (§11.6). */
+/** Show distances (m) of bands 0 and 1 per quality; band 2 is always drawn. Low draws band 2 only (§11.6: no trims). */
 export const BAND_REACH: Readonly<Record<Quality, { readonly near: number; readonly mid: number }>> = {
-  low: { near: 0, mid: 40 },
+  low: { near: 0, mid: 0 },
   medium: { near: 30, mid: 70 },
   high: { near: 45, mid: 100 },
 };
