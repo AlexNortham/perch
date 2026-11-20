@@ -79,14 +79,19 @@ function wall(w: World, q: BoxPrim, seed: number): void {
   g.paint(COPING, seed + 1).box(0, hy + 0.06, 0, hx * 2 + 0.14, 0.14, hz * 2 + 0.14, 0.04);
   // A damp, darker foot course.
   g.paint({ mat: 'granite', shade: 0.75 }, seed + 2).box(0, -hy + 0.2, 0, hx * 2 + 0.1, 0.42, hz * 2 + 0.1);
-  const g1 = M(w, q, 1);
-  g1.paint(MOSS, seed);
-  for (let t = -len / 2 + 0.6; t < len / 2 - 0.4; t += 1.3) {
-    if (hash2(seed, t) < 0.45) continue;
-    const l = 0.4 + hash2(seed, t + 1) * 0.6;
-    const e = (hash2(seed, t + 2) - 0.5) * 0.5;
-    if (alongX) g1.span(t, t + l, hy + 0.13, hy + 0.16, e - 0.12, e + 0.12);
-    else g1.span(e - 0.12, e + 0.12, hy + 0.13, hy + 0.16, t, t + l);
+  // Moss cushions gathered along the coping's edges (§5.8: upward-facing ledges).
+  const g0 = M(w, q, 0);
+  g0.paint(MOSS, seed);
+  const edge = (alongX ? hz : hx) + 0.02;
+  for (let t = -len / 2 + 0.5; t < len / 2 - 0.4; t += 0.9) {
+    if (hash2(seed, t) < 0.4) continue;
+    for (let k = 0; k < 3; k++) {
+      const s = hash2(seed, t + k) < 0.5 ? 1 : -1;
+      const along = t + (hash2(seed, t * 3 + k) - 0.5) * 0.6;
+      const across = s * (edge - 0.08 - hash2(seed, t * 5 + k) * 0.12);
+      const r = 0.08 + hash2(seed, t * 7 + k) * 0.1;
+      g0.within(placed(alongX ? along : across, hy + 0.13, alongX ? across : along, 0), () => g0.lathe([[r, 0], [r * 0.6, 0.035], [0.001, 0.045]], 6));
+    }
   }
   // Ivy over one face of some walls; stone walls longer than 6 m get buttress piers.
   if (hash2(seed, 3) < 0.45 && len > 2.5) {
