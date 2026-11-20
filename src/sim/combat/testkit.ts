@@ -276,7 +276,7 @@ export function createKit(
         vel: { x: 0, y: 0, z: 0 },
         yaw,
         radius: def.body.radius,
-        hero: { heroId: id, slot: slot++, controller: 'easy' },
+        hero: { heroId: id, slot: slot++, controller: 'dummy' },
         pitch: 0,
         shoulder: 1,
         command: { ...IDLE_COMMAND, yaw },

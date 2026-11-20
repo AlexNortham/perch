@@ -52,7 +52,7 @@ interface Bench {
 async function bench(map: MapData | null = null, at?: Vec3, enemy?: Vec3): Promise<Bench> {
   fixture.map = map;
   const roster = [{ team: 'dawn' as const, hero: 'owl' as const, controller: 'human' as const }];
-  if (enemy) roster.push({ team: 'dusk' as never, hero: 'swan' as never, controller: 'easy' as never });
+  if (enemy) roster.push({ team: 'dusk' as never, hero: 'swan' as never, controller: 'dummy' as never });
   const sim = await createSim({ seed: 1, map: 'arena', roster });
   fixture.map = null;
   const [h, other] = sim.ctx.store.list('hero');
