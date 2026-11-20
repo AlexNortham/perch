@@ -223,7 +223,7 @@ components for other systems' entities in your `entity.spawned` handler.
 | View snapshot (client only) | ≤ 0.1 ms | 0.04 ms per tick for step + view with 12 heroes |
 | `hash()` | tests and CLI only | 4 ms for 162 entities |
 | Browser frame, 1080p, mid-range iGPU | ≤ 16.6 ms (60 FPS) | stub renderer; Rendering owns the budget from W2 |
-| Page load to the first screen (`perch:menu`), production build | as low as it goes; the world follows | W6: 1.8 s (was 10.7 s to first paint, 11.7 s to ready); the world at 8.9 s (D-ARCH-031) |
+| Page load to the first screen (`perch:menu`), production build | as low as it goes; the world follows | W6, quiet machine: 1.26 s (first contentful paint 1.18 s, was 3.36 s); the world at 3.71 s (ready was 3.60 s). Loaded: 1.8 s, was 10.7 s (D-ARCH-031) |
 
 Guidance: query `ctx.spatial` instead of scanning `store.all()` for proximity; reuse output arrays (`query(…, out)`);
 keep per-tick allocation low in hot loops (fledglings, projectiles); fledglings need not have Rapier controllers.

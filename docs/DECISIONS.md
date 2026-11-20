@@ -2419,11 +2419,13 @@ of a `Set`. No contract change. Query results are identical, so hashes are uncha
 --minutes 3 --bots 12`: `c076003e96ac8a88` with the old hash and the new). A first version kept only structures as
 still entries; this replaces it.
 **Why:** the integration round measured the per-tick rebuild of 108 static Nests and Feeders as the largest objectives
-cost. Measured three ways: (1) the spatial work alone on a recorded objectives tick, old and new interleaved in one
-process: 86 → 18 µs with every objective live, 28 → 8 µs without (the rebuild alone 65.5 → 8.1 µs); (2) the objectives
-benchmark's own setup with four matches (old and new hash, objectives on and off) stepped in interleaved 1 s chunks in
-one process, so load falls on all alike: objectives cost +0.19 → +0.12 and +0.19 → +0.15 ms a tick (medians of 49
-chunks, two runs); (3) a CPU profile of the objectives-on and -off matches: the spatial hash is now about 1.5 % of the
+cost. On a quiet machine (the only agent running, integrate/w5 4600955 merged), the objectives budget test itself, old
+and new hash alternated three times: +0.200, +0.200, +0.211 ms → +0.142, +0.137, +0.142 ms against the 0.3 bound
+("without" 0.34–0.43 → 0.30–0.36 ms/tick). Measured three other ways: (1) the spatial work alone on a recorded
+objectives tick, old and new interleaved in one process: 86 → 18 µs with every objective live, 28 → 8 µs without (the
+rebuild alone 65.5 → 8.1 µs); (2) the benchmark's own setup with four matches (old and new hash, objectives on and
+off) stepped in interleaved 1 s chunks in one process: +0.161 → +0.102 and +0.161 → +0.108 ms a tick on the quiet
+machine (medians of 49 chunks); (3) a CPU profile of the objectives-on and -off matches: the spatial hash is now about 1.5 % of the
 objectives cost and world's vision pass about 80 % (follow-up). The budget test itself swings with machine load (its
 "without" match read 0.33 to 3.7 ms/tick during this round), so its absolute bound is only meaningful on a quiet run.
 
@@ -2447,9 +2449,10 @@ spec and the shots harness wait for what they waited for before. `startApp` reso
 fails, so main.ts reports a renderer failure as before. Until Rendering and the Environment Artist queue their own
 generation, the app makes the whole renderer (and VFX) the first job; once `createRenderer` is cheap, it moves back to
 boot so the menu has its 3D backdrop at once.
-**Why:** page load had grown to 11.7 s on this machine (production build, headless Edge, median of 5, loaded machine),
-all of it before the first paint. Measured the same way after: first contentful paint 1.5 s, `'menu'` 1.8 s, `'world'`
-8.9 s. The renderer job takes about 4.9 s (dev-server profile: environment layer 2.2 s, material generation 1.8 s,
+**Why:** all of the page load came before the first paint. Production build, headless Edge, median of 5 loads, with the
+old and the new `app.ts` on the same tree: on a quiet machine, first contentful paint 3.36 → 1.18 s, `'menu'` at 1.26 s,
+`'world'` 3.71 s against the old ready at 3.60 s (three more frames and a task yield); on a loaded machine, first paint
+10.7 → 1.5 s, `'menu'` 1.8 s, `'world'` 8.9 s against 11.7 s. The renderer job takes about 4.9 s (dev-server profile: environment layer 2.2 s, material generation 1.8 s,
 blockout batching 1.4 s); it still holds the main thread, so a click on the menu waits for it until that work is
 chunked or moved to a worker (follow-ups).
 
