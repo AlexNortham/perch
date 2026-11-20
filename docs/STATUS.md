@@ -2904,3 +2904,51 @@ bots-ride and dead-bird tests; `ai.perf` margin under load.
   - after Bot AI merges: Level polish with bot nav through interiors, and bot tuning for all 24 birds;
   - after the art lands: QA's gated-test rewrites, the 20-match run and the soak.
 - Then the Stage 4 gate.
+### W5d · Technical Artist · bird batch A · 21/11/2026 (stopped early: the EP's functionality-first wrap-up)
+**Branch:** `worktree-agent-a4ff3ed4a96134c2f` from `integrate/w5` 1c7ad07.
+**Done: the shared feather-shader fix (80e0e05, D-ART-012).**
+- Cause: the bump took screen derivatives of the feather height across near-steps. Single pixels' normals flipped,
+  dark or hue-shifted by the iridescence: the dotted edge speckle on the Peacock's neck.
+- Fix: an analytic height gradient with the slope capped at 50°, and 1.5 px edges from each edge's exact screen
+  footprint. Every value is continuous: slab roots shrink away, and the shadow outside an edge meets the dark band
+  inside it. The search is skipped once the detail has faded.
+- Evidence (git-ignored): `out/art/w5d/before/pk-back4-z.png` against `out/art/w5d/exp/fix1-z.png` (4 m, ×3), and
+  `before/pk-back8.png` against `exp/fix1-8.png` (8 m). At Low: `exp/pk-player-low-z.png`. Peacock, Swift and Cassowary
+  look the same apart from the speckle, which is gone.
+- **Cost** (`tests/anim/frame.ts mode=cost`, GPU timer queries, headless Edge on an Intel Arc 140T iGPU, not the
+  reference Iris Xe). The view is the player camera with 12 sculpted birds covering 5.9 % of 1080p, medians of paired
+  runs, on a machine shared with other agents:
+
+| Quality | Feather surface | All 12 birds |
+|---|---|---|
+| Medium | 0.09–0.12 ms | 0.45 ms |
+| Low | 0.05–0.06 ms | 0.35–0.42 ms |
+
+  Scaled to the Iris Xe (about 2–2.5× slower), the feather surface is about 0.3 ms at Medium, inside the 2.5 ms bird
+  allowance (§11.2). An exact early-out per cell measured slower and was dropped.
+- Tools: `posesheets --frame "…&clip=x,y,w,h"` saves a region at its own pixels. `frame.ts mode=cost` takes
+  `quality=low`, `frames=` and `near=`.
+
+**Not converted (left on their previous models):** Vulture, Hummingbird, Toucan, Woodpecker and Nightjar. I reverted a
+first Vulture pass, uncommitted, at the stop:
+- It read from the front: high hunched shoulders, a cream ruff and a bald head with caruncles.
+- From the player camera the shoulders hid the head and read as two balls.
+
+| Bird | Score from the player camera (before images `out/art/w5d/before/<bird>.png`) |
+|---|---|
+| Vulture | 1.5 (an egg hump, nothing at the nape) |
+| Hummingbird | 2 (a smooth green capsule from behind) |
+| Toucan | 2 (a black bottle from behind) |
+| Woodpecker | 2 (barred cards on a black bottle) |
+| Nightjar | 2 (mottled, but a stacked head on a ball) |
+
+**For the art round:**
+- The five conversions, with D-ART-010 and D-ART-011.
+- Vulture: lower the shoulders and set them wider, so the head and ruff show between them from the player camera.
+- Nightjar and Woodpecker: their mottled and barred backs need the feather surface on the mottle and barred tiles.
+  Today it covers only scales and hair. This is a Batch A shader change: multiply the triplanar tile into the feather
+  albedo.
+
+**Verified:** `npx vitest run src/client/render/models tests/anim`, 111 passed (skins, models and attachment, with
+guns held). `tsc -b` and `eslint .` pass. The full `npm run check` is skipped, as the EP asked.
+**Blocked:** nothing.

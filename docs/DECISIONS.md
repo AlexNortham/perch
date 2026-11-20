@@ -1833,6 +1833,22 @@ Triangle targets per level go in the body (`tris`); the rest of the bird must fi
 **Why:** the EP scored v2 at 2.5 for its plastic surfaces and bare backs of heads. What the player sees most is the
 back of the head, the nape and the shoulders, so the standard is written down for the 21 birds that follow.
 
+### D-ART-012 · 21/11/2026 — The feather surface is filtered analytically
+**Decision:** the v2.1 feather surface (`bird-material.ts`) no longer takes screen derivatives of its own height.
+- The relief's gradient is analytic, from the top and under feathers' ovals, mapped to the pixel by the bind-position
+  derivatives. Its slope is capped at 50°, so a bumped normal never turns from the viewer.
+- Each feather edge is 1.5 px wide, from its exact screen footprint. The old edge width could fall below a pixel on
+  narrow ovals and hair.
+- Every value is continuous. A root leaving the surface's slab shrinks its feather away instead of popping. The soft
+  shadow outside an edge runs on every side and meets the dark band inside it.
+- The 27-cell search is skipped once the detail has fully faded.
+
+**Why:** the speckle at feather edges was the bump's finite differences across near-steps: single pixels whose normal
+flipped, dark or hue-shifted by the iridescence. Measured with GPU timer queries on an Intel Arc 140T iGPU, 12
+sculpted birds in the player-camera view covering 5.9 % of 1080p: the feather surface costs 0.09–0.12 ms at Medium and
+0.05–0.06 ms at Low, and all 12 birds 0.45 ms and 0.35–0.42 ms. On the reference Iris Xe (about 2–2.5× slower) that
+is about 0.3 ms at Medium, inside the 2.5 ms for birds, fledglings, creatures and structures (§11.2).
+
 ### D-SYS-006 · 19/11/2026 — The Updraft latch, read exactly (GDD §3.7, D-EP-039)
 **Decision:** `updraftInReach` is the nearer of two tests per segment: the column (feet within 2.5 m of the cable's
 ground line, the cable 0.5–14 m above them, at the point straight above the feet's nearest spot) and a 1.5 m sphere
