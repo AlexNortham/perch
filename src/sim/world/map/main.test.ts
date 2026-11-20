@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Anchor, BlockoutPrim, LaneId, MapData, NavLinkKind, Vec3 } from '../../core/contracts';
 import { TEAM_SIZE } from '../../data/core';
-import { pathLength, projectOnPath, pointOnPath, wrapAngle } from './build';
+import { corners2d, pathLength, projectOnPath, pointOnPath, wrapAngle } from './build';
 import { NAV, REACH, STATION_SETBACK, UPDRAFT_HEIGHT } from './data/traversal';
 import { columnClear, indexPrims, inFootprint, primBottom, primTop, standAt } from './geometry';
 import { ARENA, loadMap, mapSvg } from './index';
@@ -305,11 +305,11 @@ describe('traversal', () => {
     }
   });
 
-  it('Updrafts run 12 m over their lanes, clear of geometry, with stations on the line', () => {
+  it('Updrafts run 12 m over the lanes\' corners (level over causeways), clear of geometry, with stations on the line', () => {
     expect(map.updrafts.map((u) => u.lane).sort()).toEqual([...LANE_IDS].sort());
     for (const u of map.updrafts) {
       const lane = map.lanes.find((l) => l.id === u.lane);
-      expect(u.points).toEqual(lane?.path.map((p) => ({ ...p, y: p.y + UPDRAFT_HEIGHT })));
+      expect(u.points).toEqual(corners2d(lane?.path ?? []).map((p) => ({ ...p, y: p.y + UPDRAFT_HEIGHT })));
       const len = pathLength(u.points);
       for (let s = 0; s <= len; s += 0.5) {
         const p = pointOnPath(u.points, s);

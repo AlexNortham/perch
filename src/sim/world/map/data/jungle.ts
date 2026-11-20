@@ -445,7 +445,7 @@ const nest = (x: number, y: number, z: number, variant: NestAnchor['variant'], b
 const nests: NestAnchor[] = [
   nest(-47.5, 0, -68, 'twig', B.tavern, 0), nest(-33, 0, -61, 'twig'), nest(-55, 0, -40, 'twig', B.bell, 0),
   nest(-44, 0, -84, 'twig', B.warehouse, 0), nest(-30, 0, -80, 'twig', B.warehouse, 0), nest(-17, 5.2, -105, 'twig', B.granary, 1),
-  nest(-24, 0, -30, 'twig', B.market, 0), nest(-36, 8, -88, 'twig'), nest(-8.5, 3, -62, 'twig'),
+  nest(-24, 0, -30, 'twig', B.market, 0), nest(-36, 8, -88, 'twig'), nest(-8.5, 0, -62, 'twig'),
   nest(-70, 0, -30, 'twig'), nest(-58, 0, -50, 'twig'), nest(-24, 0, -71, 'twig'),
   nest(-34, 0, -86, 'woven', B.warehouse, 0), nest(-28, -4.5, -64, 'woven', undefined, -1),
   nest(-46, -4.5, -66, 'woven', B.tavern, -1), nest(-20, -4, -30, 'woven', B.market, -1),
@@ -489,9 +489,9 @@ const zones = part({
 const STAND_Y = 4.5;
 
 /**
- * The Riverbank bridge (D-EP-053), west half (the quarter's x-mirror gives the east half): a 3 m deck at 6 m across the
- * lane and the river at z −97.5…−94.5, rails on both edges (open at the stair head), a stone abutment under its west
- * end, and a 12 m stair up from the north. The abutment and the stair also close Granary Lane's straight run onto the
+ * The Riverbank bridge (D-EP-053), west half (the quarter's x-mirror gives the east half): a 3 m deck at 6 m (8.5 m over
+ * the cutting's floor, under the Updraft rider's clearance) across the lane and the river at z −97.5…−94.5, rails on
+ * both edges (open at the stair head), a stone abutment under its west end, and a 12 m stair up from the north. The abutment and the stair also close Granary Lane's straight run onto the
  * lane, so it reaches the Riverbank through the alley to Lantern Row.
  */
 const RIVER_DECK = 6;
@@ -539,7 +539,7 @@ const grounds = joinParts(
     nav: [
       v(-50, 0, -92), v(-52, 0, -18), v(-27, 7.9, -83.2), v(-46.2, 9, -46.5), v(-70, 8.5, -38.7),
       v(-10.75, STAND_Y, -104), v(-10.5, 0, -115), v(-12.25, STAND_Y, -22),
-      v(-13, 0, -81.5), v(-13, 3, -88.5), v(-13, 4.75, -92), v(-13, RIVER_DECK, -96), v(-7, RIVER_DECK, -96), v(-1.5, RIVER_DECK, -96),
+      v(-13, 0, -81.5), v(-13, RIVER_DECK / 2, -88.5), v(-13, 4.75, -92), v(-13, RIVER_DECK, -96), v(-7, RIVER_DECK, -96), v(-1.5, RIVER_DECK, -96),
       v(-13, 0, -33), v(-15, 4, -39.5), v(-15, 0, -50),
     ],
     springs: [

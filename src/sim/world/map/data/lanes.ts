@@ -540,44 +540,46 @@ function rezone(p: SpecPart, zone: string): SpecPart {
 // ---------------------------------------------------------------------------------------------------------------
 
 /**
- * Between its Heron and its Hawk, Riverbank climbs onto a 3 m stone embankment (D-EP-053): up over z −76…−68, along
- * the top to −60, down by −50, clear of both towers' stations.
+ * Between its gate and its Heron, Riverbank runs down into a 2.5 m stone cutting (D-EP-053): down over z −107…−101,
+ * along the floor to −92, up by −86, clear of the Wardens, the Heron and both stations. A cutting, not a rise, so the
+ * long view from the Heron line to the gate stays open over it; the Heron-to-Hawk stretch stays level (the market and
+ * the lane fights). cellar.ts carves the ground for it.
  */
-export const EMBANKMENT = { z0: -76, z1: -68, z2: -60, z3: -50, h: 3 } as const;
+export const CUTTING = { z0: -107, z1: -101, z2: -92, z3: -86, depth: 2.5 } as const;
 
-/** The west roost stand beside the embankment stands this high. */
+/** The west roost stand by the market square stands this high. */
 const STAND_HIGH = 7.5;
 
 /** Riverbank's lane height at z (Dawn half). */
-export function embankmentY(z: number): number {
-  const e = EMBANKMENT;
-  if (z <= e.z0 || z >= e.z3) return 0;
-  if (z < e.z1) return ((z - e.z0) / (e.z1 - e.z0)) * e.h;
-  if (z <= e.z2) return e.h;
-  return ((e.z3 - z) / (e.z3 - e.z2)) * e.h;
+export function cuttingY(z: number): number {
+  const c = CUTTING;
+  if (z <= c.z0 || z >= c.z3) return 0;
+  if (z < c.z1) return -((z - c.z0) / (c.z1 - c.z0)) * c.depth;
+  if (z <= c.z2) return -c.depth;
+  return -((c.z3 - z) / (c.z3 - c.z2)) * c.depth;
 }
 
-/** Riverbank's path vertices at the embankment's breaks. */
-export const RIVER_PATH: readonly Vec3[] = [EMBANKMENT.z0, EMBANKMENT.z1, EMBANKMENT.z2, EMBANKMENT.z3].map((z) => v(0, embankmentY(z), z));
+/** Riverbank's path vertices at the cutting's breaks. */
+export const RIVER_PATH: readonly Vec3[] = [CUTTING.z0, CUTTING.z1, CUTTING.z2, CUTTING.z3].map((z) => v(0, cuttingY(z), z));
 
 /** A cover piece on the lane's surface: on a ramp it sits at the ramp's height at its downhill edge. */
-const onRiver = (p: PropSpec): PropSpec => ({ ...p, y: Math.min(embankmentY(p.z - p.d / 2), embankmentY(p.z + p.d / 2)) });
+const onRiver = (p: PropSpec): PropSpec => ({ ...p, y: Math.min(cuttingY(p.z - p.d / 2), cuttingY(p.z + p.d / 2)) });
 
 const riverbankPrims: BlockoutPrim[] = [
-  ramp(-RIVERBANK_HALF, RIVERBANK_HALF, EMBANKMENT.z0, EMBANKMENT.z1, 0, EMBANKMENT.h, 'n', 'stone'),
-  block(-RIVERBANK_HALF, RIVERBANK_HALF, EMBANKMENT.z1, EMBANKMENT.z2, 0, EMBANKMENT.h, 'stone'),
-  ramp(-RIVERBANK_HALF, RIVERBANK_HALF, EMBANKMENT.z2, EMBANKMENT.z3, 0, EMBANKMENT.h, 's', 'stone'),
+  // The cutting's ramps, on its floor (the walls are the carved ground).
+  ramp(-RIVERBANK_HALF, RIVERBANK_HALF, CUTTING.z0, CUTTING.z1, -CUTTING.depth, 0, 's', 'stone'),
+  ramp(-RIVERBANK_HALF, RIVERBANK_HALF, CUTTING.z2, CUTTING.z3, -CUTTING.depth, 0, 'n', 'stone'),
   block(9, 14, -114, -22, 0, 0.05, 'water', false),
-  block(8.5, 14.5, -92, -89, 0, 0.3, 'wood'),
+  block(9, 14.5, -92, -89, 0, 0.3, 'wood'),
   block(8.5, 14.5, -70, -67, 0, 0.3, 'wood'),
   // Market square at the Hawk.
   block(-14, 9, -54, -26, 0, 0.02, 'stone', false),
   block(-11.5, -9.5, -52, -49, 0, 1.5, 'wood'),
   block(6, 8.5, -33, -30, 0, 1.2, 'wood'),
   block(-8.5, -6, -50, -47, 0, 1.2, 'wood'),
-  // Crates near the Heron, off the embankment's foot.
-  block(-8.5, -6, -95, -92, 0, 1.5, 'wood'),
-  block(6, 8.5, -79, -76, 0, 1.5, 'wood'),
+  // Crates near the Heron, one down in the cutting.
+  block(-8.5, -6, -95, -92, -CUTTING.depth, 1.5 - CUTTING.depth, 'wood'),
+  block(6, 8.5, -80, -77, 0, 1.5, 'wood'),
   // Magpie stall counter on the bank.
   block(12, 13.5, -62, -58, 0, 1.2, 'wood'),
   // Waterwheel of the Water Mill (decoration).
@@ -598,17 +600,18 @@ const riverbank = joinParts(
   part({
     prims: [
       ...riverbankPrims,
-      // A roost stand on the west edge beside the embankment (the east bank has the stall there): a 7.5 m deck on
-      // stilts, 4.5 m over the embankment, its 15 m stair rising south from the market square.
-      block(-14, -10.5, -66, -62, STAND_HIGH - SLAB, STAND_HIGH, 'wood'),
-      ...stilts(-14, -10.5, -66, -62, STAND_HIGH - SLAB),
-      ramp(-14, -12, -62, -47, 0, STAND_HIGH, 's', 'wood'),
+      // A roost stand on the west edge by the Lantern Row mouth (the east bank has the stall there): a 7.5 m deck on
+      // stilts, its 15 m stair rising south from the market square.
+      block(-16, -12.5, -70, -66, STAND_HIGH - SLAB, STAND_HIGH, 'wood'),
+      ...stilts(-16, -12.5, -70, -66, STAND_HIGH - SLAB),
+      ramp(-16, -14, -66, -51, 0, STAND_HIGH, 's', 'wood'),
     ],
-    nav: [v(-12.25, STAND_HIGH, -64), v(-13, STAND_HIGH / 2, -54.5), v(-13, 0, -46)],
+    nav: [v(-14.25, STAND_HIGH, -68), v(-15, STAND_HIGH / 2, -58.5), v(-15, 0, -50)],
   }),
   props('riverbank', [
-    ...[-104, -86, -64, -58, -38, -30, -20].map((z, i) => onRiver(cover(i % 2 ? 'crate' : 'barrel', -7, z))),
-    ...[-108, -100, -88, -72, -52, -44, -24].map((z, i) => onRiver(cover(i % 2 ? 'barrel' : 'crate', 7, z))),
+    // 1.5 m tall, so the ones on the cutting's ramps stand a metre clear of the slope.
+    ...[-104, -88, -64, -58, -38, -30, -20].map((z, i) => onRiver(cover(i % 2 ? 'crate' : 'barrel', -7, z, 1.5, 1.5, 1.5))),
+    ...[-108, -100, -88, -72, -52, -44, -24].map((z, i) => onRiver(cover(i % 2 ? 'barrel' : 'crate', 7, z, 1.5, 1.5, 1.5))),
     deco('stall', 12.75, -60, 3, 5, 3), deco('reeds', 11.5, -100, 4, 10, 1.6), deco('reeds', 11.5, -48, 4, 6, 1.6),
     deco('reeds', 11.5, -28, 4, 6, 1.6), deco('bird-bath', -5.5, -36, 1.4, 1.4, 0.9), deco('fountain', -5, -30, 3, 3, 1.4),
     deco('seed-stall', -12, -40, 2.5, 1.5, 2.2), deco('feather-banner', 0, -112.5, 1.4, 0.1, 4, 6),

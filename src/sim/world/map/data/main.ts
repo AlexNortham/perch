@@ -133,7 +133,7 @@ const half: SpecPart = renamePart(joinParts(
     botSpots: [
       // Safe: behind each tower, the gates and the Shrines (Dawn's).
       { kind: 'safe', pos: v(-93, 0, -46) }, { kind: 'safe', pos: v(-4, 0, -49) }, { kind: 'safe', pos: v(93, 0, -46) },
-      { kind: 'safe', pos: v(-90, 0, -86) }, { kind: 'safe', pos: v(-4, 0, -90) }, { kind: 'safe', pos: v(90, 0, -86) },
+      { kind: 'safe', pos: v(-90, 0, -86) }, { kind: 'safe', pos: v(-4, 0, -85) }, { kind: 'safe', pos: v(90, 0, -86) },
       { kind: 'safe', pos: v(-40, 0, -120) }, { kind: 'safe', pos: v(0, 0, -120) }, { kind: 'safe', pos: v(40, 0, -120) },
       { kind: 'safe', pos: v(-16, 0, -132) }, { kind: 'safe', pos: v(16, 0, -132) },
       // Ambush: by each Thicket's entrance.

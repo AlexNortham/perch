@@ -10,6 +10,7 @@ import { block, part, ramp, v } from './kit';
 import type { Rect } from './interiors';
 import { carve, innerRect, rect, slabOf, stairDress, volumeOf, WALL } from './interiors';
 import { CELLAR_STAIR, GRATE, PASSAGE, TAVERN, UNDER_STAIR, UNDERCROFT } from './jungle';
+import { CUTTING, RIVERBANK_HALF } from './lanes';
 
 const PI = Math.PI;
 const FLOOR = -4.5;
@@ -47,10 +48,12 @@ const SPACES: readonly Space[] = [
   }),
   { r: DEN, floor: FLOOR, ceiling: TUNNEL_CEILING, holes: [] },
   ...LANE_STAIRS.map((r) => ({ r, floor: FLOOR, ceiling: null, holes: [] })),
+  // Riverbank's cutting between its gate and its Heron (lanes.ts), open to the sky.
+  { r: rect(-RIVERBANK_HALF, RIVERBANK_HALF, CUTTING.z0, CUTTING.z3), floor: -CUTTING.depth, ceiling: null, holes: [] },
 ];
 
 /** The carved region: every space lies inside it; the rest of the half is solid ground. */
-const REGION = rect(-56, 56, -80, -26);
+const REGION = rect(-56, 56, -110, -26);
 const HALF = rect(-130, 130, -150, -22);
 
 /** The Dawn half's ground: solid outside the carve, floors and roofs over every space inside it. */
