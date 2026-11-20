@@ -180,8 +180,14 @@ export class BirdRig extends Group {
       (parent ? this.bones[parent] : this.inner).add(this.bones[n]);
     }
     const bones = BONE_NAMES.map((n) => this.bones[n]);
-    // Geometry is authored in each bone's own frame: identity inverses and bind matrix make a vertex follow its bone.
-    const skeleton = new Skeleton(bones, bones.map(() => new Matrix4()));
+    // Geometry authored in each bone's own frame: identity inverses make a vertex follow its bone. Geometry in the
+    // model frame (D-ART-008): each inverse undoes the bone's rest position, so blended weights work.
+    const restAt = (n: BoneName): Vector3 => {
+      const p = build.at[n].clone();
+      for (let b = BONE_PARENT[n]; b; b = BONE_PARENT[b]) p.add(build.at[b]);
+      return p;
+    };
+    const skeleton = new Skeleton(bones, BONE_NAMES.map((n) => (build.modelSpace ? new Matrix4().makeTranslation(restAt(n).negate()) : new Matrix4())));
     const skinned = (geo: BufferGeometry, mat: Material, name: string): SkinnedMesh => {
       const m = new SkinnedMesh(geo, mat);
       m.name = name;

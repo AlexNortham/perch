@@ -9,11 +9,12 @@
 import { Euler, Quaternion, Vector3 } from 'three';
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
-import { BONE_NAMES } from './bird';
+import { BONE_NAMES, BONE_PARENT } from './bird';
 import type { BirdBuild, BoneName, CastKind } from './bird';
 import { HOLD, LEG_IK } from './constants';
 import { bake, Sculpt } from './sculpt';
 import type { V3 } from './sculpt';
+import type { PaintedSkin } from './skin';
 
 /** Style guide §11.3: where each level starts (m from the camera) and its triangle budget, gun included. */
 export const BIRD_LOD = {
@@ -83,9 +84,34 @@ export interface SculptedSpec {
   readonly cant?: number;
   /** Spinner turn rate while firing (rad/s). */
   readonly spinRate?: number;
+  /** The implicit body's skin at this level, painted (D-ART-008): breast, back, shoulders, thighs, neck and head. */
+  readonly skin?: PaintedSkin;
 }
 
 export type SculptedBird = (plan: BodyPlan, team: TeamColours, d: Detail) => SculptedSpec;
+
+/** Each bone's bind position: in its parent bone's frame, else in the model frame (feet at the origin). */
+function bindAt(plan: BodyPlan, s: SculptedSpec, upper: number, legSeg: number, muzzle: Vector3): Record<BoneName, Vector3> {
+  const headAt = new Vector3(-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward);
+  return {
+    body: new Vector3(),
+    head: headAt.clone(),
+    tail: v(s.pivot.tail),
+    halo: headAt.clone(),
+    wingL1: v(s.pivot.wingL), wingL2: new Vector3(0, -upper, 0),
+    wingR1: v(s.pivot.wingR), wingR2: new Vector3(0, -upper, 0),
+    legL1: v(s.pivot.legL), legL2: new Vector3(0, -legSeg, 0), footL: new Vector3(0, -legSeg, 0),
+    legR1: v(s.pivot.legR), legR2: new Vector3(0, -legSeg, 0), footR: new Vector3(0, -legSeg, 0),
+    gun: muzzle.clone(), slide: v(s.gun.slideAt), spin: v(s.gun.spinAt ?? [0, 0, 0]),
+  };
+}
+
+/** A bone's rest position in the model frame: its bind position plus its parents'. */
+export function restOf(at: Readonly<Record<BoneName, Vector3>>, n: BoneName): V3 {
+  const p = at[n].clone();
+  for (let b = BONE_PARENT[n]; b; b = BONE_PARENT[b]) p.add(at[b]);
+  return [p.x, p.y, p.z];
+}
 
 const v = (a: V3): Vector3 => new Vector3(a[0], a[1], a[2]);
 
@@ -124,33 +150,26 @@ export function sculptedBuild(plan: BodyPlan, team: TeamColours, bird: SculptedB
     g.build(parts.slide, 'slide');
     g.build(parts.spin, 'spin');
     const order = BONE_NAMES.map((n) => parts[n]);
-    const solid = bake(order, 'solid');
-    const cards = bake(order, 'cards');
-    return { s, solid, cards, upper, lower, ankle, legSeg, toe, cant, muzzle };
+    const at = bindAt(plan, s, upper, legSeg, muzzle);
+    // Everything in the model frame at the bind pose, so the skin's blended weights and the rigid parts share bind
+    // matrices (D-ART-008).
+    const rest = BONE_NAMES.map((n) => restOf(at, n));
+    const solid = bake(order, 'solid', { rest, ...(s.skin && { skin: s.skin }) });
+    const cards = bake(order, 'cards', { rest });
+    return { s, solid, cards, upper, lower, ankle, legSeg, toe, cant, at };
   });
   const top = levels[0];
   if (!top) throw new Error('sculpted bird: no levels');
-  const { s, upper, lower, ankle, legSeg, toe, cant, muzzle, solid, cards } = top;
+  const { s, upper, lower, ankle, legSeg, toe, cant, solid, cards, at } = top;
   const ranges = {} as Record<BoneName, readonly [number, number]>;
   BONE_NAMES.forEach((n, i) => (ranges[n] = solid.ranges[i] ?? [0, 0]));
-  const headAt = new Vector3(-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward);
-  const at: Record<BoneName, Vector3> = {
-    body: new Vector3(),
-    head: headAt.clone(),
-    tail: v(s.pivot.tail),
-    halo: headAt.clone(),
-    wingL1: v(s.pivot.wingL), wingL2: new Vector3(0, -upper, 0),
-    wingR1: v(s.pivot.wingR), wingR2: new Vector3(0, -upper, 0),
-    legL1: v(s.pivot.legL), legL2: new Vector3(0, -legSeg, 0), footL: new Vector3(0, -legSeg, 0),
-    legR1: v(s.pivot.legR), legR2: new Vector3(0, -legSeg, 0), footR: new Vector3(0, -legSeg, 0),
-    gun: muzzle, slide: v(s.gun.slideAt), spin: v(s.gun.spinAt ?? [0, 0, 0]),
-  };
   const hasCards = (g: { geo: { getAttribute(n: string): { count: number } | undefined } }): boolean => (g.geo.getAttribute('position')?.count ?? 0) > 0;
   return {
     geo: solid.geo,
     ...(hasCards(cards) && { cards: cards.geo }),
     lods: levels.slice(1).map((l, i) => ({ geo: l.solid.geo, cards: hasCards(l.cards) ? l.cards.geo : null, from: BIRD_LOD.from[i + 1] ?? 0 })),
     sculpted: true,
+    modelSpace: true,
     at,
     ranges,
     wing: { upper, lower },

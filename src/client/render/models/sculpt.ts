@@ -12,6 +12,7 @@ import { BufferGeometry, Color, Euler, Float32BufferAttribute, Matrix3, Matrix4,
 import type { BufferAttribute } from 'three';
 import { cardUv, outline, rachisTip, SHAPE, TILE } from './feathers';
 import type { Feather } from './feathers';
+import type { PaintedSkin } from './skin';
 
 export type V3 = readonly [number, number, number];
 export const MORPHS = ['display', 'jaw', 'blink'] as const;
@@ -553,8 +554,19 @@ export class Sculpt {
   }
 }
 
-/** Merge the same layer of several Sculpts (one per bone, in bone order) into one skinned geometry. */
-export function bake(parts: readonly (Sculpt | undefined)[], layer: 'solid' | 'cards'): { geo: BufferGeometry; ranges: [number, number][] } {
+/** What `bake` needs to put parts in the model frame and merge an implicit body's skin (D-ART-008). */
+export interface BakeOptions {
+  /** Each bone's rest position in the model frame: parts are moved there, for bind matrices that undo it. */
+  readonly rest?: readonly V3[];
+  /** A painted body skin in the model frame, merged after the body part with its own blended bone weights. */
+  readonly skin?: PaintedSkin;
+}
+
+/**
+ * Merge the same layer of several Sculpts (one per bone, in bone order) into one skinned geometry. Without `rest`,
+ * each part stays in its bone's frame (identity bind); with it, everything is in the model frame at the bind pose.
+ */
+export function bake(parts: readonly (Sculpt | undefined)[], layer: 'solid' | 'cards', o: BakeOptions = {}): { geo: BufferGeometry; ranges: [number, number][] } {
   const p: number[] = [];
   const n: number[] = [];
   const uv: number[] = [];
@@ -563,28 +575,48 @@ export function bake(parts: readonly (Sculpt | undefined)[], layer: 'solid' | 'c
   const m: number[][] = MORPHS.map(() => []);
   const mn: number[][] = MORPHS.map(() => []);
   const idx: number[] = [];
-  const skin: number[] = [];
+  const si: number[] = [];
+  const sw: number[] = [];
   const ranges: [number, number][] = [];
+  const append = (dst: number[], src: ArrayLike<number>): void => {
+    for (let i = 0; i < src.length; i++) dst.push(src[i] as number);
+  };
   parts.forEach((s, bone) => {
     const L = s?.[layer];
     const first = p.length / 3;
     const count = L?.count ?? 0;
-    ranges.push([first, count]);
-    if (!L || count === 0) return;
-    for (const v of L.i) idx.push(v + first);
-    const append = (dst: number[], src: readonly number[]): void => {
-      for (const x of src) dst.push(x);
-    };
-    append(p, L.p);
-    append(n, L.n);
-    append(uv, L.uv);
-    append(c, L.c);
-    append(fx, L.fx);
-    MORPHS.forEach((_, i) => {
-      append(m[i] as number[], L.m[i] as number[]);
-      append(mn[i] as number[], L.mn[i] as number[]);
-    });
-    for (let k = 0; k < count; k++) skin.push(bone);
+    if (L && count > 0) {
+      for (const v of L.i) idx.push(v + first);
+      const [rx, ry, rz] = o.rest?.[bone] ?? [0, 0, 0];
+      for (let k = 0; k < L.p.length; k += 3) p.push((L.p[k] as number) + rx, (L.p[k + 1] as number) + ry, (L.p[k + 2] as number) + rz);
+      append(n, L.n);
+      append(uv, L.uv);
+      append(c, L.c);
+      append(fx, L.fx);
+      MORPHS.forEach((_, i) => {
+        append(m[i] as number[], L.m[i] as number[]);
+        append(mn[i] as number[], L.mn[i] as number[]);
+      });
+      for (let k = 0; k < count; k++) si.push(bone, 0, 0, 0), sw.push(1, 0, 0, 0);
+    }
+    // The skin rides in the body's range: its vertices follow the bones its field gave them.
+    const sk = bone === 0 && layer === 'solid' ? o.skin : undefined;
+    if (sk) {
+      const base = p.length / 3;
+      const V = sk.level.pos.length / 3;
+      for (const v of sk.level.index) idx.push(v + base);
+      append(p, sk.level.pos);
+      append(n, sk.level.nrm);
+      append(uv, sk.uv);
+      append(c, sk.c);
+      append(fx, sk.fx);
+      MORPHS.forEach((_, i) => {
+        for (let k = 0; k < V * 3; k++) (m[i] as number[]).push(0), (mn[i] as number[]).push(0);
+      });
+      append(si, sk.level.bones);
+      append(sw, sk.level.boneW);
+    }
+    ranges.push([first, p.length / 3 - first]);
   });
   const geo = new BufferGeometry();
   geo.setAttribute('position', new Float32BufferAttribute(p, 3));
@@ -595,13 +627,6 @@ export function bake(parts: readonly (Sculpt | undefined)[], layer: 'solid' | 'c
   geo.morphAttributes['position'] = m.map((a) => new Float32BufferAttribute(a, 3));
   geo.morphAttributes['normal'] = mn.map((a) => new Float32BufferAttribute(a, 3));
   geo.morphTargetsRelative = true;
-  const count = p.length / 3;
-  const si = new Uint16Array(count * 4);
-  const sw = new Float32Array(count * 4);
-  skin.forEach((b, k) => {
-    si[k * 4] = b;
-    sw[k * 4] = 1;
-  });
   geo.setAttribute('skinIndex', new Uint16BufferAttribute(si, 4));
   geo.setAttribute('skinWeight', new Float32BufferAttribute(sw, 4));
   geo.setIndex(new Uint32BufferAttribute(idx, 1));
