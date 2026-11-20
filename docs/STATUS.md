@@ -3335,3 +3335,26 @@ settle issue QA's spec now waits out.
   - [x] launchable with any of the 24, and PLAYABLE.md "Stage 4 (M3)" written.
   - The "no placeholder shapes" item moves to Release 2 (the visual upgrade).
 - `main` is fast-forwarded to this commit and pushed to GitHub.
+
+### W7 · Rendering & VFX · scene-start triangle transient · 21/11/2026
+**Done:** branch `worktree-agent-a14678701512c6de5` from `integrate/w5` 0040e7b, one commit, D-RENDER-018.
+- **Cause:** a negative first frame `dt`. The first frame's requestAnimationFrame timestamp marks the start of that
+  frame, which came before `last = performance.now()` was taken after start-up: `dt` = −0.247 s. The camera's
+  `approach()` with a negative step moved away from its goals (aim zoom 1 → 1.41, dash kick 0 → 6°), so a scene opened
+  at a 135.4° horizontal FOV (logged) and eased back to 90°, every layer drawing about 40 % more meanwhile. Reproduced on
+  b4eeabf (QA's commit): lane/Low 358k falling to 255k. Not LOD, proxies or instancing: the environment, map and proxy
+  counts all shrank together with the frustum. The staged start-up (D-ARCH-031) hid it on `integrate/w5` by absorbing
+  that frame before the renderer existed; it would have come back once `createRenderer` returns to boot.
+- **Fix** (one line each, in the Architect's `app.ts` and Camera & Input's `camera/index.ts`, on the EP's routing):
+  `dt` is clamped at 0 at the source; the camera clamps its `dt` and `approach()` never steps away from its goal. Applied
+  to b4eeabf, the first world frame is 263k and the next 255k. Camera unit test: a −0.25 s, 1.3 s, 0.45 s or 1/120 s frame
+  leaves the FOV at 90°.
+- **Counters:** `__perchRender.info()` and `budget()` report the last completed frame, so one-off bakes between frames
+  (portraits, the environment map) never count against a frame.
+- **Budget test from the first frame:** `e2e/draw-budget.spec.ts` records every rendered frame from the scene's first
+  (an init script) and applies the ceilings to that peak; D-QA-017's settling wait is gone. First frame now equals the
+  settled one: lane/Low 254k (31 calls), lane/Medium 575k (63), match/Medium 607k (103).
+- **Support requests:** none reached me from the bird batches, the structures job or the Environment Artist yet.
+**Verified:** `npm run check -- --release` (Git Bash): `PASS typecheck 17s · lint 9s · test 138s · perf 76s · sim 10s ·
+e2e 667s · check 919s`. `e2e/draw-budget.spec.ts` 3/3 alone (35 s); camera, render and app unit tests 86/86.
+**Interface requests:** none (the two one-line fixes outside my paths are in this commit, for the owners to review).
