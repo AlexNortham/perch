@@ -2437,3 +2437,10 @@ All are within budget (9,000 / 3,500 / 1,200 / 400), with at most three draw cal
 ### EP · 20/11/2026 · bird models: second pass merged (e28ebaf); sculpt pipeline v2 ordered
 - The second pass gives clean feather blades, crisp eyespots, one-loft heads and broad wings. It is better than the first, but every bird still scores 2 out of 4 (Cassowary 1), and the cause is structural: single-loft bodies.
 - Wave 5c: a fresh Technical Artist builds an implicit (SDF) sculpting pipeline and converts Peacock, Swift and Cassowary as proof (brief `docs/briefs/W5-sculpt.md`). After EP review, the other 21 birds convert in parallel batches. This replaces the wave 6 rework of the 12 older birds on the old pipeline.
+
+### EP · 20/11/2026 · Rendering merged (270b4f6)
+- In: 37 seeded materials, golden-hour lighting and grade, LOD and instancing with shadow proxies (shadow pass about 230k to 24k triangles), style-guide draw ceilings, portraits, G16 speed lines and G18 outlines and x-rays.
+- QA camera at Medium: 78 draw calls and 341k triangles; 120 fps on the Arc iGPU at Low and Medium.
+- **Open, for the wave 6 integration round:**
+  - Page load rose from about 0.9 s to 2.5 s. The fix is cheaper or deferred generation behind a renderer-ready hook in `__perch.ready` (Architect, then Rendering), not longer test timeouts. `preview-regressions` "binds side buttons" times out under load until then.
+  - The music-state audio spec failed once under load. Recheck it on a quiet machine.
