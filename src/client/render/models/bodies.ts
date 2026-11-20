@@ -702,6 +702,53 @@ export const FLAMINGO_HEAD: HeadShape = {
   eye: [0.72, 0.18, 0.5], socket: 0.25, bill: [0, -0.06, 0.98], billW: 0.34, billH: 0.4,
 };
 
+// =================================================================================================================
+// Lyrebird: a slim pheasant-like body leaning forward on long strong legs, a rufous throat on a slender neck, a small
+// crested head, and a raised rump where the lyre springs from the tail coverts.
+
+export function lyrebirdAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.8;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.7, 1.15 * s, -0.07 * s], hip: [R * 0.34, plan.height * 0.27, -0.05 * s], tail: [0, 0.92 * s, -0.36 * s],
+    legLen: plan.height * 0.27, legThick: 0.024 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export function lyrebirdBody(plan: BodyPlan): Body {
+  const a = lyrebirdAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2100, 800, 225, 90],
+    ops: [
+      // Slim and leaning forward: a narrow keeled breast, a sloping back rising to the tail coverts.
+      ell([0, 0.98 * s, -0.12 * s], [0.17 * s, 0.3 * s, 0.2 * s], 'body', 'back', { rot: [0.65, 0, 0], k: 0.05 }),
+      ...pair(ell([0.07 * s, 1.08 * s, 0.05 * s], [0.13 * s, 0.18 * s, 0.14 * s], 'body', 'breast', { k: 0.06, rot: [0.5, 0.2, 0] })),
+      ell([0, 1.03 * s, 0.12 * s], [0.05 * s, 0.16 * s, 0.08 * s], 'body', 'breast', { k: 0.05, rot: [0.55, 0, 0] }),
+      ell([0, 0.8 * s, -0.06 * s], [0.14 * s, 0.17 * s, 0.15 * s], 'body', 'belly', { k: 0.07, rot: [0.5, 0, 0] }),
+      ell([0, 1.12 * s, -0.19 * s], [0.15 * s, 0.2 * s, 0.07 * s], 'body', 'mantle', { k: 0.06, rot: [0.75, 0, 0] }),
+      // The raised rump the lyre springs from.
+      cone([0, 0.92 * s, -0.27 * s], [0, 0.94 * s, -0.42 * s], 0.11 * s, 0.065 * s, 'tail', 'coverts', { k: 0.06, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.12 * s, 1.15 * s, -0.13 * s], scapularR: [0.07 * s, 0.13 * s, 0.07 * s], root: 0.055 * s, inset: 0.06 }),
+      ...thighs(a, { r: 0.058 * s, rKnee: 0.034 * s, reach: 0.5, root: [0.06 * s, 0.74 * s, -0.06 * s] }),
+      // A slender neck rising from the breast into the head.
+      ...neck([[0, 1.2 * s, 0.03 * s], [0, 1.36 * s, 0.04 * s], [0, hc[1] - 0.08 * s, 0.0]], [0.12 * s, 0.1 * s, 0.1 * s], 'neck', 0.5),
+      ...head(hc, a.hr, LYREBIRD_HEAD),
+      // The rufous throat, running down the front of the neck.
+      ell(at(hc, a.hr, [0, -0.8, 0.32]), mulS([0.58, 0.48, 0.52], a.hr), 'head', 'rufous', { mark: true, soft: 0.012 }),
+      ell([0, 1.38 * s, 0.1 * s], [0.08 * s, 0.14 * s, 0.07 * s], 'head', 'rufous', { mark: true, soft: 0.012 }),
+    ],
+  };
+}
+
+export const LYREBIRD_HEAD: HeadShape = {
+  skull: [1.08, 1.04, 1.16], skullAt: [0, 0.02, -0.06], face: [0.7, 0.58, 0.62], faceAt: [0, -0.12, 0.44],
+  brow: [0.46, 0.18, 0.42], browAt: [0.48, 0.42, 0.48], browTilt: 0.2, nape: [0.8, 0.7, 0.62], napeAt: [0, -0.45, -0.5],
+  eye: [0.76, 0.12, 0.52], socket: 0.27, bill: [0, -0.1, 1.0], billW: 0.25, billH: 0.2,
+};
+
 /** The birds with implicit bodies, by hero id. */
 export const BODIES = {
   peacock: peacockBody,
@@ -715,6 +762,7 @@ export const BODIES = {
   hornbill: hornbillBody,
   albatross: albatrossBody,
   flamingo: flamingoBody,
+  lyrebird: lyrebirdBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */

@@ -12,10 +12,11 @@ import { beak, eye, foldedWings, hackles, inBone, legsOf, norm, shingle, tailFan
 import type { LegStyle, WingStyle } from './anatomy';
 import { assemble, dims, eyes, headShell } from './bird';
 import type { BirdBuild } from './bird';
-import { ALBATROSS_HEAD, albatrossAnchors, bodyField, flipX, KINGFISHER_HEAD, kingfisherAnchors, SHRIKE_HEAD, shrikeAnchors, skinFor, TRUNK } from './bodies';
-import { GENERIC, PLUMAGE } from './constants';
+import { ALBATROSS_HEAD, albatrossAnchors, bodyField, flipX, KINGFISHER_HEAD, kingfisherAnchors, LYREBIRD_HEAD, lyrebirdAnchors, SHRIKE_HEAD, shrikeAnchors, skinFor, TRUNK } from './bodies';
+import { GENERIC } from './constants';
 import { SKIN as ALBATROSS_SKIN } from './data/skins/albatross';
 import { SKIN as KINGFISHER_SKIN } from './data/skins/kingfisher';
+import { SKIN as LYREBIRD_SKIN } from './data/skins/lyrebird';
 import { SKIN as SHRIKE_SKIN } from './data/skins/shrike';
 import { CARD } from './feathers';
 import { band, bead, block, BRASS, buckle, carve, GEAR, LEATHER, lathe, pouch, ring, sash, WOOD } from './gear';
@@ -24,7 +25,7 @@ import { sculptedBuild } from './sculpted';
 import type { Detail, SculptedBird, SculptedSpec } from './sculpted';
 import { SCULPTED_BUILDS } from './sculpted-birds';
 import { hinge, mix, shade } from './sculpt';
-import type { Sculpt, V3 } from './sculpt';
+import type { Morphs, Sculpt, V3 } from './sculpt';
 import { Parts } from './parts';
 import { Color } from 'three';
 
@@ -647,44 +648,217 @@ function kingfisherGun(s: number, d: Detail): SculptedSpec['gun'] {
   };
 }
 
-/** Lyrebird: slim brown body under a huge lyre of curved plumes with silver filaments arching above the head. */
-const lyrebird: Build = (plan, team) => {
-  const { H, R, hc, hr, top } = dims(plan);
-  const legLen = H * 0.27;
-  const y0 = legLen * 0.9;
-  const cy = (y0 + top) / 2;
-  const ry = (top - y0) / 2;
-  const sy = cy + ry * 0.5;
-  const body = new Parts()
-    .ell(PLUMAGE.lyreBrown, [R * 0.9, ry, R * 1.35], [0, cy, -R * 0.15])
-    .ell(0x9a7a5a, [R * 0.75, ry * 0.8, R * 1.1], [0, cy - ry * 0.1, R * 0.1])
-    .ell(team.primary, [hr * 1.3, H * 0.03, hr * 1.3], [0, hc - hr * 0.95, 0]);
-  const head = headShell(new Parts(), PLUMAGE.lyreBrown, hr)
-    .cone(PLUMAGE.lyreBill, hr * 0.45, hr * 1.5, [0, -hr * 0.1, hr * 0.85])
-    .ell(PLUMAGE.lyreBrown, [hr * 0.3, hr * 0.7, hr * 0.3], [0, hr * 1.0, -hr * 0.3], [0.5, 0, 0]);
-  eyes(head, hr, 0.15, 0.6);
-  // The lyre, in the tail's frame (pivot at the rump): two plumes sweep out, up and back in, to ~2.6 m.
-  const tail = new Parts().ell(PLUMAGE.lyreBrown, [R * 0.3, H * 0.2, R * 0.45], [0, -H * 0.12, -R * 0.5], [-0.35, 0, 0]);
-  const rise = 2.6 * (H / 1.8) - (cy - ry * 0.2);
-  const point = (s: number, t: number): [number, number, number] => [s * (0.1 + 0.5 * Math.sin(Math.PI * t)), rise * Math.pow(t, 0.85), -R * 1.0 + 0.9 * R * t];
-  for (const s of [1, -1]) {
-    const steps = 9;
-    for (let i = 0; i < steps; i++) tail.rod(PLUMAGE.lyreBrown, point(s, i / steps), point(s, (i + 1) / steps), 0.045);
-    tail.ell(team.primary, [0.07, 0.07, 0.07], point(s, 1), [0, 0, 0], [5, 4]);
-    // Silver filaments: strings from the base fanning to the plume.
-    for (const t of [0.35, 0.55, 0.75, 0.9]) tail.rod(PLUMAGE.lyreSilver, [s * 0.03, 0, -R * 0.9], point(s, t), 0.016);
+// =================================================================================================================
+// Lyrebird: a slim olive-brown bird on long strong legs, a rufous throat, a small dark crested head, under the hero
+// shape of the roster: a lyre rising to 2.6 m, two broad S-curved outer plumes banded chestnut and silver-buff,
+// filled with shimmering silver filaments and two wiry crossing medians, thrown forward over the head on a cast. A
+// musician: a flock sash hung with brass bells and a set of reed pipes on the hip. Support: the Echo Lute, a strung
+// lute-bodied gun with a brass horn whose bead glows.
+
+const LYREBIRD = {
+  brown: 0x6e5034,
+  olive: 0x86683e,
+  dark: 0x46301e,
+  under: 0x9c8a74,
+  rufous: 0xb85a28,
+  chestnut: 0x8a4422,
+  buff: 0xe2d6c2,
+  silver: 0xc8ced6,
+  bill: 0x2e2620,
+  leg: 0x4a4038,
+  claw: 0x221a16,
+  iris: 0x2a160c,
+  lacquer: 0x5a2e1a,
+  reed: 0xc8b070,
+} as const;
+
+/** The lyre, in the tail bone's frame (origin at the rump): its own budget share (style guide §8.2). */
+function lyre(k: Sculpt, s: number, rise: number, d: Detail): void {
+  const P = LYREBIRD;
+  const forward = (at: V3): Morphs => ({ display: hinge(at, [1, 0, 0], 0.95) });
+  const smooth = (a: number, b: number, t: number): number => {
+    const x = Math.min(1, Math.max(0, (t - a) / (b - a)));
+    return x * x * (3 - 2 * x);
+  };
+  // The outer plumes: broad flat ribbons in a lyre's outline, out from the root, in under the top, the tips curling
+  // out again; banded chestnut and silver-buff, dark at the edges.
+  const n = d.level === 0 ? 18 : d.level === 1 ? 10 : d.level === 2 ? 5 : 3;
+  for (const side of [1, -1]) {
+    const rings = Array.from({ length: n + 1 }, (_, i) => {
+      const t = i / n;
+      const c: V3 = [side * s * (0.05 + 0.36 * Math.sin(Math.PI * t) ** 1.1 + 0.2 * smooth(0.7, 1, t)), rise * t ** 0.95, s * (-0.12 + 0.3 * t)];
+      return { c, n: [0, 0, 1] as V3, w: s * (0.012 + 0.048 * smooth(0, 0.2, t) - 0.02 * smooth(0.8, 1, t)), up: s * 0.006 };
+    });
+    k.loft(rings, {
+      seg: d.level === 0 ? 6 : 4,
+      paint: (t, a) => (Math.abs(Math.cos(a)) > 0.8 ? P.dark : t > 0.94 ? P.dark : Math.floor(t * 15) % 2 ? P.buff : P.chestnut),
+      finish: { gloss: 0.4, iri: 0.15 }, morph: forward([0, 0, 0]),
+    });
   }
-  return assemble(plan, {
-    body, head, tail,
-    wing: { hex: PLUMAGE.lyreBrown, len: H * 0.4, chord: R * 1.1, thick: R * 0.1, trim: team.primary },
-    leg: { hex: PLUMAGE.leg, len: legLen, thick: H * 0.018, foot: R * 0.35 },
-    gun: { length: 0.55, thick: 0.06, lute: 0.13 },
-    pivot: { wingL: [R * 0.8, sy, 0], wingR: [-R * 0.8, sy, 0], legL: [R * 0.35, legLen, 0], legR: [-R * 0.35, legLen, 0], tail: [0, cy - ry * 0.2, -R * 1.2] },
+  if (d.level >= 3) return;
+  // The filaments: silver, lacy, fanned out toward the plumes and drooping outward at their tips; the middle of the
+  // lyre stays open, so the player camera sees the head and back through it.
+  const per = d.level === 0 ? 4 : d.level === 1 ? 3 : 1;
+  for (const side of [1, -1]) {
+    for (let j = 0; j < per; j++) {
+      const u = side * (per === 1 ? 0.6 : 0.3 + (0.7 * j) / (per - 1));
+      const at: V3 = [u * 0.03 * s, 0.02 * s, -0.08 * s];
+      k.card({
+        at, dir: norm([u * 0.5, 1, 0.12]), face: [0, 0.1, -1], len: rise * (0.86 - 0.14 * Math.abs(u)), wid: 0.042 * s, cell: CARD.hair,
+        root: shade(P.silver, 0.9), tip: 0xf4f6f8, sweep: -u * 0.4, curl: 0.12, segs: d.level === 0 ? 6 : 3, finish: { iri: 0.4, gloss: 0.6 },
+        morph: { display: hinge(at, [1, 0, 0], 0.95).multiply(hinge(at, [0, 0, 1], -u * 0.4)) },
+      });
+    }
+  }
+  // The two medians: wiry, crossing over each other.
+  if (d.level < 2) {
+    for (const side of [1, -1]) {
+      const at: V3 = [side * 0.02 * s, 0.03 * s, -0.06 * s];
+      k.card({ at, dir: norm([side * 0.16, 1, 0.1]), face: [0, 0.1, -1], len: rise * 0.95, wid: 0.028 * s, cell: CARD.quill, root: P.dark, tip: P.brown, sweep: side * 0.55, segs: d.level === 0 ? 6 : 3, finish: { gloss: 0.3 }, morph: forward(at) });
+    }
+  }
+  // Short tail coverts over the root.
+  tailFan(k, { count: 6, len: 0.2 * s, wid: 0.08 * s, spread: 0.9, droop: -0.6, root: P.brown, tip: P.olive, cell: CARD.tail, at: [0, 0.02 * s, 0.03 * s], finish: { tile: 1, size: 0.1, gloss: 0.2 } }, d);
+}
+
+const lyrebird: SculptedBird = (plan, team, d) => {
+  const H = plan.height;
+  const hr = plan.head.radius;
+  const A = lyrebirdAnchors(plan);
+  const s = A.s;
+  const P = LYREBIRD;
+  const PLUME = { tile: 1, size: 0.09, gloss: 0.2 } as const;
+  const field = bodyField('lyrebird', plan);
+  const skin = skinFor('lyrebird', plan, LYREBIRD_SKIN, d.level, {
+    back: { paint: P.olive, finish: PLUME },
+    mantle: { paint: mix(P.olive, P.brown, 0.4), finish: PLUME },
+    scapular: { paint: P.brown, finish: PLUME },
+    shoulder: { paint: P.brown, finish: PLUME },
+    coverts: { paint: P.brown, finish: PLUME },
+    breast: { paint: (p) => mix(P.under, P.brown, Math.min(0.7, Math.abs(p.x) / (0.2 * s))), finish: PLUME },
+    belly: { paint: mix(P.under, 0xb8aa96, 0.3), finish: PLUME },
+    thigh: { paint: P.under, finish: { ...PLUME, size: 0.06 } },
+    neck: { paint: (p) => (p.z > 0.03 * s ? P.under : P.brown), finish: PLUME },
+    // A dark crown over the olive mantle: the head separates from the back from behind.
+    crown: { paint: P.dark, finish: { ...PLUME, size: 0.05 } },
+    nape: { paint: mix(P.dark, P.brown, 0.4), finish: { ...PLUME, size: 0.05 } },
+    face: { paint: P.brown, finish: { gloss: 0.2 } },
+    cheek: { paint: mix(P.brown, P.under, 0.3), finish: { gloss: 0.2 } },
+    brow: { paint: P.dark, finish: { gloss: 0.2 } },
+    throat: { paint: P.rufous, finish: PLUME },
+    rufous: { paint: P.rufous, finish: { ...PLUME, size: 0.06 } },
+    bill: { paint: P.bill, finish: { gloss: 0.5 } },
+    socket: { paint: P.dark, finish: { gloss: 0.3 } },
+  });
+  const leg: LegStyle = {
+    skin: P.leg, claw: P.claw, thick: A.legThick, thigh: P.under, fringe: 0.45, skinned: { r: 0.05 * s, at: 0.2 },
+    // Strong scratching feet with long claws.
+    toes: [{ yaw: -0.38, len: 0.1 * s }, { yaw: 0, len: 0.115 * s }, { yaw: 0.38, len: 0.1 * s }, { yaw: Math.PI, len: 0.07 * s }],
+    clawLen: 0.045 * s,
+  };
+  const wing: WingStyle = {
+    covert: P.olive, secondary: P.brown, primary: P.brown, primaryTip: P.dark, trim: team.primary,
+    thick: 0.028 * s, chord: 0.22 * s, primaries: 7, secondaries: 6, primaryLen: 0.55, secondaryLen: 0.9, finish: { ...PLUME, size: 0.15 },
+  };
+
+  const body = (k: Sculpt): void => {
+    // The body is the baked implicit skin (bodies.ts); gear and feathers sit on its surface.
+    const axis: [V3, V3] = [[0, 0.66 * s, -0.24 * s], [0, A.head[1] - 0.26 * s, 0.05 * s]];
+    const torso = field.only(...TRUNK).surface(...axis, [0, 0, 1]);
+    foldedWings(k, field.only(...TRUNK).surface([0, 0.7 * s, -0.32 * s], [0, 1.2 * s, 0.06 * s]), wing, { t: [0.42, 0.8], a: 0.4, len: 0.3 * s, wid: 0.1 * s }, d);
+    // Gear: a flock sash hung with brass bells, a set of reed pipes on the left hip, a pouch on the right.
+    const off = 0.01 * s;
+    sash(k, torso, 0.58, 0.18, Math.PI * 0.32, { width: 0.055 * s, thick: 0.012 * s, hex: team.primary, stitch: team.light, off, finish: { gloss: 0.35 } }, d);
+    if (d.level < 2) {
+      for (let i = 0; i < 4; i++) {
+        const u = 0.35 + i * 0.22;
+        const p = torso.at(0.58 + 0.18 * Math.cos(u), Math.PI * 0.32 + u, off + 0.03 * s);
+        lathe(k, [[0.004 * s, 0.018 * s], [0.012 * s, 0.008 * s], [0.016 * s, -0.012 * s], [0.018 * s, -0.016 * s]], { at: [p.p.x, p.p.y - 0.012 * s, p.p.z], rot: [-Math.PI / 2, 0, 0], seg: 6, caps: true, paint: GEAR.brass, finish: BRASS });
+      }
+    }
+    if (d.level < 3) {
+      const hip = torso.at(0.3, Math.PI * 0.95, off + 0.03 * s);
+      for (let i = 0; i < 5; i++) {
+        const h = (0.16 - i * 0.022) * s;
+        lathe(k, [[0.011 * s, h * 0.5], [0.011 * s, -h * 0.5]], { at: [hip.p.x + 0.01 * s, hip.p.y - h * 0.5 + 0.06 * s, hip.p.z + (i - 2) * 0.022 * s], rot: [Math.PI / 2, 0, 0], seg: d.n(6, 4), caps: true, paint: P.reed, finish: WOOD });
+      }
+    }
+    pouch(k, torso.at(0.32, Math.PI * 0.06, off), [0.08 * s, 0.09 * s, 0.05 * s], GEAR.leather, d);
+  };
+
+  const head = (k: Sculpt): void => {
+    const neckAxis: [V3, V3] = [[0, A.head[1] - 0.32 * s, -0.02 * s], [0, A.head[1] + hr, -0.04 * s]];
+    hackles(k, inBone(field.only('neck', 'nape', 'crown').surface(...neckAxis, [0, 0, 1]), A.head), {
+      t: [0.32, 0.68], a: [-Math.PI * 0.8, -Math.PI * 0.2], rows: 3, cols: 4, len: 0.08 * s, wid: 0.06 * s, lift: 0.22,
+      paint: (t) => mix(P.brown, P.dark, t), finish: PLUME, seed: 91,
+    }, d);
+    // A ragged crest at the back of the crown.
+    if (d.level < 3) {
+      const n = d.keep(5, 3);
+      for (let i = 0; i < n; i++) {
+        const u = (i / Math.max(1, n - 1)) * 2 - 1;
+        const at: V3 = [u * hr * 0.28, hr * 0.96, -hr * (0.3 + 0.12 * (1 - Math.abs(u)))];
+        k.card({ at, dir: norm([u * 0.3, 0.6, -1]), face: [0, 1, 0.3], len: (0.12 - 0.02 * Math.abs(u)) * s, wid: 0.045 * s, cell: CARD.ragged, root: P.dark, tip: P.brown, curl: -0.25, segs: d.rows, finish: PLUME, morph: { display: hinge(at, [1, 0, 0], -0.7) } });
+      }
+    }
+    const E = LYREBIRD_HEAD.eye;
+    for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.76, 0.05, 0.64], { r: hr * 0.24, iris: P.iris, ring: mix(P.dark, P.under, 0.5), lid: P.brown, ringW: hr * 0.05 }, d);
+    const B = LYREBIRD_HEAD.bill;
+    beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.04)], len: hr * 1.05, w: hr * 0.24, up: hr * 0.2, dn: hr * 0.15, curve: hr * 0.08, hook: hr * 0.05, base: P.bill, tip: shade(P.bill, 1.4), open: 0.4, displayOpen: 0.5 }, d);
+  };
+
+  return {
+    body, head, skin,
+    tail: (k) => lyre(k, s, 2.6 * s - A.tail[1], d),
+    wing: wingsOf(wing, d),
+    leg: legsOf(leg, d),
+    gun: lyrebirdGun(s, d),
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
+    legLen: A.legLen, legThick: leg.thick, wingLen: H * 0.36,
     // Mended Song, Echo Double, Discord, Grand Chorus.
     casts: ['raise', 'sweep', 'throw', 'raise'],
-    sway: 0, castTail: -0.25,
-  });
+    sway: 0, castTail: -0.15, castWiden: 0,
+  };
 };
+
+/** Echo Lute: a strung lute body for a stock, a fingerboard barrel with four strings, a brass horn with a glowing bead. */
+function lyrebirdGun(s: number, d: Detail): SculptedSpec['gun'] {
+  const P = LYREBIRD;
+  const L = 0.62 * s;
+  return {
+    main: [0, -0.06 * s, -L * 0.68],
+    support: [0, -0.024 * s, 0],
+    slideAt: [0, -0.01 * s, -L * 0.3],
+    travel: 0.025 * s,
+    build(k, part) {
+      if (part === 'slide') {
+        if (d.level >= 3) return;
+        block(k, [0.03 * s, 0.026 * s, 0.08 * s], [0, -0.004 * s, 0], GEAR.woodDark, WOOD, d);
+        return;
+      }
+      if (part !== 'gun') return;
+      // The horn: a brass bell with a silver bead that glows on a heal.
+      lathe(k, [[0.05 * s, 0], [0.036 * s, -0.02 * s], [0.02 * s, -0.06 * s], [0.013 * s, -0.09 * s]], { seg: d.n(14, 4), paint: GEAR.brass, finish: BRASS });
+      if (d.level >= 3) {
+        lathe(k, [[0.013 * s, -0.09 * s], [0.012 * s, -L * 0.45], [0.06 * s, -L * 0.62], [0.03 * s, -L]], { seg: 4, paint: P.lacquer });
+        return;
+      }
+      bead(k, [0, 0, -0.03 * s], 0.016 * s, 0xd8f0ff, 0.9, d);
+      // The neck: a fingerboard with a peg head behind the horn, and four strings.
+      block(k, [0.032 * s, 0.02 * s, L * 0.38], [0, 0, -0.09 * s - L * 0.19], GEAR.woodDark, WOOD, d);
+      block(k, [0.04 * s, 0.03 * s, 0.05 * s], [0, 0.004 * s, -0.11 * s], P.lacquer, WOOD, d);
+      if (d.level < 2) {
+        for (const x of [1, -1]) for (const z of [0.1, 0.125]) lathe(k, [[0.004 * s, 0.006 * s], [0.004 * s, -0.006 * s]], { at: [x * 0.024 * s, 0.008 * s, -z * s], rot: [0, Math.PI / 2, 0], seg: 4, caps: true, paint: GEAR.bone, finish: { gloss: 0.4 } });
+        for (const x of [-1.5, -0.5, 0.5, 1.5]) k.loft([{ c: [x * 0.006 * s, 0.012 * s, -0.12 * s], w: 0.0012 * s, up: 0.0012 * s }, { c: [x * 0.008 * s, 0.012 * s + 0.02 * s, -L * 0.62], w: 0.0012 * s, up: 0.0012 * s }], { seg: 3, paint: 0xe8e4d8, finish: { gloss: 0.8 } });
+      }
+      // The lute body: a lacquered gourd that serves as the stock, with a glowing rose.
+      lathe(k, [[0.02 * s, -L * 0.46], [0.06 * s, -L * 0.52], [0.078 * s, -L * 0.62], [0.07 * s, -L * 0.74], [0.04 * s, -L * 0.84], [0.0, -L * 0.88]], { at: [0, -0.01 * s, 0], seg: d.n(14, 5), flat: 0.6, paint: (t) => mix(P.lacquer, shade(P.lacquer, 0.7), t), finish: { ...WOOD, gloss: 0.6 } });
+      bead(k, [0, 0.03 * s, -L * 0.62], 0.024 * s, 0x9fd8ff, 0.6, d, [1, 0.25, 1]);
+      carve(k, [[-L * 0.64, -0.035 * s], [-L * 0.71, -0.035 * s], [-L * 0.77, -0.12 * s], [-L * 0.69, -0.125 * s]], 0.026 * s, GEAR.woodDark, WOOD, d);
+      carve(k, [[-L * 0.84, 0.01 * s], [-L, 0.02 * s], [-L * 1.02, -0.05 * s], [-L * 0.96, -0.06 * s], [-L * 0.84, -0.03 * s]], 0.026 * s, P.lacquer, WOOD, d);
+    },
+  };
+}
 
 /** The placeholder for the other twenty: a plain bird, scaled to the plan, tinted by the hero's place in the roster. */
 export function genericBuild(plan: BodyPlan, team: TeamColours, index: number, count: number): BirdBuild {
@@ -717,11 +891,11 @@ export function genericBuild(plan: BodyPlan, team: TeamColours, index: number, c
 }
 
 /** This file's sculpted birds. */
-const SCULPTED_HERE = { shrike, kingfisher, albatross } as const satisfies Record<string, SculptedBird>;
+const SCULPTED_HERE = { shrike, kingfisher, albatross, lyrebird } as const satisfies Record<string, SculptedBird>;
 const sculpt = (birds: Readonly<Record<string, SculptedBird>>): Record<string, Build> =>
   Object.fromEntries(Object.entries(birds).map(([id, bird]) => [id, (plan: BodyPlan, team: TeamColours) => sculptedBuild(plan, team, bird)]));
 
 /** Hand-built heroes by id. */
-export const HERO_BUILDS: Readonly<Record<string, Build>> = { lyrebird, ...BIRD_BUILDS_B, ...sculpt(SCULPTED_B), ...sculpt(SCULPTED_HERE), ...SCULPTED_BUILDS };
+export const HERO_BUILDS: Readonly<Record<string, Build>> = { ...BIRD_BUILDS_B, ...sculpt(SCULPTED_B), ...sculpt(SCULPTED_HERE), ...SCULPTED_BUILDS };
 /** Every hero sculpted to the style guide (D-ART-004, D-ART-010). */
 export const SCULPTED_IDS = [...Object.keys(SCULPTED_BUILDS), ...Object.keys(SCULPTED_HERE), ...Object.keys(SCULPTED_B)] as HeroId[];
