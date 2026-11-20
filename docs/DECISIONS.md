@@ -1958,3 +1958,10 @@ loader to keep in step. Optional, so the arena and test maps need nothing.
 ### D-AUDIO-004 · 19/11/2026 — Occlusion and room tone
 **Decision:** a positional voice whose room differs from the local hero's, or an enemy hero outside `seenBy`, gets -6 dB and a 2 kHz low-pass. Indoors a 320 Hz low-passed noise bed fades in and the wind bed drops to 30%. `Settings.mute` zeroes master; `onScreen` sets menu and hero-select music (a 100 ms timer ticks it with no match frames); `previewHero` plays the hero call flat. Where Den and Cellar Run overlap, the Den wins (map order), so entering the Den centre plays the Den cue, not the tunnel cue.
 **Why:** INTERFACES §13 row 3 and the W5 audio follow-ups.
+
+### D-BUILD-010 · 20/11/2026 — The check caps its parallel workers (integration, for Build & Tooling)
+**Decision:** `scripts/check.sh` runs the unit tests with half the logical cores (at most 8) and the browser suites
+with a quarter (at most 4); `PERCH_TEST_WORKERS` and `PERCH_E2E_WORKERS` override them. On this 16-core machine that is
+8 and 4, against Vitest's 15 and Playwright's 8 by default.
+**Why:** with several agents on the machine, a full-width run pushed world tests past their timeouts and e2e specs
+past theirs. Half the cores keeps a quiet run close to its old time; one worker (the old workaround) quadrupled it.
