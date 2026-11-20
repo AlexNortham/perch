@@ -237,11 +237,11 @@ export function reportMarkdown(r: ReportInput): string {
     '| Test | Value | Needed | State |',
     '|---|---|---|---|',
     `| Matches | ${r.matches.length} | ≥ ${CONVERGENCE.minMatches} | ${yes(enough)} |`,
-    `| Split-half item ranks (Spearman ρ, odd vs even seeds) | median ${fmt(median(withRho))},` +
+    `| Split-half item ranks (Spearman ρ, odd vs even seeds) | median ${fmt(median(withRho))}, ` +
       `min ${fmt(Math.min(...withRho))}; ${withRho.length} of ${heroes.length} heroes have enough items | every hero ≥ ${CONVERGENCE.splitHalfRho} | ${yes(rhoPass)} |`,
     `| Cores vs round ${r.round - 1} | ${heroes.filter(([, l]) => GAME_PHASES.every((p) => l.changes[p] <= CONVERGENCE.maxCoreChanges)).length} of ${heroes.length} heroes within ` +
       `${CONVERGENCE.maxCoreChanges} change per core | every hero | ${yes(corePass)} |`,
-    `| Settled picks (gap > ${CONVERGENCE.z}·SE or a tie within ${CONVERGENCE.equivalent}) | median ${pct(median(shares))},` +
+    `| Settled picks (gap > ${CONVERGENCE.z}·SE or a tie within ${CONVERGENCE.equivalent}) | median ${pct(median(shares))}, ` +
       `min ${pct(Math.min(...shares))} | every hero ≥ ${pct(CONVERGENCE.settledShare)} | ${yes(ciPass)} |`,
     '',
     'Held-out policy tests (one observation per match, the result of the named flock):',
@@ -283,7 +283,7 @@ export function reportMarkdown(r: ReportInput): string {
   for (const hero of HERO_IDS) {
     const games = r.matches.flatMap((m) => m.heroes.filter((h) => h.hero === hero).map((h) => ({ m, h })));
     if (!games.length) {
-      push(`| ${name(hero)} | 0 | | | | | | | no games (not implemented); designer prior |`);
+      push(`| ${name(hero)} | 0 | | | | | | | no games${HEROES[hero].implemented ? '' : ' (not implemented)'}; designer prior |`);
       continue;
     }
     const res = ci(games.map(({ m, h }) => outcome(m, h.team)));

@@ -119,7 +119,9 @@ export async function runMatch(job: MatchJob): Promise<MatchRecord> {
   const teamOfSlot = new Map(heroes.map((h) => [h.hero.slot, h.team]));
   const abilities = heroes.map(() => new Map<AbilityId, AbilityRecord>());
   const dmgBy = heroes.map((): Record<DamageBucket, number> => ({ weapon: 0, melee: 0, ability: 0, item: 0, other: 0 }));
-  const ups = heroes.map((): [number, number, number][] => []);
+  // Slots open from level 1 unlock at creation, before these listeners: record them at 0 s.
+  const ups: [number, number, number][][] = [];
+  for (const h of heroes) ups[h.hero.slot] = h.abilities.slots.flatMap((s, i): [number, number, number][] => (s.unlocked ? [[0, i, 0]] : []));
   /** victim → "slot ability" → last tick that ability hit it. */
   const recent = new Map<number, Map<string, number>>();
   const window = COMBAT.assistWindowS * TICK_RATE;
