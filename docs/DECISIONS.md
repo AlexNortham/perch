@@ -2605,3 +2605,17 @@ the same page produces a full-scale oscillator through the same device. **Why:**
 ### D-ENV-006 · 20/11/2026 — Camera clearance and fade for visual-only dressing
 **Decision:** leaf clumps, cards and forest-edge trunks are not generated inside a cylinder round each spawn and shop (radius: longest boom + shoulder + 2.5 m; 9 m tall). At runtime the layer's two materials (library clones with one added chunk) discard fragments within 1.0 m of the camera, widening to 1.4 m at the end of the boom, along the view line, with a dithered rim. The layer adds no collision, so anything there is dressing the camera can pass through. No new renderer hook: each batch's `onBeforeRender` aims the fade.
 **Why:** the player's first sight was a wall of leaves at the Dawn spawn. Clearance fixes the spawns; the fade stops it recurring anywhere.
+
+### D-EP-052 · 21/11/2026 — Stage 4 Release 2, the visual upgrade, starts
+**Decision:** after Release 1 was pushed, the user chose "Start visual upgrade". Release 2 brings every bird,
+structure, Patron, unit and creature, and the map, to the D-EP-047/048 bar (brief `docs/briefs/W7-visual.md`):
+- four bird batches (D to G) cover the 16 birds still on old or default models;
+- one artist covers structures and creatures;
+- the Environment Artist does the third pass, including load time and memory;
+- Rendering fixes the triangle spike at scene open.
+
+The Build Lab's Phase B (D-EP-049) runs on the simulation track, at most 4 processes wide.
+
+Release 2 ships against the same stability bar as Release 1. No Stage 5 work follows (D-EP-050).
+
+**Why:** the user's choice after Release 1.
