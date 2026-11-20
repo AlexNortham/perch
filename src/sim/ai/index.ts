@@ -152,9 +152,11 @@ export const createAiSystem: SystemFactory = (ctx: SimContext) => {
     const mine = heroes.filter((h) => h.team === team && !h.health.dead).length;
     const theirs = heroes.filter((h) => h.team !== team && !h.health.dead).length;
     const s = ctx.clock.seconds;
+    // The Roc awake comes first in the late game (GDD §15.3): no all-in push while it can be taken.
+    const rocUp = ctx.store.list('unit').some((u) => u.unit.type === 'roc' && !u.removed && !u.health.dead && !u.unit.asleep);
     const start = mine >= OBJECTIVE.commitMinAllies && (theirs <= OBJECTIVE.wipeAlive ||
       now - rocKilledAt[team] <= ticks(OBJECTIVE.rocPushS) || (ctx.teams[team].rekindle?.until ?? 0) > now ||
-      (s >= OBJECTIVE.pushFromS && mine - theirs >= OBJECTIVE.commitEdge) || (s >= OBJECTIVE.allInFromS && theirs - mine < OBJECTIVE.commitEdge));
+      (s >= OBJECTIVE.pushFromS && mine - theirs >= OBJECTIVE.commitEdge) || (s >= OBJECTIVE.allInFromS && !rocUp && theirs - mine < OBJECTIVE.commitEdge));
     const stop = mine <= OBJECTIVE.fallBackAlive || theirs - mine >= OBJECTIVE.commitEdge;
     committed[team] = committed[team] ? !stop : start;
     const lane = pushLane(team);
