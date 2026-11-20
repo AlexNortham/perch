@@ -107,6 +107,21 @@ function districts(map: MapData): (x: number, z: number) => District {
   };
 }
 
+/** Whether a point lies inside any building's footprint (turned by its yaw), with ART.footprintMargin to spare. */
+function footprints(map: MapData): (p: Vec3) => boolean {
+  const boxes = (map.buildings ?? []).map((b) => b.footprint);
+  return (p) =>
+    boxes.some((f) => {
+      const dx = p.x - f.centre.x;
+      const dz = p.z - f.centre.z;
+      const [c, s] = [Math.cos(f.yaw), Math.sin(f.yaw)];
+      const lx = dx * c - dz * s;
+      const lz = dx * s + dz * c;
+      const m = ART.footprintMargin;
+      return Math.abs(lx) <= f.size.x / 2 + m && Math.abs(lz) <= f.size.z / 2 + m && p.y >= f.centre.y - f.size.y / 2 - m && p.y <= f.centre.y + f.size.y / 2 + m;
+    });
+}
+
 /** Split a non-indexed geometry's triangles into those facing up (normal.y > minY) and the rest. */
 function splitUp(g: BufferGeometry, minY: number): [BufferGeometry | null, BufferGeometry | null] {
   const pos = g.getAttribute('position');
@@ -146,6 +161,8 @@ interface Ctx {
   readonly toSun: Vector3;
   /** §11.6 Low: bevels in texture only, no trims or hedge fringes, sparser cards. */
   readonly low: boolean;
+  /** Inside a building footprint: the environment layer's facades carry the trims there (its request, W5b). */
+  readonly inBuilding: (p: Vec3) => boolean;
 }
 
 /** Paint and queue one piece; walls standing on something get the contact band and damp gradient. */
@@ -220,7 +237,7 @@ function boxPrim(ctx: Ctx, p: BlockoutPrim & { shape: 'box' }, i: number): void 
       // Wall tops grow moss (§5.8); broad tops are walkable flat roofs, paved.
       put(ctx, top, thin && p.centre.y + sy / 2 > ART.mossAbove ? 'moss' : 'flagstone', { ...common, ground: undefined });
       put(ctx, side, id, { ...common, ...(tint !== undefined && { tint }) });
-      if (!ctx.low && !big && sy >= ART.trimMinHeight && footprint >= ART.trimMinFootprint) trims(ctx, p, i * ART.seedStride, tag === 'brick' ? pal.stone : id, tint);
+      if (!ctx.low && !big && !ctx.inBuilding(p.centre) && sy >= ART.trimMinHeight && footprint >= ART.trimMinFootprint) trims(ctx, p, i * ART.seedStride, tag === 'brick' ? pal.stone : id, tint);
       return;
     }
     case 'wood': {
@@ -623,7 +640,7 @@ export function buildBlockout(map: MapData, lib: MaterialLibrary): Blockout {
   const root = new Group();
   root.name = 'blockout';
   const toSun = new Vector3(SUN.azimuth.x * Math.cos(SUN.elevationDeg * ART.deg), Math.sin(SUN.elevationDeg * ART.deg), SUN.azimuth.z * Math.cos(SUN.elevationDeg * ART.deg)).normalize();
-  const ctx: Ctx = { batch: new CellBatch(CELL.size, { shadowProxies: true }), foliage: map.prims.filter((p) => p.material === 'foliage' && p.shape === 'cylinder'), district: districts(map), toSun, low: lib.quality === 'low' };
+  const ctx: Ctx = { batch: new CellBatch(CELL.size, { shadowProxies: true }), foliage: map.prims.filter((p) => p.material === 'foliage' && p.shape === 'cylinder'), district: districts(map), toSun, low: lib.quality === 'low', inBuilding: footprints(map) };
   map.prims.forEach((p) => shadowProxy(ctx, p));
   map.prims.forEach((p, i) => {
     if (p.shape === 'box') boxPrim(ctx, p, i);

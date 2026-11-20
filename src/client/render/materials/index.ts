@@ -133,6 +133,9 @@ vMatLayer = matLayer;
 vMatUv = uv;
 {
   vec4 matWp = vec4( transformed, 1.0 );
+  #ifdef USE_BATCHING
+    matWp = batchingMatrix * matWp;
+  #endif
   #ifdef USE_INSTANCING
     matWp = instanceMatrix * matWp;
   #endif

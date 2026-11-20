@@ -208,6 +208,8 @@ export const ART = {
   /** §5.1 trims on stone and brick masses at least this tall and this deep. */
   trimMinHeight: 3,
   trimMinFootprint: 0.4,
+  /** A prim within this of a building footprint counts as inside it (the environment layer dresses it). */
+  footprintMargin: 0.5,
   storey: 4,
   minTrimGap: 0.5,
   plinth: { height: 0.8, out: 0.07 },

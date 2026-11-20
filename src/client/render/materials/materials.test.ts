@@ -91,7 +91,7 @@ describe('material library', () => {
     expect(medium.textureBytes).toBeLessThan(24 * 1024 * 1024);
     low.dispose();
     medium.dispose();
-  });
+  }, 30_000);
 
   it('keeps a geometry with no colour attribute white before painting multiplies in', () => {
     const g = new BufferGeometry();

@@ -5,6 +5,7 @@
  * Owner: Rendering & VFX.
  */
 import {
+  BatchedMesh,
   CanvasTexture,
   Color,
   DirectionalLight,
@@ -211,7 +212,9 @@ function budgetOf(scene: Scene, camera: PerspectiveCamera, calls: number, triang
     const t = (o.userData['budget'] as string | undefined) ?? tag;
     if (o instanceof Mesh && (!o.frustumCulled || frustum.intersectsObject(o))) {
       const g = o.geometry;
-      const tris = (g.index ? g.index.count : g.getAttribute('position').count) / TRI;
+      // A BatchedMesh draws only the entries its culling kept this frame (multi-draw counts), not its capacity.
+      const drawn = o instanceof BatchedMesh ? (o as unknown as { _multiDrawCount: number; _multiDrawCounts: Int32Array }) : null;
+      const tris = drawn ? Array.from(drawn._multiDrawCounts.subarray(0, drawn._multiDrawCount)).reduce((a, b) => a + b, 0) / TRI : (g.index ? g.index.count : g.getAttribute('position').count) / TRI;
       const n = o instanceof InstancedMesh ? o.count : 1;
       if (n > 0) {
         const c = (categories[t] ??= { meshes: 0, triangles: 0 });
