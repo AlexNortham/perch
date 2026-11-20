@@ -12,6 +12,7 @@ import { registerItems } from './items';
 import { registerMechanics } from './mechanics';
 import { registerWorld } from './world';
 import { registerMeta } from './meta';
+import { registerStage4 } from './stage4';
 
 export interface PageDef {
   path: string;
@@ -103,6 +104,7 @@ export function generate(outDir: string, date = new Date().toISOString().slice(0
   registerItems(ctx, extraFiles);
   registerMechanics(ctx);
   registerWorld(ctx, extraFiles);
+  registerStage4(ctx);
 
   // ---- navigation tree from each page's section and parent ----
   const order = ['Home', 'Getting started', 'Heroes', "The Magpie's Hoard", 'Mechanics', 'The map', 'Units and objectives', 'Reference'];

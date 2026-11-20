@@ -28,7 +28,7 @@ Every Molt raises the bird's base stats: health, gun damage and Song power, with
 
 ## Ability Points
 
-Ability Points (AP) buy ability upgrade tiers, not items. Each ability has three tiers bought in order, anywhere and at any time, even while dead. Unspent AP carries over. Hold the upgrade modifier to open the panel; see the [[heroes/abilities|Abilities]] list.
+Ability Points (AP) buy ability upgrade tiers, not items. Each ability has three tiers bought in order, anywhere and at any time, even while dead. Unspent AP carries over. Hold the upgrade key (Left Alt by default) to free the mouse, then click an ability icon or press 1 to 4; see the [[heroes/abilities|Abilities]] list.
 
 ## Bounties
 
@@ -41,6 +41,10 @@ Killing a hero pays a bounty shared by the killer and the assisters. It grows wi
 Destroying a structure pays every hero of your flock.
 
 {{objective-bounties}}
+
+## Jungle rewards
+
+Seeds also come from the jungle: Thicket creatures, Nest sprigs, Bell Feeders, claiming a Phoenix Ember, killing the Roc, and a delivered Golden Egg. Each grows with match time, and the numbers are on [[units/objectives|Objectives and the jungle]].
 
 ## Flex slots
 

@@ -7,7 +7,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HERO_IDS } from '../../src/sim/core/contracts';
 import { HEROES } from '../../src/sim/heroes/registry';
 import { ITEMS } from '../../src/sim/data/items';
-import { FLEDGLINGS, STRUCTURE_BODY } from '../../src/sim/data/world';
+import { CREATURES, FLEDGLINGS, NESTS, RUNES, STRUCTURE_BODY } from '../../src/sim/data/world';
+import { loadMap } from '../../src/sim/world/map';
 import { STATUSES } from '../../tools/wiki/facts';
 import { generate } from '../../tools/wiki/generate';
 import type { GenResult } from '../../tools/wiki/generate';
@@ -62,9 +63,25 @@ describe('wiki coverage', { timeout: GENERATION_TIMEOUT_MS }, () => {
     }
     expect(Object.keys(STRUCTURE_BODY)).toContain('patron');
     expect(read('units/patrons.html')).toContain('Phase 2');
-    expect(ids(read('units/planned.html')).has('nests'), 'nest (planned)').toBe(true);
+    expect(ids(read('units/objectives.html')).has('nests'), 'nests').toBe(true);
     const fledglings = read('units/fledglings.html').toLowerCase();
     for (const type of Object.keys(FLEDGLINGS)) expect(fledglings, `unit ${type}`).toContain(type);
+  });
+
+  it('describes every Stage 4 objective, creature, rune, Nest and building type, and says nothing is still to come', () => {
+    const page = read('units/objectives.html').toLowerCase();
+    for (const id of ['thickets', 'nests', 'runes', 'golden-egg', 'roc', 'embers', 'feeders', 'interactables']) expect(ids(read('units/objectives.html')).has(id), `section ${id}`).toBe(true);
+    for (const c of Object.keys(CREATURES)) expect(page, `creature ${c}`).toContain(c === 'cub' ? 'badger cub' : c);
+    for (const r of Object.values(RUNES.types)) expect(page, `rune ${r.name}`).toContain(r.name.toLowerCase());
+    for (const v of Object.keys(NESTS)) expect(page, `nest ${v}`).toContain(`${v} nest`);
+    const map = loadMap('main');
+    const buildings = read('map/buildings.html').toLowerCase();
+    for (const a of new Set((map.buildings ?? []).map((b) => b.archetype))) expect(buildings, `building ${a}`).toContain(a.replace(/-/g, ' '));
+    expect(ids(read('map/buildings.html')).has('cellar-run')).toBe(true);
+    expect(ids(read('map/buildings.html')).has('magpie-den')).toBe(true);
+    expect(existsSync(join(out, 'units/bots.html'))).toBe(true);
+    expect(existsSync(join(out, 'units/planned.html')), 'no page for features that already exist').toBe(false);
+    for (const p of result.pages) expect(read(p), p).not.toMatch(/Coming in Stage|not built yet|press interact/i);
   });
 
   it('has working internal links and anchors, and alt text on every image', () => {

@@ -75,14 +75,14 @@ export function registerItems(ctx: Ctx, extra: Map<string, string>): void {
       const tierRows = [1, 2, 3, 4].map((t) => {
         const inShop = ITEMS.filter((i) => i.tier === t);
         const first = inShop[0];
-        return `<tr><td>${TIER_NAME[t]}</td><td class="num">${first ? num(first.cost) : '-'}</td><td class="num">${inShop.length}</td><td class="num">${planned.filter((p) => p.tier === t).length}</td></tr>`;
+        return `<tr><td>${TIER_NAME[t]}</td><td class="num">${first ? num(first.cost) : '-'}</td><td class="num">${inShop.length}</td></tr>`;
       }).join('');
-      const cats = CATEGORIES.map((c) => `<tr><td>${ctx.link(`items/${c.id}`, c.title)}</td><td>${esc(c.blurb)}</td><td class="num">${ITEMS.filter((i) => i.category === c.id).length}</td><td class="num">${planned.filter((p) => p.category === c.id).length}</td></tr>`).join('');
+      const cats = CATEGORIES.map((c) => `<tr><td>${ctx.link(`items/${c.id}`, c.title)}</td><td>${esc(c.blurb)}</td><td class="num">${ITEMS.filter((i) => i.category === c.id).length}</td></tr>`).join('');
       const all = [...ITEMS.map((i) => ({ id: i.id, cat: i.category, tier: i.tier })), ...planned.map((p) => ({ id: p.id, cat: p.category, tier: p.tier }))];
-      return `<h1>The Magpie's Hoard</h1><p class="lead">The Hoard is the shop. Seeds you have not spent buy items from three columns, Talon, Plumage and Song, across four tiers. ${ITEMS.length} items are in the shop now; ${planned.length} more are planned for Stage ${ITEMS_STAGE}.</p>
+      return `<h1>The Magpie's Hoard</h1><p class="lead">The Hoard is the shop. Seeds you have not spent buy items from three columns, Talon, Plumage and Song, across four tiers. All ${ITEMS.length} items are in the shop: ${CATEGORIES.map((c) => `${ITEMS.filter((i) => i.category === c.id).length} ${c.title}`).join(", ")}.</p>
 ${ctx.figure('ui:shop', 'The Hoard open at a Magpie stall. Left click buys, right click sells.')}
-<h2>Categories</h2><div class="table-wrap"><table><thead><tr><th>Column</th><th>What it does</th><th class="num">In the shop</th><th class="num">Planned</th></tr></thead><tbody>${cats}</tbody></table></div>
-<h2>Tiers and prices</h2><div class="table-wrap"><table><thead><tr><th>Tier</th><th class="num">Price (Seeds)</th><th class="num">In the shop</th><th class="num">Planned</th></tr></thead><tbody>${tierRows}</tbody></table></div>
+<h2>Categories</h2><div class="table-wrap"><table><thead><tr><th>Column</th><th>What it does</th><th class="num">Items</th></tr></thead><tbody>${cats}</tbody></table></div>
+<h2>Tiers and prices</h2><div class="table-wrap"><table><thead><tr><th>Tier</th><th class="num">Price (Seeds)</th><th class="num">Items</th></tr></thead><tbody>${tierRows}</tbody></table></div>
 ${ctx.md(ctx.prose('hoard').body)}
 <ul>
 <li><strong>Slots:</strong> ${SHOP.baseSlots} base slots hold any category, each item once. Four more flex slots unlock for your whole flock from objectives; see ${ctx.link('mechanics/economy#flex-slots', 'flex slots')}.</li>

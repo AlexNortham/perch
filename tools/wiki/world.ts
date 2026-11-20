@@ -4,14 +4,12 @@ import { DEFENCE, FLEDGLING_AI, FLEDGLINGS, STRUCTURE_BODY, STRUCTURE_RADIUS, WA
 import { ECONOMY } from '../../src/sim/data/economy';
 import { TRAINING_TARGET } from '../../src/sim/data/core';
 import { ITEMS } from '../../src/sim/data/items';
-import { CURRENT_STAGE, gddSection } from './facts';
+import { CURRENT_STAGE } from './facts';
 import { esc, num, pct } from './lib';
 import type { Ctx } from './generate';
 import { table, withBlocks } from './mechanics';
 import { rel } from './site';
 
-/** Planned objectives still come from the design document; the stage comes from the plan in docs/STATUS.md (M3 is Stage 4). */
-const PLANNED_STAGE = 4;
 
 const LANE_TITLE: Record<string, string> = { hedgerow: 'Hedgerow (west)', riverbank: 'Riverbank (middle)', pinewood: 'Pinewood (east)' };
 
@@ -34,7 +32,7 @@ export function registerWorld(ctx: Ctx, extra: Map<string, string>): void {
       ['Sentinel Hawks / Stilt Herons / Nest Wardens', `${count((s) => s.type === 'hawk')} / ${count((s) => s.type === 'heron')} / ${count((s) => s.type === 'warden')}`],
       ['Roost Shrines / Patrons', `${count((s) => s.type === 'shrine')} / ${count((s) => s.type === 'patron')}`], ['Updraft lines', map.updrafts.length],
       ['Chimneys', map.climbs.filter((c) => c.kind === 'chimney').length], ['Vines', map.climbs.filter((c) => c.kind === 'vine').length], ['Mantle ledges', map.ledges.length],
-      ['Shops (Home Roosts and Magpie stalls)', map.shops.length], ['Thicket camps (planned)', map.thickets.length], ['Nests (planned)', map.nests.length], ['Feather rune spots (planned)', map.runeSpots.length], ['Egg Perches (planned)', map.eggPerches.length],
+      ['Shops (Home Roosts and Magpie stalls)', map.shops.length], ['Thicket camps', map.thickets.length], ['Nests', map.nests.length], ['Feather rune bridges', map.runeSpots.length], ['Egg Perches', map.eggPerches.length],
       ['Bounds', `${num(map.bounds.max.x - map.bounds.min.x, 0)} m × ${num(map.bounds.max.z - map.bounds.min.z, 0)} m`],
     ], [1]),
     'lane-shots': () => `<div class="gallery">${['hedgerow', 'riverbank', 'pinewood'].map((l) => ctx.figure(`map:${l}`, `${LANE_TITLE[l]}: street level, ${l === 'hedgerow' ? 'walled gardens and hedges' : l === 'riverbank' ? 'a river, boardwalks and long sightlines' : 'tall pines and timber platforms'}.`)).join('')}</div>`,
@@ -48,7 +46,6 @@ export function registerWorld(ctx: Ctx, extra: Map<string, string>): void {
 
   // ---- units and objectives ----
   const fr = (k: 'scrapper' | 'slinger') => FLEDGLINGS[k];
-  const gdd = (heading: RegExp): string => ctx.md(gddSection(heading).replace(/\*\*\(assumed\)\*\*/g, '').replace(/ \(assumed\)/g, ''));
   const towerRows = (): (string | number)[][] => (['hawk', 'heron', 'warden', 'shrine', 'patron'] as const).map((t) => [
     ctx.link(t === 'patron' ? 'units/patrons' : `units/towers#${t}`, { hawk: 'Sentinel Hawk', heron: 'Stilt Heron', warden: 'Nest Warden', shrine: 'Roost Shrine', patron: 'Patron' }[t]),
     num(STRUCTURE_BODY[t].hp), `${num(STRUCTURE_BODY[t].height)} m`, `${num(STRUCTURE_RADIUS[t])} m`,
@@ -82,7 +79,6 @@ export function registerWorld(ctx: Ctx, extra: Map<string, string>): void {
     'ward-table': () => table(['Brood Ward', 'Value'], [['Range of the attacking fledgling check', `${num(DEFENCE.ward.range)} m`], ['Damage multiplier while no attacking fledgling is near', `×${num(1 - DEFENCE.ward.early)} (−${pct(DEFENCE.ward.early, 0)}) early, ×${num(1 - DEFENCE.ward.late)} (−${pct(DEFENCE.ward.late, 0)}) from ${num(DEFENCE.ward.lateAtS / 60, 0)}:00`], ['Fledglings spawned late are', `${pct(DEFENCE.ward.lateFledglingMult - 1, 0)} stronger`]]),
     'roost-table': () => table(['Home Roost', 'Value'], [['Heals your flock', `${pct(DEFENCE.roost.healFraction, 0)} of max HP every ${num(DEFENCE.roost.interval)} s`], ['Damages enemies', `${num(DEFENCE.roost.damage)} Song per second`], ['Also', 'respawn point and Magpie\'s Hoard']]),
     'dummy-table': () => table(['Practice Hub', 'Value'], [['Dummy placement', `${num(TRAINING_TARGET.ahead)} m ahead, ${num(TRAINING_TARGET.side)} m to each side`], ['Ally dummy starts wounded at', pct(TRAINING_TARGET.alliedHpFraction, 0)], ['Practice Ability Points', num(TRAINING_TARGET.practiceAp)], ['Items in the Hoard', ITEMS.length]]),
-    'planned-objectives': () => `<div class="note"><strong>Coming in Stage ${PLANNED_STAGE}.</strong> The neutral objectives are not in the game yet. This is the design plan, and numbers may change.</div><h3 id="thickets">Thickets</h3>${gdd(/^### 7\.8 /)}<h3 id="nests">Nests</h3>${gdd(/^### 7\.9 /)}<h3 id="runes">Feather runes</h3>${gdd(/^### 7\.10 /)}<h3 id="golden-egg">The Golden Egg</h3>${gdd(/^### 7\.11 /)}<h3 id="roc">The Roc and the Phoenix Ember</h3>${gdd(/^### 7\.12 /)}`,
     'unit-shots': () => `<div class="gallery">${ctx.figure('unit:hawk', 'Sentinel Hawk')}${ctx.figure('unit:heron', 'Stilt Heron')}${ctx.figure('unit:warden', 'Nest Warden')}${ctx.figure('unit:shrine', 'Roost Shrine')}</div>`,
     'patron-shots': () => `<div class="gallery">${ctx.figure('unit:patron-dawn-1', 'The Elder Raven, phase 1 (Dawn)')}${ctx.figure('unit:patron-dawn-2', 'The Elder Raven, phase 2: the heart-feather glows')}${ctx.figure('unit:patron-dusk-1', 'The Great Owl, phase 1 (Dusk)')}${ctx.figure('unit:patron-dusk-2', 'The Great Owl, phase 2')}</div>`,
     'ward-shot': () => ctx.figure('unit:ward', 'A Patron under the pale Brood Ward dome.'),
@@ -101,5 +97,4 @@ export function registerWorld(ctx: Ctx, extra: Map<string, string>): void {
   page('units/towers.html', 'units/index.html', 'towers', 'Sentinel Hawk, Stilt Heron, Nest Warden and Roost Shrine.', 'tower hawk heron warden shrine structure');
   page('units/patrons.html', 'units/index.html', 'patrons', 'The two-phase Patrons, the Brood Ward and the Home Roost.', 'patron elder raven great owl brood ward home roost victory');
   page('units/practice-dummies.html', 'units/index.html', 'dummies', 'The Practice Hub dummies.', 'dummy practice hub training');
-  page('units/planned.html', 'units/index.html', 'planned', 'Planned objectives: Golden Egg, the Roc, Thickets, Nests and Feather runes.', 'golden egg roc phoenix ember thicket nest feather rune');
 }

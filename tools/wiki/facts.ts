@@ -50,8 +50,9 @@ let itemsStage = 4;
     }
     if (/48\+ items/.test(body)) itemsStage = stage;
   }
-  const now = /\*\*Milestone:\*\* M(\d)/.exec(STATUS);
-  if (now) currentStage = Number(now[1]) + 1;
+  // The newest stage with a PLAYABLE.md section is the stage the wiki describes (STATUS "Now" is the EP's and lags).
+  const written = [...PLAYABLE.matchAll(/^## Stage (\d+) /gm)].map((m) => Number(m[1]));
+  if (written.length > 0) currentStage = Math.max(...written);
 }
 export const CURRENT_STAGE = currentStage;
 export const ITEMS_STAGE = itemsStage;

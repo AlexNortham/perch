@@ -92,7 +92,7 @@ export function registerMechanics(ctx: Ctx): void {
     ]),
     'move-world': () => move('Updrafts, Chimneys and Vines', [
       ['Updraft ride speed', `${num(UPDRAFT.rideSpeed)} m/s`], ['Updraft boost', `${num(UPDRAFT.boostSpeed)} m/s for ${num(UPDRAFT.boostS)} s, ${num(UPDRAFT.boostCooldownS)} s cooldown`],
-      ['Mount at a station within', `${num(UPDRAFT.stationRadius)} m (press the interact key)`], ['Mount mid-line by jumping into it within', `${num(UPDRAFT.airMountRadius)} m`], ['No boost for', `${num(UPDRAFT.boostDamageLockS)} s after taking hero damage`],
+      ['Latch by holding Jump for', `${num(UPDRAFT.latchHoldS)} s within ${num(UPDRAFT.reach)} m of the cable (a tap never latches)`], ['Latch in mid-air within', `${num(UPDRAFT.airReach)} m`], ['No latch for', `${num(UPDRAFT.damageLockoutS)} s after taking hero damage, or ${num(UPDRAFT.leaveLockoutS)} s after leaving`], ['No boost for', `${num(UPDRAFT.boostDamageLockS)} s after taking hero damage`],
       ['Dismount hop', `${num(UPDRAFT.dismountUp)} m/s up, keeps ${pct(UPDRAFT.dismountKeep, 0)} of speed`], ['Chimney lift speed', `${num(CHIMNEY.liftSpeed)} m/s (shaft radius ${num(CHIMNEY.radius)} m)`],
       ['Vine climb / shimmy speed', `${num(VINE.climbSpeed)} / ${num(VINE.shimmySpeed)} m/s`], ['Vine jump-off speed', `${num(VINE.jumpOffSpeed)} m/s`],
     ]),

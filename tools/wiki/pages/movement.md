@@ -38,7 +38,7 @@ Hold jump next to a ledge within reach and your bird pulls itself up.
 
 ## Updrafts, Chimneys and Vines
 
-An **Updraft** is a rideable wind current strung above each lane from base to base: go to a marked station and press interact to mount, boost, and jump to dismount. A **Chimney** is a warm-air shaft that lifts you to a rooftop, and a **Vine** is a climbable rope on a wall or tree.
+An **Updraft** is a rideable wind current strung above each lane from base to base: hold **Jump** while you are near the cable to latch on, boost, and press Jump again to hop off (crouch drops you). A **Chimney** is a warm-air shaft that lifts you to a rooftop, and a **Vine** is a climbable rope on a wall or tree.
 
 {{move-world}}
 
