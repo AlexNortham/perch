@@ -78,8 +78,8 @@ export function lattice(px: number, py: number, seed: number): Field {
   const t = new Float32Array(px * py);
   for (let j = 0; j < py; j++) for (let i = 0; i < px; i++) t[j * px + i] = hash2(i, j, seed);
   return (x, y) => {
-    const xi = Math.floor(x);
-    const yi = Math.floor(y);
+    const xi = x >= 0 ? x | 0 : Math.floor(x);
+    const yi = y >= 0 ? y | 0 : Math.floor(y);
     const fx = x - xi;
     const fy = y - yi;
     const sx = fx * fx * (THREE_F - 2 * fx);
@@ -281,7 +281,7 @@ export class Voronoi {
         const c = j * this.nx + i;
         const dx = (this.px[c] ?? 0) + ox - x;
         const dy = (this.py[c] ?? 0) + oy - y;
-        const d = Math.hypot(dx, dy);
+        const d = dx * dx + dy * dy;
         if (d < d1) {
           d2 = d1;
           d1 = d;
@@ -292,8 +292,8 @@ export class Voronoi {
         } else if (d < d2) d2 = d;
       }
     }
-    out.d1 = d1;
-    out.d2 = d2;
+    out.d1 = Math.sqrt(d1);
+    out.d2 = Math.sqrt(d2);
   }
 }
 

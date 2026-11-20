@@ -509,11 +509,13 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
   const ny = Math.max(1, Math.ceil(size.y / voxel));
   const nz = Math.max(1, Math.ceil(size.z / voxel));
   const grid = new Uint8Array(nx * ny * nz);
+  const inv = 1 / voxel;
+  const [gx, gy, gz] = [min.x, min.y, min.z];
   const cell = (x: number, y: number, z: number): number => {
-    const i = Math.floor((x - min.x) / voxel);
-    const j = Math.floor((y - min.y) / voxel);
-    const k = Math.floor((z - min.z) / voxel);
-    return i < 0 || j < 0 || k < 0 || i >= nx || j >= ny || k >= nz ? -1 : (k * ny + j) * nx + i;
+    const i = (x - gx) * inv;
+    const j = (y - gy) * inv;
+    const k = (z - gz) * inv;
+    return i < 0 || j < 0 || k < 0 || i >= nx || j >= ny || k >= nz ? -1 : ((k | 0) * ny + (j | 0)) * nx + (i | 0);
   };
   // Voxelise: a triangle outside the grid is skipped; a big one is split in four until it is about a voxel, so
   // only the part inside the grid costs anything (a 260 m ground slab next to a 10 m house stays cheap).
@@ -523,18 +525,30 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
   const coarse = Math.max(voxel * AO.coarseVoxels, reach);
   const [cnx, cny, cnz] = [Math.ceil(size.x / coarse) + 1, Math.ceil(size.y / coarse) + 1, Math.ceil(size.z / coarse) + 1];
   const need = new Uint8Array(cnx * cny * cnz);
+  const cInv = 1 / coarse;
   const cIdx = (x: number, y: number, z: number): number => {
-    const i = Math.floor((x - x0) / coarse);
-    const j = Math.floor((y - y0) / coarse);
-    const k = Math.floor((z - z0) / coarse);
-    return i < 0 || j < 0 || k < 0 || i >= cnx || j >= cny || k >= cnz ? -1 : (k * cny + j) * cnx + i;
+    const i = (x - x0) * cInv;
+    const j = (y - y0) * cInv;
+    const k = (z - z0) * cInv;
+    return i < 0 || j < 0 || k < 0 || i >= cnx || j >= cny || k >= cnz ? -1 : ((k | 0) * cny + (j | 0)) * cnx + (i | 0);
   };
   if (rays) {
+    // Mark the coarse cell of every vertex, then grow the marks by one cell in every direction.
+    const seeds = new Uint8Array(need.length);
     const vp = geometry.getAttribute('position');
     for (let v = 0; v < vp.count; v++) {
-      for (let dk = -1; dk <= 1; dk++) for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
-        const at = cIdx(vp.getX(v) + di * coarse, vp.getY(v) + dj * coarse, vp.getZ(v) + dk * coarse);
-        if (at >= 0) need[at] = 1;
+      const at = cIdx(vp.getX(v), vp.getY(v), vp.getZ(v));
+      if (at >= 0) seeds[at] = 1;
+    }
+    for (let at = 0; at < seeds.length; at++) {
+      if (!seeds[at]) continue;
+      const i = at % cnx;
+      const j = Math.floor(at / cnx) % cny;
+      const k = Math.floor(at / (cnx * cny));
+      for (let dk = Math.max(0, k - 1); dk <= Math.min(cnz - 1, k + 1); dk++) {
+        for (let dj = Math.max(0, j - 1); dj <= Math.min(cny - 1, j + 1); dj++) {
+          for (let di = Math.max(0, i - 1); di <= Math.min(cnx - 1, i + 1); di++) need[(dk * cny + dj) * cnx + di] = 1;
+        }
       }
     }
   }
@@ -588,13 +602,13 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
   const ty = new Vector3();
   const o = new Vector3();
   const steps = Math.max(1, Math.round(reach / voxel));
-  for (let v = 0; v < pos.count; v++) {
-    n.fromBufferAttribute(nor, v).normalize();
+  // Non-indexed meshes repeat each corner for every triangle that meets there: trace each position and normal once.
+  const traced = new Map<string, number>();
+  const trace = (): number => {
     tx.set(Math.abs(n.y) < FLOOR_NORMAL_Y ? 0 : 1, Math.abs(n.y) < FLOOR_NORMAL_Y ? 1 : 0, 0).cross(n).normalize();
     ty.crossVectors(n, tx);
-    o.fromBufferAttribute(pos, v).addScaledVector(n, voxel * AO.lift);
     let occ = 0;
-    for (const [rx, ry, rz] of rays ? RAYS : []) {
+    for (const [rx, ry, rz] of RAYS) {
       const dx = tx.x * rx + ty.x * ry + n.x * rz;
       const dy = tx.y * rx + ty.y * ry + n.y * rz;
       const dz = tx.z * rx + ty.z * ry + n.z * rz;
@@ -606,6 +620,19 @@ export function bakeAO(geometry: BufferGeometry, opts: AoOptions = {}): void {
           break;
         }
       }
+    }
+    return occ;
+  };
+  const q = (x: number): number => Math.round(x * AO.keyScale);
+  for (let v = 0; v < pos.count; v++) {
+    n.fromBufferAttribute(nor, v).normalize();
+    o.fromBufferAttribute(pos, v).addScaledVector(n, voxel * AO.lift);
+    let occ = 0;
+    if (rays) {
+      const key = `${q(o.x)},${q(o.y)},${q(o.z)},${q(n.x)},${q(n.y)},${q(n.z)}`;
+      const known = traced.get(key);
+      occ = known ?? trace();
+      if (known === undefined) traced.set(key, occ);
     }
     let f = 1 - AO.concave * (occ / RAYS.length) * strength;
     if (opts.underside !== false && n.y < AO.downFacing) f *= 1 - AO.underside * strength;

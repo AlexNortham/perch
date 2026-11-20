@@ -55,6 +55,8 @@ export const AO = {
   leafVoxels: 2,
   /** The mask of space near baked vertices is this many voxels per cell (and never finer than the reach). */
   coarseVoxels: 4,
+  /** Positions and normals that agree to 1 cm share one trace. */
+  keyScale: 100,
   concave: 0.75,
   downFacing: -0.5,
   underside: 0.3,

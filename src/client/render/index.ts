@@ -35,7 +35,6 @@ import type { Object3D, Texture } from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ViewFlag } from '../../sim/core/contracts';
 import type { EntityView, HeroId, MapData, PlayerTeam } from '../../sim/core/contracts';
@@ -73,7 +72,7 @@ import {
 import { FIXTURE_MAP } from './fixture';
 import { getMaterialLibrary } from './materials';
 import { createModelKit } from './models';
-import { GRADE_FRAGMENT, GRADE_VERTEX } from './grade';
+import { gradeOutput } from './grade';
 import { RideOverlay } from './ride';
 import { identityResolution, rimStrength } from './identity';
 import { portraits, registerPortraitSource } from './portraits';
@@ -225,6 +224,8 @@ function budgetOf(scene: Scene, camera: PerspectiveCamera, calls: number, triang
 
 export function createRenderer(container: HTMLElement, map: MapData, quality: Quality): Renderer {
   let preset = QUALITY_PRESETS[quality];
+  // Dev builds only, for frame-time diagnosis: ?renderOff=post,shadow,backdrop,cards switches parts off.
+  const off = import.meta.env.DEV ? (new URLSearchParams(location.search).get('renderOff') ?? '').split(',') : [];
   let lib = getMaterialLibrary(quality);
   let size = { width: Math.max(1, container.clientWidth), height: Math.max(1, container.clientHeight) };
 
@@ -258,12 +259,12 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     r.setSize(size.width, size.height);
     r.toneMapping = NeutralToneMapping;
     r.toneMappingExposure = TONE_EXPOSURE;
-    r.shadowMap.enabled = preset.shadowMapSize > 0;
+    r.shadowMap.enabled = preset.shadowMapSize > 0 && !off.includes('shadow');
     r.shadowMap.type = preset.post === 'full' ? PCFSoftShadowMap : PCFShadowMap;
     // Counters add up over every pass of a frame (shadow, scene, bloom, output); render() resets them.
     r.info.autoReset = false;
     r.domElement.style.cssText = 'display:block;width:100%;height:100%';
-    sun.castShadow = preset.shadowMapSize > 0;
+    sun.castShadow = preset.shadowMapSize > 0 && !off.includes('shadow');
     sun.shadow.mapSize.set(preset.shadowMapSize, preset.shadowMapSize);
     // §7.3: a small prefiltered environment from the sky, so metal and glass catch the sky instead of going black.
     const pmrem = new PMREMGenerator(r);
@@ -274,15 +275,14 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     composer?.dispose();
     composer = null;
     bloom = null;
-    if (preset.post !== 'none') {
-      const target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: preset.antialias ? POST.samples : 0 });
+    if (preset.post !== 'none' && !off.includes('post')) {
+      const target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: preset.antialias && !off.includes('msaa') ? (preset.post === 'full' ? POST.samples : POST.samplesHalf) : 0 });
       composer = new EffectComposer(r, target);
       composer.addPass(new RenderPass(scene, camera));
       const res = new Vector2(size.width, size.height).multiplyScalar(preset.post === 'half' ? 1 / 2 : 1);
       bloom = new UnrealBloomPass(res, POST.bloomStrength, POST.bloomRadius, POST.bloomThreshold);
-      composer.addPass(bloom);
-      composer.addPass(new OutputPass());
-      composer.addPass(new ShaderPass({ uniforms: { tDiffuse: { value: null }, uWarm: { value: new Vector3(POST.warm.r, POST.warm.g, POST.warm.b) }, uCool: { value: new Vector3(POST.cool.r, POST.cool.g, POST.cool.b) }, uVignette: { value: POST.vignette } }, vertexShader: GRADE_VERTEX, fragmentShader: GRADE_FRAGMENT }));
+      if (!off.includes('bloom')) composer.addPass(bloom);
+      composer.addPass(gradeOutput(new OutputPass(), POST));
       composer.setPixelRatio(r.getPixelRatio());
       composer.setSize(size.width, size.height);
     }
@@ -322,6 +322,10 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       blockout.dispose();
     }
     blockout = buildBlockout(next, lib);
+    blockout.root.traverse((o) => {
+      if (off.includes('backdrop') && o.name.startsWith('backdrop')) o.visible = false;
+      if (off.includes('cards') && o instanceof Mesh && o.material === lib.cutout) o.visible = false;
+    });
     scene.add(blockout.root);
     anchors.clear();
     anchorModels = next.structures.map((_, i) => anchorView(next, i)).filter((v): v is EntityView => v !== null).map((view) => {

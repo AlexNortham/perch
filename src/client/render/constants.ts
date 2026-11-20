@@ -117,8 +117,9 @@ export const POST = {
   warm: { r: 1.02, g: 1.0, b: 0.97 },
   cool: { r: 0.97, g: 0.99, b: 1.04 },
   vignette: 0.1,
-  /** MSAA samples on the HDR scene target. */
+  /** MSAA samples on the HDR scene target: High, and Medium (where the resolve costs an iGPU most). */
   samples: 4,
+  samplesHalf: 2,
 } as const;
 
 /** §11.4: static architecture merges per 64 × 64 m cell; AO bakes across neighbouring cells. */
