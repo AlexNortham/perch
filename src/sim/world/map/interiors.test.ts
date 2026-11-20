@@ -195,21 +195,28 @@ describe('the jungle (GDD §6.5)', () => {
 });
 
 describe('lane framing and verticality (G19, G20)', () => {
-  const cover = map.prims.filter((p) => blocksMovement(p) && primBottom(p) <= 0.5 && primTop(p) - primBottom(p) >= 0.8 && primTop(p) <= 3.5);
-  const ramps = map.prims.filter((p) => p.shape === 'ramp' && p.material !== 'roof' && primTop(p) >= 3.5);
+  /** The lane's surface height beside p: its path's height at p's projection (lanes rise and fall, D-EP-053). */
+  const laneY = (lane: Lane, p: Vec3) => pointOnPath(lane.path, projectOnPath(lane.path, p)).y;
   for (const lane of map.lanes) {
     it(`${lane.id}: a prop or cover piece at least every 10 m along the lane`, () => {
-      const at = cover.filter((p) => fromPath(lane, p.centre) <= lane.halfWidth + 2).map((p) => projectOnPath(lane.path, p.centre));
+      // Standing on the lane's surface, 0.8–3.5 m tall.
+      const at = map.prims.filter((p) => {
+        if (!blocksMovement(p) || fromPath(lane, p.centre) > lane.halfWidth + 2) return false;
+        const y = laneY(lane, p.centre);
+        return Math.abs(primBottom(p) - y) <= 0.5 && primTop(p) - y >= 0.8 && primTop(p) - y <= 3.5;
+      }).map((p) => projectOnPath(lane.path, p.centre));
       expect(largestGap(lane, at)).toBeLessThanOrEqual(10);
     });
 
-    it(`${lane.id}: a raised route (4–8 m) at least every 30 m, stairs up at least every 40 m`, () => {
+    it(`${lane.id}: a raised route (4–8 m over the lane) at least every 30 m, stairs up at least every 40 m`, () => {
       // Riverbank's crossing of the Hollow is the GDD §6.4 exception: the bridge's long open sightline with the pit
       // 10 m below is that stretch's verticality, so the span over the Hollow counts as served.
       const hollow = lane.id === 'riverbank' && map.hollow ? Array.from({ length: map.hollow.radius * 2 + 1 }, (_, k) => pathLength(lane.path) / 2 - (map.hollow?.radius ?? 0) + k) : [];
-      const raised = nodes.filter((n) => n.y >= 4 && n.y <= 8 && fromPath(lane, n) <= lane.halfWidth + 8).map((n) => projectOnPath(lane.path, n));
+      const raised = nodes.filter((n) => fromPath(lane, n) <= lane.halfWidth + 8 && n.y - laneY(lane, n) >= 4 && n.y - laneY(lane, n) <= 8)
+        .map((n) => projectOnPath(lane.path, n));
       expect(largestGap(lane, [...raised, ...hollow])).toBeLessThanOrEqual(30);
-      const stairs = ramps.filter((p) => fromPath(lane, p.centre) <= lane.halfWidth + 8).map((p) => projectOnPath(lane.path, p.centre));
+      const stairs = map.prims.filter((p) => p.shape === 'ramp' && p.material !== 'roof' && fromPath(lane, p.centre) <= lane.halfWidth + 8 &&
+        primTop(p) - laneY(lane, p.centre) >= 3.5).map((p) => projectOnPath(lane.path, p.centre));
       expect(largestGap(lane, [...stairs, ...hollow])).toBeLessThanOrEqual(40);
     });
   }
