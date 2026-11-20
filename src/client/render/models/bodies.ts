@@ -292,11 +292,60 @@ export const CASSOWARY_HEAD: HeadShape = {
   bill: [0, -0.12, 1.1], billW: 0.3, billH: 0.3, browTilt: 0.2,
 };
 
+// =================================================================================================================
+// Shrike: a compact upright songbird, a big flat-crowned "loggerhead" on a thick neck, a full white breast, a grey
+// mantle between pale scapulars, and a black bandit mask from the hooked bill back through the eye.
+
+export function shrikeAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.75;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.7, 1.13 * s, -0.03 * s], hip: [R * 0.36, plan.height * 0.22, -0.03 * s], tail: [0, 0.6 * s, -0.25 * s],
+    legLen: plan.height * 0.22, legThick: 0.024 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export function shrikeBody(plan: BodyPlan): Body {
+  const a = shrikeAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2600, 950, 300, 120],
+    ops: [
+      // Upright and a little forward: a full breast high under the head, a waist over the thighs, the rump over the tail.
+      ell([0, 0.9 * s, -0.07 * s], [0.2 * s, 0.36 * s, 0.17 * s], 'body', 'back', { rot: [0.22, 0, 0], k: 0.05 }),
+      ...pair(ell([0.08 * s, 1.02 * s, 0.08 * s], [0.16 * s, 0.24 * s, 0.18 * s], 'body', 'breast', { k: 0.06, rot: [0.2, 0.22, 0] })),
+      ell([0, 0.97 * s, 0.17 * s], [0.07 * s, 0.22 * s, 0.1 * s], 'body', 'breast', { k: 0.05, rot: [0.25, 0, 0] }),
+      ell([0, 0.66 * s, 0.04 * s], [0.14 * s, 0.2 * s, 0.13 * s], 'body', 'belly', { k: 0.07, rot: [0.15, 0, 0] }),
+      ell([0, 1.06 * s, -0.13 * s], [0.17 * s, 0.24 * s, 0.075 * s], 'body', 'mantle', { k: 0.06, rot: [0.3, 0, 0] }),
+      cone([0, 0.66 * s, -0.17 * s], [0, 0.58 * s, -0.33 * s], 0.11 * s, 0.05 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.14 * s, 1.1 * s, -0.08 * s], scapularR: [0.09 * s, 0.16 * s, 0.08 * s], root: 0.065 * s, inset: 0.07 }),
+      ...thighs(a, { r: 0.058 * s, rKnee: 0.032 * s, reach: 0.35, root: [0.07 * s, 0.52 * s, -0.02 * s] }),
+      // A thick neck: the big head sits down on the shoulders.
+      ...neck([[0, 1.18 * s, 0.0], [0, 1.32 * s, 0.0], [0, hc[1] - 0.08 * s, -0.01 * s]], [0.18 * s, 0.17 * s, 0.17 * s], 'neck', 0.5),
+      ...head(hc, a.hr, SHRIKE_HEAD),
+      // The bandit mask: a band from ear to ear through both eyes, meeting over the bill base, sharp-edged.
+      ell(at(hc, a.hr, [0, 0.06, 0.22]), mulS([1.55, 0.25, 0.98], a.hr), 'head', 'mask', { mark: true, rot: [-0.18, 0, 0], soft: 0.004 }),
+      ell(at(hc, a.hr, [0, -0.06, 0.98]), mulS([0.46, 0.22, 0.26], a.hr), 'head', 'mask', { mark: true, soft: 0.004 }),
+      // The white throat, soft-edged under the mask.
+      ell(at(hc, a.hr, [0, -0.78, 0.35]), mulS([0.62, 0.42, 0.55], a.hr), 'head', 'pale', { mark: true, soft: 0.02 }),
+    ],
+  };
+}
+
+export const SHRIKE_HEAD: HeadShape = {
+  skull: [1.26, 1.08, 1.22], skullAt: [0, -0.02, -0.06], face: [0.76, 0.62, 0.62], faceAt: [0, -0.12, 0.46],
+  brow: [0.5, 0.18, 0.44], browAt: [0.5, 0.4, 0.5], browTilt: 0.4, nape: [1.0, 0.8, 0.7], napeAt: [0, -0.45, -0.48],
+  eye: [0.8, 0.1, 0.56], socket: 0.27, bill: [0, -0.1, 1.0], billW: 0.3, billH: 0.25,
+};
+
 /** The birds with implicit bodies, by hero id. */
 export const BODIES = {
   peacock: peacockBody,
   swift: swiftBody,
   cassowary: cassowaryBody,
+  shrike: shrikeBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */
