@@ -572,6 +572,7 @@ export const BODIES = {
   penguin: penguinBody,
   vulture: vultureBody,
   hummingbird: hummingbirdBody,
+  toucan: toucanBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */
@@ -709,4 +710,53 @@ export const HUMMINGBIRD_HEAD: HeadShape = {
   brow: [0.46, 0.16, 0.38], browAt: [0.5, 0.42, 0.52], browTilt: 0.2,
   throat: [0.55, 0.45, 0.55], throatAt: [0, -0.7, 0.25],
   eye: [0.66, 0.14, 0.62], socket: 0.3, bill: [0, -0.1, 1.0], billW: 0.14, billH: 0.12,
+};
+
+// =================================================================================================================
+// Batch D (W7). Toucan: a compact, upright black body with a deep breast, a white bib edged in yellow, a maroon nape,
+// a white rump band over a red vent, and a big head built round the base of the gigantic bill, with bare blue skin
+// round the eyes.
+
+export function toucanAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.7;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.68, 1.1 * s, -0.04 * s], hip: [R * 0.36, plan.height * 0.2, -0.03 * s], tail: [0, 0.42 * s, -0.17 * s],
+    legLen: plan.height * 0.2, legThick: 0.026 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export function toucanBody(plan: BodyPlan): Body {
+  const a = toucanAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2250, 900, 290, 115], cell: 0.008,
+    ops: [
+      // Compact and upright, leaning a little forward over a deep breast.
+      ell([0, 0.8 * s, -0.06 * s], [0.23 * s, 0.37 * s, 0.21 * s], 'body', 'back', { rot: [0.15, 0, 0], k: 0.05 }),
+      ...pair(ell([0.09 * s, 0.98 * s, 0.07 * s], [0.15 * s, 0.2 * s, 0.15 * s], 'body', 'breast', { k: 0.06, rot: [-0.15, 0.25, 0] })),
+      ell([0, 0.9 * s, 0.15 * s], [0.06 * s, 0.18 * s, 0.09 * s], 'body', 'breast', { k: 0.05, rot: [-0.2, 0, 0] }),
+      ell([0, 0.56 * s, -0.03 * s], [0.19 * s, 0.19 * s, 0.19 * s], 'body', 'belly', { k: 0.07 }),
+      ell([0, 1.08 * s, -0.14 * s], [0.18 * s, 0.17 * s, 0.08 * s], 'body', 'mantle', { k: 0.05, rot: [0.25, 0, 0] }),
+      cone([0, 0.5 * s, -0.15 * s], [0, 0.4 * s, -0.22 * s], 0.12 * s, 0.05 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.14 * s, 1.08 * s, -0.09 * s], scapularR: [0.09 * s, 0.12 * s, 0.09 * s], root: 0.06 * s, inset: 0.06, drop: 0.06 }),
+      ...thighs(a, { r: 0.07 * s, rKnee: 0.045 * s, reach: 0.5, root: [0.07 * s, 0.42 * s, -0.03 * s] }),
+      ...neck([[0, 1.16 * s, 0.02 * s], [0, 1.27 * s, 0.02 * s], [0, hc[1] - 0.07 * s, 0]], [0.17 * s, 0.15 * s, 0.13 * s], 'neck', 0.5),
+      ...head(hc, a.hr, TOUCAN_HEAD),
+      // Markings: the yellow-edged white bib, the white rump band and the red vent under the tail.
+      ell([0, 1.15 * s, 0.13 * s], [0.21 * s, 0.17 * s, 0.15 * s], 'body', 'bibEdge', { mark: true, soft: 0.006 }),
+      ell([0, 1.24 * s, 0.13 * s], [0.2 * s, 0.16 * s, 0.15 * s], 'body', 'bib', { mark: true, soft: 0.006 }),
+      ell([0, 0.52 * s, -0.22 * s], [0.12 * s, 0.045 * s, 0.08 * s], 'tail', 'rump', { mark: true, soft: 0.008 }),
+      ell([0, 0.42 * s, -0.08 * s], [0.12 * s, 0.07 * s, 0.1 * s], 'body', 'vent', { mark: true, soft: 0.01 }),
+    ],
+  };
+}
+
+export const TOUCAN_HEAD: HeadShape = {
+  skull: [1.08, 1.06, 1.1], skullAt: [0, 0.04, -0.06], face: [0.74, 0.72, 0.62], faceAt: [0, -0.04, 0.42],
+  brow: [0.5, 0.2, 0.42], browAt: [0.5, 0.46, 0.46], browTilt: 0.2,
+  nape: [0.8, 0.72, 0.62], napeAt: [0, -0.5, -0.45], throat: [0.6, 0.5, 0.55], throatAt: [0, -0.72, 0.22],
+  eye: [0.72, 0.24, 0.48], socket: 0.3, bill: [0, 0.1, 0.94], billW: 0.4, billH: 0.56,
 };

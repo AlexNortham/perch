@@ -7,10 +7,11 @@
 import { ExtrudeGeometry, Matrix4, Shape } from 'three';
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
-import { beak, eye, FEATHER, flare, headForm, legsOf, norm, ovoid, shingle, SKIN, tailFan, wingsOf } from './anatomy';
+import { beak, eye, FEATHER, flare, foldedWings, hackles, headForm, inBone, legsOf, norm, ovoid, shingle, SKIN, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
-import { bodyField, CASSOWARY_HEAD, cassowaryAnchors, flipX, skinFor, TRUNK } from './bodies';
+import { bodyField, CASSOWARY_HEAD, cassowaryAnchors, flipX, skinFor, TOUCAN_HEAD, toucanAnchors, TRUNK } from './bodies';
 import { SKIN as CASSOWARY_SKIN } from './data/skins/cassowary';
+import { SKIN as TOUCAN_SKIN } from './data/skins/toucan';
 import { CARD, TILE } from './feathers';
 import { band, bead, block, BRASS, buckle, carve, GEAR, LEATHER, lathe, pouch, ring, sash, scope, stud, WOOD } from './gear';
 import type { Detail, SculptedSpec } from './sculpted';
@@ -201,6 +202,8 @@ const TOUCAN = {
   black: 0x232329,
   bib: 0xf3f0e6,
   bibEdge: 0xf2d27a,
+  maroon: 0x5c1f2c,
+  vent: 0xc8202a,
   green: 0x56b043,
   yellow: 0xf2b028,
   orange: 0xea5a24,
@@ -215,54 +218,71 @@ const TOUCAN = {
 
 export function toucan(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
   const H = plan.height;
-  const R = plan.radius;
   const hr = plan.head.radius;
-  const hc = plan.head.centre.up;
-  const s = H / 1.7;
+  const A = toucanAnchors(plan);
+  const s = A.s;
   const T = TOUCAN;
-  const legLen = H * 0.2;
+  const legLen = A.legLen;
+  // Glossy blue-black plumage with a faint sheen; the bib and face soft and white.
+  const PLUME = { tile: TILE.scales, size: 0.06, gloss: 0.3, iri: 0.25 } as const;
+  const FACE = { tile: TILE.flat, gloss: 0.15 } as const;
+  const field = bodyField('toucan', plan);
+  const skin = skinFor('toucan', plan, TOUCAN_SKIN, d.level, {
+    back: { paint: T.black, finish: PLUME },
+    mantle: { paint: shade(T.black, 1.08), finish: PLUME },
+    scapular: { paint: T.black, finish: PLUME },
+    shoulder: { paint: T.black, finish: PLUME },
+    coverts: { paint: T.black, finish: PLUME },
+    breast: { paint: T.black, finish: PLUME },
+    belly: { paint: T.black, finish: PLUME },
+    thigh: { paint: T.black, finish: { ...PLUME, size: 0.05 } },
+    neck: { paint: T.black, finish: PLUME },
+    bib: { paint: T.bib, finish: { ...PLUME, iri: 0, gloss: 0.15 } },
+    bibEdge: { paint: T.bibEdge, finish: { ...PLUME, iri: 0, gloss: 0.15 } },
+    rump: { paint: T.bib, finish: { ...PLUME, iri: 0 } },
+    vent: { paint: T.vent, finish: { ...PLUME, iri: 0 } },
+    // The head: a maroon crown and nape over the black mantle (a value and hue break from behind), white cheeks and
+    // throat, and the bare blue skin round the eyes.
+    crown: { paint: T.maroon, finish: PLUME },
+    nape: { paint: T.maroon, finish: PLUME },
+    brow: { paint: shade(T.maroon, 0.9), finish: PLUME },
+    face: { paint: T.bib, finish: FACE },
+    cheek: { paint: T.bib, finish: FACE },
+    throat: { paint: T.bib, finish: FACE },
+    socket: { paint: T.ring, finish: { tile: TILE.leather, size: 0.03, gloss: 0.35 } },
+    // The bill base: white face behind, the bill's own green only where the horn begins.
+    bill: { paint: (p) => mix(T.bib, T.green, Math.min(1, Math.max(0, (p.z - A.head[2] - hr * 0.78) / (hr * 0.12)))), finish: { gloss: 0.4 } },
+  });
   const leg: LegStyle = {
-    skin: T.leg, claw: T.claw, thick: 0.026 * s, thigh: T.black, fringe: 0.5,
+    skin: T.leg, claw: T.claw, thick: A.legThick, thigh: T.black, fringe: 0.5, skinned: { r: 0.06 * s, at: 0.25 },
     toes: [{ yaw: -0.32, len: 0.09 * s }, { yaw: 0.32, len: 0.09 * s }, { yaw: Math.PI - 0.38, len: 0.07 * s }, { yaw: Math.PI + 0.38, len: 0.07 * s }],
     clawLen: 0.03 * s,
   };
   const wing: WingStyle = {
     covert: T.black, secondary: T.black, primary: T.black, primaryTip: shade(T.black, 1.5), trim: team.primary,
-    thick: 0.032 * s, chord: 0.24 * s, primaries: 8, secondaries: 7, primaryLen: 0.6,
+    thick: 0.032 * s, chord: 0.24 * s, primaries: 8, secondaries: 7, primaryLen: 0.6, finish: { gloss: 0.3, iri: 0.25 },
   };
+  const neckAxis: [V3, V3] = [[0, 1.12 * s, 0.0], [0, A.head[1] + 0.02 * s, 0]];
 
   const body = (k: Sculpt): void => {
-    const torso = k.loft(
-      [
-        { c: [0, 0.3 * s, -0.12 * s], w: 0, up: 0 },
-        { c: [0, 0.38 * s, -0.1 * s], w: 0.17 * s, up: 0.16 * s, dn: 0.17 * s },
-        { c: [0, 0.62 * s, -0.04 * s], w: 0.26 * s, up: 0.25 * s, dn: 0.24 * s },
-        { c: [0, 0.92 * s, 0], w: 0.25 * s, up: 0.24 * s, dn: 0.22 * s },
-        { c: [0, 1.18 * s, 0.02 * s], w: 0.19 * s, up: 0.19 * s, dn: 0.17 * s },
-        { c: [0, hc - 0.1 * s, 0.02 * s], w: 0.13 * s, up: 0.13 * s, dn: 0.13 * s },
-      ],
-      {
-        n: d.n(14, 4), seg: d.n(22, 5), ref: [0, 0, 1], finish: { ...FEATHER, size: 0.1 },
-        paint: (t, a) => (t > 0.62 && Math.sin(a) > 0.15 ? (t < 0.68 ? T.bibEdge : T.bib) : t < 0.14 && Math.sin(a) > 0.2 ? 0xc8202a : T.black),
-      },
-    );
-    shingle(k, torso, { t: [0.62, 0.72], a: [Math.PI * 0.12, Math.PI * 0.88], rows: 2, cols: 7, len: 0.07 * s, wid: 0.07 * s, paint: (t) => mix(T.bibEdge, T.bib, t * 3), lift: 0.25, seed: 4 }, d);
-    shingle(k, torso, { t: [0.2, 0.6], a: [-Math.PI * 0.1, -Math.PI * 0.9], rows: 3, cols: 5, len: 0.09 * s, wid: 0.08 * s, paint: T.black, lift: 0.15, seed: 8 }, d);
-    // Gear: a flock-colour bandana at the throat, a bandolier of brass cartridges, and a pouch of fruit.
-    band(k, torso, 0.86, { width: 0.06 * s, thick: 0.016 * s, hex: team.primary, stitch: team.light, finish: { gloss: 0.3 } }, d);
-    if (d.level < 3) {
-      const knot = torso.at(0.84, Math.PI / 2, 0.02 * s);
-      k.card({ at: [knot.p.x, knot.p.y, knot.p.z], dir: [0, -1, 0.15], face: [0, 0.1, 1], len: 0.16 * s, wid: 0.16 * s, cell: CARD.cloth, root: team.primary, tip: team.dark, segs: 2, curl: -0.15 });
-    }
-    sash(k, torso, 0.55, 0.22, Math.PI * 0.72, { width: 0.05 * s, thick: 0.012 * s, hex: GEAR.leather, finish: LEATHER }, d);
+    // The body is the baked implicit skin (bodies.ts); feathers and gear sit on its surface. Upright: a = π/2 in front.
+    const torso = field.only(...TRUNK).surface([0, 0.36 * s, -0.06 * s], [0, 1.2 * s, -0.02 * s], [0, 0, 1]);
+    // Glossy scapulars over the shoulders, and the wings folded down the flanks.
+    shingle(k, torso, {
+      t: [0.72, 0.9], a: [-Math.PI * 0.85, -Math.PI * 0.15], rows: 2, cols: 5, len: 0.12 * s, wid: 0.1 * s,
+      paint: (t) => shade(T.black, 1.05 + 0.15 * t), lift: 0.12, seed: 8, finish: { gloss: 0.35, iri: 0.25 },
+    }, d);
+    foldedWings(k, torso, wing, { t: [0.45, 0.72], a: -0.35, len: 0.3 * s, wid: 0.11 * s }, d);
+    // Gear: a bandolier of brass cartridges across the chest and back, and a pouch of fruit on the hip.
+    sash(k, torso, 0.62, 0.2, Math.PI * 0.72, { width: 0.05 * s, thick: 0.012 * s, hex: GEAR.leather, finish: LEATHER }, d);
     if (d.level < 2) {
       for (let i = 0; i < 6; i++) {
-        const u = 0.25 + i * 0.1;
-        const p = torso.at(0.55 + 0.22 * Math.cos(u), Math.PI * 0.72 + u, 0.025 * s);
-        lathe(k, [[0.007 * s, 0.022 * s], [0.008 * s, 0], [0.007 * s, -0.022 * s]], { at: [p.p.x, p.p.y, p.p.z], seg: 6, rot: [0, 0, 0], paint: GEAR.brass, finish: BRASS });
+        const u = 0.04 + i * 0.05;
+        const p = torso.at(0.62 + 0.2 * Math.cos(u * Math.PI * 2), Math.PI * 0.72 + u * Math.PI * 2, 0.025 * s);
+        lathe(k, [[0.007 * s, 0.022 * s], [0.008 * s, 0], [0.007 * s, -0.022 * s]], { at: [p.p.x, p.p.y, p.p.z], seg: 6, paint: GEAR.brass, finish: BRASS });
       }
     }
-    const hip = torso.at(0.4, Math.PI * 1.1, 0);
+    const hip = torso.at(0.3, Math.PI * 1.15, 0);
     pouch(k, hip, [0.11 * s, 0.11 * s, 0.07 * s], GEAR.leather, d);
     if (d.level < 2) {
       T.fruit.forEach((hex, i) => bead(k, [hip.p.x - 0.03 * s + i * 0.025 * s, hip.p.y + 0.06 * s, hip.p.z + 0.03 * s + i * 0.01 * s], 0.022 * s, hex, 0, d));
@@ -270,18 +290,32 @@ export function toucan(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSp
   };
 
   const head = (k: Sculpt): void => {
-    // One form from the neck to the bill: black crown and nape, a white face and throat edged in yellow.
-    headForm(k, {
-      hr, width: 1.06, crown: 1.05, chin: 1.0, back: 0.95, face: 0.98, neck: { r: 0.13 * s, drop: 0.16 * s },
-      beak: { y: -hr * 0.04, w: hr * 0.4, up: hr * 0.78, dn: hr * 0.42 }, finish: { ...FEATHER, size: 0.07, gloss: 0.3 },
-      paint: (_t, _a, p) => (p.y < hr * 0.1 && p.z > -hr * 0.25 ? (p.y > -hr * 0.05 && p.z < hr * 0.2 ? T.bibEdge : T.bib) : T.black),
+    // The head and its colours are the skin's; the eyes sit in the blue rings and the bill grows from its base.
+    // The player-camera standard: maroon hackles down the nape, and a flock-colour bandana tied over the crown with
+    // its knot and tails at the back of the head.
+    hackles(k, inBone(field.only('neck', 'nape', 'crown').surface(...neckAxis, [0, 0, 1]), A.head), {
+      t: [0.4, 0.72], rows: 2, cols: 5, len: 0.08 * s, wid: 0.065 * s, lift: 0.2,
+      paint: (t) => mix(T.black, T.maroon, 0.4 + 0.5 * t), finish: { gloss: 0.3 }, seed: 43,
     }, d);
-    for (const x of [1, -1]) eye(k, [x * hr * 0.72, hr * 0.22, hr * 0.5], [x * 0.78, 0.08, 0.62], { r: hr * 0.22, iris: T.iris, ring: T.ring, lid: T.ring, ringW: hr * 0.13 }, d);
+    const E = TOUCAN_HEAD.eye;
+    for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.78, 0.08, 0.62], { r: hr * 0.2, iris: T.iris, ring: T.ring, lid: T.ring, ringW: hr * 0.1 }, d);
     // The bill: as long as the body, deep at the base, curving down, serrated, and banded green, yellow, orange, black.
     beak(k, {
-      at: [0, -hr * 0.04, hr * 0.96], len: 0.58 * s, w: hr * 0.4, up: hr * 0.78, dn: hr * 0.42, curve: 0.07 * s, hook: 0.02 * s,
+      at: [0, -hr * 0.04, hr * 0.92], len: 0.58 * s, w: hr * 0.4, up: hr * 0.78, dn: hr * 0.42, curve: 0.07 * s, hook: 0.02 * s,
       base: T.green, tip: T.tip, bands: [[0, T.green], [0.3, T.yellow], [0.58, T.orange], [0.9, T.tip]], teeth: 10, open: 0.26, displayOpen: 0.5,
     }, d);
+    if (d.level < 3) {
+      const tilt = norm([0, 1, -0.65]);
+      const c: V3 = [A.head[0], A.head[1] + hr * 0.2, A.head[2] - hr * 0.1];
+      const skull = field.only('crown', 'nape', 'brow', 'cheek').surface(
+        [c[0] - tilt[0] * hr, c[1] - tilt[1] * hr, c[2] - tilt[2] * hr], [c[0] + tilt[0] * hr, c[1] + tilt[1] * hr, c[2] + tilt[2] * hr],
+      );
+      const bandana = inBone(skull, A.head);
+      band(k, bandana, 0.55, { width: 0.075 * s, thick: 0.018 * s, hex: team.primary, stitch: team.light, finish: { gloss: 0.3 } }, d);
+      const knot = bandana.at(0.55, Math.PI * 1.5, 0.02 * s);
+      bead(k, [knot.p.x, knot.p.y, knot.p.z], 0.022 * s, team.primary, 0, d, [1.2, 0.9, 0.8]);
+      for (const x of [1, -1]) k.card({ at: [knot.p.x, knot.p.y, knot.p.z], dir: norm([x * 0.45, -0.7, -0.6]), face: [0, 0.4, -1], len: 0.13 * s, wid: 0.05 * s, cell: CARD.cloth, root: team.primary, tip: team.dark, curl: -0.3, sweep: x * 0.2, segs: d.level === 0 ? 3 : 2 });
+    }
   };
 
   const tail = (k: Sculpt): void => {
@@ -293,15 +327,11 @@ export function toucan(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSp
   };
 
   return {
-    body, head, tail,
+    body, head, tail, skin,
     wing: wingsOf(wing, d),
     leg: legsOf(leg, d),
     gun: toucanGun(s, d),
-    pivot: {
-      wingL: [R * 0.75, 1.12 * s, -0.02 * s], wingR: [-R * 0.75, 1.12 * s, -0.02 * s],
-      legL: [R * 0.36, legLen, -0.02 * s], legR: [-R * 0.36, legLen, -0.02 * s],
-      tail: [0, 0.4 * s, -0.16 * s],
-    },
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
     legLen, legThick: leg.thick, wingLen: H * 0.36,
     // Fruit Lob, Seed Spit, Branch Swing, Fruit Barrage.
     casts: ['throw', 'aim', 'leap', 'throw'],
