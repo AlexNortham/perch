@@ -386,13 +386,30 @@ function laneStrip(path: readonly Vec3[], side: readonly Vector3[], hw: number, 
 /** Lanes (§2.5): calm paving down the middle, a kerb band of granite setts along both edges. */
 function lanes(ctx: Ctx, map: MapData): void {
   for (const l of map.lanes) {
-    if (l.path.length < 2) continue;
-    const side = sides(l.path, l.halfWidth);
+    // The Home Roosts have their own paving: the lane is paved only between them.
+    const runs: Vec3[][] = [];
+    let run: Vec3[] = [];
+    for (let k = 0; k + 1 < l.path.length; k++) {
+      const [a, b] = [l.path[k], l.path[k + 1]];
+      if (!a || !b) continue;
+      const d = ctx.district((a.x + b.x) / 2, (a.z + b.z) / 2);
+      if (d === 'dawn' || d === 'dusk') {
+        if (run.length > 1) runs.push(run);
+        run = [];
+        continue;
+      }
+      if (run.length === 0) run.push(a);
+      run.push(b);
+    }
+    if (run.length > 1) runs.push(run);
     const kerb = 1 - LANE_ART.kerb / l.halfWidth;
     const paving = LANE_ART.paving[l.id] as MaterialId;
-    ctx.batch.add(paint(laneStrip(l.path, side, l.halfWidth, -kerb, kerb, LANE_ART.lift), paving, { uv: 'keep', tint: LANE_ART.tint }), { rays: false, cast: false });
-    for (const [a, b] of [[-1, -kerb], [kerb, 1]] as const) {
-      ctx.batch.add(paint(laneStrip(l.path, side, l.halfWidth, a, b, LANE_ART.lift + LANE_ART.kerbLift), 'cobble', { uv: 'keep', tint: LANE_ART.kerbTint }), { rays: false, cast: false });
+    for (const path of runs) {
+      const side = sides(path, l.halfWidth);
+      ctx.batch.add(paint(laneStrip(path, side, l.halfWidth, -kerb, kerb, LANE_ART.lift), paving, { uv: 'keep', tint: LANE_ART.tint }), { rays: false, cast: false });
+      for (const [a, b] of [[-1, -kerb], [kerb, 1]] as const) {
+        ctx.batch.add(paint(laneStrip(path, side, l.halfWidth, a, b, LANE_ART.lift + LANE_ART.kerbLift), 'cobble', { uv: 'keep', tint: LANE_ART.kerbTint }), { rays: false, cast: false });
+      }
     }
   }
 }

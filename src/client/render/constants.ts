@@ -164,7 +164,7 @@ export const SHAPE = {
   /** Clumps are dark inside, up to +15 % on the sun side (§6.1). */
   innerShade: 0.5,
   sunLift: 0.15,
-  coreShare: 0.6,
+  coreShare: 0.42,
   /** Icosphere subdivisions of a clump's opaque core (0: 20 triangles; the cards carry the silhouette). */
   coreDetail: 0,
   tubeSides: 6,
@@ -222,7 +222,7 @@ export const ART = {
   canopyAreaPerClump: 18,
   clumpOfRadius: 0.55,
   clumpOfHeight: 0.6,
-  cardsPerM2: 2,
+  cardsPerM2: 2.6,
   canopyCard: 1.4,
   canopyTint: 0x8fae80,
   canopyTintAlt: 0x9fb784,
