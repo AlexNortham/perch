@@ -1833,6 +1833,30 @@ Triangle targets per level go in the body (`tris`); the rest of the bird must fi
 **Why:** the EP scored v2 at 2.5 for its plastic surfaces and bare backs of heads. What the player sees most is the
 back of the head, the nape and the shoulders, so the standard is written down for the 21 birds that follow.
 
+### D-ART-012 · 21/11/2026 — The feather surface is filtered analytically
+**Decision:** the v2.1 feather surface (`bird-material.ts`) no longer takes screen derivatives of its own height.
+- The relief's gradient is analytic, from the top and under feathers' ovals, mapped to the pixel by the bind-position
+  derivatives. Its slope is capped at 50°, so a bumped normal never turns from the viewer.
+- Each feather edge is 1.5 px wide, from its exact screen footprint. The old edge width could fall below a pixel on
+  narrow ovals and hair.
+- Every value is continuous. A root leaving the surface's slab shrinks its feather away instead of popping. The soft
+  shadow outside an edge runs on every side and meets the dark band inside it.
+- The 27-cell search is skipped once the detail has fully faded.
+
+**Why:** the speckle at feather edges was the bump's finite differences across near-steps: single pixels whose normal
+flipped, dark or hue-shifted by the iridescence. Measured with GPU timer queries on an Intel Arc 140T iGPU, 12
+sculpted birds in the player-camera view covering 5.9 % of 1080p: the feather surface costs 0.09–0.12 ms at Medium and
+0.05–0.06 ms at Low, and all 12 birds 0.45 ms and 0.35–0.42 ms. On the reference Iris Xe (about 2–2.5× slower) that
+is about 0.3 ms at Medium, inside the 2.5 ms for birds, fledglings, creatures and structures (§11.2).
+### D-ART-013 · 21/11/2026 — Sculpted birds outside `sculpted-birds.ts` register through `heroes.ts`
+**Decision:** batch B birds are `SculptedBird` functions in their builder file (`heroes.ts`), wrapped with
+`sculptedBuild` into `HERO_BUILDS`. `heroes.ts` exports `SCULPTED_IDS` (the ids of `SCULPTED_BUILDS` plus its own), and
+`models.test.ts` takes its sculpted list from it, de-duplicating the old twelve, so the display, jaw, blink and gun-cap
+tests cover every converted bird. A bird converted in `heroes-b.ts` should be exported as a `SculptedBird` record there
+and added to `SCULPTED_IDS` the same way.
+**Why:** `sculpted-birds.ts` cannot import `heroes.ts` (it would be a cycle), and the brief keeps each batch in its own
+builder file.
+
 ### D-SYS-006 · 19/11/2026 — The Updraft latch, read exactly (GDD §3.7, D-EP-039)
 **Decision:** `updraftInReach` is the nearer of two tests per segment: the column (feet within 2.5 m of the cable's
 ground line, the cable 0.5–14 m above them, at the point straight above the feet's nearest spot) and a 1.5 m sphere
@@ -2432,3 +2456,66 @@ chunked or moved to a worker (follow-ups).
 `TetherEffect.breakDistance` as a Magnitude: Swan's Grace Link doesn't need it (Hero B3) and Hummingbird's hook covers
 Nectar Sip.
 **Why:** a typed field over a value name the framework reads (D-ARCH-027); a contract widening with no user is churn.
+### D-EP-050 · 21/11/2026 — Stage 4 ships in two pushes: functionality first, art when done; no Stage 5
+**Decision:** the user said art must not hold up pushes to `main`, and stability matters most. Stage 4 therefore ships
+in two releases.
+
+1. **Functionality.** All 24 heroes playable, matches that end, every Stage 4 system working, and bots that play every
+   bird. Stability gates it:
+   - the full check passes three times in a row, run serially;
+   - every flaky test is explained or fixed;
+   - 20 seeded headless matches end with a winner and no crashes.
+
+   Art already merged and tested ships with it. Unfinished art waits, and a hero without its final model uses the
+   default bird.
+2. **Art.** The bird conversions, structures and creatures, and the environment's third pass, plus the Build Lab's
+   learned builds if they have converged. Pushed when done, against the same stability bar.
+
+After both pushes, work stops. Stage 5 is not started.
+
+**Why:** "the art should not hold up pushes to main im more concerned about stability. dont start stage 5 when you are
+done with stage 4, push to main when all functionality is added and push the art when that is done."
+
+**Consequence:**
+- In-flight art branches merge only after Release 1 is cut.
+- Ability-balance campaigns (D-EP-043) belong to Stage 5 and don't start.
+- The Build Lab's Phase B finishes the Stage 4 recommended builds and may still run.
+
+### D-EP-051 · 21/11/2026 — Functionality first: art pauses now, and its finished work ships in Release 1
+**Decision:** refines D-EP-050.
+- The six art agents wrapped up on 21/11: three bird batches, the B3 bird models, the structures and creatures, and the
+  environment's third pass. Their committed, tested work merges into the Release 1 candidate.
+- No new art work starts until Release 1 is pushed. The visual upgrade (Release 2) comes after that.
+- Resources go to functionality and stability: matches that end, all 24 heroes, Architect W6, bot navigation and tuning
+  for all 24, and QA's stability round.
+
+**Why:** "get all functionality in before you start dedicating resources to the higher quality models and map
+resources as long as it works and i can test it i want it in main, the visual upgrade comes after, but any work already
+done on that should be included in the next push to main."
+### D-HEROB-010 · 21/11/2026 — A tier lengthens a channel through the `channelExtraS` value
+**Decision:** `resolveAbility` returns `channelS` = `def.channelS` plus the ability's `channelExtraS` value after upgrades
+(`CHANNEL_EXTRA_VALUE` in abilities/kit.ts), and casting reads it. Sulphur Shriek T2 (+0.5 s, a fifth pulse) and Burrow T1
+(+1 s) use it. **Why:** `AbilityUpgrade` has no `channelS` and contracts are frozen this wave. **Request:** a typed
+`AbilityUpgrade.channelS` in the next contract round, then delete the value-name convention (as for `surface` and `steerDeg`).
+
+### D-HEROB-011 · 21/11/2026 — A Burrow lasts as long as the channel of the ability that dug it
+**Decision:** physics ends a `burrow` movement mode (running its `onEnd`) when the `ability` event with the mode's ability
+id reports `end` or `interrupted`. Kiwi's Burrow is a 4 s channel plus a `burrow` mode with `allowGun` and `allowAbilities`
+false (D-ARCH-016 meant exactly this), so a second press surfaces it and the eruption is the mode's `onEnd`. Underground is
+a status of `invisible` and `intangible` (heroes never collide with each other, so that covers "no collision"); Ambush Pit is
+a target dash under the same status. **Not built:** the dirt trail enemies within 10 m see (a Rendering and VFX cue).
+
+### D-HEROB-012 · 21/11/2026 — Readings of the B3 text that the data cannot say exactly
+**Decision:** (1) Harpoon Line's pull is the standard displacement arc, about 0.65 s for 15 m, not 0.5 s. (2) Plunder Shot
+and Swan Song use a hook only for what a Magnitude cannot say: the shield goes to the caster when the bolt lands, and the
+25% max-HP heal runs when undying expires. (3) Sulphur Shriek's stun counts pulses per channel in a hook (the third pulse stuns once).
+(4) Probe is a 3 m, 30 degree cone (0.8 m wide at the tip). (5) Night Sense's reveal is an area tick that reveals enemy
+heroes below 50% HP, refreshed every 0.5 s. (6) Lake Glide removes slows every 0.5 s for its duration and gives allies
+within 6 m the speed as a refreshed 0.55 s statMod; T3's "full +40%" is a second +20% statMod. (7) Grace Link's break
+distance is the fixed 35 m; its T3 is a second charge, so each link ticks on its own. (8) Crest Flare's T2 +10 SP is a second statMod.
+**Why:** each is the nearest data to the GDD sentence; tests assert the stated numbers.
+
+### D-HEROB-013 · 21/11/2026 — Bots play the four birds with no change to data/ai.ts
+**Decision:** bots classify each ability from its kit data (`useOf`), and `AP_PRIORITY` and the starter item scores already
+held entries for all four, so no block was added to `src/sim/data/ai.ts`. `herob-bots.test.ts` runs a 6v6 bot match with all
+four and checks each casts. **Why:** a per-hero block would only repeat what `useOf` derives.

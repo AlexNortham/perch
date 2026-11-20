@@ -38,7 +38,10 @@ try {
       await page.goto(`${base}tests/anim/frame.html?${query}`);
       await page.waitForFunction('window.__frameReady === true', null, { timeout: READY_TIMEOUT_MS });
       const png = `${dir}/${name}.png`;
-      await page.locator('#frame').screenshot({ path: png });
+      // clip=x,y,w,h saves only that part of the frame, at its own pixels (to judge aliasing).
+      const [x, y, width, height] = (new URLSearchParams(query).get('clip') ?? '').split(',').map(Number);
+      if (width && height) await page.screenshot({ path: png, clip: { x: x ?? 0, y: y ?? 0, width, height } });
+      else await page.locator('#frame').screenshot({ path: png });
       console.log(`frame: ${png} ${JSON.stringify(await page.evaluate('window.__frameStats'))}`);
     }
   } else {

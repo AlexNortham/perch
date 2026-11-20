@@ -341,7 +341,7 @@ export const createAbilitySystem: SystemFactory = (ctx) => {
   const land = (hs: HeroState, c: Cast): void => {
     const h = hs.hero;
     const r = hs.abilities[c.slot] as ResolvedAbility;
-    const channel = ticks(r.def.channelS);
+    const channel = ticks(r.channelS);
     if (c.rooted && channel === 0) stats.set(h.id, ROOT_KEY, null);
     effects.applyAll(r.effects, c.target, c.cause);
     if (r.selfEffects.length > 0) effects.applyAll(r.selfEffects, { entity: h.id, point: copy(h.pos), dir: copy(c.target.dir) }, c.cause);

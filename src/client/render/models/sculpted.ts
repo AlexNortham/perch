@@ -64,6 +64,8 @@ export interface SculptedSpec {
   body(k: Sculpt): void;
   head(k: Sculpt): void;
   tail(k: Sculpt): void;
+  /** Anything orbiting the head on the halo bone (about the head hitbox centre; the Starling's flock). */
+  halo?(k: Sculpt): void;
   /** A wing segment along -y: the arm (shoulder → joint) or the hand (joint → grip). `side` +1 left, -1 right. */
   wing(k: Sculpt, seg: 'arm' | 'hand', side: 1 | -1, upper: number, lower: number): void;
   /** A leg segment along -y (thigh hip → knee, shin knee → ankle), or the foot (ankle at the origin, sole below). */
@@ -137,6 +139,7 @@ export function sculptedBuild(plan: BodyPlan, team: TeamColours, bird: SculptedB
     s.body(parts.body);
     s.head(parts.head);
     s.tail(parts.tail);
+    s.halo?.(parts.halo);
     s.wing(parts.wingL1, 'arm', 1, upper, lower);
     s.wing(parts.wingL2, 'hand', 1, upper, lower);
     s.wing(parts.wingR1, 'arm', -1, upper, lower);
