@@ -2382,9 +2382,9 @@ W5.5 contracts and Audio; 40fef0a: the bird second pass). Edits only `src/sim/ai
    answered by the 2 nearest bots; tower reflexes and siege windows (D-AI-005); from 20:00 the flock groups on one
    lane and then sieges the Shrines and Patron (D-AI-008). Bot picks follow §11.6 among implemented heroes (D-AI-006).
 **Verified:**
-- `PERCH_PENDING=1` QA suites: `bot-shopping` 6/6 (360 s, on 7afcbe9); `no-interact` all pass (bots ride Updrafts on
-  held Jump, no Interact bit); rerun of both on the final code: no-interact passes; bot-shopping's 20-match
-  `beforeAll` hit its 900 s hook timeout while it shared the CPU with an 8-process batch (see the rerun below).
+- `PERCH_PENDING=1` QA suites on the final code: `bot-shopping` 6/6 (696 s alone; 360 s on 7afcbe9; its 900 s
+  `beforeAll` timed out once while sharing the CPU with an 8-process batch); `no-interact` all pass (bots ride Updrafts
+  on held Jump, no Interact bit).
 - `src/sim/ai/ai.test.ts` (12): exp vs Math.exp, softmax 73%, buying rules, the active cap, AP order, BUILDS, picks,
   2-2-2 lanes, routes from both Roosts round the Patron, lane maths, aim reaction and error, and **G22: Play (1 human +
   11 bots, seed 1) has bots hitting fledglings in all three lanes and a hero by 1:05**.
