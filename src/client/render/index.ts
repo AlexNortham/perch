@@ -37,6 +37,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ViewFlag } from '../../sim/core/contracts';
 import type { EntityView, MapData } from '../../sim/core/contracts';
 import { STRUCTURE_BODY, STRUCTURE_RADIUS } from '../../sim/data/world';
 import type { CameraPose, Frame, ModelKit, Quality, Renderer } from '../app/contracts';
@@ -50,6 +51,7 @@ import {
   FAR_MIN,
   FOG_HEIGHT_REF,
   FOG_OPAQUE,
+  IDENTITY,
   LIGHT,
   LIGHT_UNIT,
   NEAR,
@@ -73,6 +75,7 @@ import { getMaterialLibrary } from './materials';
 import { createModelKit } from './models';
 import { GRADE_FRAGMENT, GRADE_VERTEX } from './grade';
 import { RideOverlay } from './ride';
+import { identityResolution, rimStrength } from './identity';
 
 export { DAWN_COLOURS, DUSK_COLOURS, TEAM_COLOURS } from '../app/palette';
 
@@ -99,6 +102,8 @@ const SHADOW_HALF_STEP = 5;
 const UP = new Vector3(0, 1, 0);
 const TO_SUN = new Vector3(SUN.azimuth.x * Math.cos(SUN.elevationDeg * DEG), Math.sin(SUN.elevationDeg * DEG), SUN.azimuth.z * Math.cos(SUN.elevationDeg * DEG)).normalize();
 const MB = 1_048_576;
+/** The ?renderTeams demo: three a side, 3 m apart, each side this far either side of the target. */
+const TEAM_DEMO = { size: 3, spacing: 3, depth: 2, firstId: 9001 } as const;
 const TRI = 3;
 /** Texture memory is reported to 0.1 MB. */
 const MB_STEPS = 10;
@@ -169,6 +174,31 @@ function anchorView(map: MapData, i: number): EntityView | null {
   } as EntityView;
 }
 
+/**
+ * Dev only (?renderTeams): three allies and three enemies around the camera target, so team identification can be
+ * judged at 40 m (G18) while bots don't yet leave spawn. The middle enemy is revealed (x-ray through walls).
+ */
+function withTeams(frame: Frame, pose: CameraPose): Frame {
+  const local = frame.curr.heroes.find((h) => h.id === frame.curr.localHero)?.team ?? 'dawn';
+  const other = local === 'dawn' ? 'dusk' : 'dawn';
+  const { target: t, position: c } = pose;
+  const yaw = Math.atan2(c.x - t.x, c.z - t.z);
+  const [rx, rz] = [Math.cos(yaw), -Math.sin(yaw)];
+  const [fx, fz] = [Math.sin(yaw), Math.cos(yaw)];
+  const types = ['shrike', 'albatross', 'kingfisher', 'owl', 'pelican', 'starling'] as const;
+  const extra = types.map((type, i): EntityView => {
+    const enemy = i >= TEAM_DEMO.size;
+    const k = (i % TEAM_DEMO.size) - 1;
+    const back = enemy ? -TEAM_DEMO.depth : TEAM_DEMO.depth;
+    return {
+      id: TEAM_DEMO.firstId + i, kind: 'hero', team: enemy ? other : local, type, pos: { x: t.x + rx * k * TEAM_DEMO.spacing + fx * back, y: t.y, z: t.z + rz * k * TEAM_DEMO.spacing + fz * back },
+      vel: { x: 0, y: 0, z: 0 }, yaw, pitch: 0, radius: 0.5, hp: 1, maxHp: 1, shield: 0, flags: enemy && k === 0 ? ViewFlag.Revealed : 0, mode: null, seenBy: 3,
+    } as EntityView;
+  });
+  const curr = { ...frame.curr, entities: [...frame.curr.entities, ...extra] };
+  return { ...frame, prev: { ...frame.prev, entities: [...frame.prev.entities, ...extra] }, curr };
+}
+
 /** Counts for the §11.3 budget: meshes in the camera frustum, by the `budget` tag on them or an ancestor. */
 function budgetOf(scene: Scene, camera: PerspectiveCamera, calls: number, triangles: number, textureMB: number): BudgetReport {
   const frustum = new Frustum().setFromProjectionMatrix(new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
@@ -220,6 +250,8 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   const camera = new PerspectiveCamera(1, size.width / size.height, NEAR, FAR_MIN);
 
   const makeGl = (): WebGLRenderer => {
+    rimStrength.value = preset.post === 'none' ? IDENTITY.rimLow : IDENTITY.rim;
+    identityResolution.set(size.width, size.height);
     const r = new WebGLRenderer({ antialias: preset.antialias && preset.post === 'none', powerPreference: 'high-performance' });
     r.setPixelRatio(Math.min(window.devicePixelRatio, preset.maxPixelRatio) * preset.renderScale);
     r.setSize(size.width, size.height);
@@ -267,6 +299,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
     ? { position: { x: cx, y: cy, z: cz }, target: { x: tx, y: ty, z: tz } }
     : null;
 
+  const devTeams = dev?.has('renderTeams') ?? false;
   const kit: ModelKit = createModelKit();
   const entities = createEntityLayer(scene, kit);
   /** The real structure models at the map's anchors, shown until a match spawns structures. */
@@ -340,7 +373,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       const pose = devPose ? { ...cameraPose, ...devPose } : cameraPose;
       gl.info.reset();
       host.beforeRender?.(frame);
-      const structures = entities.sync(frame, pose.position);
+      const structures = entities.sync(devTeams ? withTeams(frame, pose) : frame, pose.position);
       poseAnchors(frame, !structures);
 
       // Haze thins with height: the player camera gets the full density, the overview cameras see the whole map.
@@ -384,6 +417,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       gl.setSize(size.width, size.height);
       composer?.setSize(size.width, size.height);
       bloom?.setSize(size.width * (preset.post === 'half' ? 1 / 2 : 1), size.height * (preset.post === 'half' ? 1 / 2 : 1));
+      identityResolution.set(size.width, size.height);
       camera.aspect = size.width / size.height;
       camera.updateProjectionMatrix();
     },

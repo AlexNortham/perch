@@ -27,7 +27,7 @@ export const MATERIAL_TIERS: Readonly<Record<Quality, MaterialTier>> = {
 /** §7.1 anti-tiling: world-space value variation, two octaves (wavelengths in metres), ± strength. */
 export const MACRO_VARIATION = { strength: 0.07, far: 7, near: 2.3 } as const;
 /** Emissive layers (art values 0.6–1.0, §5.2) scale by this in scene-linear light, so they clear the bloom threshold. */
-export const EMISSIVE_HDR = 4;
+export const EMISSIVE_HDR = 8;
 /** §7.3: the sky environment map's strength on metal and glass. */
 export const ENV_INTENSITY = 0.4;
 /** Water scrolls this many tiles per second along u and v. */

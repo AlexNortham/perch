@@ -107,10 +107,10 @@ export const FAR_MAX = 3000;
 /** Post-processing (§10.4): bloom picks up emissive only; a gentle warm/cool split tone and a 10 % vignette. */
 export const POST = {
   /**
-   * In scene-linear units before tone mapping: above the brightest sunlit albedo (about 1.3), below emissive layers
+   * In scene-linear units before tone mapping: above the brightest sunlit surface (a white bird, about 2.6), below emissive layers
    * (scaled by EMISSIVE_HDR), so only lights bloom. The guide's 0.9 is display-referred.
    */
-  bloomThreshold: 1.5,
+  bloomThreshold: 2.8,
   bloomStrength: 0.35,
   bloomRadius: 0.4,
   /** Split tone: highlights lean warm, shadows cool, by this much. */
@@ -379,6 +379,19 @@ export const RIDE = {
   lcgMul: 1664525,
   lcgAdd: 1013904223,
   lcgRange: 4294967296,
+} as const;
+
+/** Friend-or-foe overlays and the bird rim (GDD §14.4, style guide §8.7). */
+export const IDENTITY = {
+  outlinePx: 2,
+  /** X-ray silhouettes: this much flat fill under a fresnel rim. */
+  xrayFill: 0.06,
+  rim: 0.25,
+  rimLow: 0.15,
+  rimColour: 0xffe6c0,
+  /** Draw order: x-rays after the world and before bodies, so only pixels walls hide pass the greater test. */
+  xrayOrder: 1,
+  bodyOrder: 2,
 } as const;
 
 /** Allied invisible heroes (ghosts) draw at this opacity; the local hero fades out as the camera comes within LOCAL_FADE_M of its head. */

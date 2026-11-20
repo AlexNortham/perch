@@ -19,6 +19,8 @@ import type { Frame, ModelKit } from '../app/contracts';
 import { GHOST_OPACITY, LOCAL_FADE_M, LOCAL_HEAD_M } from './constants';
 import { interpolate } from '../app/loop';
 import { drawnByVfx } from '../app/drawn';
+import { attachIdentity, updateIdentity } from './identity';
+import type { Identity } from './identity';
 
 export interface EntityLayer {
   /**
@@ -33,7 +35,7 @@ const ORIGINAL = 'perchOriginalMaterials';
 /** Fade a model by swapping in per-mesh clones of its materials (the kit shares originals), restoring at opacity 1. */
 export function setOpacity(model: Object3D, opacity: number): void {
   model.traverse((o) => {
-    if (!(o instanceof Mesh)) return;
+    if (!(o instanceof Mesh) || o.userData['identity']) return;
     const original = o.userData[ORIGINAL] as Material | Material[] | undefined;
     if (opacity >= 1) {
       if (original) {
@@ -62,6 +64,7 @@ export function createEntityLayer(parent: Object3D, kit: ModelKit): EntityLayer 
   const live = new Map<EntityId, { model: Object3D; key: string }>();
   const spare = new Map<string, Object3D[]>();
   const seen = new Set<EntityId>();
+  const identities = new WeakMap<Object3D, Identity | null>();
   return {
     sync(frame, eye) {
       seen.clear();
@@ -83,6 +86,14 @@ export function createEntityLayer(parent: Object3D, kit: ModelKit): EntityLayer 
         slot.model.position.set(p.pos.x, p.pos.y, p.pos.z);
         slot.model.rotation.y = p.yaw;
         kit.pose(slot.model, e, frame);
+        if (e.kind === 'hero') {
+          let id = identities.get(slot.model);
+          if (id === undefined) {
+            id = attachIdentity(slot.model);
+            identities.set(slot.model, id);
+          }
+          if (id) updateIdentity(id, e.id === localId ? 'self' : e.team === local ? 'ally' : 'enemy', (e.flags & ViewFlag.Revealed) !== 0, slot.model.visible);
+        }
         let opacity = e.team === local && (e.flags & ViewFlag.Invisible) !== 0 ? GHOST_OPACITY : 1;
         if (eye && e.id === localId) {
           const d = Math.hypot(eye.x - p.pos.x, eye.y - (p.pos.y + LOCAL_HEAD_M), eye.z - p.pos.z);
