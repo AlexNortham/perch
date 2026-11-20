@@ -310,6 +310,41 @@ export class Mesher {
     }
   }
 
+  /**
+   * A closed surface around the local y axis whose radius varies with angle and height, `r(angle, y)`: bark ridges,
+   * buttress roots, bulging trunks. Rings at the heights `ys`; normals from the surface's own slopes; uv wraps.
+   */
+  radial(ys: readonly number[], sides: number, r: (a: number, y: number) => number): void {
+    const first = this.verts;
+    const rows = ys.length;
+    const at = (i: number, j: number): Vector3 => {
+      const a = (i / sides) * Math.PI * 2;
+      const y = ys[Math.max(0, Math.min(rows - 1, j))]!;
+      const rr = r(a, y);
+      return new Vector3(Math.cos(a) * rr, y, Math.sin(a) * rr);
+    };
+    const meanR = r(0, ys[0] ?? 0);
+    const du = new Vector3();
+    const dv = new Vector3();
+    for (let i = 0; i <= sides; i++) {
+      for (let j = 0; j < rows; j++) {
+        const p = at(i, j);
+        du.subVectors(at(i + 1, j), at(i - 1, j));
+        dv.subVectors(at(i, j + 1), at(i, j - 1));
+        const n = new Vector3().crossVectors(dv, du).normalize();
+        this.emit(p.x, p.y, p.z, n.x, n.y, n.z, (i / sides) * Math.PI * 2 * meanR, p.y);
+      }
+    }
+    for (let i = 0; i < sides; i++) {
+      for (let j = 0; j + 1 < rows; j++) {
+        const a = first + i * rows + j;
+        const b = first + (i + 1) * rows + j;
+        this.idx.push3(a, a + 1, b);
+        this.idx.push3(b, a + 1, b + 1);
+      }
+    }
+  }
+
   /** A vertical cylinder (or frustum) from y0 to y1, with a top cap. */
   cylinder(x: number, z: number, y0: number, y1: number, r0: number, r1: number, sides: number, caps = true): void {
     this.within(placed(x, 0, z, 0), () => {
