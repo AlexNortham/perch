@@ -3312,3 +3312,7 @@ settle issue QA's spec now waits out.
   - a test that fails today.
 - **Also fixing before the push (UI):** "+6700%" beside the Seeds total early in a match; hero tips for the 12 birds that lack them.
 - After both merge: one more `--release` run, a fresh screenshot of each spawn, then fast-forward `main` and push.
+
+### W5b · Environment Artist · camera clearance fix · 20/11/2026
+**Done:** fixed the Play-start blocker where the spawn camera was buried in leaves (060b3b3, on `integrate/w5` 6e67885). Leaf clumps, cards and forest-edge trunks stay out of a cylinder round every spawn and shop (D-ENV-006). The layer's materials discard dressing within 1.0–1.4 m of the camera's view line over the boom, with a dithered rim, so nothing of the layer sits between the camera and the hero anywhere.
+**Verified:** `npm run check -- --release`: all six steps PASS (e2e 112/112). A new perf-suite test casts camera-to-hero rays at both spawns for every body size, both shoulders and three pitches; it failed before the fix (forest-edge trunk and leaves behind the Dawn spawn). Shots looked at: the Dawn spawn in Play (Kingfisher), the Dusk spawn, respawn slots Dawn 5 and Dusk 3, and a Lantern Row path (`out/env/spawn/`).

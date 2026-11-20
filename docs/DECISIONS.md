@@ -2601,3 +2601,7 @@ the same page produces a full-scale oscillator through the same device. **Why:**
 - `npm run soak -- --minutes 30` (`tools/soak.ts`): one real Play match in Edge, a sample every 10 s of heap (after a
   forced GC), frame time and tick. Fails on a page error, heap growth over 2 MB/min across the second half, or a
   last-quarter p95 frame time over 1.5x the first quarter's.
+
+### D-ENV-006 · 20/11/2026 — Camera clearance and fade for visual-only dressing
+**Decision:** leaf clumps, cards and forest-edge trunks are not generated inside a cylinder round each spawn and shop (radius: longest boom + shoulder + 2.5 m; 9 m tall). At runtime the layer's two materials (library clones with one added chunk) discard fragments within 1.0 m of the camera, widening to 1.4 m at the end of the boom, along the view line, with a dithered rim. The layer adds no collision, so anything there is dressing the camera can pass through. No new renderer hook: each batch's `onBeforeRender` aims the fade.
+**Why:** the player's first sight was a wall of leaves at the Dawn spawn. Clearance fixes the spawns; the fade stops it recurring anywhere.
