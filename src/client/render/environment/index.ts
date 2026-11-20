@@ -114,9 +114,9 @@ export function buildEnvironment(map: MapData, quality: Quality): Environment {
     mesh.onBeforeRender = (renderer, scene, camera: Camera, geometry, material: Material, group) => {
       cam.setFromMatrixPosition(camera.matrixWorld);
       for (const e of entries) {
-        if (e.band === 2) continue;
+        if (e.band === 2 && (pass !== 'cutout' || reach.cards === Infinity)) continue;
         const d = e.box.distanceToPoint(cam);
-        const r = e.band === 0 ? reach.near : reach.mid;
+        const r = e.band === 0 ? reach.near : e.band === 1 ? reach.mid : reach.cards;
         const show = e.shown ? d < r * (1 + LOD_HYSTERESIS) : d < r * (1 - LOD_HYSTERESIS);
         if (show !== e.shown) {
           e.shown = show;

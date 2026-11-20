@@ -33,11 +33,11 @@ export const SHADE = {
 export type Band = 0 | 1 | 2;
 export const BANDS: readonly Band[] = [0, 1, 2];
 
-/** Show distances (m) of bands 0 and 1 per quality; band 2 is always drawn. Low draws band 2 only (§11.6: no trims). */
-export const BAND_REACH: Readonly<Record<Quality, { readonly near: number; readonly mid: number }>> = {
-  low: { near: 0, mid: 0 },
-  medium: { near: 30, mid: 70 },
-  high: { near: 45, mid: 100 },
+/** Show distances (m) of bands 0 and 1 per quality; band 2 is always drawn, but at Low its cards (canopy, ivy) stop at `cards` m. Low draws band 2 only (§11.6: no trims). */
+export const BAND_REACH: Readonly<Record<Quality, { readonly near: number; readonly mid: number; readonly cards: number }>> = {
+  low: { near: 0, mid: 0, cards: 60 },
+  medium: { near: 30, mid: 70, cards: Infinity },
+  high: { near: 45, mid: 100, cards: Infinity },
 };
 /** §11.4: 10 % hysteresis on every switch. */
 export const LOD_HYSTERESIS = 0.1;
