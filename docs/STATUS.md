@@ -2118,3 +2118,7 @@ in. Decisions D-ARCH-025 to D-ARCH-028; owner follow-ups in `docs/briefs/W5-cont
 frames (the camera pose it gets is not finite yet); seen in the e2e server log, no test fails on it (Audio, Camera).
 The no-Interact suite's last red test waits on bots riding Updrafts (Bot AI).
 **Interface requests:** none. **Blocked:** nothing.
+
+### EP · 20/11/2026 · open items for the Stage 4 gate
+- **Camera pose can go non-finite.** Audio now ignores a NaN/Infinity camera pose (ed8373a), but the source of the bad pose (camera rig before its first target, or a zero-length look vector) is not found. Owner: Rendering/camera. Check it in wave 6 or the integration round after 5b.
+- **`e2e/audio.spec.ts` is flaky under machine load** (22/23, the failing case moves, one 30 s timeout). Rerun serially on a quiet machine at the gate before calling it a real failure.
