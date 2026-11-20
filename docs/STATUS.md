@@ -2202,8 +2202,15 @@ guide (D-ART-004), replacing the generic placeholder for all eight. Branch `work
   | Toucan | 3.7 % | 0.24 % |
   | Woodpecker | 3.4 % | 0.34 % |
   | Nightjar | 5.0 % | 0.22 % |
-- `bash scripts/check.sh` before the merge of `integrate/w5`: `PASS typecheck · lint 9s · test 31s · perf 18s · sim 4s
-  · e2e 149s · check 229s`. After the merge, see the next line.
+- `bash scripts/check.sh` before the merge of `integrate/w5` (665e70a): `PASS typecheck · lint 9s · test 31s · perf 18s
+  · sim 4s · e2e 149s · check 229s`.
+- After merging `integrate/w5` at fe16980, typecheck, lint and sim pass, and every render and anim test passes (106).
+  The rest fails on code that is byte-identical to `integrate/w5` (`src/sim` is unchanged by this branch):
+  - Five sim unit tests fail deterministically: `interactables.test.ts` (Bell Feeder swing-back and off-beat break)
+    and `neutrals.test.ts` (the Roc, Thickets, Nests). Objectives/Systems should look at these.
+  - The objectives perf test runs at 0.306–0.354 ms against 0.3 ms with other agents loading the machine.
+  - Three e2e failures under that load (practice hub, smoke, scoreboard Tab) pass when rerun alone (3/3).
+- The eight birds also render in the game's own renderer: `npm run shots -- --scene sandbox --param modelLineup=…`.
 
 **Checklist (style guide §12.1) and my Birds (§8) score:** every bird answers yes to:
 - C2: layered feathers, eyes with catchlights, two-part beaks, planted feet with talons, and the gun held in every
