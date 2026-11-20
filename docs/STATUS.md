@@ -3123,3 +3123,8 @@ Magnitude is not needed by Swan. **Bot AI:** nothing; no `data/ai.ts` block was 
   - Harpoon Line pulls over about 0.65 s, not 0.5 s;
   - Burrow has no dirt trail (a VFX cue for the visual upgrade);
   - Probe is a 3 m, 30° cone.
+
+### EP · 21/11/2026 · stability blocker: `__perch.hero` is null during a running match
+- Serial rerun on integrate/w5 (b7fef57): `match.spec` (Kingfisher) and one `scoreboard-bar` case time out at 60 s waiting for `__perch.hero`. The other 4 scoreboard cases pass.
+- The page snapshot shows a live match (550/550 HP, Lv 2, Seeds 1,171), so this is **not load**: the local hero is missing from `view.entities` while `view.heroes` has it.
+- Routed to the Architect (owner of `src/client/app` and the view) as the first item of the W6 round. It blocks Release 1.
