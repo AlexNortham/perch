@@ -27,7 +27,7 @@ async function standing() {
   return { sb, hero: sb.heroes[0]!, foe: sb.heroes[1]! };
 }
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 Nests (§7.9)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 Nests (§7.9)', { timeout: TIMEOUT_MS }, () => {
   it('§7.9 map: 100 Nests: 72 Twig (4 in the Hollow), 16 Woven, 12 Keepsake', async () => {
     const sb = await world({ heroes: ['shrike', 'lyrebird'] });
     const anchors = sb.ctx.map.nests;

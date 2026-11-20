@@ -15,8 +15,8 @@ const EMBER_FALL_S = 6;
 const EMBER_BURN_S = 60;
 const REKINDLE_S = 180;
 const REVIVE_S = 3;
-/** A spot on the Hollow floor, away from the Embers and from the Roc's centre. */
-const FLOOR: Vec3 = { x: -14, y: -10, z: 0 };
+/** Open Hollow floor away from the Embers; the west ramp covers x −22…−6 at z −2…2 (a hero placed in it falls through). */
+const FLOOR: Vec3 = { x: -8, y: -10, z: 4 };
 const BRIDGE: Vec3 = { x: 0, y: 0, z: 10 };
 
 const roc = (sb: Sandbox): UnitEntity => sb.ctx.store.list('unit').find((u) => u.unit.type === 'roc')!;
@@ -42,7 +42,7 @@ async function slain() {
   return w;
 }
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Roc (§7.12)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 the Roc (§7.12)', { timeout: TIMEOUT_MS }, () => {
   it('§7.12 wake: asleep before 20:00 (countdown on objectives.rocAt), 24,000 HP when it wakes, rocSpawned fires', async () => {
     const sb = await world({ heroes: ['shrike', 'lyrebird'] });
     advanceTo(sb, WAKE_S - 5);
@@ -111,7 +111,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Roc (§7.12)', { timeo
   it('§7.12 Talon Rake: every 2.5 s an 8 m cone at its target for 140 Talon', async () => {
     const { sb, a, r } = await woken();
     sb.modify(a, 'qa-hp', { stats: [{ stat: 'maxHealth', op: 'add', value: 50_000 }] });
-    sb.place(a, { x: r.pos.x - 6, y: -10, z: r.pos.z });
+    sb.place(a, { x: r.pos.x - 6, y: -10, z: r.pos.z + 4 }); // off the west ramp
     sb.step(2);
     sb.clearEvents();
     advanceBy(sb, 7);
@@ -140,10 +140,11 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Roc (§7.12)', { timeo
   it('§7.12 enrage: at 25% HP a map-wide roar, +30% attack speed, and a Sky Shriek every 8 s silencing heroes within 20 m for 1.5 s', async () => {
     const { sb, a, r } = await woken();
     sb.modify(a, 'qa-hp', { stats: [{ stat: 'maxHealth', op: 'add', value: 500_000 }] });
-    sb.place(a, { x: r.pos.x - 6, y: -10, z: r.pos.z });
+    sb.apply({ kind: 'heal', amount: 500_000 }, a, sb.cause(null)); // max HP alone leaves current HP at its base
+    sb.place(a, { x: r.pos.x - 6, y: -10, z: r.pos.z + 4 }); // off the west ramp
     sb.step(2);
     sb.clearEvents();
-    hit(sb, a, r.id, r.stats.final.maxHealth * 0.76);
+    hit(sb, a, r.id, r.stats.final.maxHealth * 0.76, 'song'); // Song: the Roc resists 15% Talon, which would leave it above 25%
     sb.step(2);
     expect(sb.eventsOf('unit.state').filter((e) => e.unit === r.id && e.state === 'enraged')).toHaveLength(1);
     expect(r.unit.enraged).toBe(true);
@@ -201,7 +202,7 @@ describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Roc (§7.12)', { timeo
   });
 });
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 the Phoenix Embers and Rekindle (§7.12)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 the Phoenix Embers and Rekindle (§7.12)', { timeout: TIMEOUT_MS }, () => {
   it('§7.12 Embers: three fall to (10,−10,0), (−5,−10,8.66), (−5,−10,−8.66) over 6 s, and cannot be claimed until they land', async () => {
     const { sb, a } = await slain();
     const embers = pickupsOf(sb, 'ember');

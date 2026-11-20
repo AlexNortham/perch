@@ -54,7 +54,7 @@ async function at(f: Family, extra: readonly ('shrike' | 'kingfisher')[] = []) {
   return { sb, anchor, index, hero, ally: sb.heroes[1] !== undefined && extra.length > 0 ? sb.heroes[1] : undefined };
 }
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 Thickets (§7.8)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 Thickets (§7.8)', { timeout: TIMEOUT_MS }, () => {
   it('§7.8 map: 24 camps; 8 of tier 1, 12 of tier 2 (8 of them indoors), 4 of tier 3', async () => {
     const sb = await world({ heroes: ['shrike', 'lyrebird'] });
     const camps = sb.ctx.map.thickets;

@@ -38,7 +38,7 @@ async function claimAt(timeS: number, seed = 1) {
   return { sb, hero, rune, base, type: typeOf(rune) };
 }
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 Feather runes (§7.10)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 Feather runes (§7.10)', { timeout: TIMEOUT_MS }, () => {
   it('§7.10 spots: one on each rune bridge, at (−95, 6, 0) and (95, 6, 0)', async () => {
     const sb = await world({ heroes: ['shrike', 'lyrebird'] });
     expect(sb.ctx.map.runeSpots.map((s) => [s.pos.x, s.pos.y, s.pos.z])).toEqual(SPOTS.map((s) => [s.x, s.y, s.z]));

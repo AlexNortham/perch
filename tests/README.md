@@ -13,7 +13,8 @@ QA's cross-system suites (D-EP-010). Unit tests live next to their code (`src/**
 | `rules/market.test.ts` | Always on (since W4 integration). GDD §8: real bounties, lifetime earnings, levels, AP, inventory, flex slots and shop transactions. |
 | `rules/practice.test.ts` | Always on (since W4 integration). Fresh Practice AP, normal match progression, and the ordinary weapon and support-cast target resets. |
 | `siege-proof.test.ts` | Always on. The real Play match (seed 1, one Owl, no bots), driven only by ordinary commands from a scripted aim-and-fire agent, takes Dusk's Riverbank structures, both Shrines and both Patron phases to a Dawn victory with its wave. Writes seed, hash and timeline to `out/siege-proof/seed-1.json`. About 7 s. The agent lives in `src/sim/ai/siege-proof.testkit.ts`; `e2e/result.spec.ts` replays it in the browser (`?scene=replay`) to the Victory screen. |
-| `rules/golden-egg`, `roc-embers`, `thickets`, `nests`, `runes`, `interactables`, `no-interact`, `items`, `bot-shopping` | **Pending (Stage 4, W4.5 QA).** GDD §§7.8–7.15, 10 and 11.4, D-EP-036 and D-EP-039, written before the wave 5 builders. Run with `PERCH_PENDING=1`; see the STATUS entry for the failure summary. `items.data.ts` is GDD §10 as data. |
+| `rules/golden-egg`, `roc-embers`, `thickets`, `nests`, `runes`, `interactables`, `no-interact`, `items` | Always on (since the W5a integration round). GDD §§7.8–7.15 and 10, D-EP-039. A few single tests stay gated with `it.runIf` and a comment naming why (W5a integration STATUS entry). `items.data.ts` is GDD §10 as data. |
+| `rules/bot-shopping` | **Pending (Bot AI, wave 5b).** GDD §11.4, D-EP-036. Run with `PERCH_PENDING=1`. |
 | `helpers/world.ts` | The neutrals-on `main` sandbox, `advanceTo`, light and heavy melee, pickups (Stage 4 suites). |
 | `helpers/sandbox.ts` | The ability sandbox (below). |
 | `helpers/lanes.ts` | Lane polyline maths: progress from a gate, distance from the path, points along it. |
@@ -21,7 +22,7 @@ QA's cross-system suites (D-EP-010). Unit tests live next to their code (`src/**
 ## Pending suites
 
 Suites written test-first (D-EP-006) are gated with `describe.runIf(process.env.PERCH_PENDING === '1')`, so they are
-skipped in `npm run check` until their system lands. None in `src/` and none of the W4 suites is gated; the Stage 4 suites above and the browser specs `hold-upgrade`, `scoreboard-bar`, `practice-swap`, `hero-select-layout` and `no-interact` (`e2e/pending.ts`) are. Run a
+skipped in `npm run check` until their system lands. Since the W5a integration round only `bot-shopping`, single tests marked `it.runIf` (each with its reason) and the dead-bird test in `e2e/scoreboard-bar.spec.ts` (bots that fight, G22) are gated. Run a
 gated one with:
 
 ```bash

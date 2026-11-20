@@ -40,7 +40,7 @@ async function carried() {
   return w;
 }
 
-describe.runIf(process.env.PERCH_PENDING === '1')('W5 Golden Egg (§7.11)', { timeout: TIMEOUT_MS }, () => {
+describe('W5 Golden Egg (§7.11)', { timeout: TIMEOUT_MS }, () => {
   it('§7.11 first spawn: nothing before 10:00; at 10:00 an egg pickup on one of the two Egg Perches with an eggSpawned event', async () => {
     const sb = await world({ heroes: ['shrike', 'lyrebird'] });
     advanceTo(sb, mmss(9, 59));
