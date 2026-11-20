@@ -570,6 +570,7 @@ export const BODIES = {
   owl: owlBody,
   pelican: pelicanBody,
   penguin: penguinBody,
+  frigatebird: frigatebirdBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */
@@ -587,4 +588,57 @@ export function bodyField(id: keyof typeof BODIES, plan: BodyPlan): Field {
   let f = fields.get(key);
   if (!f) fields.set(key, (f = new Field(BODIES[id](plan))));
   return f;
+}
+
+// =================================================================================================================
+// Batch G (builders in birds-b3.ts). Frigatebird: a slim, upright black pirate. A narrow body leaning a little forward
+// on short feathered legs, a slender neck, a flat-crowned head with a long hooked bill, and the hero shape hung under
+// it: the scarlet throat balloon swelling over the breast.
+
+export function frigatebirdAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.8;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.76, 1.2 * s, -0.03 * s], hip: [R * 0.36, plan.height * 0.17, -0.03 * s], tail: [0, 0.6 * s, -0.24 * s],
+    legLen: plan.height * 0.17, legThick: 0.022 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export const FRIGATEBIRD_HEAD: HeadShape = {
+  skull: [1.06, 1.0, 1.24], skullAt: [0, 0.0, -0.1], face: [0.66, 0.56, 0.66], faceAt: [0, -0.1, 0.48],
+  cheek: [0.46, 0.42, 0.5], cheekAt: [0.46, -0.3, 0.32], brow: [0.46, 0.17, 0.44], browAt: [0.48, 0.4, 0.5], browTilt: 0.45,
+  nape: [0.8, 0.7, 0.66], napeAt: [0, -0.48, -0.5], throat: [0.5, 0.42, 0.55], throatAt: [0, -0.7, 0.24],
+  eye: [0.64, 0.12, 0.54], socket: 0.24, bill: [0, -0.1, 1.0], billW: 0.24, billH: 0.22,
+};
+
+export function frigatebirdBody(plan: BodyPlan): Body {
+  const a = frigatebirdAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  const hr = a.hr;
+  return {
+    tris: [1880, 480, 130, 80],
+    ops: [
+      // A lean but deep torso carried nearly upright: broad, square shoulders, the breast high under the throat, the
+      // belly low over short legs, the rump tucked back over the tail.
+      ell([0, 0.86 * s, -0.07 * s], [0.2 * s, 0.44 * s, 0.17 * s], 'body', 'back', { rot: [0.2, 0, 0], k: 0.05 }),
+      ...pair(ell([0.08 * s, 1.06 * s, 0.05 * s], [0.13 * s, 0.22 * s, 0.14 * s], 'body', 'breast', { k: 0.06, rot: [0.16, 0.22, 0] })),
+      ell([0, 0.98 * s, 0.13 * s], [0.05 * s, 0.24 * s, 0.08 * s], 'body', 'breast', { k: 0.05, rot: [0.22, 0, 0] }),
+      ell([0, 0.56 * s, 0.0], [0.16 * s, 0.2 * s, 0.15 * s], 'body', 'belly', { k: 0.08, rot: [0.15, 0, 0] }),
+      // A flat, angular mantle between high scapulars: the lanceolate cape the player camera looks down on.
+      ell([0, 1.08 * s, -0.14 * s], [0.18 * s, 0.26 * s, 0.07 * s], 'body', 'mantle', { k: 0.05, rot: [0.3, 0, 0] }),
+      cone([0, 0.6 * s, -0.16 * s], [0, 0.5 * s, -0.28 * s], 0.11 * s, 0.045 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.15 * s, 1.14 * s, -0.09 * s], scapularR: [0.09 * s, 0.17 * s, 0.08 * s], root: 0.062 * s, inset: 0.08 }),
+      // Feathered almost to the toes: short black trousers over the feet.
+      ...thighs(a, { r: 0.065 * s, rKnee: 0.045 * s, reach: 0.95, root: [0.08 * s, 0.4 * s, -0.03 * s] }),
+      // A slender neck, a little forward of the body, under a small head.
+      ...neck([[0, 1.24 * s, -0.01 * s], [0, 1.38 * s, 0.01 * s], [0, hc[1] - 0.08 * s, 0]], [0.12 * s, 0.095 * s, 0.095 * s], 'neck', 0.5),
+      ...head(hc, hr, FRIGATEBIRD_HEAD),
+      // The throat balloon: a taut scarlet sac swelling from under the bill over the upper breast, its neck of bare
+      // gular skin running up to the chin.
+      ell([0, 1.25 * s, 0.18 * s], [0.155 * s, 0.185 * s, 0.17 * s], 'body', 'balloon', { k: 0.035 * s }),
+      cone(at(hc, hr, [0, -0.72, 0.42]), [0, 1.36 * s, 0.17 * s], 0.06 * s, 0.1 * s, 'head', 'balloon', { k: 0.03 * s, boneSoft: 0.07 }),
+    ],
+  };
 }
