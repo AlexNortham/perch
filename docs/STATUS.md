@@ -1882,29 +1882,6 @@ other agents loaded the machine; it passed on the re-run. No `src/` change.
 - Level Designer: collision for landing boards and perch beams deeper than 0.5 m (§2.6), and no lines or poles across
   lanes or within 3 m of an Updraft (§1.1).
 
-### W5b · Rendering & VFX · 19/11/2026
-**Material library API (stable, for the Technical Artists and the Environment Artist):** import from
-`src/client/render/materials` (all of it is in use by the map layer today).
-- `getMaterialLibrary(quality)` → `{ opaque, cutout, cutoutDepth, layer(id), tick(s), setEnvironment(t), textureBytes }`.
-  Two shared materials draw everything painted with the library, so mixed materials in one 64 m cell are one draw
-  call. Cards (leaves, needles, feathers) use `cutout` and set `mesh.customDepthMaterial = lib.cutoutDepth`.
-- `paint(geometry, id, { tint, uv: 'planar' | 'cylinder' | 'keep', yaw, scale, offset, seed, turn })` writes `uv`
-  (tiles), `matLayer` and `color` (multiplied into any existing colours). Paint after placing the piece. `planar` keeps
-  courses level on walls and along the eaves on roofs; `cylinder` wraps posts and trunks; `keep` takes uv in metres
-  (or 0..1 on cards). `seed` adds the §4.4 per-piece hue/value variation; `turn` runs planks and grain up the piece.
-- `bakeAO(geometry, { occluders, ground, reach, voxel, rays, underside, strength })` darkens vertex colours: ray
-  occlusion through a voxel grid (concave edges, overhangs), the 0.3 m contact band and 0.8 m damp gradient on walls
-  (`ground`), and downward faces. `rays: false` gives the cheap gradient terms only.
-- 37 materials (`MATERIAL_IDS`): brick, brickBurnt, ashlar, granite, sandstone, flagstone, cobble, plaster,
-  plasterOchre, timber, timberDark, timberRed, boards, roofClay, roofSlate, roofShingle, thatch, iron, brass, pewter,
-  verdigris, glass, windowLit and lantern (emissive), canvas, rope, twig, bark, hedge, grass, moss, earth, gravel,
-  water (flows), leafCard, pineCard, featherCard. Colours, tiles and roughness follow §7.2 (`RECIPES[id]`).
-- Tiers (§11.6): Low is Lambert with 128² albedo; Medium is PBR with 256² albedo + 128² ORM; High adds 512² albedo
-  and normal maps. `retarget(root, lib)` moves a built scene to another tier.
-- Framework (`src/client/render/batch.ts`, `shapes.ts`): `CellBatch` (`add(painted, { kind, band, cast, rays })`,
-  `build(lib, name)`, then `updateBands(root, eye)` each frame), `LodInstances` (levels by distance, per-instance
-  frustum culling, one draw call per level), and shapes `chamferBox`, `wedge`, `stairs`, `column`, `trunk`, `leafClump`,
-  `tube`.
 ### 2026-11-19 · Docs & Wiki engineer (W5b) · WIKI
 Done: the wiki coverage test already generated into a temp folder; it now also compares that output with the committed `wiki/` (ignoring the date) and only warns when stale (D-WIKI-001). `npm run wiki` unchanged. Proved: dropping a hero page from the generator fails 3 tests; reverted. About 2 s of generation, no screenshots.
 Decision D-WIKI-001: a stale committed wiki is a console warning, never a failure; the gate regenerates it (D-EP-031).
@@ -2289,3 +2266,92 @@ What would lift the 2s, and the rest toward 4:
   - muddy colour and value, with no sheen.
 - The Technical Artist is doing a second pass on the shared pipeline (anatomy, feathers, bird material, sculpt) and then each bird.
 - The wave 6 rework of the 12 older birds waits for that pipeline, so they inherit the fixes rather than the faults.
+
+### W5b · Rendering & VFX · 20/11/2026
+**Done:** branch `worktree-agent-a14678701512c6de5` from `integrate/w5` 1f6dc2f, with `integrate/w5` merged in up to
+061e266. Decisions D-RENDER-010 to 017. The Environment Artist's three requests are done (below).
+
+**API for the Environment Artist and the Technical Artists** (`src/client/render/materials`, `batch.ts`, `shapes.ts`):
+- `getMaterialLibrary(quality)` → `{ opaque, cutout, cutoutDepth, layer(id), tick(s), setEnvironment(t), textureBytes }`.
+  Two shared materials draw every layer, so mixed materials in one cell are one draw call. Cards (leaves, needles,
+  feathers) use `cutout` with `mesh.customDepthMaterial = lib.cutoutDepth`. The shader handles `USE_INSTANCING` and
+  `USE_BATCHING` (BatchedMesh entries with transforms get the right world-space variation).
+- `paint(geometry, id, { tint, uv: 'planar' | 'cylinder' | 'keep', yaw, scale, offset, seed, turn })` writes `uv`
+  (tiles), `matLayer` and `color` (multiplied into existing colours). Paint after placing a piece: `planar` keeps
+  courses level on walls and along the eaves, `cylinder` wraps posts and trunks, `keep` takes uv in metres (0..1 on
+  cards); `seed` adds §4.4 variation; `turn` runs planks and grain upward.
+- `bakeAO(geometry, { occluders, ground, rays, underside, reach, voxel, strength })`; `bakeAOAll(geometries, …)` bakes
+  many on one shared voxel grid. `rays: false` is the cheap gradient path (overhangs, 0.3 m contact, 0.8 m damp).
+- `compactGeometry(geometry)` (call last): welds identical vertices into an indexed mesh and packs normals Int8×4,
+  colours Uint8×4 and the layer Uint8; position and uv stay Float32. Takes soups or indexed meshes; the shader reads
+  the packed types unchanged. `geometryBytes(g)` measures. On the map layer: 51.8 → 17.8 MB.
+- 37 materials (`MATERIAL_IDS`, recipes in `RECIPES`, §7.2): brick, brickBurnt, ashlar, granite, sandstone, flagstone,
+  cobble, plaster, plasterOchre, timber, timberDark, timberRed, boards, roofClay, roofSlate, roofShingle, thatch, iron,
+  brass, pewter, verdigris, glass, windowLit and lantern (emissive; they bloom), canvas, rope, twig, bark, hedge, grass,
+  moss, earth, gravel, water (flows), leafCard, pineCard, featherCard. Tiers: Low Lambert 128²; Medium PBR 256² + 128²
+  ORM; High 512² + normal maps (texture memory 3.1 / 15.4 / 111 MB).
+- `CellBatch(cellSize, { shadowProxies })`: `add(painted, { kind: 'opaque' | 'cutout' | 'shadow', band: 'near' |
+  'mid' | 'far', cast, rays })`, then `build(lib, name)` merges per cell, kind and band, bakes AO across cells and
+  compacts; call `updateBands(root, eye)` each frame. With `shadowProxies`, painted meshes don't cast and plain
+  `kind: 'shadow'` proxies on layer `SHADOW_LAYER` do (the sun's shadow camera sees that layer, the main camera
+  doesn't). `LodInstances(levels, material, capacity)` buckets instances by frustum and distance (10 % hysteresis).
+  Shapes: `chamferBox`, `wedge`, `stairs`, `column`, `trunk`, `leafClump`, `tube`.
+- Dev measurement: `__perchRender.budget()` (calls, triangles, §11.3 categories; BatchedMeshes count what they drew),
+  `?renderOff=post,shadow,backdrop,cards,bloom,msaa`, `?renderTeams` (three a side for G18), `__perchRender.portrait()`.
+
+**What changed on screen:**
+- **Lighting (§10):** sun #FFD9A0 at 24° from the south-west, hemisphere #8FA6C9/#4A4A3A, lavender fog #A99BB0 at
+  0.0060, a sky with sun glow and cloud bands, a sky PMREM environment on metal and glass, bloom on emissive only, split
+  tone and a 10 % vignette folded into the output pass (Medium, High).
+- **Map layer** over what the environment layer doesn't re-skin: bevelled, painted, AO-baked prims by district; trims
+  (skipped inside building footprints, where the environment's facades carry them); stairs; hedges with leaf fringes;
+  bark trunks with crowns; lanes paved with sett kerbs between the Roosts; Updraft masts, Vines, chimney shimmer, seed
+  stalls; an instanced forest; kit structure models at anchors instead of cone markers. Low builds without bevels,
+  trims or fringes. Shadow proxies cut the shadow pass from about 230k to 24k triangles.
+- **G16:** the local Updraft ride and boost are screen-space speed lines (outside the central 50 %, ≤ 3 px, ≤ 25 %,
+  ≤ 15 % of the height); the white slabs are gone; other riders keep thin world wind; the FOV kick stays.
+- **G18:** red 2 px outline on enemies in sight, red x-ray while revealed, teal x-ray on allies behind walls; one
+  overlay per LOD level; the sculpted birds keep their own rim, older models get one.
+- **Portraits (D-EP-041):** each bird rendered from its own model into a cached data URL, registered with the UI's
+  `setPortraitProvider`; images fill just after the frame.
+- **QA ceilings** (`e2e/draw-budget.spec.ts`, acting for QA): calls 100 / 120 / 240 (lane Low, lane Medium, match);
+  triangles all passes ≤ 330k Low and ≤ 1.02M Medium; texture memory ≤ 32 / 80 MB.
+
+**Budget scenes** (QA's camera, seed 1, 100 s, 1080p, headless Edge on an Intel Arc 140T iGPU, my layer only):
+
+| Scene | Calls | Triangles, all passes | Map main pass | Shadow pass | Textures |
+|---|---|---|---|---|---|
+| lane, Low | 42 | 189k | 33 meshes, 184k | none | 3.1 MB |
+| lane, Medium | 78 | 341k | 38 meshes, 305k | ≈ 24k | 15.4 MB |
+| match, Medium | 99 | 352k | 38 meshes, 305k | ≈ 24k | 15.4 MB |
+
+Low and Medium hold the 120 fps cap headless at 1080p, High 65–95. Before (1f6dc2f): 15–36 calls, 44–66k triangles.
+Load to `ready` at Medium is about 2.5 s here (was about 0.9 s): textures 0.55 s, map build with AO about 1.2 s,
+shader compiles about 0.3 s, all before the first frame because `__perch.ready` counts frames.
+
+**Before and after:** `out/rshots/before/` and `out/rshots/after/` (menu, lane, street, fight, ride, boost, teams 12 m
+and 40 m, portraits; git-ignored), beside `IXU64ax4IAY t0030`, `HP8-yBieQK8 t0060` and `out/reference/perch/`. Against
+§12.1: golden hour, haze and depth layering read (E1, apart from interiors); masonry, timber and roofs show three scales
+of detail with no visible tiling at lane range (E2); lane floors are calm paving (B3); birds and effects stay brightest
+and only lights bloom (B2); the Updraft view is clear. Still open, with their owners: A3 long unbroken walls and the
+boundary wall (Environment Artist), A4 primitive-shaped structures and unsculpted birds (Technical Artists), lit
+interiors. At the menu's high overview the nearest crowns show some faceting of their cores.
+
+**Verified:** Git Bash `VITEST_MAX_WORKERS=2 npm run check`: `PASS typecheck · PASS lint · FAIL test` (5 failed, all the
+Objectives tests that fail on `integrate/w5` itself: `interactables.test.ts` ×2, `neutrals.test.ts` ×3). Run
+separately: `npm run perf` 7/8 (the objectives budget, also failing on `integrate/w5`); `npm run sim -- --seed 1
+--minutes 3 --bots 12` 10,800 ticks, hash `0e2f8fafa4067d33`; E2E_LINE `e2e/draw-budget.spec.ts` 3/3. Renderer unit
+tests 45 (materials, compaction, map layer, ride, identity).
+
+**Interface requests:**
+- Technical Architect: let `__perch.ready` also wait on a renderer readiness flag (for example `Renderer.ready`), so
+  texture generation and the AO bake can move to Web Workers without nondeterministic screenshots; and update or retire
+  `app/palette.ts` `LIGHT_COLOURS` and `SKY_COLOURS` (GDD §14.5 values; the renderer now uses the guide's).
+- QA: `preview-regressions.spec.ts` "binds side buttons" makes four page loads inside the 30 s default and times out
+  when the run is busy (it passes alone); a 60 s per-test timeout would hold. The G18 3v3 gate capture can use
+  `?renderTeams`.
+- UI/HUD: G18's in-world enemy health bars and names are the UI's; the renderer supplies outlines and x-rays.
+- Environment Artist: call `compactGeometry` on the layer's meshes before `addGeometry` (same shader, about a third of
+  the bytes), and keep its BatchedMeshes tagged so `budget()` reports them (it now counts what they drew).
+
+**Next:** a worker path for generation once the readiness hook exists; decals (§7.5); the canopy dapple at Medium.
