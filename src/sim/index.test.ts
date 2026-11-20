@@ -151,6 +151,24 @@ describe('createSim', () => {
     expect(sim.view).toBe(sim.view);
   });
 
+  it('keeps the local hero in its own view every tick, dead or alive (W6 EP stability check)', async () => {
+    const sim = await createSim({ seed: 5, map: 'arena', roster: humanRoster(5, 'kingfisher', { bots: 1 }) });
+    const me = sim.view.localHero!;
+    const inView = (): boolean => sim.view.entities.some((e) => e.id === me) && sim.view.heroes.some((h) => h.id === me);
+    expect(inView()).toBe(true);
+    const hero = sim.ctx.store.getKind(me, 'hero')!;
+    const cause = { source: null, team: 'neutral' as const, via: 'objective' as const, ability: null, item: null, values: null, songPower: 0,
+      proc: false, origin: { ...hero.pos } };
+    sim.ctx.effects.apply({ kind: 'damage', amount: 1e6, type: 'talon' }, { entity: me, point: { ...hero.pos }, dir: { x: 0, y: 0, z: 1 } }, cause);
+    let died = false;
+    for (let i = 0; i < 60 * TICK_RATE && !(died && !hero.health.dead); i++) {
+      sim.step();
+      died ||= hero.health.dead;
+      expect(inView(), `tick ${sim.tick}, dead ${hero.health.dead}`).toBe(true);
+    }
+    expect(died && !hero.health.dead, 'died and respawned').toBe(true);
+  });
+
   it('projects castSlot, variants, camps, the Roc flags and detached objective timers (W4.5)', async () => {
     const sim = await createSim({ seed: 4, map: 'arena', roster: humanRoster(4, 'owl', { bots: 0 }) });
     const h = sim.ctx.store.getKind(1, 'hero');
