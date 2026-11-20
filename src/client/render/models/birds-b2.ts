@@ -7,11 +7,12 @@
 import { ExtrudeGeometry, Matrix4, Shape } from 'three';
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { TeamColours } from '../palette';
-import { beak, eye, FEATHER, flare, foldedWings, hackles, headForm, inBone, legsOf, norm, ovoid, shingle, SKIN, tailFan, wingsOf } from './anatomy';
+import { beak, eye, flare, foldedWings, hackles, headForm, inBone, legsOf, norm, ovoid, shingle, SKIN, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
-import { bodyField, CASSOWARY_HEAD, cassowaryAnchors, flipX, skinFor, TOUCAN_HEAD, toucanAnchors, TRUNK } from './bodies';
+import { bodyField, CASSOWARY_HEAD, cassowaryAnchors, flipX, skinFor, TOUCAN_HEAD, toucanAnchors, TRUNK, WOODPECKER_HEAD, woodpeckerAnchors } from './bodies';
 import { SKIN as CASSOWARY_SKIN } from './data/skins/cassowary';
 import { SKIN as TOUCAN_SKIN } from './data/skins/toucan';
+import { SKIN as WOODPECKER_SKIN } from './data/skins/woodpecker';
 import { CARD, TILE } from './feathers';
 import { band, bead, block, BRASS, buckle, carve, GEAR, LEATHER, lathe, pouch, ring, sash, scope, stud, WOOD } from './gear';
 import type { Detail, SculptedSpec } from './sculpted';
@@ -401,14 +402,41 @@ const WOODPECKER = {
 
 export function woodpecker(plan: BodyPlan, team: TeamColours, d: Detail): SculptedSpec {
   const H = plan.height;
-  const R = plan.radius;
   const hr = plan.head.radius;
-  const hc = plan.head.centre.up;
-  const s = H / 1.75;
+  const A = woodpeckerAnchors(plan);
+  const s = A.s;
   const P = WOODPECKER;
-  const legLen = H * 0.22;
+  const legLen = A.legLen;
+  const PLUME = { tile: TILE.scales, size: 0.06, gloss: 0.2 } as const;
+  // The back: white under the barred tile reads as black-and-white ladder bars across the feathers.
+  const BARRED = { tile: TILE.barred, size: 0.05, gloss: 0.2 } as const;
+  const FACE = { tile: TILE.flat, gloss: 0.15 } as const;
+  const clamp = (v: number): number => Math.min(1, Math.max(0, v));
+  const field = bodyField('woodpecker', plan);
+  const skin = skinFor('woodpecker', plan, WOODPECKER_SKIN, d.level, {
+    back: { paint: (p) => (p.z < -0.08 * s ? P.white : P.buff), finish: BARRED },
+    mantle: { paint: P.white, finish: BARRED },
+    scapular: { paint: P.black, finish: { ...PLUME, gloss: 0.3 } },
+    shoulder: { paint: P.black, finish: PLUME },
+    coverts: { paint: P.white, finish: BARRED },
+    breast: { paint: P.buff, finish: PLUME },
+    belly: { paint: P.buff, finish: PLUME },
+    thigh: { paint: P.buff, finish: { ...PLUME, size: 0.05 } },
+    neck: { paint: (p) => (p.z < 0 ? P.black : P.white), finish: PLUME },
+    // The head: white face and throat, a red crown sweeping into the crest, black below the crest down the nape.
+    crown: { paint: (p) => mix(P.white, P.red, clamp(((p.y - A.head[1]) / hr - 0.3) / 0.15 + (A.head[2] - p.z) / hr / 0.25 - 1)), finish: { ...PLUME, size: 0.045, gloss: 0.3 } },
+    crest: { paint: P.red, finish: { ...PLUME, size: 0.045, gloss: 0.3 } },
+    nape: { paint: (p) => mix(P.black, P.red, clamp((p.y - A.head[1] + 0.06 * s) / (0.08 * s))), finish: { ...PLUME, size: 0.045 } },
+    brow: { paint: P.white, finish: FACE },
+    face: { paint: P.white, finish: FACE },
+    cheek: { paint: P.white, finish: FACE },
+    throat: { paint: P.white, finish: FACE },
+    stripe: { paint: P.black, finish: FACE },
+    socket: { paint: P.black, finish: { gloss: 0.3 } },
+    bill: { paint: P.bill, finish: { gloss: 0.5 } },
+  });
   const leg: LegStyle = {
-    skin: P.leg, claw: P.claw, thick: 0.025 * s, thigh: P.buff, fringe: 0.45,
+    skin: P.leg, claw: P.claw, thick: A.legThick, thigh: P.buff, fringe: 0.45, skinned: { r: 0.055 * s, at: 0.25 },
     toes: [{ yaw: -0.3, len: 0.085 * s }, { yaw: 0.3, len: 0.085 * s }, { yaw: Math.PI - 0.35, len: 0.075 * s }, { yaw: Math.PI + 0.35, len: 0.07 * s }],
     clawLen: 0.036 * s,
   };
@@ -416,70 +444,58 @@ export function woodpecker(plan: BodyPlan, team: TeamColours, d: Detail): Sculpt
     covert: P.black, secondary: P.white, primary: P.white, primaryTip: shade(P.white, 0.85), trim: team.primary,
     thick: 0.03 * s, chord: 0.24 * s, primaries: 8, secondaries: 7, primaryLen: 0.6, cell: CARD.barred, secondaryCell: CARD.barred,
   };
+  const neckAxis: [V3, V3] = [[0, 1.16 * s, -0.01 * s], [0, A.head[1] + 0.02 * s, 0]];
 
   const body = (k: Sculpt): void => {
-    // Upright and leaning back a little onto the tail.
-    const torso = k.loft(
-      [
-        { c: [0, 0.3 * s, -0.17 * s], w: 0, up: 0 },
-        { c: [0, 0.38 * s, -0.15 * s], w: 0.15 * s, up: 0.15 * s, dn: 0.16 * s },
-        { c: [0, 0.62 * s, -0.08 * s], w: 0.24 * s, up: 0.24 * s, dn: 0.23 * s },
-        { c: [0, 0.94 * s, -0.03 * s], w: 0.24 * s, up: 0.23 * s, dn: 0.22 * s },
-        { c: [0, 1.22 * s, 0.01 * s], w: 0.18 * s, up: 0.18 * s, dn: 0.17 * s },
-        { c: [0, hc - 0.1 * s, 0.01 * s], w: 0.12 * s, up: 0.12 * s, dn: 0.12 * s },
-      ],
-      { n: d.n(14, 4), seg: d.n(22, 5), ref: [0, 0, 1], finish: { ...FEATHER, size: 0.1 }, paint: (_t, a) => (Math.sin(a) > -0.15 ? P.buff : P.black) },
-    );
-    // The barred back: ladder-barred cards over the mantle.
-    shingle(k, torso, { t: [0.18, 0.88], a: [-Math.PI * 0.08, -Math.PI * 0.92], rows: 5, cols: 6, len: 0.2 * s, wid: 0.15 * s, cell: CARD.barred, paint: P.white, lift: 0.14, seed: 3 }, d);
-    // Gear: a flock-colour climbing harness (two straps crossing the chest) with brass rings, and a tool belt of bits.
+    // The body is the baked implicit skin (bodies.ts); feathers and gear sit on its surface. Upright: a = π/2 in front.
+    const torso = field.only(...TRUNK).surface([0, 0.4 * s, -0.1 * s], [0, 1.26 * s, -0.04 * s], [0, 0, 1]);
+    // The barred wings folded down the flanks.
+    foldedWings(k, torso, wing, { t: [0.42, 0.72], a: -0.35, len: 0.3 * s, wid: 0.11 * s }, d);
+    // Gear: a flock-colour climbing harness (two straps crossing front and back) with a brass ring, and a tool belt of
+    // drill bits round the hips.
     sash(k, torso, 0.68, 0.16, Math.PI * 0.3, { width: 0.05 * s, thick: 0.012 * s, hex: team.primary, stitch: team.light, finish: { tile: TILE.weave, size: 0.04 } }, d);
     sash(k, torso, 0.68, 0.16, Math.PI * 0.7, { width: 0.05 * s, thick: 0.012 * s, hex: team.primary, stitch: team.light, finish: { tile: TILE.weave, size: 0.04 } }, d);
     if (d.level < 2) {
-      const front = torso.at(0.66, Math.PI / 2, 0.025 * s);
+      const front = torso.at(0.68, Math.PI / 2, 0.025 * s);
       ring(k, [front.p.x, front.p.y, front.p.z], 0.024 * s, 0.005 * s, d, GEAR.brass, undefined, [0, 0, 0]);
+      const back = torso.at(0.68, -Math.PI / 2, 0.025 * s);
+      ring(k, [back.p.x, back.p.y, back.p.z], 0.024 * s, 0.005 * s, d, GEAR.brass, undefined, [0, 0, 0]);
     }
-    band(k, torso, 0.3, { width: 0.06 * s, thick: 0.016 * s, hex: GEAR.leather, finish: LEATHER }, d);
+    band(k, torso, 0.24, { width: 0.06 * s, thick: 0.016 * s, hex: GEAR.leather, finish: LEATHER }, d);
     if (d.level < 2) {
       for (let i = 0; i < 4; i++) {
-        const p = torso.at(0.3, Math.PI * (0.25 + i * 0.17), 0.02 * s);
+        const p = torso.at(0.24, Math.PI * (0.62 + i * 0.17), 0.02 * s);
         k.loft([{ c: [p.p.x, p.p.y + 0.03 * s, p.p.z], w: 0.009 * s, up: 0.009 * s }, { c: [p.p.x, p.p.y - 0.05 * s, p.p.z], w: 0, up: 0 }], { seg: 5, paint: GEAR.iron, finish: { gloss: 0.7 } });
       }
     }
-    buckle(k, torso.at(0.3, Math.PI / 2, 0.025 * s), 0.045 * s, d);
+    buckle(k, torso.at(0.24, Math.PI / 2, 0.025 * s), 0.045 * s, d);
   };
 
   const head = (k: Sculpt): void => {
-    // Red crown, black mask through the eye, white stripes above and below it, black whisker stripe.
-    const skull = headForm(k, {
-      hr, width: 1.06, crown: 1.06, chin: 1.0, back: 0.95, face: 1.02, neck: { r: 0.12 * s, drop: 0.17 * s },
-      beak: { y: -hr * 0.08, w: hr * 0.24, up: hr * 0.26, dn: hr * 0.19 }, finish: { ...FEATHER, size: 0.07 },
-      paint: (_t, _a, p) => {
-        const y = p.y / hr;
-        const z = p.z / hr;
-        if (y > 0.5 && z < 0.7) return P.red;
-        if (z < -0.45) return P.black;
-        if (Math.abs(y - 0.1) < 0.17) return P.black;
-        if (y > 0.27) return P.white;
-        if (y > -0.34) return P.white;
-        if (y > -0.55 && z > 0) return P.black;
-        return P.white;
-      },
+    // The head, its crest keel and stripes are the skin's; the eyes sit in its sockets and the chisel bill grows from
+    // its base. The player-camera standard: black hackles under the red nape, and the crest's feathers, raised on the
+    // display.
+    hackles(k, inBone(field.only('neck', 'nape').surface(...neckAxis, [0, 0, 1]), A.head), {
+      t: [0.35, 0.62], rows: 2, cols: 4, len: 0.07 * s, wid: 0.06 * s, lift: 0.2,
+      paint: (t) => mix(P.black, shade(P.black, 1.6), t), finish: { gloss: 0.3 }, seed: 47,
     }, d);
-    // The nape crest, raised on the display.
     if (d.level < 3) {
-      for (let i = 0; i < d.keep(7, 3); i++) {
-        const u = (i / Math.max(1, d.keep(7, 3) - 1)) * 2 - 1;
-        const at: V3 = [u * hr * 0.35, hr * 0.85, -hr * (0.1 + 0.35 * (1 - Math.abs(u)))];
-        const dir = norm([u * 0.3, 0.35, -1]);
-        k.card({ at, dir, face: [0, 1, -0.2], len: 0.14 * s, wid: 0.06 * s, cell: CARD.contour, root: P.red, tip: shade(P.red, 1.15), segs: 1, curl: 0.3, morph: { display: hinge(at, [1, 0, 0], -0.9) } });
+      const n = d.keep(7, 3);
+      for (let i = 0; i < n; i++) {
+        const u = (i / Math.max(1, n - 1)) * 2 - 1;
+        const at: V3 = [u * hr * 0.3, hr * (0.86 - 0.08 * Math.abs(u)), -hr * (0.3 + 0.25 * (1 - Math.abs(u)))];
+        const dir = norm([u * 0.3, 0.5, -1]);
+        k.card({ at, dir, face: [0, 1, -0.2], len: 0.15 * s, wid: 0.06 * s, cell: CARD.contour, root: P.red, tip: shade(P.red, 1.15), segs: d.rows, curl: 0.3, finish: { gloss: 0.3 }, morph: { display: hinge(at, [1, 0, 0], -0.9) } });
       }
     }
-    for (const x of [1, -1]) eye(k, [x * hr * 0.72, hr * 0.1, hr * 0.56], [x * 0.76, 0.04, 0.65], { r: hr * 0.22, iris: P.iris, ring: P.black, lid: P.black, ringW: hr * 0.04 }, d);
-    beak(k, { at: [0, -hr * 0.08, hr * 1.02], len: hr * 1.5, w: hr * 0.24, up: hr * 0.26, dn: hr * 0.19, base: P.bill, tip: P.billTip, open: 0.3 }, d);
+    const E = WOODPECKER_HEAD.eye;
+    for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.76, 0.04, 0.65], { r: hr * 0.22, iris: P.iris, ring: P.black, lid: P.black, ringW: hr * 0.04 }, d);
+    const B = WOODPECKER_HEAD.bill;
+    beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.02)], len: hr * 1.5, w: hr * 0.24, up: hr * 0.26, dn: hr * 0.19, base: P.bill, tip: P.billTip, open: 0.3 }, d);
     // Ear muffs against its own drumming: brass cups on a band over the crown.
     if (d.level < 3) {
-      band(k, skull, 0.38, { width: 0.022 * s, thick: 0.01 * s, hex: GEAR.brassDark, finish: BRASS }, d);
+      const over = inBone(field.only('crown', 'nape', 'cheek', 'brow', 'crest').surface([0, A.head[1], A.head[2] - hr], [0, A.head[1], A.head[2] + hr], [0, 1, 0]), A.head);
+      band(k, over, 0.36, { width: 0.022 * s, thick: 0.01 * s, hex: GEAR.brassDark, finish: BRASS }, d);
       for (const x of [1, -1]) {
         lathe(k, [[0.0, 0.03 * s], [0.04 * s, 0.022 * s], [0.045 * s, -0.005 * s], [0.04 * s, -0.012 * s]], { at: [x * hr * 0.98, -hr * 0.05, -hr * 0.3], rot: [0, x * Math.PI / 2, 0], seg: d.n(12, 5), paint: (t) => (t > 0.6 ? GEAR.leatherDark : GEAR.brass), finish: BRASS });
       }
@@ -492,15 +508,11 @@ export function woodpecker(plan: BodyPlan, team: TeamColours, d: Detail): Sculpt
   };
 
   return {
-    body, head, tail,
+    body, head, tail, skin,
     wing: wingsOf(wing, d),
     leg: legsOf(leg, d),
     gun: woodpeckerGun(s, d),
-    pivot: {
-      wingL: [R * 0.75, 1.15 * s, -0.04 * s], wingR: [-R * 0.75, 1.15 * s, -0.04 * s],
-      legL: [R * 0.36, legLen, -0.03 * s], legR: [-R * 0.36, legLen, -0.03 * s],
-      tail: [0, 0.42 * s, -0.2 * s],
-    },
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
     legLen, legThick: leg.thick, wingLen: H * 0.36,
     // Drumroll, Bore Hole, Tree Cling, Hammerhead.
     casts: ['aim', 'throw', 'leap', 'aim'],

@@ -573,6 +573,7 @@ export const BODIES = {
   vulture: vultureBody,
   hummingbird: hummingbirdBody,
   toucan: toucanBody,
+  woodpecker: woodpeckerBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */
@@ -759,4 +760,51 @@ export const TOUCAN_HEAD: HeadShape = {
   brow: [0.5, 0.2, 0.42], browAt: [0.5, 0.46, 0.46], browTilt: 0.2,
   nape: [0.8, 0.72, 0.62], napeAt: [0, -0.5, -0.45], throat: [0.6, 0.5, 0.55], throatAt: [0, -0.72, 0.22],
   eye: [0.72, 0.24, 0.48], socket: 0.3, bill: [0, 0.1, 0.94], billW: 0.4, billH: 0.56,
+};
+
+// =================================================================================================================
+// Batch D (W7). Woodpecker: upright, leaning back onto its prop tail, a buff breast, a ladder-barred black-and-white
+// back, a white face crossed by a black eye stripe and moustache, and a red crown that rises into a nape crest.
+
+export function woodpeckerAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.75;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.68, 1.14 * s, -0.06 * s], hip: [R * 0.36, plan.height * 0.22, -0.04 * s], tail: [0, 0.44 * s, -0.21 * s],
+    legLen: plan.height * 0.22, legThick: 0.025 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export function woodpeckerBody(plan: BodyPlan): Body {
+  const a = woodpeckerAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2300, 880, 290, 115], cell: 0.008,
+    ops: [
+      // Upright, the top leaning back a little toward the tail it props on.
+      ell([0, 0.86 * s, -0.08 * s], [0.21 * s, 0.4 * s, 0.19 * s], 'body', 'back', { rot: [-0.1, 0, 0], k: 0.05 }),
+      ...pair(ell([0.08 * s, 1.03 * s, 0.05 * s], [0.14 * s, 0.2 * s, 0.14 * s], 'body', 'breast', { k: 0.06, rot: [-0.15, 0.25, 0] })),
+      ell([0, 0.95 * s, 0.13 * s], [0.055 * s, 0.18 * s, 0.08 * s], 'body', 'breast', { k: 0.05, rot: [-0.15, 0, 0] }),
+      ell([0, 0.6 * s, -0.04 * s], [0.18 * s, 0.2 * s, 0.18 * s], 'body', 'belly', { k: 0.07 }),
+      ell([0, 1.12 * s, -0.17 * s], [0.17 * s, 0.2 * s, 0.08 * s], 'body', 'mantle', { k: 0.05, rot: [-0.08, 0, 0] }),
+      cone([0, 0.54 * s, -0.2 * s], [0, 0.44 * s, -0.26 * s], 0.11 * s, 0.05 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.13 * s, 1.12 * s, -0.11 * s], scapularR: [0.09 * s, 0.12 * s, 0.09 * s], root: 0.06 * s, inset: 0.06, drop: 0.06 }),
+      ...thighs(a, { r: 0.065 * s, rKnee: 0.04 * s, reach: 0.5, root: [0.07 * s, 0.46 * s, -0.04 * s] }),
+      ...neck([[0, 1.2 * s, -0.01 * s], [0, 1.33 * s, 0.0], [0, hc[1] - 0.07 * s, 0.01 * s]], [0.15 * s, 0.13 * s, 0.12 * s], 'neck', 0.5),
+      ...head(hc, a.hr, WOODPECKER_HEAD),
+      // The nape crest: the red crown swept back into a keel off the back of the skull.
+      ell(at(hc, a.hr, [0, 0.72, -0.62]), mulS([0.32, 0.3, 0.55], a.hr), 'head', 'crest', { k: 0.08 * a.hr, rot: [0.65, 0, 0], flow: [0, 0.2, -1] }),
+      // Markings: a black stripe through each eye to the nape, and a black moustache from the bill.
+      ...pair(ell(at(hc, a.hr, [0.92, 0.08, -0.05]), mulS([0.3, 0.12, 0.8], a.hr), 'head', 'stripe', { mark: true, rot: [0.15, 0.3, 0], soft: 0.004 })),
+      ...pair(ell(at(hc, a.hr, [0.72, -0.42, 0.42]), mulS([0.3, 0.1, 0.5], a.hr), 'head', 'stripe', { mark: true, rot: [-0.3, 0.45, 0], soft: 0.004 })),
+    ],
+  };
+}
+
+export const WOODPECKER_HEAD: HeadShape = {
+  skull: [1.06, 1.08, 1.12], skullAt: [0, 0.02, -0.04], face: [0.68, 0.6, 0.62], faceAt: [0, -0.1, 0.46],
+  brow: [0.5, 0.2, 0.42], browAt: [0.5, 0.44, 0.48], browTilt: 0.3,
+  eye: [0.72, 0.1, 0.56], socket: 0.24, bill: [0, -0.08, 1.0], billW: 0.27, billH: 0.25,
 };
