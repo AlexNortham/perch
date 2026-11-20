@@ -2954,7 +2954,7 @@ guns held). `tsc -b` and `eslint .` pass. The full `npm run check` is skipped, a
 ### W5d · Technical Artist (bird batch B) · 21/11/2026
 **Done (stopped early on the EP's change of priority):** Shrike and Kingfisher are converted to the sculpt pipeline
 v2.1 (D-ART-010, D-ART-011). Branch `worktree-agent-a6c1176ee04a5cc9d`, from `integrate/w5` 1c7ad07. One commit per
-bird; D-ART-012 records how batch B birds register.
+bird; D-ART-013 records how batch B birds register.
 - **Shrike:** a big flat-crowned head with a black mask meeting over the hooked bill, a silvery crown over a slate nape
   and mantle, a white breast, black folded wings with a white flash, and a long black-and-white blade tail that fans on
   a cast. Gear: a flock collar, a knotted flock belt with butcher's hooks, a thorn bandolier and a pouch. The Barb Rifle

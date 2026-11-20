@@ -1848,7 +1848,7 @@ flipped, dark or hue-shifted by the iridescence. Measured with GPU timer queries
 sculpted birds in the player-camera view covering 5.9 % of 1080p: the feather surface costs 0.09–0.12 ms at Medium and
 0.05–0.06 ms at Low, and all 12 birds 0.45 ms and 0.35–0.42 ms. On the reference Iris Xe (about 2–2.5× slower) that
 is about 0.3 ms at Medium, inside the 2.5 ms for birds, fledglings, creatures and structures (§11.2).
-### D-ART-012 · 21/11/2026 — Sculpted birds outside `sculpted-birds.ts` register through `heroes.ts`
+### D-ART-013 · 21/11/2026 — Sculpted birds outside `sculpted-birds.ts` register through `heroes.ts`
 **Decision:** batch B birds are `SculptedBird` functions in their builder file (`heroes.ts`), wrapped with
 `sculptedBuild` into `HERO_BUILDS`. `heroes.ts` exports `SCULPTED_IDS` (the ids of `SCULPTED_BUILDS` plus its own), and
 `models.test.ts` takes its sculpted list from it, de-duplicating the old twelve, so the display, jaw, blink and gun-cap
