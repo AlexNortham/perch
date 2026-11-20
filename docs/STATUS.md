@@ -3268,3 +3268,12 @@ lint 8s · test 79s (1,440 passed) · perf 34s (14/14; objectives +0.115 ms, wit
 loaded run had `draw-budget` lane/low at 340k triangles against 330k, which passed alone (3/3) and is the
 settle issue QA's spec now waits out.
 **Interface requests:** none. **Blocked:** nothing.
+
+### EP · 21/11/2026 · Architect W6 merged (c4ae9e0); release checks started
+- **`__perch.hero` null is not a view bug.** The local hero is always in its own view, and a new invariant test covers death and respawn. With `?t=900`, Play fast-forwards the 12-bot match before the local hero exists. With bots fighting, that takes 18–45 s, so pickHero's 60 s wait ran out on a busy machine.
+  - Fixes: frames draw nothing while a session loads (D-ARCH-033), and pickHero's wait now scales with the skipped seconds (EP, 04c4117).
+- **Objectives perf:** incremental spatial hash, from +0.200–0.211 to +0.137–0.142 ms against the 0.3 bound (D-ARCH-029). The world's vision pass is most of what remains.
+- **Staged start-up:** `__perch.stage` goes boot, then menu, then world. First paint fell from 3.36 s to 1.18 s; the world is ready at 3.71 s (D-ARCH-031).
+- **Ability credit:** heal, shield and status events carry ability and item ids. `channelS` is typed (D-ARCH-030/032).
+- The Architect's `npm run check -- --release` passed all six steps on a quiet machine (1,440 unit, 112 e2e, 662 s).
+- **Release 1 checks running on integrate/w5 04c4117, with no agents on the machine:** three `--release` runs, `npm run release-matches`, then a 30-minute soak.
