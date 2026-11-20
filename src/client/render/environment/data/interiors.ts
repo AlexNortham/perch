@@ -15,7 +15,7 @@ import { hash2 } from '../world';
 import type { Pass, World } from '../world';
 import { barrel, hangingFeeder, inPrim, lantern } from './buildings';
 import { nest, perchRail } from './nest';
-import { bowl, crateAt, openSack, sack } from './props';
+import { bowl, bunting, crateAt, openSack, sack } from './props';
 import { POT, ROPE, TWIG } from './styles';
 import { carve, rect } from '../../../../sim/world/map/data/interiors';
 
@@ -34,6 +34,11 @@ interface Clearances {
   readonly gaps: readonly Blocker[];
 }
 
+/** Trading halls: one taller than HALL_HEIGHT (m) gets bunting. */
+const HALLS = new Set(['market-hall', 'water-mill', 'warehouse', 'seed-exchange']);
+const HALL_HEIGHT = 5;
+/** Market bunting pennants: madder, woad and weld. */
+const BUNTING = [0xc0583a, 0x3a72a8, 0xd0a840] as const;
 const TIMBER = { mat: 'timber' } as const;
 const DARK = { mat: 'timberDark' } as const;
 const LANDING_BOARD = { mat: 'boards', tint: 0xf2e8d6 } as const;
@@ -203,6 +208,21 @@ function furnish(w: World, room: Room, archetype: string, seed: number, { blocke
         g.tube([new Vector3(x, ceil - 0.24, z), new Vector3(x + Math.cos(a) * 0.3, y + 0.2, z + Math.sin(a) * 0.3)], 0.01, 3);
       }
       nest(g, x, y, z, 0.34, 0.24, seed + sx * 3 + sz, hash2(seed, sx + sz * 7) < 0.4 ? 1 : 0, 6);
+    }
+  }
+  // Trading halls two storeys high (Market Hall, mill, warehouse, Seed Exchange): two lines of feather bunting down the long axis, high
+  // over head height, so the tall plaster above the wall dressing reads as a market, not a void.
+  if (height > HALL_HEIGHT && HALLS.has(archetype)) {
+    const g = M(1);
+    const alongX = hx >= hz;
+    const [long, short] = alongX ? [hx, hz] : [hz, hx];
+    // Under the roof, above any gallery: a bird walking a gallery passes well under it.
+    const y = ceil - 0.9;
+    for (const s of [-1, 1]) {
+      const off = (s * short) / 3;
+      g.within(alongX ? placed(0, 0, off, 0) : placed(off, 0, 0, Math.PI / 2), () => {
+        bunting(g, -long + 0.1, long - 0.1, y, 0.5, BUNTING[Math.floor(hash2(seed, 50 + s) * BUNTING.length)] ?? BUNTING[0]!, seed + s);
+      });
     }
   }
 
