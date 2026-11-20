@@ -8,12 +8,13 @@
 import type { BodyPlan } from '../../../sim/core/contracts/heroes';
 import type { HeroId } from '../../../sim/core/contracts';
 import type { TeamColours } from '../palette';
-import { beak, eye, foldedWings, hackles, inBone, legsOf, norm, wingsOf } from './anatomy';
+import { beak, eye, foldedWings, hackles, inBone, legsOf, norm, tailFan, wingsOf } from './anatomy';
 import type { LegStyle, WingStyle } from './anatomy';
 import { assemble, dims, eyes, headShell } from './bird';
 import type { BirdBuild } from './bird';
-import { bodyField, flipX, SHRIKE_HEAD, shrikeAnchors, skinFor, TRUNK } from './bodies';
+import { bodyField, flipX, KINGFISHER_HEAD, kingfisherAnchors, SHRIKE_HEAD, shrikeAnchors, skinFor, TRUNK } from './bodies';
 import { GENERIC, PLUMAGE } from './constants';
+import { SKIN as KINGFISHER_SKIN } from './data/skins/kingfisher';
 import { SKIN as SHRIKE_SKIN } from './data/skins/shrike';
 import { CARD } from './feathers';
 import { band, bead, block, BRASS, buckle, carve, GEAR, LEATHER, lathe, pouch, ring, sash, WOOD } from './gear';
@@ -91,7 +92,7 @@ const shrike: SculptedBird = (plan, team, d) => {
   // Black wings with the white flash at the base of the primaries.
   const wing: WingStyle = {
     covert: P.black, secondary: P.black, primary: 0xf0eee8, primaryTip: P.black, trim: team.primary,
-    thick: 0.03 * s, chord: 0.22 * s, primaries: 7, secondaries: 6, primaryLen: 0.55, secondaryLen: 0.9, finish: { gloss: 0.25 },
+    thick: 0.03 * s, chord: 0.22 * s, primaries: 7, secondaries: 6, primaryLen: 0.55, secondaryLen: 0.9, finish: { tile: 1, size: 0.16, gloss: 0.25 },
   };
 
   const body = (k: Sculpt): void => {
@@ -259,35 +260,188 @@ const albatross: Build = (plan, team) => {
   });
 };
 
-/** Kingfisher: small, forward-leaning sprinter with a dagger bill, stubby tail, blue back and orange chest. */
-const kingfisher: Build = (plan, team) => {
-  const { H, R, hc, hr, top } = dims(plan);
-  const legLen = H * 0.17;
-  const y0 = legLen * 0.8;
-  const ry = (top - y0) / 2 / Math.cos(0.5);
-  const cy = (y0 + top) / 2;
-  const lean: [number, number, number] = [0.5, 0, 0];
-  const body = new Parts()
-    .ell(PLUMAGE.kingfisherBack, [R * 0.95, ry, R * 1.15], [0, cy, -H * 0.1], lean)
-    .ell(PLUMAGE.kingfisherBelly, [R * 0.85, ry * 0.8, R * 1.1], [0, cy - ry * 0.05, -H * 0.04], lean)
-    .ell(team.primary, [hr * 1.3, H * 0.03, hr * 1.3], [0, hc - hr * 0.95, 0.04]);
-  const head = headShell(new Parts(), PLUMAGE.kingfisherBack, hr)
-    .ell(PLUMAGE.white, [hr * 0.75, hr * 0.5, hr * 0.7], [0, -hr * 0.55, hr * 0.4])
-    .cone(PLUMAGE.kingfisherBill, hr * 0.4, hr * 2.7, [0, -hr * 0.1, hr * 0.9]);
-  eyes(head, hr, 0.2, 0.62);
-  const sy = cy + ry * 0.4;
-  const tail = new Parts().cone(PLUMAGE.kingfisherBack, R * 0.4, H * 0.18, [0, 0, -H * 0.02], [0.5, Math.PI, 0]).ell(team.primary, [R * 0.3, H * 0.02, H * 0.03], [0, -H * 0.05, -H * 0.19]);
-  return assemble(plan, {
-    body, head, tail,
-    wing: { hex: PLUMAGE.kingfisherBack, len: H * 0.36, chord: R * 1.1, thick: R * 0.1, trim: team.primary },
-    leg: { hex: PLUMAGE.kingfisherBelly, len: legLen, thick: H * 0.025, foot: R * 0.4 },
-    gun: { length: 0.38, thick: 0.055, main: 0.72, support: 0.3 },
-    pivot: { wingL: [R * 0.85, sy, -H * 0.05], wingR: [-R * 0.85, sy, -H * 0.05], legL: [R * 0.4, legLen, -H * 0.03], legR: [-R * 0.4, legLen, -H * 0.03], tail: [0, cy - ry * 0.35, -H * 0.2] },
+// =================================================================================================================
+// Kingfisher: a small crouched sprinter with a big long head and a dagger bill longer than the head is wide; a blue
+// crown and wings, a bright cyan stripe down the back to the rump, an orange breast, cheek and lores, a white throat
+// and neck patch, red-orange feet and a stubby tail. The shaggy crest lifts on a cast. Assassin: a compact dart
+// pistol with a blade under the muzzle, fletched darts in a brass clip.
+
+const KINGFISHER = {
+  blue: 0x1f74c4,
+  deep: 0x16457e,
+  cyan: 0x38c6ea,
+  orange: 0xf0782a,
+  rufous: 0xd6601c,
+  white: 0xf4f0e6,
+  bill: 0x1a1a1c,
+  foot: 0xe8522c,
+  claw: 0x2a1c18,
+  iris: 0x140c08,
+  lacquer: 0x1a3a6a,
+  steel: 0xb8c4cc,
+} as const;
+
+const kingfisher: SculptedBird = (plan, team, d) => {
+  const H = plan.height;
+  const hr = plan.head.radius;
+  const A = kingfisherAnchors(plan);
+  const s = A.s;
+  const K = KINGFISHER;
+  const SHEEN = { tile: 1, size: 0.08, iri: 0.35, gloss: 0.35 } as const;
+  const SOFT = { tile: 1, size: 0.08, gloss: 0.2 } as const;
+  const field = bodyField('kingfisher', plan);
+  const skin = skinFor('kingfisher', plan, KINGFISHER_SKIN, d.level, {
+    back: { paint: K.deep, finish: SHEEN },
+    mantle: { paint: K.deep, finish: SHEEN },
+    stripe: { paint: K.cyan, finish: { ...SHEEN, iri: 0.6 } },
+    scapular: { paint: mix(K.deep, K.blue, 0.4), finish: SHEEN },
+    shoulder: { paint: K.blue, finish: SHEEN },
+    // The rump glows cyan above the tail.
+    coverts: { paint: K.cyan, finish: { ...SHEEN, iri: 0.6 } },
+    breast: { paint: (p) => mix(K.orange, K.rufous, Math.min(1, Math.abs(p.x) / (0.22 * s))), finish: SOFT },
+    belly: { paint: mix(K.orange, K.white, 0.25), finish: SOFT },
+    thigh: { paint: K.rufous, finish: { ...SOFT, size: 0.06 } },
+    neck: { paint: (p) => (p.z > 0.0 ? K.orange : K.deep), finish: SHEEN },
+    // A mid-blue crown over a deep-blue nape and mantle; the cyan stripe below it, the white neck patches either side.
+    crown: { paint: K.blue, finish: { ...SHEEN, size: 0.05 } },
+    nape: { paint: (p) => mix(K.deep, K.blue, Math.min(1, Math.max(0, (p.y - A.head[1] + 0.1 * s) / (0.12 * s)))), finish: { ...SHEEN, size: 0.05 } },
+    brow: { paint: K.blue, finish: { ...SHEEN, size: 0.05 } },
+    face: { paint: K.blue, finish: { gloss: 0.3, iri: 0.3 } },
+    cheek: { paint: K.blue, finish: { gloss: 0.3, iri: 0.3 } },
+    throat: { paint: K.white, finish: { gloss: 0.15 } },
+    rufous: { paint: K.rufous, finish: { gloss: 0.2 } },
+    moustache: { paint: K.blue, finish: { gloss: 0.3, iri: 0.3 } },
+    pale: { paint: K.white, finish: { gloss: 0.15 } },
+    bill: { paint: K.bill, finish: { gloss: 0.6 } },
+    socket: { paint: K.deep, finish: { gloss: 0.3 } },
+  });
+  const leg: LegStyle = {
+    skin: K.foot, claw: K.claw, thick: A.legThick, thigh: K.rufous, fringe: 0.3, skinned: { r: 0.04 * s, at: 0.15 },
+    // Syndactyl: the outer front toes run close together.
+    toes: [{ yaw: -0.22, len: 0.075 * s }, { yaw: 0.08, len: 0.085 * s }, { yaw: 0.3, len: 0.07 * s }, { yaw: Math.PI, len: 0.045 * s }],
+    clawLen: 0.024 * s,
+  };
+  const wing: WingStyle = {
+    covert: K.blue, secondary: mix(K.deep, K.blue, 0.3), primary: K.deep, primaryTip: shade(K.deep, 0.7), trim: team.primary,
+    thick: 0.028 * s, chord: 0.2 * s, primaries: 7, secondaries: 6, primaryLen: 0.5, secondaryLen: 0.85,
+    cell: CARD.spotted, secondaryCell: CARD.spotted, finish: { tile: 1, size: 0.16, gloss: 0.35, iri: 0.3 },
+  };
+
+  const body = (k: Sculpt): void => {
+    // The body is the baked implicit skin (bodies.ts); gear and feathers sit on its surface.
+    const axis: [V3, V3] = [[0, 0.34 * s, -0.34 * s], [0, A.head[1] - 0.2 * s, 0.0]];
+    const torso = field.only(...TRUNK).surface(...axis, [0, 0, 1]);
+    foldedWings(k, field.only(...TRUNK).surface([0, 0.44 * s, -0.46 * s], [0, 1.04 * s, -0.04 * s]), wing, { t: [0.42, 0.8], a: 0.4, len: 0.28 * s, wid: 0.1 * s }, d);
+    // Gear: a flock sash with a clip of brass darts across the chest, a leather belt, and a dart quiver slung across
+    // the back with blue fletchings showing over the shoulder (both read from behind).
+    const off = 0.01 * s;
+    sash(k, torso, 0.6, 0.2, Math.PI * 0.32, { width: 0.055 * s, thick: 0.012 * s, hex: team.primary, stitch: team.light, off, finish: { gloss: 0.3 } }, d);
+    if (d.level < 2) {
+      for (let i = 0; i < 5; i++) {
+        const u = 0.2 + i * 0.12;
+        const p = torso.at(0.6 + 0.2 * Math.cos(u), Math.PI * 0.32 + u, off + 0.016 * s);
+        lathe(k, [[0.004 * s, 0.03 * s], [0.006 * s, 0.01 * s], [0.006 * s, -0.02 * s], [0, -0.03 * s]], { at: [p.p.x, p.p.y, p.p.z], rot: [Math.PI / 2 - 0.3, 0, 0], seg: 5, paint: GEAR.brass, finish: BRASS });
+      }
+    }
+    band(k, torso, 0.3, { width: 0.04 * s, thick: 0.012 * s, hex: GEAR.leatherDark, off, finish: LEATHER }, d);
+    buckle(k, torso.at(0.3, Math.PI / 2, off + 0.012 * s), 0.04 * s, d);
+    if (d.level < 3) {
+      // The quiver: a slim leather tube from the right hip up across the back to over the left shoulder.
+      const lo = torso.at(0.32, -Math.PI * 0.62, off + 0.035 * s);
+      const hi = torso.at(0.86, -Math.PI * 0.38, off + 0.035 * s);
+      k.loft([
+        { c: [lo.p.x, lo.p.y, lo.p.z], w: 0.026 * s, up: 0.026 * s },
+        { c: [(lo.p.x + hi.p.x) / 2, (lo.p.y + hi.p.y) / 2, (lo.p.z + hi.p.z) / 2 - 0.02 * s], w: 0.03 * s, up: 0.03 * s },
+        { c: [hi.p.x, hi.p.y, hi.p.z], w: 0.028 * s, up: 0.028 * s },
+      ], { seg: d.n(8, 4), caps: true, paint: (t) => (t > 0.86 ? team.primary : GEAR.leather), finish: LEATHER });
+      if (d.level < 2) {
+        // Fletched darts standing out of the quiver's mouth.
+        const up = norm([hi.p.x - lo.p.x, hi.p.y - lo.p.y, hi.p.z - lo.p.z]);
+        for (let i = 0; i < 4; i++) {
+          const at: V3 = [hi.p.x + (i - 1.5) * 0.012 * s, hi.p.y, hi.p.z + ((i % 2) - 0.5) * 0.01 * s];
+          k.card({ at, dir: norm([up[0] + (i - 1.5) * 0.15, up[1], up[2]]), face: [0, 0, -1], len: 0.1 * s, wid: 0.025 * s, cell: CARD.primary, root: K.cyan, tip: K.blue, segs: 2 });
+        }
+      }
+    }
+    pouch(k, torso.at(0.3, Math.PI * 0.08, off), [0.08 * s, 0.08 * s, 0.045 * s], GEAR.leather, d);
+  };
+
+  const head = (k: Sculpt): void => {
+    // Hackles of deep blue down the nape; a shaggy crest at the back of the crown that lifts on a cast.
+    const neckAxis: [V3, V3] = [[0, A.head[1] - 0.3 * s, -0.03 * s], [0, A.head[1] + hr, -0.04 * s]];
+    hackles(k, inBone(field.only('neck', 'nape', 'crown').surface(...neckAxis, [0, 0, 1]), A.head), {
+      t: [0.36, 0.7], a: [-Math.PI * 0.8, -Math.PI * 0.2], rows: 3, cols: 5, len: 0.075 * s, wid: 0.055 * s, lift: 0.2,
+      paint: (t) => mix(K.deep, K.blue, t), finish: SHEEN, seed: 41,
+    }, d);
+    if (d.level < 3) {
+      const n = d.keep(6, 3);
+      for (let i = 0; i < n; i++) {
+        const u = (i / Math.max(1, n - 1)) * 2 - 1;
+        const at: V3 = [u * hr * 0.3, hr * (1.0 - 0.1 * Math.abs(u)), -hr * (0.25 + 0.15 * (1 - Math.abs(u)))];
+        k.card({ at, dir: norm([u * 0.3, 0.55, -1]), face: [0, 1, 0.4], len: (0.14 - 0.03 * Math.abs(u)) * s, wid: 0.045 * s, cell: CARD.contour, root: K.blue, tip: mix(K.blue, K.cyan, 0.5), curl: -0.25, segs: d.rows, finish: SHEEN, morph: { display: hinge(at, [1, 0, 0], -0.8) } });
+      }
+    }
+    const E = KINGFISHER_HEAD.eye;
+    for (const x of [1, -1]) eye(k, [x * hr * E[0], hr * E[1], hr * E[2]], [x * 0.7, 0.05, 0.71], { r: hr * 0.23, iris: K.iris, ring: K.deep, lid: K.blue, ringW: hr * 0.035 }, d);
+    // The dagger: straight, long and sharp, the lower mandible a little shorter.
+    const B = KINGFISHER_HEAD.bill;
+    beak(k, { at: [0, hr * B[1], hr * (B[2] - 0.04)], len: hr * 2.5, w: hr * 0.28, up: hr * 0.26, dn: hr * 0.22, curve: -hr * 0.02, base: K.bill, tip: shade(K.bill, 1.4), lower: 0x3a2a26, open: 0.28, lowerLen: 0.95 }, d);
+  };
+
+  const tail = (k: Sculpt): void => {
+    // Short and stubby, deep blue with a cyan sheen.
+    tailFan(k, { count: 8, len: 0.17 * s, wid: 0.06 * s, spread: 0.55, droop: 0.4, root: K.deep, tip: mix(K.deep, K.blue, 0.6), cell: CARD.tail, finish: SHEEN, display: (u, at) => hinge(at, [0, 1, 0], u * 0.4) }, d);
+  };
+
+  return {
+    body, head, tail, skin,
+    wing: wingsOf(wing, d),
+    leg: legsOf(leg, d),
+    gun: kingfisherGun(s, d),
+    pivot: { wingL: A.wing, wingR: flipX(A.wing), legL: A.hip, legR: flipX(A.hip), tail: A.tail },
+    legLen: A.legLen, legThick: leg.thick, wingLen: H * 0.36,
     // Plunge, Glint, Spear Bill, Riverstrike.
     casts: ['leap', 'raise', 'leap', 'aim'],
     sway: 0, castTail: -0.4,
-  });
+  };
 };
+
+/** Dart Pistol: compact, a blued barrel with a blade under the muzzle, a brass clip of fletched darts, a lacquered grip. */
+function kingfisherGun(s: number, d: Detail): SculptedSpec['gun'] {
+  const K = KINGFISHER;
+  const L = 0.4 * s;
+  const r = 0.011 * s;
+  return {
+    main: [0, -0.05 * s, -L * 0.72],
+    support: [0, -0.02 * s, 0],
+    slideAt: [0, -0.006 * s, -L * 0.3],
+    travel: 0.02 * s,
+    build(k, part) {
+      if (part === 'slide') {
+        if (d.level >= 3) return;
+        block(k, [0.026 * s, 0.024 * s, 0.07 * s], [0, 0, 0], K.lacquer, { ...WOOD, iri: 0.3 }, d);
+        return;
+      }
+      if (part !== 'gun') return;
+      if (d.level >= 3) {
+        lathe(k, [[r * 1.4, 0], [r, -L * 0.5], [0.02 * s, -L * 0.6], [0.016 * s, -L]], { seg: 4, paint: K.lacquer });
+        return;
+      }
+      lathe(k, [[r * 1.5, 0], [r * 1.7, -0.01 * s], [r * 1.3, -0.022 * s]], { seg: d.n(12, 4), paint: GEAR.brass, finish: BRASS });
+      bead(k, [0, 0, -0.006 * s], r * 0.85, 0x8ff0ff, 0.85, d);
+      lathe(k, [[r, -0.02 * s], [r, -L * 0.45], [r * 1.25, -L * 0.48]], { seg: d.n(10, 4), paint: K.lacquer, finish: { gloss: 0.7, iri: 0.4 } });
+      // The blade: a steel spear point under the muzzle, reaching past it (Spear Bill).
+      carve(k, [[0.06 * s, -0.018 * s], [-L * 0.1, -0.012 * s], [-L * 0.3, -0.016 * s], [-L * 0.3, -0.03 * s], [-L * 0.06, -0.026 * s]], 0.004 * s, K.steel, { gloss: 0.85 }, d);
+      // The clip of fletched darts on top (the ammo read).
+      block(k, [0.022 * s, 0.02 * s, 0.1 * s], [0, 0.02 * s, -L * 0.42], GEAR.brass, BRASS, d);
+      if (d.level < 2) for (const x of [-1, 0, 1]) k.card({ at: [x * 0.007 * s, 0.03 * s, -L * 0.48], dir: norm([x * 0.15, 0.25, -1]), face: [0, 1, 0], len: 0.05 * s, wid: 0.018 * s, cell: CARD.primary, root: K.cyan, tip: K.blue, segs: 2 });
+      block(k, [0.03 * s, 0.045 * s, 0.08 * s], [0, -0.006 * s, -L * 0.66], K.lacquer, { ...WOOD, iri: 0.3 }, d);
+      carve(k, [[-L * 0.64, -0.022 * s], [-L * 0.72, -0.022 * s], [-L * 0.84, -0.1 * s], [-L * 0.74, -0.106 * s]], 0.026 * s, GEAR.woodDark, WOOD, d);
+      carve(k, [[-L * 0.7, 0.012 * s], [-L * 0.98, 0.0], [-L, -0.03 * s], [-L * 0.76, -0.02 * s]], 0.022 * s, K.lacquer, { ...WOOD, iri: 0.3 }, d);
+      if (d.level < 2) ring(k, [0, 0, -L * 0.2], r * 1.15, r * 0.3, d);
+    },
+  };
+}
 
 /** Lyrebird: slim brown body under a huge lyre of curved plumes with silver filaments arching above the head. */
 const lyrebird: Build = (plan, team) => {
@@ -359,11 +513,11 @@ export function genericBuild(plan: BodyPlan, team: TeamColours, index: number, c
 }
 
 /** This file's sculpted birds. */
-const SCULPTED_HERE = { shrike } as const satisfies Record<string, SculptedBird>;
+const SCULPTED_HERE = { shrike, kingfisher } as const satisfies Record<string, SculptedBird>;
 const sculpt = (birds: Readonly<Record<string, SculptedBird>>): Record<string, Build> =>
   Object.fromEntries(Object.entries(birds).map(([id, bird]) => [id, (plan: BodyPlan, team: TeamColours) => sculptedBuild(plan, team, bird)]));
 
 /** Hand-built heroes by id. */
-export const HERO_BUILDS: Readonly<Record<string, Build>> = { albatross, kingfisher, lyrebird, ...BIRD_BUILDS_B, ...sculpt(SCULPTED_HERE), ...SCULPTED_BUILDS };
+export const HERO_BUILDS: Readonly<Record<string, Build>> = { albatross, lyrebird, ...BIRD_BUILDS_B, ...sculpt(SCULPTED_HERE), ...SCULPTED_BUILDS };
 /** Every hero sculpted to the style guide (D-ART-004, D-ART-010). */
 export const SCULPTED_IDS = [...Object.keys(SCULPTED_BUILDS), ...Object.keys(SCULPTED_HERE)] as HeroId[];

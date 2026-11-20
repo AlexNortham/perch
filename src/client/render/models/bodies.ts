@@ -340,12 +340,69 @@ export const SHRIKE_HEAD: HeadShape = {
   eye: [0.8, 0.1, 0.56], socket: 0.27, bill: [0, -0.1, 1.0], billW: 0.3, billH: 0.25,
 };
 
+// =================================================================================================================
+// Kingfisher: a crouched, forward-leaning sprinter with a big long head on almost no neck, a compact chest, a bright
+// back stripe down the mantle to the rump, and the face marked in bands: orange cheek, blue moustache, white neck
+// patch, white throat.
+
+export function kingfisherAnchors(plan: BodyPlan): Anchors {
+  const s = plan.height / 1.6;
+  const R = plan.radius;
+  return {
+    s, wing: [R * 0.72, 1.0 * s, -0.12 * s], hip: [R * 0.36, plan.height * 0.14, -0.1 * s], tail: [0, 0.46 * s, -0.48 * s],
+    legLen: plan.height * 0.14, legThick: 0.022 * s,
+    head: [-plan.head.centre.right, plan.head.centre.up, plan.head.centre.forward], hr: plan.head.radius,
+  };
+}
+
+export function kingfisherBody(plan: BodyPlan): Body {
+  const a = kingfisherAnchors(plan);
+  const s = a.s;
+  const hc = a.head;
+  return {
+    tris: [2600, 950, 300, 120],
+    ops: [
+      // Crouched and leaning well forward: the chest high and full under the head, the rump low and back over the tail.
+      ell([0, 0.74 * s, -0.2 * s], [0.2 * s, 0.38 * s, 0.19 * s], 'body', 'back', { rot: [0.85, 0, 0], k: 0.05 }),
+      ...pair(ell([0.09 * s, 0.94 * s, 0.0], [0.16 * s, 0.22 * s, 0.17 * s], 'body', 'breast', { k: 0.06, rot: [0.6, 0.2, 0] })),
+      ell([0, 0.88 * s, 0.08 * s], [0.06 * s, 0.18 * s, 0.09 * s], 'body', 'breast', { k: 0.05, rot: [0.65, 0, 0] }),
+      // One full curve of underside from the breast to a round belly low over the legs, hiding the thighs: only the
+      // short red shanks show.
+      ell([0, 0.66 * s, -0.04 * s], [0.19 * s, 0.21 * s, 0.18 * s], 'body', 'belly', { k: 0.08, rot: [0.6, 0, 0] }),
+      ell([0, 0.46 * s, -0.12 * s], [0.18 * s, 0.2 * s, 0.18 * s], 'body', 'belly', { k: 0.08, rot: [0.6, 0, 0] }),
+      ell([0, 0.9 * s, -0.27 * s], [0.17 * s, 0.26 * s, 0.07 * s], 'body', 'mantle', { k: 0.06, rot: [0.9, 0, 0] }),
+      cone([0, 0.5 * s, -0.4 * s], [0, 0.42 * s, -0.54 * s], 0.1 * s, 0.045 * s, 'tail', 'coverts', { k: 0.05, boneSoft: 0.05 }),
+      ...shoulders(a, { scapular: [0.13 * s, 1.0 * s, -0.16 * s], scapularR: [0.08 * s, 0.14 * s, 0.07 * s], root: 0.058 * s, inset: 0.06 }),
+      ...thighs(a, { r: 0.046 * s, rKnee: 0.03 * s, reach: 0.2, root: [0.06 * s, 0.32 * s, -0.1 * s] }),
+      // Almost no neck: the big head sits down into the shoulders.
+      ...neck([[0, 1.02 * s, -0.06 * s], [0, 1.18 * s, -0.03 * s], [0, hc[1] - 0.07 * s, 0]], [0.15 * s, 0.15 * s, 0.14 * s], 'neck', 0.5),
+      ...head(hc, a.hr, KINGFISHER_HEAD),
+      // The bright back stripe, from the mantle down to the rump.
+      ell([0, 0.78 * s, -0.37 * s], [0.06 * s, 0.44 * s, 0.1 * s], 'body', 'stripe', { mark: true, rot: [0.85, 0, 0], soft: 0.01 }),
+      // Face bands: orange lores and ear patch, the blue moustache under it, a white patch on the side of the neck, a
+      // white throat.
+      ...pair(ell(at(hc, a.hr, [0.55, 0.04, 0.86]), mulS([0.2, 0.13, 0.2], a.hr), 'head', 'rufous', { mark: true, soft: 0.006 })),
+      ...pair(ell(at(hc, a.hr, [0.92, -0.1, -0.12]), mulS([0.34, 0.2, 0.62], a.hr), 'head', 'rufous', { mark: true, rot: [0.25, 0, 0], soft: 0.006 })),
+      ...pair(ell(at(hc, a.hr, [0.82, -0.46, 0.42]), mulS([0.3, 0.11, 0.55], a.hr), 'head', 'moustache', { mark: true, rot: [0.25, 0.35, 0], soft: 0.006 })),
+      ...pair(ell(at(hc, a.hr, [0.85, -0.6, -0.5]), mulS([0.32, 0.3, 0.3], a.hr), 'head', 'pale', { mark: true, soft: 0.008 })),
+      ell(at(hc, a.hr, [0, -0.8, 0.42]), mulS([0.52, 0.4, 0.5], a.hr), 'head', 'pale', { mark: true, soft: 0.012 }),
+    ],
+  };
+}
+
+export const KINGFISHER_HEAD: HeadShape = {
+  skull: [1.22, 1.08, 1.28], skullAt: [0, 0.02, -0.08], face: [0.74, 0.58, 0.66], faceAt: [0, -0.08, 0.5],
+  brow: [0.48, 0.18, 0.44], browAt: [0.5, 0.42, 0.52], browTilt: 0.35, nape: [0.82, 0.72, 0.66], napeAt: [0, -0.45, -0.52],
+  eye: [0.84, 0.16, 0.56], socket: 0.26, bill: [0, -0.06, 1.08], billW: 0.3, billH: 0.26,
+};
+
 /** The birds with implicit bodies, by hero id. */
 export const BODIES = {
   peacock: peacockBody,
   swift: swiftBody,
   cassowary: cassowaryBody,
   shrike: shrikeBody,
+  kingfisher: kingfisherBody,
 } as const satisfies Record<string, (plan: BodyPlan) => Body>;
 
 /** A bird's baked skin at a level of detail, painted with its region styles. */
