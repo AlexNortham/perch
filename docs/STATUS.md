@@ -2326,8 +2326,16 @@ All are within budget (9,000 / 3,500 / 1,200 / 400), with at most three draw cal
 - The model, render and attachment tests pass (106): budgets, ≤ 3 draw calls, the head on its hitbox, the gun cap,
   the morphs and the LOD. Wings are on the grips and the muzzle is on the sim's muzzle point. Feet are planted in
   every grounded state (D-EP-035).
-- Typecheck and lint are clean.
-- `npm run check`: results below.
+- `npm run check`, each step run, with `integrate/w5` 061e266 merged (clean):
+  - **typecheck, lint and sim:** pass. The sim is seed 1, 3 minutes, 12 bots, in 3.4 s.
+  - **test:** 1,083 pass and 6 fail. None of the failures is in this branch's files.
+    - Five sim tests fail deterministically on `src/sim`, which is byte-identical to `integrate/w5`:
+      `interactables` (Bell Feeder) and `neutrals` (Nests, Thickets, Roc).
+    - The wiki-coverage test times out under load.
+    - The all-bird model tests now have a 30 s timeout, because one timed out at 5 s under load.
+  - **perf:** the two `world.perf` timing tests run over budget while other agents load the machine.
+  - **e2e:** 60–61 of 62 pass. A different spec fails on each run (match shop, Swap bird). Both pass when rerun
+    alone (7/7).
 ### EP · 20/11/2026 · art review of the environment layer (first pass, not merged yet)
 - Branch `worktree-agent-a347043346bfb584a` (2de8b3d) carries Rendering's work-in-progress branch at 1213e1d. It merges after Rendering, never before.
 - EP agrees with the artist's 2.6 against the 3.2 pass mark. Hedgerow's terrace, roofs and lighting are a real step up. Second pass ordered:
