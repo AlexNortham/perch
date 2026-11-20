@@ -56,7 +56,7 @@ function vine(w: World, bottom: Vec3, top: Vec3, out: Vec3, seed: number): void 
     for (const s of [-1, 1]) g.span(s * 0.5 - 0.06, s * 0.5 + 0.06, -0.1, h + 0.3, 0.04, 0.16, 0.015);
     for (let y = 0.6; y < h; y += 0.8) g.span(-0.5, 0.5, y - 0.03, y + 0.03, 0.07, 0.13);
     g.paint(ROPE, seed);
-    for (let y = 0.3; y < h; y += 0.7) for (const s of [-1, 1]) g.within(placed(s * 0.5, y, 0.1, 0), () => g.lathe([[0.085, -0.05], [0.085, 0.05]], 5));
+    for (let y = 0.3; y < h; y += 1.4) for (const s of [-1, 1]) g.within(placed(s * 0.5, y, 0.1, 0), () => g.lathe([[0.085, -0.05], [0.085, 0.05]], 5));
     // Stems: two twisting tubes, 8–12 cm.
     g.paint({ mat: 'bark', tint: 0x9aa070 }, seed + 1);
     for (let k = 0; k < 2; k++) {

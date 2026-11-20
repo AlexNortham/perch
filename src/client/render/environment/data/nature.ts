@@ -270,12 +270,12 @@ export function clump(g: Mesher, x: number, y: number, z: number, r: number, see
 /** A cluster of clumps filling an ellipsoid (rx across, ry up), in the cutout pass. */
 export function clumps(w: World, x: number, y: number, z: number, rx: number, ry: number, seed: number, band: Band): void {
   const g = m(w, band, x, z, 'cutout');
-  const n = Math.max(3, Math.round((rx * rx * ry) / 18));
+  const n = Math.max(3, Math.round((rx * rx * ry) / 45));
   for (let k = 0; k < n; k++) {
     const a = hash2(seed, k) * Math.PI * 2;
     const d = Math.sqrt(hash2(seed, k + 100)) * rx * 0.75;
     const h = (hash2(seed, k + 200) - 0.4) * ry * 0.8;
-    clump(g, x + Math.cos(a) * d, y + h, z + Math.sin(a) * d, 2 + hash2(seed, k + 300) * 1.6, seed + k * 17);
+    clump(g, x + Math.cos(a) * d, y + h, z + Math.sin(a) * d, 2.8 + hash2(seed, k + 300) * 1.8, seed + k * 17);
   }
 }
 
@@ -505,8 +505,8 @@ function mushrooms(g: Mesher, x: number, y: number, z: number, spread: number, s
     const px = x + (hash2(seed, k) - 0.5) * spread;
     const pz = z + (hash2(seed, k + 4) - 0.5) * spread;
     const h = 0.08 + hash2(seed, k + 8) * 0.18;
-    g.paint({ mat: 'plaster', tint: 0xe0d4bc }, seed + k).within(placed(px, y, pz, 0), () => g.lathe([[0.025, 0], [0.02, h]], 5));
-    g.paint({ mat: 'plaster', tint: hash2(seed, k + 12) < 0.5 ? 0xb07850 : 0xc8a888 }, seed + k).within(placed(px, y + h, pz, 0), () => g.lathe([[0.02, -0.01], [h * 0.6, 0.0], [h * 0.45, h * 0.3], [0.001, h * 0.4]], 7));
+    g.paint({ mat: 'plaster', tint: 0xe0d4bc }, seed + k).within(placed(px, y, pz, 0), () => g.lathe([[0.025, 0], [0.02, h]], 4));
+    g.paint({ mat: 'plaster', tint: hash2(seed, k + 12) < 0.5 ? 0xb07850 : 0xc8a888 }, seed + k).within(placed(px, y + h, pz, 0), () => g.lathe([[h * 0.6, 0.0], [h * 0.45, h * 0.3], [0.001, h * 0.4]], 6));
   }
 }
 
@@ -601,7 +601,7 @@ function groundCover(w: World): void {
   const buildings = w.map.buildings ?? [];
   const solids = w.map.prims.filter((q) => q.solid && q.material !== 'grass' && q.material !== 'ground' && (q.shape !== 'box' || q.size.y < 30));
   const { min, max } = w.map.bounds;
-  const step = 1.6;
+  const step = 2.0;
   for (let x = min.x + 2; x < max.x - 2; x += step) {
     for (let z = min.z + 2; z < max.z - 2; z += step) {
       const k = Math.round(x * 31 + z * 17);

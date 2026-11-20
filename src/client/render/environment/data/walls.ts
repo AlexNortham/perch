@@ -76,7 +76,7 @@ function wall(w: World, q: BoxPrim, seed: number): void {
     return;
   }
   g.paint(PAINTS[q.material] ?? PAINTS['stone']!, seed).box(0, -S / 2, 0, hx * 2 + S * 2, hy * 2 - S, hz * 2 + S * 2);
-  g.paint(COPING, seed + 1).box(0, hy + 0.06, 0, hx * 2 + 0.14, 0.14, hz * 2 + 0.14, 0.05);
+  g.paint(COPING, seed + 1).box(0, hy + 0.06, 0, hx * 2 + 0.14, 0.14, hz * 2 + 0.14, 0.04);
   // A damp, darker foot course.
   g.paint({ mat: 'granite', shade: 0.75 }, seed + 2).box(0, -hy + 0.2, 0, hx * 2 + 0.1, 0.42, hz * 2 + 0.1);
   const g1 = M(w, q, 1);
@@ -84,8 +84,9 @@ function wall(w: World, q: BoxPrim, seed: number): void {
   for (let t = -len / 2 + 0.6; t < len / 2 - 0.4; t += 1.3) {
     if (hash2(seed, t) < 0.45) continue;
     const l = 0.4 + hash2(seed, t + 1) * 0.6;
-    if (alongX) g1.span(t, t + l, hy + 0.13, hy + 0.17, -hz + 0.05, hz - 0.05);
-    else g1.span(-hx + 0.05, hx - 0.05, hy + 0.13, hy + 0.17, t, t + l);
+    const e = (hash2(seed, t + 2) - 0.5) * 0.5;
+    if (alongX) g1.span(t, t + l, hy + 0.13, hy + 0.16, e - 0.12, e + 0.12);
+    else g1.span(e - 0.12, e + 0.12, hy + 0.13, hy + 0.16, t, t + l);
   }
   // Ivy over one face of some walls; stone walls longer than 6 m get buttress piers.
   if (hash2(seed, 3) < 0.45 && len > 2.5) {
@@ -185,7 +186,8 @@ function pillar(w: World, q: CylinderPrim, seed: number): void {
   if (q.height > 3) {
     g.lathe([[r + 0.15, -h], [r + 0.15, -h + 0.35], [r, -h + 0.5], [r, h - 0.5], [r + 0.18, h - 0.3], [r + 0.18, h], [0.001, h]], sides);
   } else {
-    g.lathe([[r, -h], [r, h - 0.12], [r + 0.08, h - 0.1], [r + 0.08, h + 0.02], [r - 0.3, h + 0.04], [0.001, h + 0.03]], sides);
+    g.lathe([[r, -h], [r, h - 0.12], [r + 0.08, h - 0.1], [r + 0.08, h + 0.02], [r - 0.3, h + 0.035]], sides);
+    g.paint({ mat: 'flagstone' }, seed).disc(0, h + 0.03, 0, r - 0.28, sides, 1);
     const g1 = M(w, q, 1);
     g1.paint(MOSS, seed).lathe([[r + 0.1, -h], [r + 0.05, -h + 0.25], [r + 0.01, -h + 0.4]], sides);
   }
@@ -219,12 +221,12 @@ function townWall(w: World, q: BoxPrim, seed: number): void {
     if (hash2(seed, t) < 0.4) continue;
     const top = -hy + 18 + hash2(seed, t + 1) * 10;
     const bottom = -hy + 2 + hash2(seed, t + 2) * 8;
-    for (let y = top; y > bottom; y -= 0.6) {
+    for (let y = top; y > bottom; y -= 0.8) {
       const width = 2.2 * Math.min(1, (top - y) / 4 + 0.3);
-      for (let x = -width; x <= width; x += 0.55) {
+      for (let x = -width; x <= width; x += 0.8) {
         const c = at(t + x + (hash2(seed, x + y) - 0.5) * 0.3, y, 0.08);
         gc.paint({ mat: 'leafCard', tint: hash2(seed, y + x) < 0.5 ? 0x6f8f62 : 0x5f7f58 }, seed + Math.round(y * 3 + x));
-        gc.card2(c, alongZ ? new Vector3(0.02, 0, 0.3) : new Vector3(0.3, 0, 0.02), new Vector3(0, 0.3, 0));
+        gc.card2(c, alongZ ? new Vector3(0.02, 0, 0.42) : new Vector3(0.42, 0, 0.02), new Vector3(0, 0.42, 0));
       }
     }
   }
