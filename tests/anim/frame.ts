@@ -4,7 +4,7 @@
 //                                        share of the screen the bird and its gun cover (§8.5: ≤ 18 % and ≤ 4 %)
 //   mode=lineup&ids=a,b,c&dist=<m>       a row of birds at a distance (§8.6 readability at 10, 40 and 80 m)
 //   mode=closeup&hero=<id>&view=front|back|3/4|side&dist=<m>[&state=…]   the bird close up
-// Optional: team=dawn|dusk|mixed, state=<name>, t=<seconds into the state>.
+// Optional: team=dawn|dusk|mixed, state=<name>, t=<seconds into the state>, fov=<horizontal degrees>.
 import { Bone, Color, DirectionalLight, FogExp2, HemisphereLight, Mesh, MeshBasicMaterial, MeshLambertMaterial, NeutralToneMapping, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, SkinnedMesh, Vector3, WebGLRenderer, WebGLRenderTarget } from 'three';
 import type { Material, Object3D } from 'three';
 import { HERO_IDS, ViewFlag } from '../../src/sim/core/contracts';
@@ -25,7 +25,8 @@ declare global {
 
 const W = 1920;
 const H = 1080;
-const FOV_H = 90;
+// fov=<degrees> narrows the view to inspect distant birds at the level of detail their distance picks.
+const FOV_H = Number(new URLSearchParams(location.search).get('fov')) || 90;
 const DT = 1 / 60;
 const q = new URLSearchParams(location.search);
 const mode = q.get('mode') ?? 'player';

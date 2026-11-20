@@ -1,5 +1,5 @@
 import { Bone, Box3, Group, InstancedMesh, LOD, Mesh, PerspectiveCamera, SkinnedMesh, Vector3 } from 'three';
-import type { Object3D } from 'three';
+import type { Matrix4, Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 import { HERO_IDS, ViewFlag } from '../../../sim/core/contracts';
 import type { EntityView, HeroId, PlayerTeam, SimView } from '../../../sim/core/contracts';
@@ -54,13 +54,20 @@ const rigOf = (model: Object3D): BirdRig => {
   return model;
 };
 
-/** A part's vertices in its own bone's frame. */
+/** The vertices a bone mostly carries (its rigid part, and skin it owns most of), in that bone's frame at rest. */
 function partBox(rig: BirdRig, name: BoneName): Box3 {
-  const [first, count] = rig.build.ranges[name];
-  const pos = rig.build.geo.getAttribute('position');
+  const geo = rig.build.geo;
+  const pos = geo.getAttribute('position');
+  const bone = geo.getAttribute('skinIndex');
+  const weight = geo.getAttribute('skinWeight');
+  const { bones, boneInverses } = rig.mesh.skeleton;
+  const k = bones.findIndex((b) => b.name === name);
   const box = new Box3();
   const v = new Vector3();
-  for (let i = first; i < first + count; i++) box.expandByPoint(v.fromBufferAttribute(pos, i));
+  for (let i = 0; i < pos.count; i++) {
+    if (bone.getX(i) !== k || weight.getX(i) < 0.5) continue;
+    box.expandByPoint(v.fromBufferAttribute(pos, i).applyMatrix4(boneInverses[k] as Matrix4));
+  }
   return box;
 }
 
@@ -70,13 +77,13 @@ function restBox(rig: BirdRig): Box3 {
   const { geo } = rig.build;
   const pos = geo.getAttribute('position');
   const bone = geo.getAttribute('skinIndex');
-  const bones = rig.mesh.skeleton.bones;
+  const { bones, boneInverses } = rig.mesh.skeleton;
   const box = new Box3();
   const v = new Vector3();
   for (let i = 0; i < pos.count; i++) {
     const b = bones[bone.getX(i)];
     if (!b || b.name === 'gun' || b.name === 'slide') continue;
-    box.expandByPoint(v.fromBufferAttribute(pos, i).applyMatrix4(b.matrixWorld));
+    box.expandByPoint(v.fromBufferAttribute(pos, i).applyMatrix4(boneInverses[bone.getX(i)] as Matrix4).applyMatrix4(b.matrixWorld));
   }
   return box;
 }
@@ -141,6 +148,13 @@ describe('hero models', () => {
     for (const id of FOUR) {
       const plan = HEROES[id].def.body;
       const model = k.create(heroEntity(id));
+      const skin = rigOf(model).build.geo.getAttribute('skinWeight');
+      if (Array.from({ length: skin.count }, (_, v) => skin.getX(v)).some((w) => w < 1)) {
+        // An implicit body (D-ART-008) is one surface from the body into the head: the body's part meets the head's.
+        const head = find(model, 'head').position.y + partBox(rigOf(model), 'head').min.y;
+        expect(head, id).toBeLessThanOrEqual(partBox(rigOf(model), 'body').max.y + 0.02);
+        continue;
+      }
       let top = 0;
       // Casques, crests and ear tufts rise above the hitbox on the eight new birds, so only their bodies are held to it.
       for (const n of (OLD.includes(id) ? ['body', 'head'] : ['body']) as ('body' | 'head')[]) {

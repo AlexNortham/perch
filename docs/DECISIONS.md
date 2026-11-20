@@ -1751,6 +1751,60 @@ every state; the legs tuck when it is airborne or using Hover. Its 40 m read (§
 arms. A solid blade costs about the same triangles as a cut-out strip with the same rows, and it needs no cut-out
 depth material for shadows.
 
+### D-ART-008 · 20/11/2026 — Bird bodies are implicit (SDF) skins, baked offline and blended across bones
+**Decision:** (wave 5c, after D-EP-047's review of the single-loft bodies.) A converted bird's body, neck and head are
+one continuous surface, described as signed-distance masses and baked, replacing the torso, neck and head lofts.
+- **Description** (`models/bodies.ts`): ellipsoids and round cones (capsules) in the model frame at the bind pose, each
+  with a smooth-union or smooth-subtraction blend radius, a rig bone and a paint region. Paint-only "mark" volumes
+  draw sharp markings (face stripes, throat patches) without changing the form.
+- **Bake** (`models/mesher.ts`, `npx tsx tests/anim/bake-skins.ts`): surface nets on a 7–9 mm grid, sampled only in
+  blocks near the surface; vertices pulled onto the surface along the gradient; meshoptimizer's attribute-aware
+  simplifier cuts LOD0 to LOD3 to each body's triangle targets, never moving a vertex and keeping normals, regions and
+  bones from smearing. Normals come from the field gradient. The four levels share one vertex list, coarsest first.
+  Output: `models/data/skins/<hero>.ts`, base64, about 50–60 KB of binary per bird. `skins.test.ts` re-bakes every bird
+  and requires the committed file to be byte-identical.
+- **Runtime** (`models/skin.ts`): decode (about 2 ms a bird, once) and paint per team: each vertex blends up to four
+  regions' colours (each a colour or a painter by position), iridescence, gloss and glow; the strongest region's
+  pattern tile is drawn world-aligned (triplanar from the bind-pose position) and fades across region borders.
+- **Skinning:** every vertex takes up to four bone weights from the field (a soft-max of its distance to each mass,
+  blend width per mass), so necks hand smoothly from the body to the head, wing roots to the wing bones and thighs to
+  the legs. To allow this, sculpted builds now bake every part in the model frame and the rig's bind matrices undo
+  each bone's rest position (`BirdBuild.modelSpace`); rigid parts are unchanged in effect. Sockets, grips, IK, morphs,
+  LODs and Rendering's identity overlays (which share the skeleton) are unchanged.
+- **Gear and feathers** sit on the field: `Field.surface` gives the old loft `Surface` interface (rays from an axis), and
+  `Field.only(...regions)` restricts it to the trunk so a sash does not climb the neck. D-ART-007 blades stay for wings,
+  tails, crests, trains and hair.
+
+**Why:** single lofts cannot carry a breast keel, a mantle plane, scapulars, wing roots that grow from the body, thighs
+or a brow (EP, D-EP-047). Implicit masses blend into one surface with real joins. Baking keeps generation off the load
+path: a match builds each bird in the same ~20 ms as before, against the ≤ 1 s allowance and today's 2.5 s page load.
+
+### D-ART-009 · 20/11/2026 — meshoptimizer as an exact devDependency, for the bake only
+**Decision:** `meshoptimizer@1.1.1` is declared in `devDependencies` (it was already installed through `@types/three`).
+Only `models/mesher.ts` uses it, at bake time and in `skins.test.ts`; nothing in the game imports it, so the bundle
+does not grow.
+**Why:** the bake needs an attribute-aware quadric simplifier with a heap; three.js's `SimplifyModifier` is quadratic
+(minutes on a 300k-triangle surface) and keeps no custom attributes. meshoptimizer is deterministic, so the committed
+skins stay byte-identical to the generator.
+
+### D-ART-010 · 20/11/2026 — Converting a bird: anchors, masses, a palette, a bake
+**Decision:** a bird converts in four steps, about 1–2 hours each with renders:
+1. In `bodies.ts`, `<bird>Anchors(plan)` (wing, hip and tail pivots, leg length and thickness, head) and
+   `<bird>Body(plan)`: start from the closest converted bird and move its masses. Shared helpers give the anatomy:
+   `head(c, hr, HeadShape)` (cranium floored to hold the hitbox, face, cheeks, brows, nape, throat, bill base, eye
+   sockets), `neck(points, radii)`, `shoulders(...)`, `thighs(...)`; the trunk is four to six `ell` calls (back, breast
+   pair and keel, belly, mantle, tail coverts). Extras are plain `ell`/`cone`; markings are `mark: true`. Add the bird
+   to `BODIES`.
+2. Bake: `npx tsx tests/anim/bake-skins.ts <bird>` (one to four seconds).
+3. In the bird's builder: take the pivots from the anchors, paint each region with `skinFor(...)`, return `skin`, seat
+   the eyes and bill at the `HeadShape` positions, give the leg style `skinned` (the thigh is the skin's), drop the old
+   torso, neck and head lofts, and lay gear and feathers on `field.only(...TRUNK).surface(axis)`.
+4. Check: the model and attachment tests (budgets, hitbox, grips, feet), and a triptych with
+   `npx tsx tests/anim/posesheets.ts --frame="name=<bird>&mode=triptych&hero=<bird>"`; re-bake after any change to the
+   body or the hero's BodyPlan.
+Triangle targets per level go in the body (`tris`); the rest of the bird must fit the §11.3 budget around them.
+**Why:** the other 21 birds convert in parallel batches; one recipe keeps them consistent and reviewable.
+
 ### D-SYS-006 · 19/11/2026 — The Updraft latch, read exactly (GDD §3.7, D-EP-039)
 **Decision:** `updraftInReach` is the nearer of two tests per segment: the column (feet within 2.5 m of the cable's
 ground line, the cable 0.5–14 m above them, at the point straight above the feet's nearest spot) and a 1.5 m sphere
