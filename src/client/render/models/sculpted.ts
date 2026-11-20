@@ -22,7 +22,7 @@ export const BIRD_LOD = {
   /** Share of each switch distance used as hysteresis (style guide §11.4). */
   hysteresis: 0.1,
   /** Segment and card multipliers per level. */
-  segments: [1, 0.6, 0.38, 0.2],
+  segments: [0.85, 0.52, 0.33, 0.18],
   cards: [1, 0.5, 0.25, 0.1],
 } as const;
 export type Level = 0 | 1 | 2 | 3;
@@ -34,6 +34,8 @@ export interface Detail {
   n(base: number, min?: number): number;
   /** How many of `count` repeated cards to keep at this level, never below `min`. */
   keep(count: number, min?: number): number;
+  /** Rows along a feather at this level (5 near, 2 far). */
+  readonly rows: number;
 }
 
 export function detail(level: Level): Detail {
@@ -41,6 +43,7 @@ export function detail(level: Level): Detail {
     level,
     n: (base, min = 3) => Math.max(min, Math.round(base * BIRD_LOD.segments[level])),
     keep: (count, min = 1) => Math.min(count, Math.max(min, Math.round(count * BIRD_LOD.cards[level]))),
+    rows: level === 0 ? 4 : level === 1 ? 3 : 2,
   };
 }
 

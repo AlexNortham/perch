@@ -7,6 +7,7 @@
  */
 import { Matrix4, SphereGeometry, TorusGeometry } from 'three';
 import { CARD, TILE } from './feathers';
+import type { Feather } from './feathers';
 import type { Detail } from './sculpted';
 import { frameAt, hinge, inFrame, jitter, mix, shade } from './sculpt';
 import type { Finish, Morphs, Paint, Ring, Sculpt, Surface, V3 } from './sculpt';
@@ -234,7 +235,7 @@ export interface LegStyle {
   readonly clawLen: number;
   /** Thigh feather card cell and how far the fringe hangs (share of the thigh). */
   readonly fringe?: number;
-  readonly fringeCell?: number;
+  readonly fringeCell?: Feather;
 }
 
 /** The feathered thigh along -y, hip (inside the body) to knee, with a fringe of feathers hanging over the knee. */
@@ -252,7 +253,7 @@ export function thigh(k: Sculpt, len: number, s: LegStyle, d: Detail, side: 1 | 
     { n: d.n(7, 3), seg: d.n(10, 3), ref: [0, 0, 1], paint: (u) => shade(col, 0.82 + 0.25 * u), finish: s.thigh !== undefined ? FEATHER : SKIN },
   );
   if (s.thigh !== undefined && d.level < 3) {
-    const count = d.keep(9, 3);
+    const count = d.keep(6, 3);
     for (let i = 0; i < count; i++) {
       const a = (i / count) * Math.PI * 2 + jitter(i, side + 3) * 0.3;
       const out: V3 = [Math.cos(a), 0, Math.sin(a)];
@@ -262,12 +263,13 @@ export function thigh(k: Sculpt, len: number, s: LegStyle, d: Detail, side: 1 | 
         dir: norm([out[0] * 0.35, -1, out[2] * 0.35]),
         face: out,
         len: len2,
-        wid: t * 2.6 * (9 / count) ** 0.5,
+        wid: t * 3.2 * (6 / count) ** 0.5,
         cell: s.fringeCell ?? CARD.contour,
         root: shade(col, 0.9),
-        tip: shade(col, 1.1),
-        curl: -0.25,
-        segs: 2,
+        tip: shade(col, 1.08),
+        curl: -0.2,
+        segs: d.rows,
+        cup: 0.08,
       });
     }
   }
@@ -332,6 +334,63 @@ export function foot(k: Sculpt, ankle: number, s: LegStyle, d: Detail, side: 1 |
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// The head and neck, one form.
+
+export interface HeadStyle {
+  /** The head hitbox radius (m); the form always contains the hitbox sphere. */
+  readonly hr: number;
+  /** Shares of hr: cranium half-width, crown height, chin depth, how far the skull runs behind the centre, where the
+   * face meets the beak (z), forehead and cheek fullness. */
+  readonly width?: number;
+  readonly crown?: number;
+  readonly chin?: number;
+  readonly back?: number;
+  readonly face?: number;
+  readonly brow?: number;
+  readonly cheek?: number;
+  /** The neck below the head: its radius (m), how far below the head centre it reaches (m), and its lean (z, m). */
+  readonly neck: { readonly r: number; readonly drop: number; readonly lean?: number };
+  /** The beak's base on the face (head frame): centre height, half-width, upper and lower depths (m). */
+  readonly beak: { readonly y: number; readonly w: number; readonly up: number; readonly dn: number };
+  /** Paint by (t from the neck to the face, a round the section, position in the head frame). */
+  readonly paint: Paint;
+  readonly finish?: Finish;
+}
+
+/**
+ * The head and the top of the neck as one lofted form: the neck rises, turns under the back of the skull into a
+ * rounded cranium with a full crown, forehead and cheeks, then narrows over the face into the beak's base. The
+ * cross-section's "up" runs throat → chin (so `up` radii are the throat and chin, `dn` radii the nape and crown).
+ */
+export function headForm(k: Sculpt, h: HeadStyle, d: Detail): Surface {
+  const r = h.hr;
+  // Floors keep the hitbox sphere inside the form even where the smoothing dips between control rings.
+  const W = Math.max(1.07, h.width ?? 1.08);
+  const crown = Math.max(1.06, h.crown ?? 1.06);
+  const chin = Math.max(1.05, h.chin ?? 1.0);
+  const back = h.back ?? 0.95;
+  const face = (h.face ?? 1.0) * r;
+  const brow = h.brow ?? 1.0;
+  const cheek = h.cheek ?? 1.0;
+  const nr = h.neck.r;
+  const lean = h.neck.lean ?? 0;
+  const b = h.beak;
+  const rings: Ring[] = [
+    // The bottom of the head's neck starts inside the body's neck and widens past it, so the two cross over smoothly.
+    { c: [0, -h.neck.drop, lean - r * 0.15], w: nr * 0.8, up: nr * 0.8, dn: nr * 0.8, n: [0, 0, 1] },
+    { c: [0, -h.neck.drop * 0.6, lean * 0.55 - r * 0.2], w: nr * 1.04, up: nr * 1.02, dn: nr * 1.06, n: [0, 0, 1] },
+    { c: [0, -r * 0.5, -r * back * 0.42], w: r * W * 0.86, up: r * 0.7, dn: r * 0.86, n: [0, -0.55, 0.83] },
+    { c: [0, -r * 0.02, -r * back * 0.12], w: r * W * cheek, up: r * Math.max(1.0, chin), dn: r * Math.max(1.02, crown), n: [0, -1, 0.1] },
+    { c: [0, r * 0.02, r * 0.42], w: r * W * 0.9 * cheek, up: r * chin * 0.8, dn: r * crown * 0.92 * brow, n: [0, -1, 0] },
+    { c: [0, (b.y + r * 0.02) / 2, face * 0.8], w: Math.min(r * W * 0.85, Math.max(b.w * 1.35, r * 0.6)), up: Math.min(r * chin * 0.9, Math.max(b.dn * 1.5, r * 0.48)), dn: Math.min(r * crown * 0.92, Math.max(b.up * 1.4, r * 0.58)), n: [0, -1, 0] },
+    { c: [0, b.y, face - r * 0.02], w: b.w * 1.04, up: b.dn * 1.06, dn: b.up * 1.06, n: [0, -1, 0] },
+    { c: [0, b.y, face + r * 0.04], w: 0, up: 0, dn: 0, n: [0, -1, 0] },
+  ];
+  return k.loft(rings, { n: d.n(17, 5), seg: d.n(22, 6), paint: h.paint, finish: h.finish ?? FEATHER });
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Wings that hold the gun: still wings, broad tapered surfaces of layered feathers.
 
 export interface WingStyle {
   /** Feather colours: coverts, secondaries, primaries (root → tip), and the flock trim band. */
@@ -353,132 +412,165 @@ export interface WingStyle {
    * forearm toward its trailing side (rad; -0.32 trails them back along the forearm, about -1 sweeps them back). */
   readonly splay?: number;
   readonly primaryPitch?: number;
-  readonly cell?: number;
-  readonly secondaryCell?: number;
+  readonly cell?: Feather;
+  readonly secondaryCell?: Feather;
   readonly finish?: Finish;
   /** Morph for the flight feathers on the display (wings flare): primaries, and secondaries swinging outward. */
   readonly displayFlare?: number;
   readonly secondaryFlare?: number;
-  /** Secondary length as a share of the chord (default 1.45). */
+  /** Secondary length as a share of the chord (default 1.25). */
   readonly secondaryLen?: number;
 }
 
-/** Is (t, a) on the flock-trim wing bar? A band across the outer face, a little past the middle of the arm. */
-const onBar = (t: number, a: number, out: number): boolean => Math.abs(t - 0.6) < 0.11 && Math.cos(a) * out > -0.2;
+/** Is (t, a) on the flock-trim wing bar? A band across the outer face of the arm, a little past its middle. */
+const onBar = (t: number, a: number): boolean => Math.abs(t - 0.6) < 0.12 && Math.cos(a) > -0.3;
 
 /**
- * The arm segment (shoulder → joint along -y): the folded wing's sculpted covert mass, a flattened teardrop fullest
- * toward the trailing edge (-z) with the flock-colour wing bar painted across it, one row of flat coverts along it,
- * and the broad secondaries fanned from the trailing edge, staggered and varied so they read as layers.
- * The IK keeps each wing bone's +x on the outside of the fold for both wings (measured in the aim pose).
+ * The arm segment (shoulder → joint along -y): a broad, thin wing panel, rounded at the leading edge (+z) and tapering
+ * to a fine trailing edge (-z), painted in covert rows with the flock wing bar across it; two rows of flat coverts on
+ * its outer face (+x, which the IK keeps outside the fold on both wings) and the broad secondaries fanned from the
+ * trailing edge, staggered so they read as layers.
  */
 export function wingArm(k: Sculpt, upper: number, s: WingStyle, d: Detail, side: 1 | -1): void {
   const t = s.thick;
   const c = s.chord;
-  const out = 1;
-  const core = k.loft(
+  k.loft(
     [
-      { c: [0, t * 1.3, -c * 0.12], w: 0, up: 0, dn: 0 },
-      { c: [0, t * 0.3, -c * 0.14], w: t * 1.35, up: c * 0.22, dn: c * 0.5 },
-      { c: [0, -upper * 0.45, -c * 0.12], w: t * 1.2, up: c * 0.19, dn: c * 0.46 },
-      { c: [0, -upper * 0.85, -c * 0.05], w: t * 0.95, up: c * 0.13, dn: c * 0.28 },
-      { c: [0, -upper - t * 0.6, 0], w: 0, up: 0, dn: 0 },
+      { c: [0, t * 1.3, -c * 0.1], w: 0, up: 0, dn: 0 },
+      { c: [0, t * 0.2, -c * 0.12], w: t * 0.95, up: c * 0.2, dn: c * 0.85 },
+      { c: [0, -upper * 0.5, -c * 0.1], w: t * 0.85, up: c * 0.17, dn: c * 0.8 },
+      { c: [0, -upper * 0.92, -c * 0.04], w: t * 0.7, up: c * 0.12, dn: c * 0.5 },
+      { c: [0, -upper - t * 0.5, 0], w: 0, up: 0, dn: 0 },
     ],
     {
       n: d.n(10, 3), seg: d.n(14, 4), ref: [0, 0, 1],
-      paint: (u, a) => (onBar(u, a, out) ? s.trim : Math.sin(a) < -0.6 ? shade(s.secondary, 0.95) : shade(s.covert, 0.92 + 0.1 * Math.cos(a) * out)),
-      finish: s.finish ?? FEATHER,
+      paint: (u, a) => (onBar(u, a) ? s.trim : Math.sin(a) < -0.5 ? shade(s.secondary, 1.02) : shade(s.covert, 0.94 + 0.08 * Math.cos(a))),
+      finish: s.finish ?? { tile: TILE.scales, size: c * 0.9 },
     },
   );
   if (d.level >= 3) return;
-  // Secondaries: broad, rounded, overlapping, hanging back and down from the trailing edge, fanned a little.
-  const ns = d.keep(s.secondaries ?? 9, 2);
-  const scale = (s.secondaries ?? 9) / ns;
+  // Secondaries: broad, round-tipped, overlapping, hanging from the trailing edge; alternate tones read as layers.
+  const ns = d.keep(s.secondaries ?? 7, 2);
+  const widen = Math.min(1.6, ((s.secondaries ?? 7) / ns) ** 0.6);
   for (let i = 0; i < ns; i++) {
     const u = (i + 0.5) / ns;
-    const j = jitter(i, 31 + side);
-    const at: V3 = [out * t * (0.15 + 0.07 * (i % 3)), -upper * (0.02 + 0.96 * u), -c * 0.55];
+    // Longest by the body, shorter toward the joint, swinging back: a graduated, curved trailing edge.
+    const at: V3 = [t * (0.12 + 0.06 * (i % 2)), -upper * (0.04 + 0.92 * u), -c * 0.72];
     k.card({
       at,
       ...(s.secondaryFlare && { morph: { display: hinge(at, [0, 1, 0], -s.secondaryFlare * (0.5 + u)) } }),
-      dir: norm([out * 0.08 * (i % 2), -0.18 - 0.42 * u, -1]),
-      face: [out, 0, 0],
-      len: c * ((s.secondaryLen ?? 1.25) - 0.25 * u) * (0.92 + 0.16 * j),
-      wid: (upper / ns) * 2.6 * Math.min(1.6, scale ** 0.6),
+      dir: norm([0, 0.15 - 0.6 * u, -1]),
+      face: [1, 0, 0],
+      len: c * ((s.secondaryLen ?? 1.25) * (1.12 - 0.45 * u)) * (0.95 + 0.1 * jitter(i, 31 + side)),
+      wid: (upper / ns) * 2.3 * widen,
       cell: s.secondaryCell ?? CARD.tail,
-      root: shade(s.secondary, 0.78 + 0.08 * (i % 2)),
-      tip: shade(s.secondary, 1 + 0.06 * (i % 2)),
-      curl: -0.22 * out,
-      segs: 2,
+      root: shade(s.secondary, 0.82 + 0.1 * (i % 2)),
+      tip: shade(s.secondary, 1.04 + 0.06 * (i % 2)),
+      curl: -0.18,
+      segs: d.rows,
       cup: d.level < 2 ? 0.1 : 0,
       finish: s.finish ?? {},
     });
   }
-  // A row of flat coverts over the outer face, the bar's in the flock colour.
-  shingle(k, core, {
-    t: [0.12, 0.9], a: [-Math.PI * 0.35, Math.PI * 0.35], rows: 3, cols: 3, len: c * 0.5, wid: c * 0.4, toward: [0, -0.4, -1], lift: 0.08,
-    paint: (u, a) => (onBar(u, a, out) ? s.trim : shade(s.covert, 1.04)), finish: s.finish ?? {}, seed: 11 + side,
-  }, d);
+  // Coverts: two rows of rounded feathers lying on the outer face, the lower row carrying the flock bar.
+  if (d.level < 2) {
+    for (let row = 0; row < 2; row++) {
+      const nc = d.keep(4, 2);
+      for (let i = 0; i < nc; i++) {
+        const u = (i + 0.5) / nc;
+        const bar = row === 1;
+        k.card({
+          at: [t * (0.9 + 0.08 * row), -upper * (0.06 + 0.86 * u), c * (0.12 - 0.3 * row)],
+          dir: norm([0.06, -0.45, -1]),
+          face: [1, 0, 0],
+          len: c * (0.42 + 0.1 * row),
+          wid: (upper / nc) * (bar ? 1.0 : 1.45),
+          cell: CARD.contour,
+          root: bar ? shade(s.trim, 0.9) : shade(s.covert, 0.96),
+          tip: bar ? shade(s.trim, 1.08) : shade(s.covert, 1.1),
+          curl: -0.12,
+          segs: d.rows,
+          cup: 0.06,
+          finish: s.finish ?? {},
+        });
+      }
+    }
+  }
 }
 
 /**
- * The hand segment (joint → grip along -y): a feathered forearm, the "hand" closed round the grip, and the primaries
- * swept back from the hand past the joint, fanned to the outside of the fold, layered outer over inner.
+ * The hand segment (joint → grip along -y): a tapering feathered forearm, short "finger" feathers curling round the
+ * grip like a closed hand, and the long primaries trailing back from the hand past the joint, fanned and layered.
  */
 export function wingHand(k: Sculpt, upper: number, lower: number, s: WingStyle, d: Detail, side: 1 | -1): void {
   const t = s.thick;
   const c = s.chord;
-  // The IK keeps each wing bone's +x on the outside of the fold for both wings (measured in the aim pose).
-  const out = 1;
-  void side;
-  const core = k.loft(
+  k.loft(
     [
-      { c: [0, t * 0.8, -c * 0.08], w: 0, up: 0 },
-      { c: [0, 0, -c * 0.1], w: t * 1.1, up: c * 0.14, dn: c * 0.34 },
-      { c: [0, -lower * 0.6, -c * 0.06], w: t * 0.95, up: c * 0.11, dn: c * 0.24 },
-      { c: [0, -lower, 0], w: t * 1.35, up: t * 1.6, dn: t * 1.5 },
-      { c: [0, -lower - t * 1.6, 0], w: 0, up: 0, dn: 0 },
+      { c: [0, t * 0.8, -c * 0.1], w: 0, up: 0 },
+      { c: [0, 0, -c * 0.1], w: t * 0.85, up: c * 0.14, dn: c * 0.5 },
+      { c: [0, -lower * 0.6, -c * 0.06], w: t * 0.75, up: c * 0.11, dn: c * 0.32 },
+      { c: [0, -lower, 0], w: t * 1.15, up: t * 1.45, dn: t * 1.35 },
+      { c: [0, -lower - t * 1.5, 0], w: 0, up: 0, dn: 0 },
     ],
-    { n: d.n(9, 3), seg: d.n(12, 4), ref: [0, 0, 1], paint: (u, a) => (Math.sin(a) < -0.6 ? shade(s.secondary, 0.95) : shade(s.covert, 0.9 + 0.1 * u)), finish: s.finish ?? FEATHER },
+    { n: d.n(9, 3), seg: d.n(12, 4), ref: [0, 0, 1], paint: (u, a) => (Math.sin(a) < -0.5 ? s.secondary : shade(s.covert, 0.92 + 0.1 * u)), finish: s.finish ?? { tile: TILE.scales, size: c * 0.8 } },
   );
   if (d.level >= 3) {
     // One plank of primaries keeps the folded-wing read at 80 m.
-    k.card({ at: [0, -lower, -c * 0.1], dir: norm([0, 1, -0.4]), face: [out, 0, 0], len: (upper + lower) * (s.primaryLen ?? 0.62), wid: c * 0.5, cell: s.cell ?? CARD.primary, root: s.primary, tip: s.primaryTip ?? s.primary });
+    k.card({ at: [0, -lower, -c * 0.1], dir: norm([0, 1, -0.4]), face: [1, 0, 0], len: (upper + lower) * (s.primaryLen ?? 0.62), wid: c * 0.5, cell: s.cell ?? CARD.primary, root: s.primary, tip: s.primaryTip ?? s.primary, segs: 2 });
     return;
   }
-  const np = d.keep(s.primaries ?? 9, 2);
+  const np = d.keep(s.primaries ?? 7, 2);
   const L = (upper + lower) * (s.primaryLen ?? 0.62);
-  const fan = (s.fan ?? 0.07) * ((s.primaries ?? 9) / np);
+  const fan = (s.fan ?? 0.08) * ((s.primaries ?? 7) / np);
   const flare = s.displayFlare ?? 0;
   for (let i = 0; i < np; i++) {
     const u = np === 1 ? 0.5 : i / (np - 1);
     // Outermost first: longest, rooted at the hand; inner ones rooted further up the forearm.
     const pitch = (s.primaryPitch ?? -0.32) - fan * i;
     const dir = norm([(s.splay ?? 0) * (1 - 0.5 * u), Math.cos(pitch), Math.sin(pitch)]);
-    const at: V3 = [out * t * (0.5 - 0.06 * i), -lower * (0.98 - 0.4 * u), -c * 0.08];
+    const at: V3 = [t * (0.4 - 0.08 * i), -lower * (0.97 - 0.42 * u), -c * 0.12];
     const morph: Morphs | undefined = flare ? { display: hinge(at, [1, 0, 0], -flare * (0.3 + u)) } : undefined;
     k.card({
       at,
       dir,
-      face: [out, 0, 0],
-      len: L * (1 - 0.32 * u),
-      wid: c * 0.44 * Math.min(1.7, ((s.primaries ?? 9) / np) ** 0.5),
+      face: [1, 0, 0],
+      len: L * (1 - 0.3 * u),
+      wid: c * 0.42 * Math.min(1.7, ((s.primaries ?? 7) / np) ** 0.5),
       cell: s.cell ?? CARD.primary,
-      root: shade(s.primary, 0.8),
-      tip: s.primaryTip ?? s.primary,
-      curl: -0.12 * out,
-      sweep: (s.sweep ?? 0) * out * -1,
-      segs: s.sweep ? 4 : 2,
-      cup: d.level < 2 ? 0.06 : 0,
+      root: shade(s.primary, 0.82 + 0.08 * (i % 2)),
+      tip: s.primaryTip ?? shade(s.primary, 1.05),
+      curl: -0.1,
+      sweep: -(s.sweep ?? 0),
+      segs: s.sweep ? d.rows + 2 : d.rows,
+      cup: d.level < 2 ? 0.08 : 0,
       finish: s.finish ?? {},
       ...(morph && { morph }),
     });
   }
-  // Coverts over the forearm and round the hand, pointing back toward the joint: a feathered fist on the grip.
-  shingle(k, core, {
-    t: [0.06, 0.92], a: [-Math.PI * 0.6, Math.PI * 0.6], rows: 4, cols: 3, len: c * 0.5, wid: c * 0.4, toward: [0, 1, -0.7], lift: 0.1,
-    paint: (u, a) => shade(s.covert, Math.cos(a) * out > 0 ? 1.04 - 0.08 * u : 0.86), finish: s.finish ?? {}, seed: 21 + side,
-  }, d);
+  // Fingers: short feathers from the hand curling round the grip, a feathered fist on the gun.
+  if (d.level < 2) {
+    const nf = d.level === 0 ? 4 : 3;
+    for (let i = 0; i < nf; i++) {
+      const ang = -1.1 + (2.2 * i) / (nf - 1);
+      const dir = norm([Math.sin(ang) * 0.9, -0.55, Math.cos(ang) * 0.9]);
+      k.card({
+        at: [0, -lower * 0.94, 0],
+        dir,
+        face: norm([Math.sin(ang), 0.2, Math.cos(ang)]),
+        len: c * 0.42,
+        wid: c * 0.24,
+        cell: CARD.contour,
+        root: shade(s.covert, 0.9),
+        tip: shade(s.primaryTip ?? s.primary, 1.0),
+        curl: 1.3,
+        segs: d.rows,
+        cup: 0.06,
+        finish: s.finish ?? {},
+      });
+    }
+  }
+  void side;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -495,7 +587,7 @@ export interface FanStyle {
   readonly fork?: number;
   readonly root: number;
   readonly tip: number;
-  readonly cell?: number;
+  readonly cell?: Feather;
   readonly curl?: number;
   readonly finish?: Finish;
   /** Each feather's display transform by its place in the fan (u from -1 to 1). */
@@ -503,7 +595,7 @@ export interface FanStyle {
   readonly at?: V3;
 }
 
-/** A fanned, layered tail of cards pointing back (-z) from the tail bone. */
+/** A fanned, layered tail of feathers pointing back (-z) from the tail bone, the middle pair on top. */
 export function tailFan(k: Sculpt, s: FanStyle, d: Detail): void {
   const n = d.keep(s.count, 2);
   const widen = Math.min(1.8, (s.count / n) ** 0.7);
@@ -511,11 +603,11 @@ export function tailFan(k: Sculpt, s: FanStyle, d: Detail): void {
     const u = n === 1 ? 0 : (i / (n - 1)) * 2 - 1;
     const yaw = Math.PI + u * (s.spread / 2);
     const len = s.len * (1 + (s.centreLonger ?? 0) * (1 - Math.abs(u)) + (s.fork ?? 0) * u * u);
-    const at: V3 = add(s.at ?? [0, 0, 0], [0, 0.004 * (n - Math.abs(i - (n - 1) / 2)), 0]);
+    const at: V3 = add(s.at ?? [0, 0, 0], [0, 0.006 * (1 - Math.abs(u)) * s.wid * 10, 0]);
     const dir = norm([Math.sin(yaw) * Math.cos(s.droop ?? 0), -Math.sin(s.droop ?? 0), Math.cos(yaw) * Math.cos(s.droop ?? 0)]);
     k.card({
       at, dir, face: [0, 1, 0], len, wid: s.wid * widen, cell: s.cell ?? CARD.tail,
-      root: s.root, tip: s.tip, curl: s.curl ?? 0, segs: 2, cup: d.level < 2 ? 0.06 : 0, finish: s.finish ?? {},
+      root: shade(s.root, 0.92 + 0.08 * (i % 2)), tip: s.tip, curl: s.curl ?? 0, segs: d.rows, cup: d.level < 2 ? 0.08 : 0, finish: s.finish ?? {},
       ...(s.display && { morph: { display: s.display(u, at) } }),
     });
   }
@@ -529,9 +621,9 @@ export interface ShingleStyle {
   readonly cols: number;
   readonly len: number;
   readonly wid: number;
-  readonly cell?: number;
+  readonly cell?: Feather;
   /** Colour by place (t, a). */
-  readonly paint: Paint;
+  readonly paint: number | ((t: number, a: number) => number);
   /** Tilt of the tips off the surface (rad) and which way along t they point (-1 toward the start). */
   readonly lift?: number;
   readonly flow?: 1 | -1;
@@ -543,33 +635,37 @@ export interface ShingleStyle {
   readonly morph?: (t: number, a: number, at: V3, dir: V3, n: V3) => Morphs | undefined;
 }
 
-/** Rows of feather cards laid over a surface like roof tiles, tips lifted to break the silhouette. */
+/**
+ * Rows of large feathers laid over a surface like roof tiles, deliberately placed (offset rows, a little seeded
+ * variation), their tips lifted just enough to break the silhouette and their curl settling them back on the body.
+ */
 export function shingle(k: Sculpt, surf: Surface, s: ShingleStyle, d: Detail): void {
+  if (d.level >= 3) return;
   const rows = Math.max(1, d.keep(s.rows, 1));
   const cols = Math.max(1, d.keep(s.cols, 2));
-  const grow = Math.min(1.8, Math.sqrt((s.rows * s.cols) / (rows * cols)));
+  const grow = Math.min(1.6, Math.sqrt((s.rows * s.cols) / (rows * cols)));
+  const lift = s.lift ?? 0.2;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const j = r * cols + c;
       const t = s.t[0] + (s.t[1] - s.t[0]) * (rows === 1 ? 0.5 : r / (rows - 1));
-      const a = s.a[0] + (s.a[1] - s.a[0]) * ((c + (r % 2) * 0.5) / cols) + (jitter(j, s.seed ?? 1) - 0.5) * 0.08;
-      const sp = surf.at(t, a, 0.004);
-      const flow = s.flow ?? -1;
-      const along = sp.t.clone().multiplyScalar(flow);
+      const a = s.a[0] + (s.a[1] - s.a[0]) * ((c + 0.5 + (r % 2) * 0.5) / (cols + 0.5)) + (jitter(j, s.seed ?? 1) - 0.5) * 0.04;
+      const sp = surf.at(t, a, 0.003);
+      const along = sp.t.clone().multiplyScalar(s.flow ?? -1);
       if (s.toward) {
-        along.set(s.toward[0], s.toward[1], s.toward[2]).addScaledVector(sp.n, -sp.n.dot(along.set(s.toward[0], s.toward[1], s.toward[2])));
-        if (along.lengthSq() < 1e-6) along.copy(sp.t).multiplyScalar(flow);
+        along.set(s.toward[0], s.toward[1], s.toward[2]);
+        along.addScaledVector(sp.n, -sp.n.dot(along));
+        if (along.lengthSq() < 1e-6) along.copy(sp.t).multiplyScalar(s.flow ?? -1);
         along.normalize();
       }
-      const lift = s.lift ?? 0.25;
       const dir: V3 = norm([along.x * Math.cos(lift) + sp.n.x * Math.sin(lift), along.y * Math.cos(lift) + sp.n.y * Math.sin(lift), along.z * Math.cos(lift) + sp.n.z * Math.sin(lift)]);
       const hex = typeof s.paint === 'number' ? s.paint : s.paint(t, a);
       const at: V3 = [sp.p.x, sp.p.y, sp.p.z];
       const morph = s.morph?.(t, a, at, dir, [sp.n.x, sp.n.y, sp.n.z]);
       k.card({
         at, dir, face: [sp.n.x, sp.n.y, sp.n.z],
-        len: s.len * grow * (0.9 + 0.2 * jitter(j, (s.seed ?? 1) + 5)), wid: s.wid * grow, cell: s.cell ?? CARD.contour,
-        root: shade(hex, 0.88), tip: shade(hex, 1.06), curl: -Math.min(0.35, lift * 0.85), segs: 1, finish: s.finish ?? {},
+        len: s.len * grow * (0.94 + 0.12 * jitter(j, (s.seed ?? 1) + 5)), wid: s.wid * grow, cell: s.cell ?? CARD.contour,
+        root: shade(hex, 0.9), tip: shade(hex, 1.06), curl: -Math.min(0.3, lift * 0.85), segs: d.rows, cup: d.level < 2 ? 0.06 : 0, finish: s.finish ?? {},
         ...(morph && { morph }),
       });
     }

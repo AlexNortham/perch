@@ -8,6 +8,7 @@ import { BoxGeometry, ExtrudeGeometry, Shape, SphereGeometry, TorusGeometry } fr
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { add, GLOSSY, mul, norm } from './anatomy';
 import { TILE } from './feathers';
+import type { Feather } from './feathers';
 import type { Detail } from './sculpted';
 import { frameAt, mix, shade } from './sculpt';
 import type { Finish, Morphs, Ring, Sculpt, Surface, SurfacePoint, V3 } from './sculpt';
@@ -177,8 +178,8 @@ export function scope(k: Sculpt, at: V3, len: number, r: number, d: Detail, body
 }
 
 /** Cards rarely belong on guns; a fletched dart or plume is the exception. */
-export function plume(k: Sculpt, at: V3, dir: V3, len: number, wid: number, hex: number, cell: number, face: V3 = [1, 0, 0], tip?: number): void {
-  k.card({ at, dir: norm(dir), face, len, wid, cell, root: shade(hex, 0.8), tip: tip ?? hex, segs: 1 });
+export function plume(k: Sculpt, at: V3, dir: V3, len: number, wid: number, hex: number, cell: Feather, face: V3 = [1, 0, 0], tip?: number): void {
+  k.card({ at, dir: norm(dir), face, len, wid, cell, root: shade(hex, 0.8), tip: tip ?? hex, segs: 2 });
 }
 
 export { GLOSSY, mix };
