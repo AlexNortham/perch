@@ -2637,3 +2637,53 @@ These changes, the Practice Swap bird fix and finished art ship together in the 
 **Why:** "the lanes are too flat look back at the video references each lane should have a bridge on it, and its too
 open the lanes should be more isolated, and you should be assigned a lane at the start of the game and put on the
 zipline".
+
+### D-LEVEL-010 · 21/11/2026 — Lanes rework: bridges, height and isolation (D-EP-053)
+**Decision:**
+- **Bridges.** Each lane has bridges that are walkable on top, reached by stairs, with the lane running beneath.
+  - Hedgerow: a 6 m bridge between its widened balconies at z ±20.5, and the rune bridges, now with rails and piers.
+  - Pinewood: the rope walkway, now with rails, and the rune bridges.
+  - Both side lanes' first legs: a 7.5 m bridge from the outer walkway to a wall-walk.
+  - Riverbank: a 6 m bridge at z ±96 with a stone abutment.
+  - Hedgerow and Pinewood have 5 crossings each, Riverbank 2.
+- **Height.** The side lanes' first legs climb a 3 m causeway (s 14–58). Riverbank drops into a 2.5 m cutting between
+  its gate and its Heron.
+- **Isolation.** Lanes are walled off from each other:
+  - a gate lodge on the base-wall strip;
+  - Granary Lane closed at the Riverbank by the bridge abutment, and turned north through a 3 m alley to Lantern Row;
+  - lane and back doors of terrace houses staggered 3 m apart;
+  - Pinewood's timber stores under its west platforms;
+  - staggered 3 m crate stacks in Lantern Row and Bell Street.
+
+**Why:** the user, on Release 1: the lanes were too flat, each needs a bridge, and they were too open.
+
+The reference frames showed:
+- lanes as corridors walled by continuous 4–8 storey fronts, whose vistas end on buildings;
+- heavy overpasses spanning the street at about 2.5 storeys;
+- raised sidewalks and sunken stretches 2–3 m off the roadway, joined by stairs;
+- no view of the next lane except at junctions.
+
+### D-LEVEL-011 · 21/11/2026 — Updraft cables keep their line where the lanes rise
+**Decision:** cables and stations follow a lane's corners only (`corners2d`), at 12 m over its base level. They are
+the same as before the rework: 9 m over the causeways and 14.5 m over the cutting. Every bridge keeps its 1 m rail
+under the rider's 3 m clearance.
+
+The Riverbank rise is a cutting, not a rise, and it sits between the gate and the Heron because:
+- the Heron-to-Hawk stretch stays level: the market, the lane fights, and other owners' tests stand there;
+- the siege-proof Owl's view of the gate stays open.
+
+**Why:** the zipline start uses these anchors (D-EP-053). Riding stays at its speed, because a cable that climbed
+would cut the horizontal speed.
+
+### D-LEVEL-012 · 21/11/2026 — Isolation is a measured rule
+**Decision:** `lanes.test.ts` casts sight lines between eye points on every lane:
+- every 2 m along each lane, five across its width, 1.6 m over its surface;
+- every solid prim blocks except the shot-window fillers;
+- the test fails on any line into another lane.
+
+Two zones are designated crossings: lines crossing the centre (Perch Road, the Hollow and the rune bridges, all on
+z = 0), and the gate aprons (|z| ≥ 108), where the three lanes leave one wall.
+
+The same file checks that every lane has at least two bridges and that its surface varies by 2–6 m.
+
+**Why:** the brief asks for measured tests of all three requirements.
