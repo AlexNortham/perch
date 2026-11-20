@@ -42,6 +42,8 @@ import type { EntityView, HeroId, MapData, PlayerTeam } from '../../sim/core/con
 import { STRUCTURE_BODY, STRUCTURE_RADIUS } from '../../sim/data/world';
 import type { CameraPose, Frame, ModelKit, Quality, Renderer } from '../app/contracts';
 import { buildBlockout } from './blockout';
+import { buildEnvironment } from './environment';
+import type { Environment } from './environment';
 import type { Blockout } from './blockout';
 import { createEntityLayer } from './entities';
 import { registerHost } from '../app/render-host';
@@ -320,6 +322,9 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
   let anchorModels: { model: Object3D; view: EntityView }[] = [];
 
   let blockout: Blockout | null = null;
+  // The environment layer (Environment Artist, environment/): the blockout draws the map without what it re-skins.
+  let layer: Environment | null = null;
+  let layerQuality = quality;
   let current: MapData | null = null;
   const setMap = (m: MapData): void => {
     const next = m.id === 'main' && dev?.has('renderFixture') ? FIXTURE_MAP : m;
@@ -329,7 +334,11 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       scene.remove(blockout.root);
       blockout.dispose();
     }
-    blockout = buildBlockout(next, lib);
+    if (layer) scene.remove(layer.root);
+    layer?.dispose();
+    layer = buildEnvironment(next, layerQuality);
+    scene.add(layer.root);
+    blockout = buildBlockout(layer.blockoutMap, lib);
     blockout.root.traverse((o) => {
       if (off.includes('backdrop') && o.name.startsWith('backdrop')) o.visible = false;
       if (off.includes('cards') && o instanceof Mesh && o.material === lib.cutout) o.visible = false;
@@ -420,6 +429,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       // Antialiasing is fixed when a WebGL context is created, so a new preset gets a new context.
       preset = next;
       lib = getMaterialLibrary(q);
+      layerQuality = q;
       // The map layer is built per tier (§11.6: Low has no geometric bevels or trims): rebuild it.
       const map = current;
       current = null;
@@ -446,6 +456,7 @@ export function createRenderer(container: HTMLElement, map: MapData, quality: Qu
       registerPortraitSource(null);
       setPortraitProvider(placeholderPortraits);
       blockout?.dispose();
+      layer?.dispose();
       ride.dispose();
       composer?.dispose();
       env?.dispose();
