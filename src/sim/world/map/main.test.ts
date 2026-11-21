@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Anchor, BlockoutPrim, LaneId, MapData, NavLinkKind, Vec3 } from '../../core/contracts';
 import { TEAM_SIZE } from '../../data/core';
-import { pathLength, projectOnPath, pointOnPath, wrapAngle } from './build';
+import { corners2d, pathLength, projectOnPath, pointOnPath, wrapAngle } from './build';
 import { NAV, REACH, STATION_SETBACK, UPDRAFT_HEIGHT } from './data/traversal';
 import { columnClear, indexPrims, inFootprint, primBottom, primTop, standAt } from './geometry';
 import { ARENA, loadMap, mapSvg } from './index';
@@ -219,10 +219,20 @@ describe('GDD §6.3 anchors', () => {
 
   it('lane paths, widths and lengths', () => {
     const lane = (id: LaneId) => map.lanes.find((l) => l.id === id);
-    const xy = (id: LaneId) => lane(id)?.path.map((p) => [p.x, p.z]);
-    expect(xy('hedgerow')).toEqual([[-40, -114], [-95, -80], [-95, 0], [-95, 80], [-40, 114]]);
-    expect(xy('riverbank')).toEqual([[0, -112], [0, 0], [0, 112]]);
-    expect(xy('pinewood')).toEqual([[40, -114], [95, -80], [95, 0], [95, 80], [40, 114]]);
+    // GDD §6.3's polylines: their corners are path vertices, in order, and every extra vertex (where the lane's height
+    // changes, D-EP-053) lies on them.
+    const gdd: Record<LaneId, [number, number][]> = {
+      hedgerow: [[-40, -114], [-95, -80], [-95, 0], [-95, 80], [-40, 114]],
+      riverbank: [[0, -112], [0, 0], [0, 112]],
+      pinewood: [[40, -114], [95, -80], [95, 0], [95, 80], [40, 114]],
+    };
+    for (const id of LANE_IDS) {
+      const path = lane(id)?.path ?? [];
+      const corners = gdd[id].map(([x, z]) => path.findIndex((p) => Math.abs(p.x - x) < 1e-9 && Math.abs(p.z - z) < 1e-9));
+      expect(corners.every((i, k) => i >= 0 && (k === 0 || i > (corners[k - 1] ?? 0))), id).toBe(true);
+      const route = gdd[id].map(([x, z]) => ({ x, y: 0, z }));
+      for (const p of path) expect(flat(pointOnPath(route, projectOnPath(route, p)), p), `${id} ${vk(p)}`).toBeLessThan(1e-6);
+    }
     expect([lane('hedgerow')?.halfWidth, lane('riverbank')?.halfWidth, lane('pinewood')?.halfWidth]).toEqual([7, 9, 8]);
     expect(pathLength(lane('hedgerow')?.path ?? [])).toBeCloseTo(289, 0);
     expect(pathLength(lane('pinewood')?.path ?? [])).toBeCloseTo(289, 0);
@@ -295,11 +305,11 @@ describe('traversal', () => {
     }
   });
 
-  it('Updrafts run 12 m over their lanes, clear of geometry, with stations on the line', () => {
+  it('Updrafts run 12 m over the lanes\' corners (level over causeways), clear of geometry, with stations on the line', () => {
     expect(map.updrafts.map((u) => u.lane).sort()).toEqual([...LANE_IDS].sort());
     for (const u of map.updrafts) {
       const lane = map.lanes.find((l) => l.id === u.lane);
-      expect(u.points).toEqual(lane?.path.map((p) => ({ ...p, y: p.y + UPDRAFT_HEIGHT })));
+      expect(u.points).toEqual(corners2d(lane?.path ?? []).map((p) => ({ ...p, y: p.y + UPDRAFT_HEIGHT })));
       const len = pathLength(u.points);
       for (let s = 0; s <= len; s += 0.5) {
         const p = pointOnPath(u.points, s);

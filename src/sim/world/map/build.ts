@@ -140,9 +140,23 @@ export function pathLength(path: readonly Vec3[]): number {
 
 const raise = (p: Vec3, dy: number): Vec3 => v(p.x, p.y + dy, p.z);
 
-/** Updraft over a lane: its path raised, stations at both gates, each Heron and Hawk (set back toward their own
- * gate) and the middle. */
-function buildUpdraft(lane: Lane, dawnHalf: readonly Vec3[], towers: readonly StructureAnchor[]): Updraft {
+/** A path's corners: its ends and every vertex where its direction turns (collinear height breaks dropped). */
+export function corners2d(path: readonly Vec3[]): Vec3[] {
+  return path.filter((p, i) => {
+    const a = path[i - 1];
+    const b = path[i + 1];
+    if (!a || !b) return true;
+    const cross = (p.x - a.x) * (b.z - p.z) - (p.z - a.z) * (b.x - p.x);
+    return Math.abs(cross) > LEVEL_EPS;
+  });
+}
+
+/**
+ * Updraft over a lane: its corners raised (so the cable stays level where the lane only climbs, D-EP-053), stations
+ * at both gates, each Heron and Hawk (set back toward their own gate) and the middle.
+ */
+function buildUpdraft(lane: Lane, dawnPath: readonly Vec3[], towers: readonly StructureAnchor[]): Updraft {
+  const dawnHalf = corners2d(dawnPath);
   const half = towers
     .filter((s) => s.lane === lane.id && (s.type === 'heron' || s.type === 'hawk'))
     .map((s) => projectOnPath(dawnHalf, s.pos) - STATION_SETBACK)
@@ -154,7 +168,7 @@ function buildUpdraft(lane: Lane, dawnHalf: readonly Vec3[], towers: readonly St
   const stations = [...dawnStations, ...(last ? [last] : []), ...dawnStations.map(mirrorV).reverse()];
   return {
     lane: lane.id,
-    points: lane.path.map((p) => raise(p, UPDRAFT_HEIGHT)),
+    points: corners2d(lane.path).map((p) => raise(p, UPDRAFT_HEIGHT)),
     stations: stations.map((p) => raise(p, UPDRAFT_HEIGHT)),
   };
 }

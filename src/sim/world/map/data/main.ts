@@ -18,7 +18,7 @@ import type { MapSpec, SpecPart } from './kit';
 import { at, block, column, flipPart, joinParts, part, ramp, renamePart, slab, tree, v } from './kit';
 import { CELLAR_RUN, DEN_SHOP, GROUND_HALF } from './cellar';
 import { JUNGLE_QUARTER } from './jungle';
-import { DOVECOTES, LANES_HALF } from './lanes';
+import { DOVECOTES, HEDGEROW_HALF, LANES_HALF, LEG_PATH, PINEWOOD_HALF, RIVER_PATH, RIVERBANK_HALF } from './lanes';
 
 const PI = Math.PI;
 
@@ -132,8 +132,8 @@ const half: SpecPart = renamePart(joinParts(
     nests: [{ ...at(-14, -10, -8), variant: 'twig' }, { ...at(14, -10, -8), variant: 'twig' }],
     botSpots: [
       // Safe: behind each tower, the gates and the Shrines (Dawn's).
-      { kind: 'safe', pos: v(-93, 0, -46) }, { kind: 'safe', pos: v(-4, 0, -52) }, { kind: 'safe', pos: v(93, 0, -46) },
-      { kind: 'safe', pos: v(-90, 0, -86) }, { kind: 'safe', pos: v(-4, 0, -90) }, { kind: 'safe', pos: v(90, 0, -86) },
+      { kind: 'safe', pos: v(-93, 0, -46) }, { kind: 'safe', pos: v(-4, 0, -49) }, { kind: 'safe', pos: v(93, 0, -46) },
+      { kind: 'safe', pos: v(-90, 0, -86) }, { kind: 'safe', pos: v(-4, 0, -85) }, { kind: 'safe', pos: v(90, 0, -86) },
       { kind: 'safe', pos: v(-40, 0, -120) }, { kind: 'safe', pos: v(0, 0, -120) }, { kind: 'safe', pos: v(40, 0, -120) },
       { kind: 'safe', pos: v(-16, 0, -132) }, { kind: 'safe', pos: v(16, 0, -132) },
       // Ambush: by each Thicket's entrance.
@@ -154,10 +154,12 @@ export const MAIN_SPEC: MapSpec = {
   killY: -20,
   half: {
     ...half,
+    // The GDD §6.3 polylines, with extra vertices where the lane climbs onto and off its causeway or embankment (the
+    // xz route is unchanged; D-EP-053). Fledglings and the Updraft cables follow the heights.
     lanes: [
-      { id: 'hedgerow', path: [v(-40, 0, -114), v(-95, 0, -80), v(-95, 0, 0)], halfWidth: 7 },
-      { id: 'riverbank', path: [v(0, 0, -112), v(0, 0, 0)], halfWidth: 9 },
-      { id: 'pinewood', path: [v(40, 0, -114), v(95, 0, -80), v(95, 0, 0)], halfWidth: 8 },
+      { id: 'hedgerow', path: [v(-40, 0, -114), ...LEG_PATH, v(-95, 0, -80), v(-95, 0, 0)], halfWidth: HEDGEROW_HALF },
+      { id: 'riverbank', path: [v(0, 0, -112), ...RIVER_PATH, v(0, 0, 0)], halfWidth: RIVERBANK_HALF },
+      { id: 'pinewood', path: [v(40, 0, -114), ...LEG_PATH.map((p) => v(-p.x, p.y, p.z)), v(95, 0, -80), v(95, 0, 0)], halfWidth: PINEWOOD_HALF },
     ],
     spawns: [-7.5, -4.5, -1.5, 1.5, 4.5, 7.5].map((x) => at(x, 2, -146)),
     shops: [
@@ -195,13 +197,20 @@ export const MAIN_SPEC: MapSpec = {
         column(50, 0, 6, 0, 1, 'stone'),
         ramp(39.5, 44.5, -1.5, 1.5, 0, 1, 'e', 'stone'),
         ramp(55.5, 60.5, -1.5, 1.5, 0, 1, 'w', 'stone'),
-        // Feather rune footbridges, 6 m up across the side lanes.
-        block(-106, -84, -1.5, 1.5, 5.5, 6, 'wood'),
-        ramp(-116, -106, -1.5, 1.5, 0, 6, 'e', 'wood'),
-        ramp(-84, -74, -1.5, 1.5, 0, 6, 'w', 'wood'),
-        block(84, 106, -1.5, 1.5, 5.5, 6, 'wood'),
-        ramp(106, 116, -1.5, 1.5, 0, 6, 'w', 'wood'),
-        ramp(74, 84, -1.5, 1.5, 0, 6, 'e', 'wood'),
+        // Feather rune bridges, 6 m up across the side lanes: deck, rails, and a stone pier at each lane edge, so they
+        // read as bridges (D-EP-053).
+        ...[-1, 1].flatMap((sx) => {
+          const x = (a: number, b: number): [number, number] => (sx < 0 ? [a, b] : [-b, -a]);
+          return [
+            block(...x(-106, -84), -1.5, 1.5, 5.5, 6, 'wood'),
+            block(...x(-106, -84), 1, 1.5, 6, 7, 'wood'),
+            block(...x(-106, -84), -1.5, -1, 6, 7, 'wood'),
+            ramp(...x(-116, -106), -1.5, 1.5, 0, 6, sx < 0 ? 'e' : 'w', 'wood'),
+            ramp(...x(-84, -74), -1.5, 1.5, 0, 6, sx < 0 ? 'w' : 'e', 'wood'),
+            column(sx * 103.5, 0, 0.75, 0, 5.5, 'stone'),
+            column(sx * 86.5, 0, 0.75, 0, 5.5, 'stone'),
+          ];
+        }),
       ],
       nav: [v(-50, 1, 0), v(50, 1, 0), v(0, -10, 0), v(-30, 0, 0), v(30, 0, 0)],
       props: [

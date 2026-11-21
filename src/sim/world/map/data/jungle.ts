@@ -423,7 +423,11 @@ function hide(id: string, zone: string, r: Rect, door: { face: 'w' | 'e'; at: nu
 // ---------------------------------------------------------------------------------------------------------------
 
 const fills = joinParts(
-  fill({ id: 'lanternrow-block', archetype: 'block', zone: 'gatefields', r: rect(-26, -14, -88, -78), h: 8, roof: 'flat', material: 'brick', style: 'jungle-brick', faces: ['n', 's', 'e'], nestCrown: true }),
+  // Its west face leaves a 3 m alley from Granary Lane north to Lantern Row: Granary Lane's dogleg, now that the
+  // Riverbank bridge's abutment closes its straight run to the lane (D-EP-053).
+  fill({ id: 'lanternrow-block', archetype: 'block', zone: 'gatefields', r: rect(-25, -14, -88, -78), h: 8, roof: 'flat', material: 'brick', style: 'jungle-brick', faces: ['n', 's', 'e', 'w'], nestCrown: true }),
+  // The gate lodge closes the strip along the base wall between the Hedgerow gate and the Granary.
+  fill({ id: 'gate-lodge', archetype: 'block', zone: 'gatefields', r: rect(-32, -26, -114, -110), h: 6, roof: 'flat', material: 'brick', style: 'jungle-brick', faces: ['n', 'w'] }),
   fill({ id: 'riverside-block', archetype: 'block', zone: 'lanternrow', r: rect(-28, -16, -70, -64), h: 7, roof: 'flat', material: 'brick', style: 'jungle-brick', faces: ['n', 's', 'e'] }),
   fill({ id: 'tavern-row', archetype: 'block', zone: 'lanternrow', r: rect(-52, -42, -56, -51), h: 9, roof: 'flat', material: 'brick', style: 'jungle-brick', faces: ['n', 's', 'w'] }),
   fill({ id: 'old-square-house', archetype: 'block', zone: 'oldsquare', r: rect(-52, -40, -42, -30), h: 11, roof: 'flat', material: 'brick', style: 'jungle-brick', faces: ['n', 's', 'e', 'w'], nestCrown: true }),
@@ -484,6 +488,21 @@ const zones = part({
 
 const STAND_Y = 4.5;
 
+/**
+ * The Riverbank bridge (D-EP-053), west half (the quarter's x-mirror gives the east half): a 3 m deck at 6 m (8.5 m over
+ * the cutting's floor, under the Updraft rider's clearance) across the lane and the river at z −97.5…−94.5, rails on
+ * both edges (open at the stair head), a stone abutment under its west end, and a 12 m stair up from the north. The abutment and the stair also close Granary Lane's straight run onto the
+ * lane, so it reaches the Riverbank through the alley to Lantern Row.
+ */
+const RIVER_DECK = 6;
+const RIVER_BRIDGE: BlockoutPrim[] = [
+  block(-14, 0, -97.5, -94.5, RIVER_DECK - 0.4, RIVER_DECK, 'stone'),
+  block(-14, 0, -97.5, -97, RIVER_DECK, RIVER_DECK + 1, 'stone'),
+  block(-12, 0, -95, -94.5, RIVER_DECK, RIVER_DECK + 1, 'stone'),
+  block(-14, -13, -98, -94.5, 0, RIVER_DECK - 0.4, 'stone'),
+  ramp(-14, -12, -94.5, -82.5, 0, RIVER_DECK, 's', 'stone'),
+];
+
 /** A roost stand (D-EP-048): a deck on four stilts at 4.5 m and a stair up to it, rising toward `up`. */
 function roostStand(deck: Rect, stair: Rect, up: 'n' | 's'): BlockoutPrim[] {
   return [
@@ -505,21 +524,22 @@ const grounds = joinParts(
       ramp(-40, -30, -32, -30, 8.4, 11, 'w', 'wood'),
       // Rope walkways (D-EP-048): Warehouse roof to the Lantern Row block, Tavern-row roof to the Old Square house,
       // and the Hedgerow terrace roofs to the Bell Tower balcony.
-      block(-28, -26, -84, -82.5, 7.7, 8, 'wood'),
+      block(-28, -25, -84, -82.5, 7.7, 8, 'wood'),
       block(-47, -45.5, -51, -42, 8.7, 9, 'wood'),
       ramp(-76, -64, -39.5, -38, 8, 9, 'e', 'wood'),
       // Roost stands on the Riverbank's west edge (east bank in the mirror): 4.5 m decks on stilts with a stair
       // each, and a deck over the Market Hall's south arch, so a stair to a raised spot comes every 40 m (G20).
       ...roostStand(rect(-12.5, -9, -106, -102), rect(-11.5, -9.5, -114, -106), 'n'),
-      ...roostStand(rect(-13.5, -10, -90, -86), rect(-13.5, -11.5, -86, -78), 's'),
       ...roostStand(rect(-14, -10.5, -24, -20), rect(-14, -12, -32, -24), 'n'),
+      ...RIVER_BRIDGE,
       block(-16, -14, -41, -38, 3.6, 4, 'wood'),
       ramp(-16, -14, -49, -41, 0, 4, 'n', 'wood'),
     ],
     climbs: [vine(-22, -88, 8, 0, 1), vine(-52, -36, 11, 1, 0), vine(-58, -8, 7, -1, 0)],
     nav: [
       v(-50, 0, -92), v(-52, 0, -18), v(-27, 7.9, -83.2), v(-46.2, 9, -46.5), v(-70, 8.5, -38.7),
-      v(-10.75, STAND_Y, -104), v(-10.5, 0, -115), v(-11.75, STAND_Y, -88), v(-12.5, 0, -77), v(-12.25, STAND_Y, -22),
+      v(-10.75, STAND_Y, -104), v(-10.5, 0, -115), v(-12.25, STAND_Y, -22),
+      v(-13, 0, -81.5), v(-13, RIVER_DECK / 2, -88.5), v(-13, 4.75, -92), v(-13, RIVER_DECK, -96), v(-7, RIVER_DECK, -96), v(-1.5, RIVER_DECK, -96),
       v(-13, 0, -33), v(-15, 4, -39.5), v(-15, 0, -50),
     ],
     springs: [
@@ -528,16 +548,17 @@ const grounds = joinParts(
     ],
   }),
   props('lanternrow', [
-    crate(-46, -75.5), crate(-26, -72.5, 1.2),
+    // Crate stacks (3 m) across Lantern Row, staggered so no straight sightline runs its length (GDD §6.5).
+    crate(-41, -75.5, 3, 2, 5), crate(-29, -72.5, 3, 2, 5),
     ...[-52, -46, -40, -34, -28, -22, -16].flatMap((x, i) => [deco('lantern', x, i % 2 ? -70.6 : -77.4, 0.4, 0.4, 3.2), deco('wire', x + 3, -74, 6, 0.05, 0.05, 6.5)]),
     deco('worm-bed', -36, -66.5, 3, 2, 0.3), deco('insect-hive', -39, -72, 0.9, 0.9, 1.5), deco('nest-pile', -55.5, -71, 2, 2, 1),
   ]),
   props('gatefields', [
-    { kind: 'cart', x: -50.5, z: -98.5, w: 3, d: 3, h: 1.5, solid: true }, deco('seed-stall', -33, -96, 2.5, 1.5, 2.2),
+    { kind: 'cart', x: -46.5, z: -94.5, w: 3, d: 3, h: 1.5, solid: true }, deco('seed-stall', -33, -96, 2.5, 1.5, 2.2),
     deco('feeder', -21, -96.5, 0.6, 0.6, 1.4, 2), deco('nest-pile', -12, -100, 1.5, 1.5, 0.8), deco('bramble', -60, -80, 6, 6, 1.2),
   ]),
   props('oldsquare', [
-    { kind: 'crate', x: -51.5, z: -24.5, w: 3, d: 3, h: 1.5, solid: true }, { kind: 'crate', x: -34.5, z: -40.5, w: 3, d: 3, h: 1.2, solid: true },
+    { kind: 'crate', x: -51.5, z: -24.5, w: 3, d: 3, h: 1.5, solid: true }, { kind: 'crate', x: -34.5, z: -41.75, w: 3, d: 5.5, h: 3, solid: true },
     deco('fountain', -36, -24, 3, 3, 1.2), deco('bird-bath', -66, -44, 1.2, 1.2, 0.9), deco('feather-banner', -52.1, -36, 0.1, 1.4, 4, 6, -PI / 2),
     deco('worm-bed', -65, -22, 4, 4, 0.3), deco('bramble', -40, -12, 8, 8, 1.4), deco('branch-nest', -45, -36, 2, 2, 1, 11.2),
     deco('perch-pole', -40.5, -30.5, 0.3, 0.3, 2.5, 11), deco('wire', -54, -46.5, 12, 0.05, 0.05, 7), deco('roost-rail', -46, -42, 12, 0.2, 0.2, 11),
